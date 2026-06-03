@@ -1,0 +1,6 @@
+# nada de secrets ou estado local
+.env
+.env.local
+*.bak-*
+.DS_Store
+settings.kit.json

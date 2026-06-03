@@ -1,0 +1,50 @@
+{
+  "language": "portuguese",
+  "theme": "dark",
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test)",
+      "Bash(npm install:*)",
+      "Bash(node --version)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(git log:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "WebSearch"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$CLAUDE_FILE_PATH\")\" rev-parse --show-toplevel 2>/dev/null); [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npx tsc --noEmit 2>&1 | head -30) ;; esac; true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Glass.aiff &"
+          }
+        ]
+      }
+    ]
+  }
+}
