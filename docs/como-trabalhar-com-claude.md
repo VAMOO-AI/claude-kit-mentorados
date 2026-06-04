@@ -62,6 +62,10 @@ Em projeto novo, na 1ª conversa: peça **"init the context"**. O Claude cria a 
 `.context/` e passa a lembrar das decisões do projeto entre sessões. Documentação
 nova vai pra `.context/docs/`. Isso evita explicar tudo de novo toda vez.
 
+> 📌 Quer entender como o Claude "lembra" das coisas (global vs projeto, o que vai no
+> CLAUDE.md vs em `docs/`)? Leia [`memoria-e-contexto.md`](memoria-e-contexto.md). É o
+> que mais confunde — vale 5 minutos.
+
 ---
 
 ## 6. Quando travar

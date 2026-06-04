@@ -1,8 +1,13 @@
 # CLAUDE.md — <NOME DO PROJETO>
 
 > Este arquivo fica na **raiz do projeto** (não no ~/.claude).
-> Ele vale SÓ pra este projeto e soma com as suas regras globais.
+> Ele vale SÓ pra este projeto e **soma** com as suas regras globais (o mais
+> específico vence em conflito). Veja docs/memoria-e-contexto.md.
 > Use pra contar ao Claude as coisas específicas daqui que ele não tem como adivinhar.
+>
+> ⚠️ **O que vai aqui:** regras de comportamento e fatos do projeto. NÃO coloque
+> changelog nem doc de implementação — isso entra inteiro no contexto toda sessão.
+> Documentação de implementação vai em `docs/`. CLAUDE.md cresce com regra, não com histórico.
 
 ## O que é
 <Uma a duas frases: o que esse projeto faz e pra quem.>

@@ -87,7 +87,8 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 
 **Iniciante — leia primeiro:**
 1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
-2. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
+3. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
 1. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
