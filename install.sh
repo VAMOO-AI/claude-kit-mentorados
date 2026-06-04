@@ -35,6 +35,21 @@ fi
 cp "$KIT_DIR/AGENTS.md" "$CLAUDE_DIR/agents.md"
 ok "agents.md instalado"
 
+# --- statusline (barra com diretório/git/contexto) ---
+cp "$KIT_DIR/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
+chmod +x "$CLAUDE_DIR/statusline-command.sh"
+ok "statusline instalada"
+
+# --- skills (find-docs etc.) ---
+mkdir -p "$CLAUDE_DIR/skills"
+cp -R "$KIT_DIR/skills/." "$CLAUDE_DIR/skills/"
+ok "skills instaladas (find-docs)"
+
+# --- slash commands (/revisar, /explicar) ---
+mkdir -p "$CLAUDE_DIR/commands"
+cp -R "$KIT_DIR/commands/." "$CLAUDE_DIR/commands/"
+ok "comandos instalados (/revisar, /explicar)"
+
 # --- settings.json (NÃO sobrescreve se já existir — deixa pra você mesclar) ---
 if [ -f "$CLAUDE_DIR/settings.json" ]; then
   cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.kit.json"
@@ -43,6 +58,15 @@ if [ -f "$CLAUDE_DIR/settings.json" ]; then
 else
   cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.json"
   ok "settings.json instalado"
+fi
+
+# --- ctx7 (motor da skill find-docs) ---
+if command -v npm >/dev/null 2>&1; then
+  say "Instalando o ctx7 (busca de documentação oficial)..."
+  npm install -g ctx7@latest >/dev/null 2>&1 && ok "ctx7 instalado" \
+    || warn "Não consegui instalar o ctx7 global. A skill ainda funciona via 'npx ctx7@latest'."
+else
+  warn "npm não encontrado — instale o Node.js. A skill find-docs precisa dele."
 fi
 
 # --- MCP dot-context (ai-context) ---

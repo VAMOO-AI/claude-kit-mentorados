@@ -1,0 +1,38 @@
+# CLAUDE.md — <NOME DO PROJETO>
+
+> Este arquivo fica na **raiz do projeto** (não no ~/.claude).
+> Ele vale SÓ pra este projeto e soma com as suas regras globais.
+> Use pra contar ao Claude as coisas específicas daqui que ele não tem como adivinhar.
+
+## O que é
+<Uma a duas frases: o que esse projeto faz e pra quem.>
+
+## Stack
+- <ex.: Next.js 15 (App Router) + React + TypeScript>
+- <ex.: Supabase (banco + auth)>
+- <ex.: Tailwind + shadcn/ui>
+
+## Como rodar local
+```bash
+<ex.: npm install>
+<ex.: cp .env.example .env.local   # e preencha as chaves>
+<ex.: npm run dev>
+```
+
+## Estrutura (o essencial)
+- `<ex.: src/app/>` — rotas
+- `<ex.: src/components/>` — componentes
+- `<ex.: src/lib/>` — helpers e cliente do banco
+
+## Convenções deste projeto
+- <ex.: componentes em PascalCase, um por arquivo>
+- <ex.: nada de chamada ao banco direto no componente — passa por src/lib/>
+- <ex.: sempre tipar; nada de `any`>
+
+## Comandos de verificação
+- Type-check: `<ex.: npx tsc --noEmit>`
+- Lint: `<ex.: npx eslint .>`
+- Testes: `<ex.: npm test>`
+
+## Coisas que o Claude precisa saber
+<Armadilhas, decisões já tomadas, "não mexa em X", integrações externas, etc.>
