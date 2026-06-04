@@ -81,6 +81,23 @@ superpowers na lista. Pronto. 🎉
 
 ---
 
+## 🌱 Iniciante vs ⚡ Avançado
+
+O kit serve aos dois níveis. Comece pelo seu e cresça.
+
+**Iniciante — leia primeiro:**
+1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
+2. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+
+**Avançado — quando já estiver confortável:**
+1. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
+2. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
+3. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
+4. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
+5. [`templates/CLAUDE-projeto.md.exemplo`](templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
+
+---
+
 ## Perguntas comuns
 
 **Já tinha um CLAUDE.md, vou perder?**

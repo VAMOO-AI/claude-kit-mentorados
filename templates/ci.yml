@@ -1,0 +1,41 @@
+# Template de CI — GitHub Actions
+#
+# Copie para .github/workflows/ci.yml no seu repo.
+# Roda typecheck + lint + testes em todo push e em PRs pra main.
+# Ajuste os comandos aos scripts do seu package.json.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Descomente/ajuste conforme o seu projeto:
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Testes
+        run: npm test --if-present
+
+      # - name: Build
+      #   run: npm run build
