@@ -18,9 +18,10 @@ que potencializa o uso do Claude no dia a dia.
 | `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. |
 | `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
 | `skills/find-docs/` | `~/.claude/skills/` | Skill que busca **documentação oficial e atualizada** antes de escrever código. Mata API inventada/desatualizada. |
+| `skills/secscan/` | `~/.claude/skills/` | Skill de **revisão de segurança** (read-only): RLS, secrets, deps vulneráveis. "roda um secscan" → relatório com cada furo explicado. Ver `docs/seguranca.md`. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
-| `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`. |
+| `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
 | `install.sh` | — | O instalador que coloca tudo no lugar e instala o dot-context + ctx7. |
 
 Além disso o kit instala duas coisas que multiplicam o Claude:
@@ -88,10 +89,12 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 **Iniciante — leia primeiro:**
 1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
-3. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+3. [`docs/seguranca.md`](docs/seguranca.md) — os 5 furos que iniciante esquece (RLS, secrets, deps) + revisão automática.
+4. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
-1. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
+1. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
+2. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
 2. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
 3. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 4. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.

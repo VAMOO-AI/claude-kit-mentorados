@@ -30,11 +30,21 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac"
           },
           {
             "type": "command",
             "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$CLAUDE_FILE_PATH\")\" rev-parse --show-toplevel 2>/dev/null); [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npx tsc --noEmit 2>&1 | head -30) ;; esac; true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"📍 $(pwd) — $(head -1 AGENTS.md 2>/dev/null)\""
           }
         ]
       }

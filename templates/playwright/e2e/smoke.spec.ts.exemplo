@@ -1,0 +1,25 @@
+// Copie pra `e2e/smoke.spec.ts`. "Smoke test" = o teste mais básico: o caminho crítico
+// do usuário ainda funciona? (login → a página principal abre → a ação central responde).
+import { test, expect } from "@playwright/test";
+
+const email = process.env.E2E_EMAIL ?? "e2e@teste.local";
+const password = process.env.E2E_PASSWORD;
+
+// Login na MESMA "aba" das verificações (mais robusto que reaproveitar sessão salva).
+test.beforeEach(async ({ page }) => {
+  expect(password, "E2E_PASSWORD precisa estar setado (.env.local ou Secret do CI)").toBeTruthy();
+  await page.goto("/login");
+  // ⚠️ Ajuste os seletores pra SUA tela de login. Dica: rode `npx playwright test --ui`,
+  //    deixe falhar, e o print mostra os nomes/placeholders reais dos campos e botões.
+  await page.getByLabel(/e-?mail/i).fill(email);
+  await page.getByLabel(/senha|password/i).fill(password!);
+  // ⚠️ LIÇÃO: se o botão for ambíguo (ex.: existe "Entrar" e "Entrar com Google"),
+  //    use { exact: true } senão o teste casa os dois e falha.
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 20000 });
+});
+
+test("a página principal carrega depois do login", async ({ page }) => {
+  // Troque por algo estável da SUA home (um título, um menu).
+  await expect(page.getByRole("heading").first()).toBeVisible({ timeout: 20000 });
+});

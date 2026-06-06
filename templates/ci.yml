@@ -39,3 +39,23 @@ jobs:
 
       # - name: Build
       #   run: npm run build
+
+  # Segurança automática (opcional, recomendado): Semgrep faz SAST e manda os achados
+  # pro "Security" do GitHub. De graça e pega muita coisa cedo. Ver docs/seguranca.md.
+  seguranca:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # pra subir o SARIF pro code scanning
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Semgrep
+        run: python -m pip install --upgrade semgrep
+      - name: Rodar Semgrep (SARIF)
+        continue-on-error: true   # não trava o PR; os achados aparecem no "Security"
+        run: semgrep scan --config auto --sarif --output semgrep.sarif .
+      - name: Subir resultado pro GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
