@@ -28,6 +28,8 @@ Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 ## Verificação (PROIBIDO pular)
 - Antes de dizer "pronto", rode o type-checker / linter do projeto (ex.: `npx tsc --noEmit`, `npx eslint .`). Sem ferramenta configurada → diga isso explicitamente.
 - **Verify, don't claim**: NUNCA diga "passou / limpo / funciona" sem colar o output REAL do comando na mesma resposta, rodado agora nesta sessão. Não conseguiu rodar (sandbox/permissão) → diga "não executado" + liste os comandos que faltam.
+- **"Pronto" é o caminho do usuário, não só o type-check.** Passar `tsc`/`eslint` não quer dizer "funciona". Antes de dizer pronto, **rode o app e faça o que o usuário faria**: clique o botão, envie o formulário, veja se salvou. Não deu pra rodar → diga "não testei na prática" + o passo manual que falta. (Pra automatizar isso, ver `docs/testes-e2e-com-playwright.md`.)
+- **Mexeu na tela** (componente / página / CSS)? Abra o app e **olhe** (print/screenshot). Type-check não pega layout quebrado, blur, nem botão que não faz nada ao clicar.
 - Depois de um fix: explique a causa raiz e como evitar esse tipo de bug de novo. Releia o que mudou antes de reportar.
 
 ## TDD (test-driven) para feature e bugfix

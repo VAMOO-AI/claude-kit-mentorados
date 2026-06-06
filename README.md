@@ -88,10 +88,12 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 **Iniciante — leia primeiro:**
 1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
-3. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+3. [`docs/seguranca.md`](docs/seguranca.md) — os 5 furos que iniciante esquece (RLS, secrets, deps) + revisão automática.
+4. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
-1. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
+1. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
+2. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
 2. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
 3. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 4. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.

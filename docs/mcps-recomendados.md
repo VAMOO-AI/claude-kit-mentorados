@@ -22,6 +22,13 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@latest
 
 Quando usar: "abre essa página e confirma que o login funciona", testes E2E, screenshots.
 
+> **Variante: browser-harness** (não é MCP, é uma ferramenta de linha de comando + skill).
+> Em vez de um browser limpo, ele conecta no **seu Chrome de verdade** (com seus logins) via CDP —
+> útil quando o agente precisa agir numa página onde você já está logado. Repo:
+> https://github.com/browser-use/browser-harness (de terceiro; leia o `install.md` antes).
+> Diferença prática: **Playwright MCP** = browser isolado pra testar; **browser-harness** = seu
+> browser real pra trabalhar junto. Tem implicação de segurança (o agente vê suas sessões) — use ciente.
+
 ---
 
 ## GitHub — PRs e issues estruturados
