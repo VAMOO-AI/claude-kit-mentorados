@@ -18,9 +18,10 @@ que potencializa o uso do Claude no dia a dia.
 | `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. |
 | `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
 | `skills/find-docs/` | `~/.claude/skills/` | Skill que busca **documentação oficial e atualizada** antes de escrever código. Mata API inventada/desatualizada. |
+| `skills/secscan/` | `~/.claude/skills/` | Skill de **revisão de segurança** (read-only): RLS, secrets, deps vulneráveis. "roda um secscan" → relatório com cada furo explicado. Ver `docs/seguranca.md`. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
-| `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`. |
+| `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
 | `install.sh` | — | O instalador que coloca tudo no lugar e instala o dot-context + ctx7. |
 
 Além disso o kit instala duas coisas que multiplicam o Claude:

@@ -12,13 +12,21 @@ React/Next + Supabase:
 4. **Regra de BaaS pública.** `allow read, write: if true` no Firebase/Storage = porta aberta. Restrinja.
 5. **Dependência vulnerável.** Rode `npm audit` de vez em quando e atualize o que tem CVE conhecido.
 
-## Ferramenta recomendada: CSReview (revisão de segurança automática)
+## Revisão automática: a skill `secscan` (já vem no kit)
 
-[`csreview`](https://github.com/decksoftware/csreview) é uma skill de IA **read-only** (NUNCA edita seu código)
-que faz uma revisão de segurança do projeto local: roda ferramentas de verdade (Semgrep, OSV-Scanner,
-Gitleaks, Trivy) + heurística, e gera um relatório **HTML** (pra você ler) + **Markdown** (pro agente
-planejar os fixes) + **SARIF** (pro GitHub Code Scanning). Pega exatamente os furos da lista acima:
-RLS desligada, regra pública, secret hardcoded, dependência vulnerável, misconfig.
+O kit instala uma skill **`secscan`** (read-only — NUNCA edita seu código). Peça *"roda um secscan"* /
+*"checa a segurança"* e ela revisa o projeto local: RLS, secrets, `service_role` no lugar errado,
+dependências vulneráveis e padrões inseguros — e te entrega um relatório com **cada problema
+explicado em linguagem simples + como corrigir passo a passo** (modo aluno por padrão). É leve e
+ótima pra aprender; roda `semgrep`/`gitleaks` se você tiver, senão cai pra heurística. **Comece por ela.**
+
+## Quer ir mais fundo? CSReview (suite completa)
+
+Quando a `secscan` já for pouco, [`csreview`](https://github.com/decksoftware/csreview) é uma skill de IA
+**read-only** mais parruda: roda mais ferramentas de verdade (Semgrep, OSV-Scanner, Gitleaks, **Trivy**
+pra IaC/Docker) + heurística, e gera relatório **HTML** + **Markdown** + **SARIF**, com baseline pra CI
+(falha só em achado NOVO) e provisão verificada das ferramentas. Pega os mesmos furos da lista acima, com
+mais cobertura.
 
 Por que é seguro de usar:
 - **read-only** no seu código-fonte (só aponta, não muda nada — quem corrige é você/o agente depois);
