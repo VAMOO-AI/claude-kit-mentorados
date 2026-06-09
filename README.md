@@ -17,8 +17,7 @@ que potencializa o uso do Claude no dia a dia.
 | `AGENTS.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. |
 | `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
-| `skills/find-docs/` | `~/.claude/skills/` | Skill que busca **documentação oficial e atualizada** antes de escrever código. Mata API inventada/desatualizada. |
-| `skills/secscan/` | `~/.claude/skills/` | Skill de **revisão de segurança** (read-only): RLS, secrets, deps vulneráveis. "roda um secscan" → relatório com cada furo explicado. Ver `docs/seguranca.md`. |
+| `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM e mais). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
@@ -30,6 +29,39 @@ Além disso o kit instala duas coisas que multiplicam o Claude:
 - **dot-context** (`ai-context`) — dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão.
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
+
+---
+
+## Skills incluídas
+
+O instalador copia todas as skills abaixo. Algumas funcionam de cara; outras só
+fazem efeito depois que você liga um pré-requisito (uma API, um MCP, uma conta).
+Sem o pré-requisito a skill simplesmente **não dispara** — não quebra nada, só
+não faz nada.
+
+### ✅ Prontas pra usar (sem setup extra)
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
+| **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
+| **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
+| **pipedrive-automation** | Modelos de automação de CRM Pipedrive (deals, pipeline, relatórios). | conta/API Pipedrive pra rodar de fato |
+
+### ⚙️ Exigem ligar um pré-requisito
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **n8n-workflow-agent** | Construir/debugar workflows n8n com agentes de WhatsApp (UAZAPI, Chatwoot, etc.). | instância n8n + API key, instância UAZAPI |
+| **notebooklm** | Consultar seus notebooks do Google NotebookLM com respostas citadas. | login Google (auth via browser, 1ª vez) |
+| **notebooklm-project-ops** | Criar/sincronizar um notebook NotebookLM a partir das docs do projeto. | CLI `nlm` ou MCP notebooklm + docs no projeto |
+| **agent-reporting** | Registra progresso das tarefas no TickTick automaticamente. | TickTick MCP configurado + token |
+| **vps-hardening-clientes** | Runbook anti-queda de VPS Docker Swarm + Traefik (bug Docker 27→29). | é referência/receita — aplica numa VPS com essa stack |
+| **ambientes-clientes** | Runbook de setup de ambiente de cliente (GitHub + Vercel + Supabase) sem custo de seat. | é referência — você segue o passo a passo |
+
+> As skills de WhatsApp/VPS/CRM vêm de casos reais de produção, **anonimizados**.
+> Os exemplos usam placeholders (`<agente>`, `Cliente A`, telefones fake) — troque
+> pelos seus dados ao aplicar.
 
 ---
 
