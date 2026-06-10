@@ -13,8 +13,9 @@
 
 set -euo pipefail
 
-ENV_FILE="$HOME/WORKSPACES/mcp-servers/ticktick-mcp/.env"
-PROJECTS_FILE="$HOME/.claude/state/ticktick-projects.json"
+# Caminhos configuráveis — exporte no seu shell se o seu setup for diferente
+ENV_FILE="${TICKTICK_ENV_FILE:-$HOME/WORKSPACES/mcp-servers/ticktick-mcp/.env}"
+PROJECTS_FILE="${TICKTICK_PROJECTS_FILE:-$HOME/.claude/state/ticktick-projects.json}"
 STATE_DIR="$HOME/.claude/state/agent-reporting"
 mkdir -p "$STATE_DIR"
 
@@ -22,13 +23,15 @@ mkdir -p "$STATE_DIR"
 CWD_HASH=$(printf '%s' "$PWD" | shasum -a 256 | cut -c1-12)
 STATE_FILE="$STATE_DIR/${CWD_HASH}.json"
 
+# Sem pré-requisito configurado a skill não dispara — avisa e sai sem quebrar
+# o trabalho (alinhado ao contrato do README: sem setup, ela só não faz nada).
 if [[ ! -r "$ENV_FILE" ]]; then
-  echo "ERR: env file missing: $ENV_FILE" >&2
-  exit 1
+  echo "agent-reporting: TickTick não configurado (faltou $ENV_FILE) — pulando" >&2
+  exit 0
 fi
 if [[ ! -r "$PROJECTS_FILE" ]]; then
-  echo "ERR: projects state missing: $PROJECTS_FILE" >&2
-  exit 1
+  echo "agent-reporting: faltou $PROJECTS_FILE — pulando" >&2
+  exit 0
 fi
 
 CMD="${1:-}"

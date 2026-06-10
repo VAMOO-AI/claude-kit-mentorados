@@ -411,6 +411,10 @@ Quando fechar setup, valide:
 
 ## Comandos úteis cheat-sheet
 
+> ⚠️ **O comando abaixo expõe um token de acesso real.** Nunca cole o resultado
+> no chat, num commit ou num print compartilhado. Prefira gerar tokens novos no
+> dashboard da Vercel (Account Settings → Tokens) — dá pra revogar individualmente.
+
 ```bash
 # Pegar TOKEN da CLI atual (debug only)
 grep -A1 '"token"' ~/Library/Application\ Support/com.vercel.cli/auth.json | grep -oE '"[a-zA-Z0-9_]{20,}"' | head -1
