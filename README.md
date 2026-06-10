@@ -1,8 +1,17 @@
 # 🚀 Claude Starter Kit
 
-Configuração base do Claude Code que eu uso com meus mentorados. Em ~2 minutos você
-fica com o mesmo "esqueleto" de regras, sub-agentes, atalhos e memória de projeto
-que potencializa o uso do Claude no dia a dia.
+[![CI](https://github.com/VAMOO-AI/claude-kit-mentorados/actions/workflows/ci.yml/badge.svg)](https://github.com/VAMOO-AI/claude-kit-mentorados/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/VAMOO-AI/claude-kit-mentorados)](https://github.com/VAMOO-AI/claude-kit-mentorados/releases)
+
+A configuração de Claude Code que eu uso em projetos reais — regras, skills,
+automações e método — empacotada pra você instalar em **~2 minutos**.
+
+Sem o kit, o Claude "puro" tende a três vícios que queimam iniciante: diz que
+terminou **sem testar**, mexe em arquivo que **você não pediu** e **inventa API**
+que não existe. O kit instala as regras e skills que corrigem esses
+comportamentos — as mesmas que eu uso com clientes em produção, sanitizadas.
+E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 
 > **Pré-requisito:** ter o [Claude Code](https://claude.com/claude-code) instalado e
 > logado. Teste no terminal: `claude --version`. Se aparecer um número, você está pronto.
@@ -72,9 +81,8 @@ não faz nada.
 ## Instalação (passo a passo)
 
 ### 1. Baixe o kit
-Se eu te mandei como `.zip`, descompacte. Se virou repositório no GitHub:
 ```bash
-git clone <URL-DO-REPO> claude-starter-kit
+git clone https://github.com/VAMOO-AI/claude-kit-mentorados.git claude-starter-kit
 cd claude-starter-kit
 ```
 
@@ -165,4 +173,14 @@ Sim. Restaure seus arquivos de `~/.claude/backup-kit-<data>/` e rode
 
 ---
 
-Dúvida? Me chama. Bom proveito! 🤖
+## 🎓 Quer ir além?
+
+O kit é a base. O que multiplica de verdade é o **método**: como pedir bem,
+verificar de verdade, estruturar projeto e shipar com segurança — e isso eu
+trabalho de perto na mentoria, com projetos reais.
+
+- 📩 Me chama no Instagram: [**@ruanvamoo.ai**](https://instagram.com/ruanvamoo.ai)
+- ⭐ O kit te ajudou? Deixa uma estrela no repo — é o que me diz que vale manter público.
+- 🐛 Achou um problema? [Abre uma issue](https://github.com/VAMOO-AI/claude-kit-mentorados/issues) — feedback de quem está começando vale ouro aqui.
+
+Bom proveito! 🤖
