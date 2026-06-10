@@ -1,0 +1,39 @@
+# Changelog
+
+Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/).
+Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
+`bash install.sh` de novo (ele faz backup de tudo antes).
+
+## [0.2.0] — 2026-06-09
+
+### Segurança
+- `python-dotenv` da skill notebooklm atualizado 1.0.0 → 1.2.2 (GHSA-mf9w-mj56-hr94).
+
+### Adicionado
+- `install.sh --dry-run` (mostra o que faria) e `--backup-dir` (muda o destino do backup).
+- Backup completo: statusline, skills e comandos agora também são salvos em
+  `~/.claude/backup-kit-<data>/` antes de sobrescrever (antes só CLAUDE.md/agents.md).
+- Manifesto de instalação (`~/.claude/.kit-manifest`): skills removidas do kit em
+  versões novas são limpas na reinstalação (com backup), sem tocar nas suas skills próprias.
+- CI do próprio kit (valida JSON, shell, Python, links, secrets e dependências).
+- `LICENSE` (MIT), `SECURITY.md` e este `CHANGELOG.md`.
+
+### Mudado
+- Skill `pipedrive-automation`: frontmatter corrigido (name batia com a pasta) e
+  conteúdo reescrito em PT-BR, curado e enxuto.
+- Skill `n8n-workflow-agent`: SKILL.md de 2.310 linhas virou roteador curto +
+  referências por domínio em `references/` (carrega só o contexto necessário).
+- Templates de CI atualizados pra Node 22.
+- Hooks do `settings.json` usam `npm exec --no` (só roda eslint/tsc se o projeto
+  tiver a ferramenta instalada — não baixa nada por conta própria).
+- Skill `agent-reporting`: caminhos configuráveis via `TICKTICK_ENV_FILE` /
+  `TICKTICK_PROJECTS_FILE`; sem credencial configurada, avisa e sai sem quebrar.
+
+### Removido
+- Permissão `Bash(npm install:*)` do settings.json default — instalar dependência
+  nova volta a pedir sua aprovação (mais seguro pra quem está começando).
+
+## [0.1.0] — 2026-06-08
+
+- Versão inicial: CLAUDE.md, agents.md, settings.json, statusline, /revisar,
+  /explicar, docs pedagógicas, templates (projeto, CI, Playwright) e 10 skills.
