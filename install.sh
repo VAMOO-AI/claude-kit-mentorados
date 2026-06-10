@@ -72,7 +72,7 @@ run mkdir -p "$CLAUDE_DIR"
 
 # --- CLAUDE.md ---
 backup "CLAUDE.md"
-run cp "$KIT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+run cp "$KIT_DIR/templates/CLAUDE-global.md" "$CLAUDE_DIR/CLAUDE.md"
 ok "CLAUDE.md instalado  (edite os <campos> com seus dados depois)"
 
 # --- agents.md ---
