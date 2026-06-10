@@ -17,6 +17,7 @@ Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
   versões novas são limpas na reinstalação (com backup), sem tocar nas suas skills próprias.
 - CI do próprio kit (valida JSON, shell, Python, links, secrets e dependências).
 - `LICENSE` (MIT), `SECURITY.md` e este `CHANGELOG.md`.
+- README com badges (CI/licença/release), URL real de clone e seção "Quer ir além?".
 
 ### Mudado
 - Skill `pipedrive-automation`: frontmatter corrigido (name batia com a pasta) e
