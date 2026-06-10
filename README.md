@@ -15,7 +15,7 @@ que potencializa o uso do Claude no dia a dia.
 |---|---|---|
 | `CLAUDE.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `AGENTS.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
-| `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. |
+| `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. É uma config **produtiva** (libera `npm run`, `npm test`, git read-only sem perguntar) — se preferir aprovar tudo, apague entradas da lista `allow`. |
 | `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
 | `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM e mais). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
@@ -62,6 +62,10 @@ não faz nada.
 > As skills de WhatsApp/VPS/CRM vêm de casos reais de produção, **anonimizados**.
 > Os exemplos usam placeholders (`<agente>`, `Cliente A`, telefones fake) — troque
 > pelos seus dados ao aplicar.
+>
+> A skill **notebooklm** é *vendorizada* (copiada de um projeto de terceiro, em
+> inglês — ver `skills/notebooklm/ATTRIBUTION.md`). Não edite os arquivos dela à
+> mão: pra atualizar, re-vendorize do upstream.
 
 ---
 
@@ -78,8 +82,16 @@ cd claude-starter-kit
 ```bash
 bash install.sh
 ```
-Ele copia os arquivos pro seu `~/.claude` (fazendo **backup** de qualquer coisa que
-você já tivesse) e instala o MCP dot-context.
+Ele copia os arquivos pro seu `~/.claude` e instala o MCP dot-context. Antes de
+sobrescrever qualquer coisa (CLAUDE.md, agents.md, statusline, skills, comandos),
+ele salva uma cópia em **`~/.claude/backup-kit-<data>/`**. Só o `settings.json`
+não é sobrescrito nunca — se você já tiver um, o modelo do kit fica em
+`settings.kit.json` pra mesclar à mão.
+
+Quer ver o que ele faria antes de rodar de verdade?
+```bash
+bash install.sh --dry-run
+```
 
 ### 3. Instale o superpowers (dentro do Claude Code)
 Isso é um passo manual — abra o Claude Code e rode estes dois comandos:
@@ -136,10 +148,11 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 
 ## Perguntas comuns
 
-**Já tinha um CLAUDE.md, vou perder?**
-Não. O instalador salva o seu antigo como `CLAUDE.md.bak-<data>` antes de copiar.
-O `settings.json`, se já existir, **não** é sobrescrito — o modelo do kit fica em
-`settings.kit.json` pra você comparar e mesclar.
+**Já tinha um CLAUDE.md (ou skills, ou statusline), vou perder?**
+Não. Tudo que o instalador sobrescreve ganha uma cópia em
+`~/.claude/backup-kit-<data>/` antes. Skills suas que não vieram do kit ficam
+intactas. O `settings.json`, se já existir, **não** é sobrescrito — o modelo do
+kit fica em `settings.kit.json` pra você comparar e mesclar.
 
 **Funciona no Windows?**
 O kit foi pensado pra macOS/Linux. No Windows, use o WSL (Ubuntu) e rode os mesmos
@@ -147,7 +160,7 @@ comandos. O som de "terminou" no `settings.json` é específico de Mac — pode 
 a parte do `afplay` sem problema.
 
 **Posso desinstalar?**
-Sim. Restaure seus backups (`*.bak-<data>`) e rode
+Sim. Restaure seus arquivos de `~/.claude/backup-kit-<data>/` e rode
 `claude mcp remove ai-context`. Pra tirar o plugin: `/plugin uninstall superpowers`.
 
 ---

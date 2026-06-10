@@ -7,4 +7,5 @@
 patchright==1.55.2
 
 # Environment management
-python-dotenv==1.0.0
+# >=1.2.2 corrige GHSA-mf9w-mj56-hr94 (symlink following em set_key/unset_key)
+python-dotenv==1.2.2
