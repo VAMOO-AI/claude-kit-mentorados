@@ -22,7 +22,7 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 
 | Arquivo | Vai pra onde | Pra que serve |
 |---|---|---|
-| `CLAUDE.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
+| `templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. (Fica em `templates/` pra não ser carregado como config de quem abre uma sessão dentro do clone do kit.) |
 | `AGENTS.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. É uma config **produtiva** (libera `npm run`, `npm test`, git read-only sem perguntar) — se preferir aprovar tudo, apague entradas da lista `allow`. |
 | `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
