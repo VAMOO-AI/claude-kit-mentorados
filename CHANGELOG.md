@@ -4,6 +4,16 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [Não lançado]
+
+### Adicionado
+- Hook `PreToolUse` no `settings.json`: **bloqueia `git commit` direto na `main`/`master`**
+  (escape `HOTFIX_MAIN=1` pra quando for proposital). Protege do erro clássico de
+  commitar na branch errada — comum com vários terminais abertos no mesmo projeto.
+  Portável (só `grep` + `git`, sem depender de `jq`).
+- `CLAUDE-global.md`: seção sobre rodar vários terminais no mesmo repo (branch por
+  sessão, `git add` só dos seus arquivos, conferir `git log` após o commit).
+
 ## [0.2.0] — 2026-06-09
 
 ### Segurança

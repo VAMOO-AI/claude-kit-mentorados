@@ -53,8 +53,9 @@ Use a skill `superpowers:test-driven-development`.
 
 ## Git / GitHub
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
-- Trabalhe em branch (`feat/nome`, `fix/nome`), nunca direto na `main`.
+- Trabalhe em branch (`feat/nome`, `fix/nome`), nunca direto na `main`. O kit instala um hook que **bloqueia `git commit` na `main`/`master`** pra te proteger desse erro clássico. Se algum dia precisar mesmo commitar na main de propósito, rode o comando com `HOTFIX_MAIN=1` na frente.
 - Antes de marcar como pronto: o type-checker e os testes passam (com output colado).
+- **Vários terminais no mesmo projeto?** Cada aba/sessão compartilha a MESMA branch e a mesma "área de staging" do Git. Se uma sessão troca de branch, a outra comita sem perceber no lugar errado. Para evitar: deixe cada sessão na sua própria branch, dê `git add` só nos arquivos que você mexeu (nunca `git add -A`/`.`), e depois de todo commit confira onde caiu com `git log --oneline -1`. (Avançado: use um *worktree* por sessão — pasta separada com branch própria.)
 
 ## dot-context (memória do projeto)
 - O MCP `ai-context` está ativo (instalado pelo kit). Em projeto novo, na 1ª sessão: peça **"init the context"**.

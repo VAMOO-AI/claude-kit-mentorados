@@ -23,6 +23,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "j=$(cat); printf '%s' \"$j\" | grep -q 'HOTFIX_MAIN=1' && exit 0; printf '%s' \"$j\" | grep -q 'git commit' || exit 0; b=$(git branch --show-current 2>/dev/null); case \"$b\" in main|master) echo \"BLOQUEADO pelo hook: git commit direto na $b. Crie uma branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente.\" >&2; exit 2 ;; esac; exit 0"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
