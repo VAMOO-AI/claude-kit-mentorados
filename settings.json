@@ -40,11 +40,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) npm exec --no -- eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac"
+            "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) (cd \"$(dirname \"$f\")\" && npm exec --no -- eslint --fix \"$f\") 2>/dev/null || true ;; esac"
           },
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$CLAUDE_FILE_PATH\")\" rev-parse --show-toplevel 2>/dev/null); [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npm exec --no -- tsc --noEmit 2>&1 | head -30) ;; esac; true"
+            "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); [ -n \"$R\" ] && [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npm exec --no -- tsc --noEmit 2>&1 | head -30) ;; esac; true"
           }
         ]
       }

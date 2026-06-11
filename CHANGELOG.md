@@ -4,7 +4,14 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
-## [Não lançado]
+## [0.3.0] — 2026-06-11
+
+### Corrigido
+- **Hooks de lint/typecheck automático estavam quebrados (no-op silencioso).** Usavam
+  `$CLAUDE_FILE_PATH`, que não é uma variável de ambiente oficial do Claude Code — vinha
+  sempre vazia, então o eslint/tsc nunca rodava de fato. Agora leem o caminho do arquivo
+  do JSON via stdin (`jq -r '.tool_input.file_path'`), conforme a documentação oficial.
+  Degradam graciosamente se `jq` não estiver instalado (não rodam, mas não quebram).
 
 ### Adicionado
 - Hook `PreToolUse` no `settings.json`: **bloqueia `git commit` direto na `main`/`master`**
@@ -13,6 +20,8 @@ Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
   Portável (só `grep` + `git`, sem depender de `jq`).
 - `CLAUDE-global.md`: seção sobre rodar vários terminais no mesmo repo (branch por
   sessão, `git add` só dos seus arquivos, conferir `git log` após o commit).
+- `install.sh` avisa quando `jq` não está instalado (os hooks de lint/typecheck
+  precisam dele) e mostra como instalar.
 
 ## [0.2.0] — 2026-06-09
 

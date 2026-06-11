@@ -132,6 +132,13 @@ else
   ok "settings.json instalado"
 fi
 
+# jq é usado pelos hooks (lint/typecheck automático + proteção de commit na main).
+# Sem ele os hooks degradam graciosamente (não rodam), mas o kit funciona.
+if ! command -v jq >/dev/null 2>&1; then
+  warn "jq não encontrado. Os hooks de lint/typecheck automático ficam inativos sem ele."
+  warn "  macOS: brew install jq   •   Debian/Ubuntu: sudo apt install jq"
+fi
+
 # --- manifesto (registra o que esta instalação colocou em ~/.claude) ---
 if [ "$DRY_RUN" -eq 0 ]; then
   printf '%s' "$NEW_MANIFEST" > "$MANIFEST"
