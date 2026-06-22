@@ -56,7 +56,7 @@ O Claude pode errar com confiança. Defesas simples:
 
 ---
 
-## 5. Memória do projeto (dot-context)
+## 5. Memória do projeto (dotcontext)
 
 Em projeto novo, na 1ª conversa: peça **"init the context"**. O Claude cria a pasta
 `.context/` e passa a lembrar das decisões do projeto entre sessões. Documentação
