@@ -158,6 +158,11 @@ else
 
   # --- MCP dotcontext (servidor 'dotcontext') ---
   if command -v claude >/dev/null 2>&1; then
+    # Migração: se existir o server legado 'ai-context' (dotcontext foi renomeado), remove pra não ficar com 2
+    if claude mcp list 2>/dev/null | grep -q "ai-context"; then
+      claude mcp remove ai-context 2>/dev/null || true
+      ok "MCP legado 'ai-context' removido (agora é 'dotcontext')"
+    fi
     if claude mcp list 2>/dev/null | grep -q "dotcontext"; then
       ok "MCP dotcontext já estava instalado"
     else
