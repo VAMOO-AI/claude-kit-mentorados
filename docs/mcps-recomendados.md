@@ -4,7 +4,7 @@ MCP dá ao Claude novas "mãos" — conectar a um banco, controlar um browser, f
 uma API. **Não instale todos de uma vez.** Cada MCP é mais superfície pra dar erro e
 mais contexto consumido. Adicione quando a necessidade aparecer.
 
-> O kit já instala o **dot-context** (`ai-context`). O resto abaixo é opcional.
+> O kit já instala o **dotcontext** (servidor `dotcontext`). O resto abaixo é opcional.
 
 Todos os comandos usam `--scope user` (vale em todos os seus projetos). Troque por
 `--scope project` se quiser versionar a config junto com um repo específico.
@@ -68,6 +68,6 @@ claude mcp remove <nome>   # remover
 
 ## Regra de bolso
 
-Comece com o mínimo (dot-context). Sentiu falta de uma capacidade concreta — testar UI,
+Comece com o mínimo (dotcontext). Sentiu falta de uma capacidade concreta — testar UI,
 mexer num serviço específico — aí sim adicione o MCP correspondente. Menos é mais
 estável.

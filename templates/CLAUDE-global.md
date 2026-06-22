@@ -57,8 +57,8 @@ Use a skill `superpowers:test-driven-development`.
 - Antes de marcar como pronto: o type-checker e os testes passam (com output colado).
 - **Vários terminais no mesmo projeto?** Cada aba/sessão compartilha a MESMA branch e a mesma "área de staging" do Git. Se uma sessão troca de branch, a outra comita sem perceber no lugar errado. Para evitar: deixe cada sessão na sua própria branch, dê `git add` só nos arquivos que você mexeu (nunca `git add -A`/`.`), e depois de todo commit confira onde caiu com `git log --oneline -1`. (Avançado: use um *worktree* por sessão — pasta separada com branch própria.)
 
-## dot-context (memória do projeto)
-- O MCP `ai-context` está ativo (instalado pelo kit). Em projeto novo, na 1ª sessão: peça **"init the context"**.
+## dotcontext (memória do projeto)
+- O MCP `dotcontext` está ativo (instalado pelo kit). Em projeto novo, na 1ª sessão: peça **"init the context"**.
 - Toda documentação nova vai em `./.context/docs/`. O `AGENTS.md` na raiz do projeto é o ponto de partida que Claude/Codex/Cursor leem.
 - `.context/` é a fonte única de contexto — não duplique informação espalhada.
 

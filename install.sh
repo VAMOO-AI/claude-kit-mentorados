@@ -2,7 +2,7 @@
 #
 # Claude Starter Kit — instalador
 # Copia CLAUDE.md, agents.md, statusline, skills, comandos e settings.json
-# pro seu ~/.claude e instala o MCP dot-context (ai-context).
+# pro seu ~/.claude e instala o MCP dotcontext (servidor 'dotcontext').
 #
 # Antes de sobrescrever QUALQUER coisa, salva uma cópia em
 # ~/.claude/backup-kit-<data>/ — pra desinstalar, basta restaurar de lá.
@@ -146,7 +146,7 @@ fi
 
 # --- ctx7 (motor da skill find-docs) ---
 if [ "$DRY_RUN" -eq 1 ]; then
-  say "[dry-run] pularia instalação de ctx7 e MCP ai-context"
+  say "[dry-run] pularia instalação de ctx7 e MCP dotcontext"
 else
   if command -v npm >/dev/null 2>&1; then
     say "Instalando o ctx7 (busca de documentação oficial)..."
@@ -156,19 +156,19 @@ else
     warn "npm não encontrado — instale o Node.js. A skill find-docs precisa dele."
   fi
 
-  # --- MCP dot-context (ai-context) ---
+  # --- MCP dotcontext (servidor 'dotcontext') ---
   if command -v claude >/dev/null 2>&1; then
-    if claude mcp list 2>/dev/null | grep -q "ai-context"; then
-      ok "MCP ai-context (dot-context) já estava instalado"
+    if claude mcp list 2>/dev/null | grep -q "dotcontext"; then
+      ok "MCP dotcontext já estava instalado"
     else
-      say "Instalando o MCP dot-context (ai-context)..."
-      claude mcp add ai-context --scope user -- npx -y @ai-coders/context@latest mcp
-      ok "MCP ai-context instalado"
+      say "Instalando o MCP dotcontext..."
+      claude mcp add dotcontext --scope user -- npx -y @dotcontext/mcp@latest
+      ok "MCP dotcontext instalado"
     fi
   else
     warn "Comando 'claude' não encontrado no PATH."
     warn "Instale o MCP manualmente depois com:"
-    warn "  claude mcp add ai-context --scope user -- npx -y @ai-coders/context@latest mcp"
+    warn "  claude mcp add dotcontext --scope user -- npx -y @dotcontext/mcp@latest"
   fi
 fi
 

@@ -47,6 +47,15 @@
             "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); [ -n \"$R\" ] && [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npm exec --no -- tsc --noEmit 2>&1 | head -30) ;; esac; true"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y @dotcontext/cli@latest hook dispatch --source claude-code"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -55,6 +64,15 @@
           {
             "type": "command",
             "command": "echo \"📍 $(pwd) — $(head -1 AGENTS.md 2>/dev/null)\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y @dotcontext/cli@latest hook dispatch --source claude-code"
           }
         ]
       }

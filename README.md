@@ -30,12 +30,12 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
-| `install.sh` | — | O instalador que coloca tudo no lugar e instala o dot-context + ctx7. |
+| `install.sh` | — | O instalador que coloca tudo no lugar e instala o dotcontext + ctx7. |
 
 Além disso o kit instala duas coisas que multiplicam o Claude:
 
 - **superpowers** — pacote de "skills" (TDD, debugging sistemático, brainstorming). O Claude passa a seguir métodos comprovados em vez de improvisar.
-- **dot-context** (`ai-context`) — dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão.
+- **dotcontext** (`dotcontext`) — dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão (um hook injeta o índice no início de cada sessão = menos alucinação).
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -90,7 +90,7 @@ cd claude-starter-kit
 ```bash
 bash install.sh
 ```
-Ele copia os arquivos pro seu `~/.claude` e instala o MCP dot-context. Antes de
+Ele copia os arquivos pro seu `~/.claude` e instala o MCP dotcontext. Antes de
 sobrescrever qualquer coisa (CLAUDE.md, agents.md, statusline, skills, comandos),
 ele salva uma cópia em **`~/.claude/backup-kit-<data>/`**. Só o `settings.json`
 não é sobrescrito nunca — se você já tiver um, o modelo do kit fica em
@@ -115,7 +115,7 @@ adapte à vontade.
 
 ### 5. Confira se deu certo
 ```bash
-claude mcp list        # deve aparecer "ai-context ... ✓ Connected"
+claude mcp list        # deve aparecer "dotcontext ... ✓ Connected"
 ```
 Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver skills do
 superpowers na lista. Pronto. 🎉
@@ -169,7 +169,7 @@ a parte do `afplay` sem problema.
 
 **Posso desinstalar?**
 Sim. Restaure seus arquivos de `~/.claude/backup-kit-<data>/` e rode
-`claude mcp remove ai-context`. Pra tirar o plugin: `/plugin uninstall superpowers`.
+`claude mcp remove dotcontext`. Pra tirar o plugin: `/plugin uninstall superpowers`.
 
 ---
 

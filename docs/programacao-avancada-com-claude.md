@@ -78,7 +78,7 @@ skill com o comando do seu projeto.
 
 ---
 
-## 6. dot-context para projetos sérios
+## 6. dotcontext para projetos sérios
 
 Além do `init the context`, em projetos grandes:
 - Documente decisões de arquitetura em `.context/docs/` — vira contexto permanente.
@@ -97,7 +97,7 @@ em todo PR. Branch só entra na `main` com o verde. É a versão "time" do verif
 ## 8. MCPs: dê novas mãos ao Claude
 
 MCPs conectam o Claude a serviços (banco, browser, GitHub). O kit já instala o
-**dot-context**. Veja [`docs/mcps-recomendados.md`](mcps-recomendados.md) pra adicionar
+**dotcontext**. Veja [`docs/mcps-recomendados.md`](mcps-recomendados.md) pra adicionar
 Playwright (testar UI de verdade), GitHub (PRs/issues) e outros — **sob demanda**, não
 todos de uma vez.
 
