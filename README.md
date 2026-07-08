@@ -25,7 +25,9 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. (Fica em `templates/` pra não ser carregado como config de quem abre uma sessão dentro do clone do kit.) |
 | `AGENTS.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. É uma config **produtiva** (libera `npm run`, `npm test`, git read-only sem perguntar) — se preferir aprovar tudo, apague entradas da lista `allow`. |
-| `statusline-command.sh` | `~/.claude/statusline-command.sh` | Barra de status: diretório atual, branch git e quanto do contexto já foi usado. |
+| `statusline-command.sh` + `scripts/statusline.js` | `~/.claude/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e uso do contexto. Resolve a cegueira do Desktop, que não mostra nada disso. |
+| `hooks/` | `~/.claude/hooks/` | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`, e roda lint/typecheck a cada edição. Leem tudo via **node** (não precisam de `jq`). |
+| `scripts/` | `~/.claude/scripts/` | Avisos no início da sessão (**branch atrás do remoto**, **worktree já mergeado**), limpeza de worktrees (`worktree-gc.sh`) e a barra de status. |
 | `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM e mais). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |

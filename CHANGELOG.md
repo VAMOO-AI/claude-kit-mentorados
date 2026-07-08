@@ -4,6 +4,37 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [0.4.0] — 2026-07-07
+
+### Adicionado
+- **Barra de status com visibilidade de GitHub.** A statusline agora mostra, além de
+  diretório/branch/contexto: alterações não salvas (`✗`), commits à frente/atrás do
+  remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`) e **PR aberto pra branch** (`PR#`).
+  Resolve a cegueira do Claude Code Desktop, que não mostra nada disso visualmente. O
+  estado do GitHub é cacheado (~90s) e atualizado em segundo plano — a barra nunca trava
+  esperando a rede. Escrita em node puro (`scripts/statusline.js`), roda no Mac e no Windows.
+- **Guard-rails de git como arquivos** (`hooks/`, `scripts/`):
+  - `check-careful.sh` — pede confirmação antes de `rm -rf` (fora de pastas descartáveis),
+    `DROP`/`TRUNCATE`, `git push --force` e `git add -A/-u/.`.
+  - `warn-branch-behind.sh` — avisa, ao abrir a sessão, se a branch está atrás do remoto.
+  - `warn-worktree-stale.sh` — avisa se o worktree atual já foi mergeado (é lixo) ou se o
+    clone principal não está em `main`.
+  - `worktree-gc.sh` — utilitário pra limpar worktrees de branches já mergeadas
+    (`worktree-gc.sh` = dry-run; `--apply` remove).
+
+### Alterado
+- **Fim da dependência de `jq`.** Todos os hooks passaram a ler o JSON do Claude Code via
+  **node** (helper `scripts/hookjson.js`) em vez de `jq`. Como o node já é pré-requisito do
+  kit (a statusline roda nele), o `jq` sai da lista de dependências — um pré-requisito a
+  menos pra instalar. Os hooks de lint/typecheck e a proteção de commit continuam iguais,
+  só sem precisar de `jq`.
+- **`block-main-commit` virou arquivo robusto** (`hooks/block-main-commit.sh`), no lugar da
+  versão inline por substring. Agora resolve o **repo-alvo real** (`git -C <path>` / primeiro
+  `cd <path>`) em vez de olhar só o diretório da sessão, e não confunde `git commit` que
+  aparece dentro de uma string (grep/echo). O escape `HOTFIX_MAIN=1` segue igual.
+- `install.sh` agora instala as pastas `hooks/` e `scripts/`, e o aviso sobre `jq` virou
+  aviso sobre `node`/`gh` (as dependências que de fato importam).
+
 ## [0.3.0] — 2026-06-11
 
 ### Corrigido
