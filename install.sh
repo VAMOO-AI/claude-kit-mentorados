@@ -122,6 +122,30 @@ for cmd_file in "$KIT_DIR/commands"/*; do
 done
 ok "comandos instalados (/revisar, /explicar)"
 
+# --- hooks (guard-rails de git: proteção de commit na main + confirmação de comandos perigosos + lint/typecheck) ---
+run mkdir -p "$CLAUDE_DIR/hooks"
+for hook_file in "$KIT_DIR/hooks"/*; do
+  [ -e "$hook_file" ] || continue
+  hook_name="$(basename "$hook_file")"
+  backup "hooks/$hook_name"
+  run cp "$hook_file" "$CLAUDE_DIR/hooks/$hook_name"
+  run chmod +x "$CLAUDE_DIR/hooks/$hook_name"
+  NEW_MANIFEST+="hook/$hook_name"$'\n'
+done
+ok "hooks instalados (bloqueio de commit na main, confirmação de rm -rf/DROP/push --force, lint/typecheck)"
+
+# --- scripts (avisos de branch/worktree, limpeza de worktree, barra de status, helper JSON) ---
+run mkdir -p "$CLAUDE_DIR/scripts"
+for script_file in "$KIT_DIR/scripts"/*; do
+  [ -e "$script_file" ] || continue
+  script_name="$(basename "$script_file")"
+  backup "scripts/$script_name"
+  run cp "$script_file" "$CLAUDE_DIR/scripts/$script_name"
+  run chmod +x "$CLAUDE_DIR/scripts/$script_name"
+  NEW_MANIFEST+="script/$script_name"$'\n'
+done
+ok "scripts instalados (avisos de branch/worktree + barra de status git/GitHub)"
+
 # --- settings.json (NÃO sobrescreve se já existir — deixa pra você mesclar) ---
 if [ -f "$CLAUDE_DIR/settings.json" ]; then
   run cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.kit.json"
@@ -132,11 +156,15 @@ else
   ok "settings.json instalado"
 fi
 
-# jq é usado pelos hooks (lint/typecheck automático + proteção de commit na main).
-# Sem ele os hooks degradam graciosamente (não rodam), mas o kit funciona.
-if ! command -v jq >/dev/null 2>&1; then
-  warn "jq não encontrado. Os hooks de lint/typecheck automático ficam inativos sem ele."
-  warn "  macOS: brew install jq   •   Debian/Ubuntu: sudo apt install jq"
+# node é essencial: a barra de status e os hooks (proteção de commit, avisos de branch/worktree,
+# lint/typecheck) rodam em node. Os hooks leem o JSON do Claude Code via node — não precisam de jq.
+if ! command -v node >/dev/null 2>&1; then
+  warn "node não encontrado — a barra de status e os hooks não vão funcionar sem ele."
+  warn "  Instale o Node.js LTS: https://nodejs.org   (macOS com brew: brew install node)"
+fi
+if ! command -v gh >/dev/null 2>&1; then
+  warn "gh (GitHub CLI) não encontrado — a barra mostrará 'gh✗' e não verá PRs."
+  warn "  Instale: https://cli.github.com   •   depois rode: gh auth login"
 fi
 
 # --- manifesto (registra o que esta instalação colocou em ~/.claude) ---

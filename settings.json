@@ -29,7 +29,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "j=$(cat); printf '%s' \"$j\" | grep -q 'HOTFIX_MAIN=1' && exit 0; printf '%s' \"$j\" | grep -q 'git commit' || exit 0; b=$(git branch --show-current 2>/dev/null); case \"$b\" in main|master) echo \"BLOQUEADO pelo hook: git commit direto na $b. Crie uma branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente.\" >&2; exit 2 ;; esac; exit 0"
+            "command": "if [ -f \"$HOME/.claude/hooks/block-main-commit.sh\" ]; then bash \"$HOME/.claude/hooks/block-main-commit.sh\"; exit $?; fi; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/hooks/check-careful.sh\" ] && bash \"$HOME/.claude/hooks/check-careful.sh\" || exit 0"
           }
         ]
       }
@@ -40,11 +44,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) (cd \"$(dirname \"$f\")\" && npm exec --no -- eslint --fix \"$f\") 2>/dev/null || true ;; esac"
+            "command": "[ -f \"$HOME/.claude/hooks/lint-fix.sh\" ] && bash \"$HOME/.claude/hooks/lint-fix.sh\" || exit 0"
           },
           {
             "type": "command",
-            "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx) R=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); [ -n \"$R\" ] && [ -f \"$R/tsconfig.json\" ] && (cd \"$R\" && npm exec --no -- tsc --noEmit 2>&1 | head -30) ;; esac; true"
+            "command": "[ -f \"$HOME/.claude/hooks/typecheck.sh\" ] && bash \"$HOME/.claude/hooks/typecheck.sh\" || exit 0"
           }
         ]
       },
@@ -64,6 +68,14 @@
           {
             "type": "command",
             "command": "echo \"📍 $(pwd) — $(head -1 AGENTS.md 2>/dev/null)\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/scripts/warn-branch-behind.sh\" ] && bash \"$HOME/.claude/scripts/warn-branch-behind.sh\" || exit 0"
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/scripts/warn-worktree-stale.sh\" ] && bash \"$HOME/.claude/scripts/warn-worktree-stale.sh\" || exit 0"
           }
         ]
       },
