@@ -57,7 +57,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y @dotcontext/cli@latest hook dispatch --source claude-code"
+            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@latest hook dispatch --source claude-code || exit 0",
+            "timeout": 60
           }
         ]
       }
@@ -84,7 +85,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y @dotcontext/cli@latest hook dispatch --source claude-code"
+            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@latest hook dispatch --source claude-code || exit 0",
+            "timeout": 60
           }
         ]
       }
