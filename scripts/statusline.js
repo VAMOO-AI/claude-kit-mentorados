@@ -93,7 +93,7 @@ if (branch) {
       try {
         fs.writeFileSync(lockFile, '');
         const child = spawn(process.execPath, [__filename], {
-          detached: true, stdio: 'ignore',
+          detached: true, stdio: 'ignore', windowsHide: true, // windowsHide: sem flash de console no Windows
           env: { ...process.env, CLAUDE_SL_REFRESH: '1', CLAUDE_SL_CWD: cwd, CLAUDE_SL_BRANCH: branch, CLAUDE_SL_CACHE: cacheFile },
         });
         child.unref();
