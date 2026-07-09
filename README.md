@@ -59,6 +59,22 @@ não faz nada.
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **pipedrive-automation** | Modelos de automação de CRM Pipedrive (deals, pipeline, relatórios). | conta/API Pipedrive pra rodar de fato |
 
+### 🧭 Processo (como o Claude trabalha — sem setup)
+
+Estas são as skills que o CLAUDE.md roteia por situação (ver a tabela de
+roteamento no topo do `templates/CLAUDE-global.md`). Guardam o passo-a-passo
+que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **grilling** | Interroga um plano vago até fechar antes de codar. O Claude puxa ao sentir vagueza. | nenhum |
+| **grill-me** | Gatilho manual do `/grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
+| **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
+| **vamoo-verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
+| **vamoo-infra** | COMOs de infra sem CLI interativo: env do Vercel, SQL Supabase, deploy bloqueado. | projeto Supabase/Vercel |
+| **vamoo-orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
+| **vamoo-worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
+
 ### ⚙️ Exigem ligar um pré-requisito
 
 | Skill | Pra que serve | Pré-requisito |
