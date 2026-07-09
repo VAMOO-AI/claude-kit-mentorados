@@ -28,7 +28,7 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `statusline-command.sh` + `scripts/statusline.js` | `~/.claude/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e uso do contexto. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `hooks/` | `~/.claude/hooks/` | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`, e roda lint/typecheck a cada edição. Leem tudo via **node** (não precisam de `jq`). |
 | `scripts/` | `~/.claude/scripts/` | Avisos no início da sessão (**branch atrás do remoto**, **worktree já mergeado**), limpeza de worktrees (`worktree-gc.sh`) e a barra de status. |
-| `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM e mais). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
+| `skills/` | `~/.claude/skills/` | **17 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM, mais 7 de processo: grilling, verificação, orquestração, infra, worktrees). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
