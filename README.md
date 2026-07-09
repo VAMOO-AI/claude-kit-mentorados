@@ -144,7 +144,8 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
 3. [`docs/seguranca.md`](docs/seguranca.md) — os 5 furos que iniciante esquece (RLS, secrets, deps) + revisão automática.
-4. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+4. [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md) — por que seu limite acaba tão rápido e os 4 hábitos que fazem ele render (spoiler: sessão longa custa juros compostos).
+5. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
 1. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
