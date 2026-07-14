@@ -34,10 +34,10 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
 | `install.sh` | — | O instalador que coloca tudo no lugar e instala o dotcontext + ctx7. |
 
-Além disso o kit instala duas coisas que multiplicam o Claude:
-
-- **superpowers** — pacote de "skills" (TDD, debugging sistemático, brainstorming). O Claude passa a seguir métodos comprovados em vez de improvisar.
-- **dotcontext** (`dotcontext`) — dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão (um hook injeta o índice no início de cada sessão = menos alucinação).
+Além disso o kit instala o **dotcontext** (`dotcontext`), que dá ao Claude uma
+**memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro
+do seu projeto e relê toda sessão (um hook injeta o índice no início de cada
+sessão = menos alucinação).
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -119,24 +119,17 @@ Quer ver o que ele faria antes de rodar de verdade?
 bash install.sh --dry-run
 ```
 
-### 3. Instale o superpowers (dentro do Claude Code)
-Isso é um passo manual — abra o Claude Code e rode estes dois comandos:
-```
-/plugin marketplace add anthropics/claude-plugins-official
-/plugin install superpowers@claude-plugins-official
-```
-
-### 4. Preencha o CLAUDE.md com os SEUS dados
+### 3. Preencha o CLAUDE.md com os SEUS dados
 Abra `~/.claude/CLAUDE.md` e troque os trechos `<entre-colchetes>` (seu nome, sua
 stack, como você quer ser respondido). Apague o que não usar. Esse arquivo é seu —
 adapte à vontade.
 
-### 5. Confira se deu certo
+### 4. Confira se deu certo
 ```bash
 claude mcp list        # deve aparecer "dotcontext ... ✓ Connected"
 ```
-Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver skills do
-superpowers na lista. Pronto. 🎉
+Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver as
+skills do kit, incluindo `/grill-me` e `/grill-with-docs`. Pronto. 🎉
 
 ---
 
@@ -146,9 +139,10 @@ superpowers na lista. Pronto. 🎉
   **"init the context"**. O Claude cria a pasta `.context/` e passa a lembrar do projeto.
 - **Modo aprendizado:** diga **"explica"** ou **"modo aula"** e o Claude passa a ensinar
   o porquê de cada coisa, passo a passo (definido no seu CLAUDE.md).
-- **Skills:** quando uma tarefa casa com uma skill (escrever testes, debugar um erro),
-  o Claude usa o método certo sozinho. Você também pode pedir, ex.:
-  "usa test-driven-development".
+- **Skills de decisão:** use `/grill-me` quando quiser testar um plano e
+  `/grill-with-docs` quando a decisão precisar considerar a documentação do projeto.
+- **TDD e debugging:** as regras do `CLAUDE.md` já exigem teste failing-first e
+  investigação de causa raiz; não dependem de plugin externo.
 
 ---
 
@@ -188,7 +182,7 @@ a parte do `afplay` sem problema.
 
 **Posso desinstalar?**
 Sim. Restaure seus arquivos de `~/.claude/backup-kit-<data>/` e rode
-`claude mcp remove dotcontext`. Pra tirar o plugin: `/plugin uninstall superpowers`.
+`claude mcp remove dotcontext`.
 
 ---
 

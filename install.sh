@@ -215,8 +215,4 @@ if [ -d "$BACKUP_DIR" ]; then
   say "Seus arquivos antigos estão em: $BACKUP_DIR"
 fi
 echo
-say "FALTA 1 PASSO MANUAL — instalar o plugin superpowers (dentro do Claude Code):"
-echo "    1) Abra o Claude Code e rode:  /plugin marketplace add anthropics/claude-plugins-official"
-echo "    2) Depois rode:                /plugin install superpowers@claude-plugins-official"
-echo
 say "Por fim: abra ~/.claude/CLAUDE.md e preencha os campos <entre-colchetes> com os seus dados."

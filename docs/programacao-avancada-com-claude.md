@@ -10,16 +10,17 @@ não só pedidos soltos. Abaixo, os mecanismos que mais elevam o nível.
 
 ## 1. Skills: deixe o Claude seguir métodos, não improvisar
 
-Skills são "manuais" que o Claude carrega sozinho quando a tarefa casa. O kit já traz
-o **superpowers** com as principais:
+Skills são "manuais" que o Claude carrega quando a tarefa casa. O kit mantém o
+fluxo deliberadamente simples:
 
-- **`test-driven-development`** — escreve o teste que falha primeiro, depois implementa.
-- **`systematic-debugging`** — investiga a causa raiz em vez de chutar fixes.
-- **`brainstorming`** — explora o problema antes de codar.
-- **`dispatching-parallel-agents`** — divide trabalho independente em paralelo.
-- **`using-git-worktrees`** — isola trabalho em worktrees.
+- **`grilling`** — detecta ambiguidade real e fecha as decisões antes do código.
+- **`grill-me`** — gatilho manual para questionar um plano quando você quiser.
+- **`grill-with-docs`** — faz o mesmo, ancorado no `.context/` do projeto.
+- **`vamoo-verificacao`** — detalha como verificar ramos, UI e integrações reais.
+- **`vamoo-orquestracao`** e **`vamoo-worktrees`** — paralelismo e isolamento.
 
-Você pode invocar de propósito: *"usa test-driven-development pra essa função"*.
+TDD e investigação de causa raiz continuam obrigatórios pelas regras do
+`CLAUDE.md`; não dependem de um plugin que injeta workflow em toda tarefa.
 
 > **Crie as suas.** Quando você se pega repetindo a mesma instrução em toda sessão,
 > isso é uma skill esperando pra nascer. Peça: *"cria uma skill que faça X"* — o
@@ -48,7 +49,7 @@ Quando NÃO usar: tarefa pequena ou com dependência sequencial — o overhead n
 Worktree = uma cópia do repo em outra pasta, numa branch separada, sem mexer no seu
 diretório atual. Ótimo pra tocar uma feature arriscada sem poluir o working tree.
 
-Peça: *"cria um worktree pra essa feature"* (a skill `using-git-worktrees` cuida).
+Peça: *"cria um worktree pra essa feature"* (a skill `vamoo-worktrees` cuida).
 Ao terminar: faça merge/PR e limpe a worktree e a branch.
 
 ---
