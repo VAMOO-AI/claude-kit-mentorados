@@ -13,8 +13,8 @@ description: >-
 
 ## Quando fan-out
 
-- Subagents paralelos pra **>5 arquivos independentes** (skill
-  `superpowers:dispatching-parallel-agents`).
+- Subagents paralelos pra **>5 arquivos independentes**, usando os recursos de
+  orquestração disponíveis no harness.
 - Escolha de modelo: deixa o harness decidir por tarefa. Haiku via subagent
   explícito só pra lote mecânico real (ex: 20 renames).
 

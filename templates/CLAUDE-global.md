@@ -18,8 +18,8 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 |---|---|
 | Plano vago / decisão em aberto / "me interroga" | `grilling` — o Claude puxa ao sentir vagueza; você dispara na mão com `/grill-me` |
 | Plano vago **e** o projeto tem pasta `.context/` | `grill-with-docs` (interroga ancorado na doc do projeto) |
-| Feature nova / corrigir bug | `superpowers:test-driven-development` (teste que falha primeiro) |
-| Bug / comportamento estranho | `superpowers:systematic-debugging` |
+| Feature nova / corrigir bug | Regra TDD abaixo (teste que falha primeiro) |
+| Bug / comportamento estranho | Investigue causa raiz antes de propor correção |
 | Antes de dizer "pronto" | `verify` + `vamoo-verificacao` |
 | "deploy" / "manda pra prod" | `ship` |
 | Infra: SQL Supabase, env/deploy Vercel, deploy bloqueado | `vamoo-infra` |
@@ -58,7 +58,6 @@ Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 ## TDD (test-driven) para feature e bugfix
 Mudando comportamento / feature nova / corrigindo bug: escreva o teste que FALHA primeiro, depois implemente até passar.
 Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
-Use a skill `superpowers:test-driven-development`.
 
 ## Secrets e variáveis de ambiente (REGRA DE OURO — COMOs na skill `vamoo-infra`)
 - `.env` / `.env.local` NUNCA vai pro git. Devem estar no `.gitignore`. Se vazou: troque todas as chaves na hora.
