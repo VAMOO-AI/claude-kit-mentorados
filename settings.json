@@ -45,10 +45,6 @@
           {
             "type": "command",
             "command": "[ -f \"$HOME/.claude/hooks/lint-fix.sh\" ] && bash \"$HOME/.claude/hooks/lint-fix.sh\" || exit 0"
-          },
-          {
-            "type": "command",
-            "command": "[ -f \"$HOME/.claude/hooks/typecheck.sh\" ] && bash \"$HOME/.claude/hooks/typecheck.sh\" || exit 0"
           }
         ]
       },

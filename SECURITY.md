@@ -14,11 +14,9 @@ Respondo em até 7 dias. Correção sai como patch + nota no CHANGELOG.
 
 - O instalador só escreve em `~/.claude/` e faz backup do que sobrescreve em
   `~/.claude/backup-kit-<data>/`.
-- Nenhum script do kit envia dados pra fora da sua máquina. As skills que falam
-  com APIs (TickTick, Pipedrive, n8n, NotebookLM) só funcionam com credenciais
-  **suas**, configuradas por você, fora do git.
-- A skill `notebooklm` guarda cookies/auth do Google em `data/` dentro da
-  própria skill — pasta coberta por `.gitignore`, nunca commitada.
+- Nenhum script do kit envia dados pra fora da sua máquina. Qualquer skill que
+  venha a falar com uma API externa só funciona com credenciais **suas**,
+  configuradas por você, fora do git.
 
 ## Regras que o próprio kit ensina (valem pra ele também)
 

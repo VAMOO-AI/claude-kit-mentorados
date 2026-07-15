@@ -28,16 +28,13 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `statusline-command.sh` + `scripts/statusline.js` | `~/.claude/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e uso do contexto. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `hooks/` | `~/.claude/hooks/` | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`, e roda lint/typecheck a cada edição. Leem tudo via **node** (não precisam de `jq`). |
 | `scripts/` | `~/.claude/scripts/` | Avisos no início da sessão (**branch atrás do remoto**, **worktree já mergeado**), limpeza de worktrees (`worktree-gc.sh`) e a barra de status. |
-| `skills/` | `~/.claude/skills/` | **17 skills** (busca de docs, revisão de segurança, deploy, n8n/WhatsApp, VPS, CRM, mais 7 de processo: grilling, verificação, orquestração, infra, worktrees). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
+| `skills/` | `~/.claude/skills/` | **9 skills** (busca de docs, revisão de segurança, deploy, mais 6 de processo: grilling, grill-me, grill-with-docs, verificação, orquestração, worktrees). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
 | `install.sh` | — | O instalador que coloca tudo no lugar e instala o dotcontext + ctx7. |
 
-Além disso o kit instala o **dotcontext** (`dotcontext`), que dá ao Claude uma
-**memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro
-do seu projeto e relê toda sessão (um hook injeta o índice no início de cada
-sessão = menos alucinação).
+Além disso o kit instala o **dotcontext** — que dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão (um hook injeta o índice no início de cada sessão = menos alucinação).
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -57,7 +54,6 @@ não faz nada.
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
-| **pipedrive-automation** | Modelos de automação de CRM Pipedrive (deals, pipeline, relatórios). | conta/API Pipedrive pra rodar de fato |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
@@ -67,32 +63,12 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **grilling** | Interroga um plano vago até fechar antes de codar. O Claude puxa ao sentir vagueza. | nenhum |
+| **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande. | nenhum |
 | **grill-me** | Gatilho manual do `/grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
 | **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
-| **vamoo-verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
-| **vamoo-infra** | COMOs de infra sem CLI interativo: env do Vercel, SQL Supabase, deploy bloqueado. | projeto Supabase/Vercel |
-| **vamoo-orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
-| **vamoo-worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
-
-### ⚙️ Exigem ligar um pré-requisito
-
-| Skill | Pra que serve | Pré-requisito |
-|---|---|---|
-| **n8n-workflow-agent** | Construir/debugar workflows n8n com agentes de WhatsApp (UAZAPI, Chatwoot, etc.). | instância n8n + API key, instância UAZAPI |
-| **notebooklm** | Consultar seus notebooks do Google NotebookLM com respostas citadas. | login Google (auth via browser, 1ª vez) |
-| **notebooklm-project-ops** | Criar/sincronizar um notebook NotebookLM a partir das docs do projeto. | CLI `nlm` ou MCP notebooklm + docs no projeto |
-| **agent-reporting** | Registra progresso das tarefas no TickTick automaticamente. | TickTick MCP configurado + token |
-| **vps-hardening-clientes** | Runbook anti-queda de VPS Docker Swarm + Traefik (bug Docker 27→29). | é referência/receita — aplica numa VPS com essa stack |
-| **ambientes-clientes** | Runbook de setup de ambiente de cliente (GitHub + Vercel + Supabase) sem custo de seat. | é referência — você segue o passo a passo |
-
-> As skills de WhatsApp/VPS/CRM vêm de casos reais de produção, **anonimizados**.
-> Os exemplos usam placeholders (`<agente>`, `Cliente A`, telefones fake) — troque
-> pelos seus dados ao aplicar.
->
-> A skill **notebooklm** é *vendorizada* (copiada de um projeto de terceiro, em
-> inglês — ver `skills/notebooklm/ATTRIBUTION.md`). Não edite os arquivos dela à
-> mão: pra atualizar, re-vendorize do upstream.
+| **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
+| **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
+| **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
 
 ---
 
@@ -128,8 +104,8 @@ adapte à vontade.
 ```bash
 claude mcp list        # deve aparecer "dotcontext ... ✓ Connected"
 ```
-Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver as
-skills do kit, incluindo `/grill-me` e `/grill-with-docs`. Pronto. 🎉
+Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver as skills
+do kit na lista. Pronto. 🎉
 
 ---
 

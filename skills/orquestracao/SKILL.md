@@ -1,5 +1,5 @@
 ---
-name: vamoo-orquestracao
+name: orquestracao
 description: >-
   Como dispatchar subagents e workflows resilientes a rate-limit no fluxo
   ondas vs. big-bang, .filter(Boolean), pipeline > parallel, scope
@@ -13,8 +13,7 @@ description: >-
 
 ## Quando fan-out
 
-- Subagents paralelos pra **>5 arquivos independentes**, usando os recursos de
-  orquestração disponíveis no harness.
+- Subagents paralelos pra **>5 arquivos independentes**.
 - Escolha de modelo: deixa o harness decidir por tarefa. Haiku via subagent
   explícito só pra lote mecânico real (ex: 20 renames).
 
@@ -39,4 +38,4 @@ description: >-
 
 ## Cleanup
 
-Worktree cleanup ao finalizar → skill `vamoo-worktrees`.
+Worktree cleanup ao finalizar → skill `worktrees`.
