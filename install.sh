@@ -14,6 +14,7 @@
 #
 set -euo pipefail
 
+KIT_VERSION="0.5.0"
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -66,7 +67,12 @@ if [ "$DRY_RUN" -eq 1 ]; then
   say "MODO DRY-RUN: nada será modificado. Ações que seriam executadas:"
 fi
 
-say "Instalando o Claude Starter Kit em: $CLAUDE_DIR"
+say "Instalando o Claude Starter Kit v$KIT_VERSION em: $CLAUDE_DIR"
+if [ -f "$MANIFEST" ]; then
+  PREV_VERSION="$(awk '/^kit /{print $2; exit}' "$MANIFEST" 2>/dev/null)"
+  [ -n "${PREV_VERSION:-}" ] && [ "$PREV_VERSION" != "$KIT_VERSION" ] && \
+    say "Atualizando de $PREV_VERSION → $KIT_VERSION (reinstalação completa: conserta hooks/skills antigos)"
+fi
 say "Backup do que já existir em:        $BACKUP_DIR"
 run mkdir -p "$CLAUDE_DIR"
 
@@ -89,27 +95,12 @@ ok "statusline instalada"
 # --- skills ---
 # Só mexe nas skills QUE VÊM DO KIT. Skills suas que não são do kit ficam intactas.
 run mkdir -p "$CLAUDE_DIR/skills"
-NEW_MANIFEST="kit $STAMP"$'\n'
+NEW_MANIFEST="kit $KIT_VERSION $STAMP"$'\n'
 for skill_dir in "$KIT_DIR/skills"/*/; do
   skill_name="$(basename "$skill_dir")"
   sync_dir "skills/$skill_name" "$skill_dir"
   NEW_MANIFEST+="skill/$skill_name"$'\n'
 done
-# Skill fantasma: estava no manifesto de uma instalação anterior, mas saiu do kit.
-if [ -f "$MANIFEST" ]; then
-  while IFS= read -r line; do
-    case "$line" in
-      skill/*)
-        old_skill="${line#skill/}"
-        if [ ! -d "$KIT_DIR/skills/$old_skill" ] && [ -d "$CLAUDE_DIR/skills/$old_skill" ]; then
-          backup "skills/$old_skill"
-          run rm -rf "$CLAUDE_DIR/skills/$old_skill"
-          warn "skill '$old_skill' saiu do kit — removi (cópia no backup)"
-        fi
-        ;;
-    esac
-  done < "$MANIFEST"
-fi
 ok "skills instaladas ($(ls -d "$KIT_DIR/skills"/*/ | wc -l | tr -d ' ') skills)"
 
 # --- slash commands (/revisar, /explicar) ---
@@ -146,15 +137,18 @@ for script_file in "$KIT_DIR/scripts"/*; do
 done
 ok "scripts instalados (avisos de branch/worktree + barra de status git/GitHub)"
 
-# --- settings.json (NÃO sobrescreve se já existir — deixa pra você mesclar) ---
+# --- settings.json (sobrescreve COM backup — reinstalação completa conserta o legado,
+#     ex: remove hook tsc antigo que travava cada edição. Sua versão anterior fica no
+#     backup; se você tinha permissions/env custom, reaplique a partir de lá) ---
 if [ -f "$CLAUDE_DIR/settings.json" ]; then
-  run cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.kit.json"
-  warn "Você já tem um settings.json. Não sobrescrevi."
-  warn "O modelo do kit foi salvo em settings.kit.json — compare e mescle à mão."
-else
-  run cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.json"
-  ok "settings.json instalado"
+  backup "settings.json"
+  warn "settings.json sobrescrito pelo do kit (sua versão anterior está no backup)."
+  warn "  Tinha permissions/env custom? Reaplique a partir de $BACKUP_DIR/settings.json"
 fi
+run cp "$KIT_DIR/settings.json" "$CLAUDE_DIR/settings.json"
+run rm -f "$CLAUDE_DIR/settings.kit.json"   # limpa resíduo de instaladores antigos
+ok "settings.json instalado"
+NEW_MANIFEST+="file/settings.json"$'\n'
 
 # node é essencial: a barra de status e os hooks (proteção de commit, avisos de branch/worktree,
 # lint/typecheck) rodam em node. Os hooks leem o JSON do Claude Code via node — não precisam de jq.
@@ -165,6 +159,27 @@ fi
 if ! command -v gh >/dev/null 2>&1; then
   warn "gh (GitHub CLI) não encontrado — a barra mostrará 'gh✗' e não verá PRs."
   warn "  Instale: https://cli.github.com   •   depois rode: gh auth login"
+fi
+
+# --- Fantasmas: itens que uma instalação anterior colocou mas saíram do kit ---
+# (skill/hook/script/command/file órfão → remove com backup. É isto que CONSERTA o
+#  legado numa reinstalação — ex: o hook typecheck.sh antigo some de quem já o tinha.)
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      skill/*)   rel="skills/${line#skill/}";     src="$KIT_DIR/skills/${line#skill/}" ;;
+      hook/*)    rel="hooks/${line#hook/}";        src="$KIT_DIR/hooks/${line#hook/}" ;;
+      script/*)  rel="scripts/${line#script/}";    src="$KIT_DIR/scripts/${line#script/}" ;;
+      command/*) rel="commands/${line#command/}";  src="$KIT_DIR/commands/${line#command/}" ;;
+      file/*)    rel="${line#file/}";              src="$KIT_DIR/${line#file/}" ;;
+      *) continue ;;
+    esac
+    if [ ! -e "$src" ] && [ -e "$CLAUDE_DIR/$rel" ]; then
+      backup "$rel"
+      run rm -rf "$CLAUDE_DIR/$rel"
+      warn "'$rel' saiu do kit — removi (cópia no backup)"
+    fi
+  done < "$MANIFEST"
 fi
 
 # --- manifesto (registra o que esta instalação colocou em ~/.claude) ---

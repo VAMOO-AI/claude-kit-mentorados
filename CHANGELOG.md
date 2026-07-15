@@ -4,6 +4,36 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [0.5.0] — 2026-07-15
+
+### Segurança / sanitização
+- **Removidas 8 skills internas/de-cliente** que não eram pedagógicas e expunham operação
+  interna: `agent-reporting`, `ambientes-clientes`, `n8n-workflow-agent`,
+  `pipedrive-automation`, `vamoo-infra`, `vps-hardening-clientes`, `notebooklm`,
+  `notebooklm-project-ops`. (Remover `n8n-workflow-agent` também tirou um identificador
+  real de projeto Supabase que aparecia num exemplo.)
+- Renomeadas `vamoo-{orquestracao,verificacao,worktrees}` → nomes neutros.
+
+### Performance
+- **Removido o hook `typecheck.sh`** (rodava `tsc --noEmit` do projeto inteiro a cada
+  edição — travava 12-20s). Fica só o `lint-fix.sh`; o type-check vira parte do check
+  final antes de "pronto".
+
+### Instalador — reinstalação que CONSERTA o legado
+- `install.sh` agora **sobrescreve o `settings.json`** (com backup) em vez de recusar —
+  assim quem tinha o hook tsc antigo o perde ao reinstalar. A versão anterior fica em
+  `backup-kit-<data>/settings.json` pra reaplicar customizações (permissions/env).
+- Mecanismo "fantasma" estendido a **hooks/scripts/comandos** (antes só skills): item
+  que saiu do kit é removido da sua instalação com backup — ex: o `typecheck.sh`.
+- **Versionamento**: o manifesto guarda a versão (`kit 0.5.0`) e o instalador avisa
+  "atualizando de X → Y".
+
+### Config
+- `CLAUDE-global.md` enxugado (v5): `grilling` aciona por **implementação grande** (não
+  vagueza); removidas as referências órfãs ao plugin `superpowers`; mantidos os modos
+  EXPLAIN/MENTOR (é pedagógico).
+- README/SECURITY/docs atualizados (17 → 9 skills).
+
 ## [0.4.0] — 2026-07-07
 
 ### Adicionado
