@@ -20,11 +20,7 @@ jobs:
         run: |
           bash -n install.sh
           bash -n statusline-command.sh
-          bash -n skills/agent-reporting/ticktick-task.sh
-          bash -n skills/vps-hardening-clientes/assets/fix-vps-hardening.sh
-
-      - name: Python da skill notebooklm compila
-        run: python3 -m py_compile skills/notebooklm/scripts/*.py
+          find hooks scripts skills -name '*.sh' -type f -print -exec bash -n {} \;
 
       - name: Instalador roda limpo em HOME temporário (com --dry-run antes)
         run: |
@@ -74,4 +70,9 @@ jobs:
           curl -sSfL -o /usr/local/bin/osv-scanner \
             https://github.com/google/osv-scanner/releases/download/v2.3.1/osv-scanner_linux_amd64
           chmod +x /usr/local/bin/osv-scanner
-          osv-scanner scan source -r .
+          code=0; osv-scanner scan source -r . || code=$?
+          # exit 128 = "No package sources found" — o kit é só markdown + shell, sem
+          # manifest de deps (package.json/requirements.txt). Nada a escanear = ok.
+          # Outros códigos (ex: 1 = vulnerabilidade encontrada) continuam falhando.
+          if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
+          exit "$code"

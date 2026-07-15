@@ -16,19 +16,16 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 
 | Situação | Skill |
 |---|---|
-| Plano vago / decisão em aberto / "me interroga" | `grilling` — o Claude puxa ao sentir vagueza; você dispara na mão com `/grill-me` |
+| Implementação GRANDE (vários sistemas / schema / algo irreversível) que vale fechar o plano antes de codar | `grilling` — o Claude aciona ao detectar; você dispara na mão com `/grill-me` |
 | Plano vago **e** o projeto tem pasta `.context/` | `grill-with-docs` (interroga ancorado na doc do projeto) |
-| Feature nova / corrigir bug | Regra TDD abaixo (teste que falha primeiro) |
-| Bug / comportamento estranho | Investigue causa raiz antes de propor correção |
-| Antes de dizer "pronto" | `verify` + `vamoo-verificacao` |
+| Feature nova / corrigir bug | TDD: escreva o teste que FALHA primeiro (regra abaixo) |
+| Bug / comportamento estranho | investigue a causa raiz e reproduza o bug antes de corrigir |
+| Antes de dizer "pronto" | `verify` + `verificacao` |
 | "deploy" / "manda pra prod" | `ship` |
-| Infra: SQL Supabase, env/deploy Vercel, deploy bloqueado | `vamoo-infra` |
 | Dúvida de doc / API / versão de lib | `find-docs` |
-| Mexer em vários arquivos independentes ao mesmo tempo | `vamoo-orquestracao` |
-| Vários terminais no mesmo projeto / worktree | `vamoo-worktrees` |
-| Automação n8n / Pipedrive | `n8n-workflow-agent` / `pipedrive-automation` |
+| Mexer em vários arquivos independentes ao mesmo tempo | `orquestracao` |
+| Vários terminais no mesmo projeto / worktree | `worktrees` |
 | Checar segurança do código (scan local) | `secscan` |
-| Servidor/VPS caiu | `vps-hardening-clientes` |
 
 ## Modos de operação (detecte e ajuste)
 - **EXECUTE** (default): tarefa pequena, fix, ajuste mecânico. Output curto, direto ao código. Se eu disser "sim/faz/manda" → executa, não repete o plano.
@@ -38,28 +35,28 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 ## Proteção de escopo (OBRIGATÓRIO)
 - Só modifique o que foi explicitamente pedido e combinado.
 - Fora do escopo? PEÇA AUTORIZAÇÃO antes de tocar.
-- Instrução vaga → carregue `grilling` (interroga até fechar) ou pergunte. Não assuma.
+- Instrução vaga → pergunte (uma pergunta objetiva). Não assuma. (Implementação grande e ainda em aberto → `grilling`.)
 - "sim", "faz", "manda" → execute. Não repita o plano.
 - Antes de mudança arriscada: ofereça um checkpoint ("quer que eu salve o estado antes?").
 - **Operações destrutivas exigem confirmação explícita** a cada vez (mesmo que a sessão já tenha autorizado algo parecido): apagar/sobrescrever arquivo existente, `DROP`/`ALTER TABLE`, `git push --force`, `reset --hard`, deletar branch compartilhada, mexer em credenciais. Autorizar uma não autoriza a próxima.
 
 ## Alvo confirmado antes de implementar (Target Lock)
-Antes de mexer em vários arquivos: confirme o alvo exato (qual rota / tabela / função) e uma frase de comportamento por arquivo. Liste os arquivos que vai tocar e espere meu "go". Ambiguidade real → carregue `grilling`.
+Antes de mexer em vários arquivos: confirme o alvo exato (qual rota / tabela / função) e uma frase de comportamento por arquivo. Liste os arquivos que vai tocar e espere meu "go". Ambiguidade real → pergunte.
 Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 
-## Verificação (PROIBIDO pular — casos detalhados na skill `vamoo-verificacao`)
+## Verificação (PROIBIDO pular — casos detalhados na skill `verificacao`)
 - Antes de dizer "pronto", rode o type-checker / linter do projeto (ex.: `npx tsc --noEmit`, `npx eslint .`). Sem ferramenta configurada → diga isso explicitamente.
 - **Verify, don't claim**: NUNCA diga "passou / limpo / funciona" sem colar o output REAL do comando na mesma resposta, rodado agora nesta sessão. Não conseguiu rodar (sandbox/permissão) → diga "não executado" + liste os comandos que faltam.
 - **"Pronto" é o caminho do usuário, não só o type-check.** Passar `tsc`/`eslint` não quer dizer "funciona". Antes de dizer pronto, **rode o app e faça o que o usuário faria**: clique o botão, envie o formulário, veja se salvou. Não deu pra rodar → diga "não testei na prática" + o passo manual que falta.
 - **Mexeu na tela** (componente / página / CSS)? Abra o app e **olhe** (print/screenshot). Type-check não pega layout quebrado, blur, nem botão que não faz nada ao clicar.
-- Fix em fluxo com ramos (if/else, texto vs áudio, feliz vs erro) → teste TODOS os ramos, não só um: consertar um pode quebrar o irmão. (Detalhes e exemplos em `vamoo-verificacao`.)
+- Fix em fluxo com ramos (if/else, texto vs áudio, feliz vs erro) → teste TODOS os ramos, não só um: consertar um pode quebrar o irmão. (Detalhes e exemplos em `verificacao`.)
 - Depois de um fix: explique a causa raiz e como evitar esse tipo de bug de novo. Releia o que mudou antes de reportar.
 
 ## TDD (test-driven) para feature e bugfix
 Mudando comportamento / feature nova / corrigindo bug: escreva o teste que FALHA primeiro, depois implemente até passar.
 Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 
-## Secrets e variáveis de ambiente (REGRA DE OURO — COMOs na skill `vamoo-infra`)
+## Secrets e variáveis de ambiente (REGRA DE OURO)
 - `.env` / `.env.local` NUNCA vai pro git. Devem estar no `.gitignore`. Se vazou: troque todas as chaves na hora.
 - `.env.example` SEMPRE commitado: lista as CHAVES sem os valores, documentando o que precisa pra rodar o projeto.
 - Nunca mande secrets por WhatsApp/email/cloud. Pegue os valores direto no painel do serviço (Supabase, Vercel, etc.).
@@ -77,7 +74,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
 - Trabalhe em branch (`feat/nome`, `fix/nome`), nunca direto na `main`. O kit instala um hook que **bloqueia `git commit` na `main`/`master`** pra te proteger desse erro clássico. Se algum dia precisar mesmo commitar na main de propósito, rode o comando com `HOTFIX_MAIN=1` na frente.
 - Antes de marcar como pronto: o type-checker e os testes passam (com output colado).
-- `git add` só nos arquivos que você mexeu (nunca `git add -A`/`.`). **Vários terminais no mesmo projeto** (staging e branch são compartilhados) → skill `vamoo-worktrees`.
+- `git add` só nos arquivos que você mexeu (nunca `git add -A`/`.`). **Vários terminais no mesmo projeto** (staging e branch são compartilhados) → skill `worktrees`.
 
 ## dotcontext (memória do projeto)
 - O MCP `dotcontext` está ativo (instalado pelo kit). Em projeto novo, na 1ª sessão: peça **"init the context"**.
@@ -85,4 +82,4 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - `.context/` é a fonte única de contexto — não duplique informação espalhada.
 
 ## Subagentes
-Regras de como sub-agentes devem se comportar estão em `~/.claude/agents.md`. Resumo: subagentes são read-only por padrão (exploração), Edit/Write acontece na conversa principal, e ninguém afirma "passou" sem rodar. Pra disparar vários em paralelo (>5 arquivos independentes) → skill `vamoo-orquestracao`.
+Regras de como sub-agentes devem se comportar estão em `~/.claude/agents.md`. Resumo: subagentes são read-only por padrão (exploração), Edit/Write acontece na conversa principal, e ninguém afirma "passou" sem rodar. Pra disparar vários em paralelo (>5 arquivos independentes) → skill `orquestracao`.

@@ -1,5 +1,5 @@
 ---
-name: vamoo-verificacao
+name: verificacao
 description: >-
   Casos de verificação end-to-end aprendidos em produção: testar TODOS
   os ramos de um fluxo, rodar TODOS os runners, pegar o erro REAL de prod antes

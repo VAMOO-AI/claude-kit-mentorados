@@ -1,5 +1,5 @@
 ---
-name: vamoo-worktrees
+name: worktrees
 description: >-
   Como trabalhar em paralelo no mesmo projeto sem uma sessão atrapalhar a
   outra: worktrees isolados, commit seguro quando várias abas compartilham o

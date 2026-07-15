@@ -10,22 +10,20 @@ não só pedidos soltos. Abaixo, os mecanismos que mais elevam o nível.
 
 ## 1. Skills: deixe o Claude seguir métodos, não improvisar
 
-Skills são "manuais" que o Claude carrega quando a tarefa casa. O kit mantém o
-fluxo deliberadamente simples:
+Skills são "manuais" que o Claude carrega sozinho quando a tarefa casa. O kit já traz
+skills de processo que trocam "improviso" por método:
 
-- **`grilling`** — detecta ambiguidade real e fecha as decisões antes do código.
-- **`grill-me`** — gatilho manual para questionar um plano quando você quiser.
-- **`grill-with-docs`** — faz o mesmo, ancorado no `.context/` do projeto.
-- **`vamoo-verificacao`** — detalha como verificar ramos, UI e integrações reais.
-- **`vamoo-orquestracao`** e **`vamoo-worktrees`** — paralelismo e isolamento.
+- **`grilling`** — interroga um plano grande até fechar antes de codar.
+- **`verificacao`** — como testar de verdade antes de dizer "pronto" (ramos, UI, runners, erro de prod).
+- **`orquestracao`** — divide trabalho independente entre vários subagentes em paralelo.
+- **`worktrees`** — isola trabalho em git worktrees quando há vários terminais no mesmo projeto.
+- **`find-docs`** / **`ship`** / **`secscan`** — busca doc oficial, release com gates, scan de segurança.
 
-TDD e investigação de causa raiz continuam obrigatórios pelas regras do
-`CLAUDE.md`; não dependem de um plugin que injeta workflow em toda tarefa.
+Você pode invocar de propósito: *"usa a skill verificacao antes de fechar"*.
 
 > **Crie as suas.** Quando você se pega repetindo a mesma instrução em toda sessão,
-> isso é uma skill esperando pra nascer. Peça: *"cria uma skill que faça X"* — o
-> Claude tem `skill-creator` e `writing-skills` pra isso. Skills ficam em
-> `~/.claude/skills/<nome>/SKILL.md` (global) ou `.claude/skills/` (do projeto).
+> isso é uma skill esperando pra nascer. Peça: *"cria uma skill que faça X"*. Skills
+> ficam em `~/.claude/skills/<nome>/SKILL.md` (global) ou `.claude/skills/` (do projeto).
 
 ---
 
@@ -49,7 +47,7 @@ Quando NÃO usar: tarefa pequena ou com dependência sequencial — o overhead n
 Worktree = uma cópia do repo em outra pasta, numa branch separada, sem mexer no seu
 diretório atual. Ótimo pra tocar uma feature arriscada sem poluir o working tree.
 
-Peça: *"cria um worktree pra essa feature"* (a skill `vamoo-worktrees` cuida).
+Peça: *"cria um worktree pra essa feature"* (a skill `worktrees` cuida).
 Ao terminar: faça merge/PR e limpe a worktree e a branch.
 
 ---
