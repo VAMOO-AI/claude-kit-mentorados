@@ -4,6 +4,23 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [0.5.1] — 2026-07-28
+
+### Ajustes pra família Claude 5 (Fable/Opus 5)
+- **`templates/CLAUDE-global.md`**: 2 regras novas — (1) pedido que parece errado/subótimo:
+  o Claude diz em 1 frase e segue como pedido, nunca transforma a tarefa silenciosamente;
+  (2) docs/relatórios gerados sem filler (sem seção boilerplate nem resumo redundante).
+  Os modelos da família 5 tendem a expandir escopo e inflar relatórios — o controle é por prompt.
+- **`commands/revisar.md`**: trocado "não invente problema pra parecer útil" por "reporte tudo
+  que encontrar, rankeado por severidade". Em modelo com precisão alta, a instrução conservadora
+  fazia subreportar bug real.
+- **`skills/orquestracao`**: freio anti-over-delegation (não delegar o que resolve em poucos
+  tool calls; sem subagent pra auto-conferência) + dica de `effort` por estágio em `agent()`.
+
+### Docs
+- **`docs/programacao-avancada-com-claude.md`**: link de leitura avançada pro repo
+  aipromptguide-workflows (workflows multi-agente + Workflow Principles).
+
 ## [0.5.0] — 2026-07-15
 
 ### Segurança / sanitização

@@ -40,6 +40,13 @@ Regras (estão no seu `~/.claude/agents.md`):
 Quando usar: *"investiga esses 5 módulos em paralelo e me traz um resumo de cada"*.
 Quando NÃO usar: tarefa pequena ou com dependência sequencial — o overhead não compensa.
 
+**Leitura avançada:** o repo [aipromptguide-workflows](https://github.com/Blakeem/aipromptguide-workflows)
+(MIT) traz workflows multi-agente prontos (debug, migração, decisão) e o melhor texto que conhecemos
+sobre **design de sistemas multi-agente**: [Workflow Principles](https://github.com/Blakeem/aipromptguide-workflows/blob/main/principles/WORKFLOW-PRINCIPLES.md)
+— por que conteúdo viaja por arquivo (não por paráfrase), como um revisor "cego" evita viés, e como
+loops de review convergem em vez de girar pra sempre. Pesado pra quem está começando; ouro quando
+você já orquestra sub-agentes.
+
 ---
 
 ## 3. Git worktrees: trabalho isolado sem trocar de branch

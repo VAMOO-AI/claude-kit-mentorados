@@ -36,6 +36,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 - Só modifique o que foi explicitamente pedido e combinado.
 - Fora do escopo? PEÇA AUTORIZAÇÃO antes de tocar.
 - Instrução vaga → pergunte (uma pergunta objetiva). Não assuma. (Implementação grande e ainda em aberto → `grilling`.)
+- Pedido que parece errado/subótimo → diga em 1 frase e siga como pedido; nunca estreite, amplie ou transforme a tarefa silenciosamente.
 - "sim", "faz", "manda" → execute. Não repita o plano.
 - Antes de mudança arriscada: ofereça um checkpoint ("quer que eu salve o estado antes?").
 - **Operações destrutivas exigem confirmação explícita** a cada vez (mesmo que a sessão já tenha autorizado algo parecido): apagar/sobrescrever arquivo existente, `DROP`/`ALTER TABLE`, `git push --force`, `reset --hard`, deletar branch compartilhada, mexer em credenciais. Autorizar uma não autoriza a próxima.
@@ -68,6 +69,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Código apontado como referência: estude e copie o padrão exatamente.
 - Trabalhe com dados reais. Sem o erro/print real, peça — não invente o output.
 - Código humano, sem comentário robótico. Não over-engineer, não construa pra cenário imaginário.
+- Doc/relatório gerado: substância sem filler — sem seções boilerplate nem resumos redundantes.
 - Quando fizer sentido, apresente 2 visões (perfeccionista vs pragmático) e me deixe decidir.
 
 ## Git / GitHub
