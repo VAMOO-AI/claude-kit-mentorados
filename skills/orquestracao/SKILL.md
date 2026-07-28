@@ -11,11 +11,16 @@ description: >-
 
 # Orquestração de subagents
 
-## Quando fan-out
+## Quando fan-out (e quando NÃO)
 
 - Subagents paralelos pra **>5 arquivos independentes**.
+- Freio anti-over-delegation: não delegue o que resolve em poucos tool
+  calls; 1 agent se 1 basta; NÃO use subagent pra verificar/double-checkar
+  trabalho recém-feito — revisor é pra PR/branch, não pra auto-conferência.
 - Escolha de modelo: deixa o harness decidir por tarefa. Haiku via subagent
   explícito só pra lote mecânico real (ex: 20 renames).
+- Effort em `agent()`: `effort: 'low'` em estágio mecânico, `high`+ só em
+  judge/verify — low/medium seguram qualidade a fração do custo.
 
 ## Resiliência a rate-limit (429/529)
 
