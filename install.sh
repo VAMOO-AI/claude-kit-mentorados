@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.5.1"
+KIT_VERSION="0.6.0"
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 STAMP="$(date +%Y%m%d-%H%M%S)"
