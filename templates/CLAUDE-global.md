@@ -25,6 +25,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 | Dúvida de doc / API / versão de lib | `find-docs` |
 | Mexer em vários arquivos independentes ao mesmo tempo | `orquestracao` |
 | Vários terminais no mesmo projeto / worktree | `worktrees` |
+| **Começar a mexer num projeto** (ainda mais se tem outra pessoa nele), "atualiza com o GitHub", Source Control desatualizado | `git-sync` |
 | Checar segurança do código (scan local) | `secscan` |
 
 ## Modos de operação (detecte e ajuste)

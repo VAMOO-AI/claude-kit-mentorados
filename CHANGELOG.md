@@ -4,6 +4,33 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [0.6.0] — 2026-08-06
+
+### Skill nova: `git-sync` (trabalhar no mesmo repo que outra pessoa)
+
+O Claude Code Desktop não mostra PR, nem branch remota nova, nem avisa que alguém
+mexeu nos mesmos arquivos que você. Duas pessoas no mesmo projeto descobrem o
+conflito tarde demais — na hora do PR. Essa skill fecha esse buraco.
+
+- **`skills/git-sync`** — `/git-sync` faz `fetch --prune` e atualiza o clone e os
+  worktrees **só por fast-forward** (nunca `pull` com merge, nunca `rebase`
+  automático, nunca `reset --hard`, nunca commita por você).
+- **Modo time, automático**: quando o repo tem 2+ autores na branch principal nos
+  últimos 30 dias, o relatório passa a mostrar o que o outro mudou, branches
+  remotas ativas, PRs abertos com autor/`mergeable`/review, PRs mergeados na
+  janela — e **risco de conflito**: os arquivos que mudaram na `main` e que você
+  também tocou. Force com `--team`, desligue com `--no-team`.
+- **Avisos acionáveis** (com o comando exato ao lado): branch atrás da `main`,
+  commits locais sem push, branch divergida porque os dois commitaram nela, e
+  branch local homônima de uma que já existe no GitHub.
+- **Protocolo de sessão** documentado na skill: rode ao abrir (antes de escrever
+  a primeira linha) e ao fechar (nada pode ficar sem push).
+- Roteamento novo em `templates/CLAUDE-global.md` — o Claude carrega a skill
+  sozinho quando você diz que vai começar a mexer no projeto.
+
+Opcional: `gh` instalado e autenticado (`gh auth login`). Sem ele tudo funciona,
+só não há visão de PR.
+
 ## [0.5.1] — 2026-07-28
 
 ### Ajustes pra família Claude 5 (Fable/Opus 5)
