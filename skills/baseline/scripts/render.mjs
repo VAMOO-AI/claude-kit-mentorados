@@ -38,7 +38,11 @@ const coverage = data.coverage ?? []
 const m = data.meta ?? {}
 const count = (s) => findings.filter((f) => f.severity === s).length
 const naoMedidos = coverage.filter((c) => c.status !== 'medido')
-const esc = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
+// A barra invertida é escapada PRIMEIRO: escapar '|' antes deixa um '\\|' do
+// input virar separador de coluna e quebrar a tabela. O texto vem de nome de
+// arquivo e mensagem de scanner — dado do repo auditado, não confiável.
+const esc = (s) =>
+  String(s ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ')
 
 const L = []
 L.push(`# Baseline — ${m.project ?? 'projeto'}`, '')
