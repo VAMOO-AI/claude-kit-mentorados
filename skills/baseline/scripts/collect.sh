@@ -235,7 +235,13 @@ fi
 
 # ─────────────────────────────────────────── 03 · auth
 if want 03; then
-  fo="$(grep -rnE '\?\?\s*(ALL_|Object\.values)' src/ 2>/dev/null | grep -iE 'role|module|permission|access' | only_scope | head -10)"
+  # Descarta linha de comentário: um comentário que EXPLICA o antipadrão
+  # ("o fail-open anterior era `?? ALL_MODULES`") reabria o achado depois de
+  # corrigido — e finding que não fecha quando o bug fecha treina a ignorar o gate.
+  fo="$(grep -rnE '\?\?\s*(ALL_|Object\.values)' src/ 2>/dev/null \
+      | grep -iE 'role|module|permission|access' \
+      | grep -vE ':[[:space:]]*(//|\*|/\*)' \
+      | only_scope | head -10)"
   if [ -n "$fo" ]; then
     while IFS= read -r line; do
       [ -n "$line" ] || continue
@@ -258,7 +264,9 @@ if want 04; then
       [ -f "$d/index.ts" ] || continue
       if [ $DIFF_MODE -eq 1 ]; then grep -q "^$d" "$SCOPE_FILE" 2>/dev/null || continue; fi
       total_fn=$((total_fn+1))
-      grep -qE 'headers\.get\(|verifySecret|secretMatches|timingSafeEqual|auth\.getUser|verifyCronSecret' "$d/index.ts" 2>/dev/null \
+      # requireAuth/assertAuth vêm de _shared e são o padrão mais comum de guard —
+      # sem eles na lista, função corretamente protegida vira finding HIGH.
+      grep -qE 'headers\.get\(|verifySecret|secretMatches|timingSafeEqual|auth\.getUser|verifyCronSecret|requireAuth|assertAuth|requireUser' "$d/index.ts" 2>/dev/null \
         || sem_auth="$sem_auth $n"
     done
     if [ -n "$sem_auth" ]; then
