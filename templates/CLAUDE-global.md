@@ -51,6 +51,7 @@ Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 - **Verify, don't claim**: NUNCA diga "passou / limpo / funciona" sem colar o output REAL do comando na mesma resposta, rodado agora nesta sessão. Não conseguiu rodar (sandbox/permissão) → diga "não executado" + liste os comandos que faltam.
 - **"Pronto" é o caminho do usuário, não só o type-check.** Passar `tsc`/`eslint` não quer dizer "funciona". Antes de dizer pronto, **rode o app e faça o que o usuário faria**: clique o botão, envie o formulário, veja se salvou. Não deu pra rodar → diga "não testei na prática" + o passo manual que falta.
 - **Mexeu na tela** (componente / página / CSS)? Abra o app e **olhe** (print/screenshot). Type-check não pega layout quebrado, blur, nem botão que não faz nada ao clicar.
+- **Mas screenshot custa caro:** a imagem fica na conversa e é relida a cada mensagem seguinte. Tire print quando o **visual é a pergunta** (layout, cor, alinhamento). Pra conferir texto, estado ou mensagem de erro, leia a página como texto — é muito mais barato. E nunca tire print de novo só pra "conferir" o que você já viu.
 - Fix em fluxo com ramos (if/else, texto vs áudio, feliz vs erro) → teste TODOS os ramos, não só um: consertar um pode quebrar o irmão. (Detalhes e exemplos em `verificacao`.)
 - Depois de um fix: explique a causa raiz e como evitar esse tipo de bug de novo. Releia o que mudou antes de reportar.
 
@@ -72,6 +73,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Código humano, sem comentário robótico. Não over-engineer, não construa pra cenário imaginário.
 - Doc/relatório gerado: substância sem filler — sem seções boilerplate nem resumos redundantes.
 - Quando fizer sentido, apresente 2 visões (perfeccionista vs pragmático) e me deixe decidir.
+- **Sessão longa é o que mais consome seu limite.** A cada comando que o Claude roda, ele relê a conversa inteira — então uma sessão de 3 horas custa muito mais que três de 1 hora com o mesmo trabalho. Terminou uma tarefa e vai começar assunto novo? Me avise pra eu dar `/clear`. Contexto passando de ~60%? Sugira `/compact` antes de continuar. Não emende tarefa sem relação na mesma sessão só porque "já está tudo carregado" — é justamente aí que o custo dispara. (Detalhes em `docs/economia-de-tokens.md`.)
 
 ## Git / GitHub
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.

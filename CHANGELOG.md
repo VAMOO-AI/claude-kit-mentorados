@@ -31,6 +31,13 @@ Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 
 ### Alterado
 
+- `templates/CLAUDE-global.md` ganha duas regras de custo que valem no dia a dia:
+  **screenshot fica na conversa e é relido a cada mensagem seguinte** (tire print
+  quando o visual é a pergunta; pra conferir texto ou erro, leia a página como
+  texto) e **sessão longa é o que mais consome seu limite** — a cada comando o
+  Claude relê a conversa inteira, então três sessões de 1h custam bem menos que
+  uma de 3h com o mesmo trabalho. Terminou a tarefa, assunto novo → `/clear`.
+
 - `docs/seguranca.md` passa de 5 para 7 furos comuns: entram **falta de limite de uso**
   (endpoint que chama IA sem `max_tokens` nem cota vira conta impagável) e **"secret" que
   não é secret** (`VITE_`/`NEXT_PUBLIC_` vai pro bundle). Ganha também a seção de ordem —
