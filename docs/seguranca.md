@@ -1,6 +1,6 @@
 # Segurança no básico (o que iniciante mais esquece)
 
-Quem está aprendendo costuma shipar os mesmos furos. Os 5 que mais aparecem em projeto
+Quem está aprendendo costuma shipar os mesmos furos. Os 7 que mais aparecem em projeto
 React/Next + Supabase:
 
 1. **RLS (Row Level Security) desligada** numa tabela → qualquer um com a chave `anon` lê/escreve
@@ -11,6 +11,25 @@ React/Next + Supabase:
    server action, Edge Function). Nunca num componente client / `NEXT_PUBLIC_*`.
 4. **Regra de BaaS pública.** `allow read, write: if true` no Firebase/Storage = porta aberta. Restrinja.
 5. **Dependência vulnerável.** Rode `npm audit` de vez em quando e atualize o que tem CVE conhecido.
+6. **Nenhum limite de uso.** Endpoint que chama IA, envia e-mail ou WhatsApp **sem teto por
+   usuário** vira conta impagável no dia em que um login vazar — e ninguém desconfia, porque
+   o tráfego está autenticado. Em chamada de IA, `max_tokens` é obrigatório: sem ele a
+   resposta pode crescer sem limite. E `max_tokens` sozinho não basta — mil chamadas de
+   1.500 tokens custam o mesmo que uma de 1,5 milhão. Precisa dos dois: teto por chamada e
+   cota por usuário.
+7. **"Secret" que não é secret.** Variável com prefixo `VITE_` ou `NEXT_PUBLIC_` **vai pro
+   bundle** — qualquer visitante lê. Um `VITE_WEBHOOK_SECRET` que "protege" seu webhook não
+   protege nada. Se o valor autentica alguma coisa, ele fica do lado do servidor, ponto.
+
+## Ordem importa: duas armadilhas de sequência
+
+Duas coisas quebram não por estarem erradas, mas por entrarem na ordem errada:
+
+- **`drop: ['console']` antes de ter error tracking** apaga o único rastro que você teria
+  em produção. Ver [`observabilidade.md`](observabilidade.md) — é a armadilha mais cara
+  desta lista, porque o sintoma é *não ter sintoma*.
+- **Criar tabela antes da policy** deixa uma janela em que ela nasce aberta (ou fechada
+  para todo mundo, e você descobre em produção). Os dois statements andam no mesmo PR.
 
 ## Revisão automática: a skill `secscan` (já vem no kit)
 
@@ -38,6 +57,23 @@ Por que é seguro de usar:
 
 **Como usar (depois de instalar como skill global do agente):** peça *"faça uma revisão de segurança"* /
 *"roda um security review"*. O agente roda a skill e te entrega o relatório com o que arrumar, em ordem de prioridade.
+
+## Está pronto pra produção? A skill `baseline`
+
+`secscan` responde *"tem vulnerabilidade no meu código?"*. A skill **`baseline`** responde
+uma pergunta diferente: *"este app está apto a ir pro ar?"* — e cobre sete frentes: bundle
+e secrets, RLS, login e permissão, limites de uso, carga e cache, observabilidade, e
+gestão de segredos.
+
+Ela funciona em dois modos: **construir** (app novo já nasce certo) e **auditar** (app que
+já está no ar). Peça *"roda o baseline"* ou *"esse app está pronto pra prod?"*.
+
+Duas ideias dela que valem pra qualquer auditoria que você fizer na vida:
+
+- **"Não medido" nunca vira "está ok".** Se faltou ferramenta ou acesso, o relatório diz
+  isso em vez de fingir cobertura.
+- **Relatório vazio parece aprovação** — por isso, quando não consegue medir nada, ela
+  falha de propósito em vez de entregar um relatório limpo.
 
 ## No CI
 

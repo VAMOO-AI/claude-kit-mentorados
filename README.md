@@ -31,6 +31,7 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 | `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, sincronia com o GitHub, mais 6 de processo: grilling, grill-me, grill-with-docs, verificação, orquestração, worktrees). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
 | `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
+| `docs/observabilidade.md` | — | **Como você descobre que quebrou?** A armadilha de apagar o próprio rastro no build, error tracking, sourcemap e alerta que não morre junto com o app. |
 | `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
 | `install.sh` | — | O instalador que coloca tudo no lugar e instala o dotcontext + ctx7. |
 
@@ -53,6 +54,8 @@ não faz nada.
 |---|---|---|
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
+| **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
+| **handoff** | `/handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/git-sync`. | `gh` instalado e autenticado (opcional — sem ele, só perde a visão de PR) |
 
@@ -130,17 +133,20 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 **Iniciante — leia primeiro:**
 1. [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md) — o método.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
-3. [`docs/seguranca.md`](docs/seguranca.md) — os 5 furos que iniciante esquece (RLS, secrets, deps) + revisão automática.
+3. [`docs/seguranca.md`](docs/seguranca.md) — os 7 furos que iniciante esquece (RLS, secrets, deps, limite de uso, secret que não é secret) + revisão automática.
 4. [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md) — por que seu limite acaba tão rápido e os 4 hábitos que fazem ele render (spoiler: sessão longa custa juros compostos).
 5. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
-1. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
-2. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
-2. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
-3. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
-4. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
-5. [`templates/CLAUDE-projeto.md.exemplo`](templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
+1. [`docs/observabilidade.md`](docs/observabilidade.md) — *"como você descobre que quebrou?"*. Se a resposta é "tento reproduzir", leia antes de colocar qualquer coisa no ar.
+2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
+3. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
+4. Skill **`baseline`** — *"está pronto pra produção?"* nas 7 frentes. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
+5. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
+6. Skill **`/handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
+7. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
+8. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
+9. [`templates/CLAUDE-projeto.md.exemplo`](templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
 
 ---
 

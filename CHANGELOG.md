@@ -4,6 +4,37 @@ Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepac
 Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
 `bash install.sh` de novo (ele faz backup de tudo antes).
 
+## [Não lançado] — 2026-08-23
+
+### Adicionado
+
+- **Skill `baseline`** — responde *"este app está pronto pra produção?"* em 7 frentes:
+  bundle e secrets, RLS, login e permissão, limites de uso, carga e cache,
+  observabilidade e gestão de segredos. Dois modos: construir (app novo nasce certo) e
+  auditar (app que já está no ar). Traz scripts que **medem** — `doctor` (o que dá pra
+  medir), `collect` (mede sem julgar), `render` (relatório com cobertura declarada) e
+  `splinter` (os 21 lints de segurança do Supabase, rodados como consulta, sem alterar
+  nada no banco).
+
+  A regra que vale levar pra qualquer auditoria: **"não medido" nunca vira "está ok"**, e
+  quando não consegue medir nada ela **falha de propósito** — relatório vazio parece
+  aprovação, e é o pior resultado possível.
+
+- **Skill `handoff`** — `/handoff` monta o documento de passagem com template fixo e
+  âncora de git. A regra que dá valor ao documento: marcar cada afirmação como
+  `[verificado: <comando>]` ou `[acreditado]`. Quem assume trata o handoff como contrato
+  e não re-confere; crença escrita como fato vira premissa falsa pra tudo depois.
+
+- **`docs/observabilidade.md`** — *"como você descobre que quebrou?"*. Começa pela
+  armadilha de ligar `drop: ['console']` antes de ter error tracking, que apaga o único
+  rastro que você teria em produção.
+
+### Alterado
+
+- `docs/seguranca.md` passa de 5 para 7 furos comuns: entram **falta de limite de uso**
+  (endpoint que chama IA sem `max_tokens` nem cota vira conta impagável) e **"secret" que
+  não é secret** (`VITE_`/`NEXT_PUBLIC_` vai pro bundle). Ganha também a seção de ordem —
+  as duas armadilhas onde o problema não é o quê, é o quando.
 ## [0.6.0] — 2026-08-06
 
 ### Skill nova: `git-sync` (trabalhar no mesmo repo que outra pessoa)
