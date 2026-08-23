@@ -38,7 +38,13 @@ jobs:
           missing = []
           for md in pathlib.Path('.').rglob('*.md'):
               if '.git/' in str(md): continue
-              for target in re.findall(r'\]\(([^)]+)\)', md.read_text(encoding='utf-8', errors='ignore')):
+              texto = md.read_text(encoding='utf-8', errors='ignore')
+              # Bloco de código não contém link. Sem tirar, qualquer JS com
+              # `algo[i](...)` — p.ex. console[level](JSON.stringify(...)) — casa
+              # com o padrão de link e reprova o PR por engano.
+              texto = re.sub(r'```.*?```', '', texto, flags=re.S)
+              texto = re.sub(r'`[^`\n]*`', '', texto)
+              for target in re.findall(r'\]\(([^)]+)\)', texto):
                   target = target.split('#')[0].strip()
                   if not target or target.startswith(('http://', 'https://', 'mailto:', '<')): continue
                   if not (md.parent / target).exists():
