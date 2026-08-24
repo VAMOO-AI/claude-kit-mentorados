@@ -4,3 +4,7 @@
 *.bak-*
 .DS_Store
 settings.kit.json
+
+# worktrees locais de agente (estado da máquina, nunca versionado)
+.Codex/
+.claude/worktrees/
