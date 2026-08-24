@@ -95,7 +95,7 @@ Além do `init the context`, em projetos grandes:
 
 ## 7. CI: trave a qualidade no PR
 
-Use o template em [`templates/ci.yml`](../templates/ci.yml): roda typecheck + lint + test
+Use o template em [`plugin/templates/ci.yml`](../plugin/templates/ci.yml): roda typecheck + lint + test
 em todo PR. Branch só entra na `main` com o verde. É a versão "time" do verify-don't-claim.
 
 ---

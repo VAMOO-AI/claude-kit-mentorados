@@ -1,0 +1,15 @@
+{
+  "name": "vamoo-ai",
+  "description": "Kit de configuração do Claude Code da mentoria VAMOO AI — as regras, skills e guard-rails que eu uso em projetos reais.",
+  "owner": {
+    "name": "Ruan Miranda",
+    "url": "https://instagram.com/ruanvamoo.ai"
+  },
+  "plugins": [
+    {
+      "name": "kit-vamoo",
+      "source": "./plugin",
+      "description": "Regras, skills e guard-rails de Claude Code. Depois de instalar, rode /kit-vamoo:setup para o que o plugin não consegue instalar sozinho (CLAUDE.md, barra de status, preferências)."
+    }
+  ]
+}

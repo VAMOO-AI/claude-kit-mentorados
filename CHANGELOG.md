@@ -1,10 +1,88 @@
 # Changelog
 
 Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/).
-Mentorado: compare a versão daqui com a que você instalou — se mudou, rode
-`bash install.sh` de novo (ele faz backup de tudo antes).
+Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
+Se a mudança tocar a barra de status ou as preferências, rode também
+`/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [Não lançado] — 2026-08-23
+## [0.7.0] — 2026-08-24
+
+### Instalar deixou de precisar de terminal
+
+O kit virou um **plugin do Claude Code**. Instalar agora são três coisas
+digitadas dentro do próprio Claude Code — sem clonar repo, sem rodar script, sem
+`claude mcp add`:
+
+```
+/plugin marketplace add VAMOO-AI/claude-kit-mentorados
+/plugin install kit-vamoo@vamoo-ai
+/kit-vamoo:setup
+```
+
+O terceiro passo existe por um limite técnico, não por preguiça: o
+`settings.json` de um plugin só aceita as chaves `agent` e `subagentStatusLine`,
+então CLAUDE.md global, barra de status, idioma e permissões **não cabem num
+plugin**. A skill `setup` instala essa parte e ainda ajuda a preencher o
+CLAUDE.md com os seus dados, na conversa.
+
+O `install.sh` continua, agora como caminho alternativo — ele faz exatamente os
+mesmos três passos a partir de um clone local (útil sem rede, ou numa aula).
+
+### Adicionado
+
+- **Skill `memoria-projeto`** — tira a memória do projeto da sua máquina e põe
+  dentro do repositório, em `.context/memoria/`. O Claude Code guarda o que
+  aprende em `~/.claude/projects/<slug>/memory`, que é local: troca de
+  computador e some, e quem mais trabalha no projeto nunca vê. A skill cria a
+  pasta versionada, liga o diretório do harness nela e migra o que estava preso
+  na máquina.
+
+  O gate que vale a pena entender: ela **recusa** a adoção se achar credencial
+  escrita na memória. Versionar memória é distribuí-la — adotar por cima de uma
+  API key commita essa chave no repositório, e não tem desfazer: quem clonar
+  depois leva junto, e o histórico guarda mesmo que você apague no commit
+  seguinte.
+
+- **Skill `setup`** (`/kit-vamoo:setup`) — instala CLAUDE.md, barra de status e
+  preferências, e conduz o preenchimento do CLAUDE.md.
+
+- **Skill `diretor-imagem`** — já estava no repositório desde sempre, como um
+  arquivo solto em `skills/`, e por isso **nunca foi instalada em ninguém**: o
+  instalador só varria subdiretórios. Virou skill de verdade.
+
+### Corrigido
+
+- **O `settings.json` agora é MESCLADO, não sobrescrito.** O README prometia
+  isso desde a primeira versão; o `install.sh` fazia o contrário — sobrescrevia
+  com um aviso fácil de não ver, e quem tinha `permissions` ou `env` próprios
+  perdia tudo. Agora as suas chaves ganham e a lista `allow` vira a união das
+  duas.
+
+- **O `CLAUDE.md` que já existe não é mais sobrescrito.** O modelo do kit fica em
+  `~/.claude/CLAUDE.kit.md` pra comparar; trocar exige `--force`.
+
+- **O som de "terminou" não quebra mais fora do macOS.** O hook checa se o
+  `afplay` existe antes de chamar — no Windows/Git Bash ele simplesmente não faz
+  nada, em vez de falhar a cada turno.
+
+- **Os guard-rails de git funcionam rodando do plugin.** Eles procuravam o
+  helper em `~/.claude/scripts/hookjson.js` e falham em aberto quando não acham
+  — instalado por plugin, isso significaria proteção contra commit na `main`
+  desligada em silêncio. Agora resolvem ao lado do próprio script.
+
+- **README dizia "10 skills"** quando eram 12 (hoje são 15).
+
+### Alterado
+
+- A barra de status mostra o contexto em **número absoluto**, não em % da janela.
+  Numa janela de 1M, 500k pinta "50%" e parece saudável — quando é meio milhão
+  de tokens sendo relidos a cada comando. Verde até 150k, amarelo até 300k.
+
+- Reorganização: skills, comandos, hooks, scripts e templates passaram pra
+  `plugin/`. O `marketplace.json` fica em `.claude-plugin/` na raiz. Fonte única
+  — não existe mais uma cópia no repositório e outra em `~/.claude` divergindo.
+
+## [0.6.1] — 2026-08-23
 
 ### Adicionado
 

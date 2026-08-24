@@ -110,15 +110,17 @@ if (branch) {
   }
 }
 
-// contexto (mesma lógica da statusline base)
+// Contexto em número ABSOLUTO, não em % da janela.
+// Numa janela de 1M, 500k de contexto pinta "50%" e parece saudável — quando na
+// verdade é meio milhão de tokens sendo relidos a cada comando. O que dói é o
+// valor absoluto: é ele que multiplica por request numa sessão longa.
+// Passou de 150k, considere /clear ou /compact.
 let ctxSeg = '';
 const usage = (input.context_window && input.context_window.current_usage) || {};
-const windowSize = (input.context_window && input.context_window.context_window_size) || 0;
 const totalInput = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
-if (totalInput > 0 && windowSize > 0) {
-  const pct = Math.round((totalInput * 100) / windowSize);
-  const col = pct < 50 ? C.green : pct < 80 ? C.yellow : C.red;
-  ctxSeg = ` ${C.dim}·${C.reset} ${col}ctx:${Math.round(totalInput / 1000)}k/${Math.round(windowSize / 1000)}k (${pct}%)${C.reset}`;
+if (totalInput > 0) {
+  const col = totalInput < 150_000 ? C.green : totalInput < 300_000 ? C.yellow : C.red;
+  ctxSeg = ` ${C.dim}·${C.reset} ${col}ctx:${Math.round(totalInput / 1000)}k${C.reset}`;
 }
 
 process.stdout.write(`${C.cyan}${currentDir}${C.reset}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}`);

@@ -3,7 +3,10 @@
 # Mecaniza a regra "ops destrutivas exigem confirmação" — que como prosa pode ser
 # ignorada no meio de um fluxo. Cobre só os IRREVERSÍVEIS de dado (não atrapalha o dia a dia).
 # Lê o JSON via node (sem jq). Fail-open: sem node / sem match => não interfere.
-H="$HOME/.claude/scripts/hookjson.js"
+# Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
+# se não achar, cai pro ~/.claude de quem instalou pelo install.sh.
+H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
+[ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 c="$(cat | node "$H" tool_input.command)"

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # PostToolUse(Edit|Write): roda `eslint --fix` no arquivo salvo, se for JS/TS.
 # Silencioso e best-effort — nunca falha o hook. Lê o caminho via node (sem jq).
-H="$HOME/.claude/scripts/hookjson.js"
+# Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
+# se não achar, cai pro ~/.claude de quem instalou pelo install.sh.
+H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
+[ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 f="$(cat | node "$H" tool_input.file_path)"
