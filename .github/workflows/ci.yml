@@ -66,8 +66,10 @@ jobs:
         run: |
           repo="$(mktemp -d)"; cd "$repo"; git init -q -b main
           git config user.email ci@ci; git config user.name ci
+          # o hook manda a mensagem de bloqueio pra stderr — sem o 2>&1 o
+          # $( ) volta vazio e o teste reprova um hook que funcionou.
           out="$(printf '{"tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$repo" \
-                 | bash "$GITHUB_WORKSPACE/plugin/hooks/block-main-commit.sh" || true)"
+                 | bash "$GITHUB_WORKSPACE/plugin/hooks/block-main-commit.sh" 2>&1 || true)"
           echo "$out" | grep -q BLOQUEADO
           printf '{"tool_input":{"command":"git push --force origin main"}}' \
             | bash "$GITHUB_WORKSPACE/plugin/hooks/check-careful.sh" | grep -q '"ask"'
