@@ -119,4 +119,4 @@ Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de auto
 
 Esta skill é leve e read-only, ótima pra aprender e pegar o grosso. Pra uma suíte completa de SAST
 (mais ferramentas tipo Trivy pra IaC, baseline pra CI travar só em achado NOVO, provisão verificada
-de binários), veja o **csreview** em [`docs/seguranca.md`](../../docs/seguranca.md).
+de binários), veja o **csreview** em [`docs/seguranca.md`](https://github.com/VAMOO-AI/claude-kit-mentorados/blob/main/docs/seguranca.md).

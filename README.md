@@ -20,22 +20,30 @@ E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 
 ## O que vem no kit
 
-| Arquivo | Vai pra onde | Pra que serve |
-|---|---|---|
-| `templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. (Fica em `templates/` pra não ser carregado como config de quem abre uma sessão dentro do clone do kit.) |
-| `AGENTS.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
-| `settings.json` | `~/.claude/settings.json` | **Atalhos e automações**: idioma PT, lint/typecheck automático a cada edição, som ao terminar. É uma config **produtiva** (libera `npm run`, `npm test`, git read-only sem perguntar) — se preferir aprovar tudo, apague entradas da lista `allow`. |
-| `statusline-command.sh` + `scripts/statusline.js` | `~/.claude/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e uso do contexto. Resolve a cegueira do Desktop, que não mostra nada disso. |
-| `hooks/` | `~/.claude/hooks/` | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`, e roda lint/typecheck a cada edição. Leem tudo via **node** (não precisam de `jq`). |
-| `scripts/` | `~/.claude/scripts/` | Avisos no início da sessão (**branch atrás do remoto**, **worktree já mergeado**), limpeza de worktrees (`worktree-gc.sh`) e a barra de status. |
-| `skills/` | `~/.claude/skills/` | **10 skills** (busca de docs, revisão de segurança, deploy, sincronia com o GitHub, mais 6 de processo: grilling, grill-me, grill-with-docs, verificação, orquestração, worktrees). Ver a seção [Skills incluídas](#skills-incluídas) abaixo. |
-| `commands/` | `~/.claude/commands/` | Atalhos: `/revisar` (revisa seu diff) e `/explicar` (explica um código de forma didática). |
-| `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
-| `docs/observabilidade.md` | — | **Como você descobre que quebrou?** A armadilha de apagar o próprio rastro no build, error tracking, sourcemap e alerta que não morre junto com o app. |
-| `templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI, e **`playwright/`** (testes e2e). |
-| `install.sh` | — | O instalador que coloca tudo no lugar e instala o dotcontext + ctx7. |
+O kit é um **plugin do Claude Code** (`plugin/`) mais um pequeno setup que roda
+depois. A divisão não é estética: o `settings.json` de um plugin só aceita as
+chaves `agent` e `subagentStatusLine`, então CLAUDE.md global, barra de status,
+idioma e permissões **não cabem num plugin** — quem instala isso é o
+`/kit-vamoo:setup`.
 
-Além disso o kit instala o **dotcontext** — que dá ao Claude uma **memória do projeto**. Ele guarda documentação e contexto em `.context/` dentro do seu projeto e relê toda sessão (um hook injeta o índice no início de cada sessão = menos alucinação).
+| O que | Vai pra onde | Pra que serve |
+|---|---|---|
+| `plugin/skills/` | plugin | **15 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff) e `/kit-vamoo:explicar` (explica um código de forma didática). |
+| `plugin/hooks/` | plugin | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`, roda lint a cada edição, e avisa no início da sessão quando sua branch está atrás do remoto. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
+| `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
+| `plugin/templates/agents.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
+| `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (`npm run`, `npm test`, git read-only). É **mesclado** com o que você já tem — nada seu é perdido. |
+| `plugin/scripts/statusline.js` | `~/.claude/scripts/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e o contexto **em número absoluto**. Resolve a cegueira do Desktop, que não mostra nada disso. |
+| `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
+| `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
+| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
+| `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
+
+> **Custo de contexto:** o plugin adiciona ~3,1k tokens a cada sessão (as
+> descrições das skills, que é como o Claude sabe quando usar cada uma). Skill
+> que você não usa pode ser desligada em `/plugin`.
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -43,10 +51,12 @@ Além disso o kit instala o **dotcontext** — que dá ao Claude uma **memória 
 
 ## Skills incluídas
 
-O instalador copia todas as skills abaixo. Algumas funcionam de cara; outras só
-fazem efeito depois que você liga um pré-requisito (uma API, um MCP, uma conta).
-Sem o pré-requisito a skill simplesmente **não dispara** — não quebra nada, só
-não faz nada.
+São 15. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
+**não dispara**, não quebra nada.
+
+A maior parte o Claude aciona sozinho, pela situação. As que você chama na mão
+levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 
 ### ✅ Prontas pra usar (sem setup extra)
 
@@ -55,61 +65,94 @@ não faz nada.
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
-| **handoff** | `/handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
+| **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
-| **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/git-sync`. | `gh` instalado e autenticado (opcional — sem ele, só perde a visão de PR) |
+| **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. | projeto em git |
+| **setup** | `/kit-vamoo:setup` — instala o que o plugin não consegue (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o CLAUDE.md. Rode uma vez, depois de instalar. | nenhum |
+| **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, só perde a visão de PR) |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
 Estas são as skills que o CLAUDE.md roteia por situação (ver a tabela de
-roteamento no topo do `templates/CLAUDE-global.md`). Guardam o passo-a-passo
+roteamento no topo do `plugin/templates/CLAUDE-global.md`). Guardam o passo-a-passo
 que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande. | nenhum |
-| **grill-me** | Gatilho manual do `/grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
+| **grill-me** | Gatilho manual do `/kit-vamoo:grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
 | **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
 | **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
 | **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
 
+### 🎨 Bônus
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~27k tokens quando dispara, então desligue em `/plugin` se não for usar. | conta no gerador |
+
 ---
 
-## Instalação (passo a passo)
+## Instalação (sem terminal)
 
-### 1. Baixe o kit
+Três coisas digitadas **dentro do Claude Code**. Não precisa clonar nada, nem
+abrir terminal, nem instalar MCP à mão.
+
+```
+/plugin marketplace add VAMOO-AI/claude-kit-mentorados
+/plugin install kit-vamoo@vamoo-ai
+/kit-vamoo:setup
+```
+
+O que cada uma faz:
+
+1. **`marketplace add`** — diz ao Claude Code onde este kit mora.
+2. **`install`** — instala skills, comandos, guard-rails de git e o MCP
+   dotcontext. Se ele pedir, rode `/reload-plugins`.
+3. **`/kit-vamoo:setup`** — instala o que um plugin não consegue declarar
+   (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o
+   CLAUDE.md com os seus dados, ali na conversa mesmo.
+
+Depois **reinicie o Claude Code** — a barra de status só aparece no próximo
+start.
+
+### Duas garantias, porque instalador que apaga config é traumático
+
+- **Seu `CLAUDE.md` não é sobrescrito.** Se você já tem um, o modelo do kit fica
+  em `~/.claude/CLAUDE.kit.md` pra comparar. Trocar pelo do kit é uma escolha
+  sua, explícita.
+- **Seu `settings.json` é mesclado, não substituído.** Suas chaves ganham; a
+  lista de permissões vira a união das duas. E tudo que é tocado ganha cópia em
+  `~/.claude/backup-kit-<data>/` antes.
+
+### Pelo terminal (alternativa)
+
 ```bash
 git clone https://github.com/VAMOO-AI/claude-kit-mentorados.git claude-starter-kit
 cd claude-starter-kit
+bash install.sh            # ou --dry-run pra ver o que ele faria
 ```
 
-### 2. Rode o instalador
-```bash
-bash install.sh
-```
-Ele copia os arquivos pro seu `~/.claude` e instala o MCP dotcontext. Antes de
-sobrescrever qualquer coisa (CLAUDE.md, agents.md, statusline, skills, comandos),
-ele salva uma cópia em **`~/.claude/backup-kit-<data>/`**. Só o `settings.json`
-não é sobrescrito nunca — se você já tiver um, o modelo do kit fica em
-`settings.kit.json` pra mesclar à mão.
+Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
-Quer ver o que ele faria antes de rodar de verdade?
-```bash
-bash install.sh --dry-run
+### Confira se deu certo
+
+```
+/plugin          → kit-vamoo aparece como enabled
+/kit-vamoo:      → autocompleta as skills do kit
 ```
 
-### 3. Preencha o CLAUDE.md com os SEUS dados
-Abra `~/.claude/CLAUDE.md` e troque os trechos `<entre-colchetes>` (seu nome, sua
-stack, como você quer ser respondido). Apague o que não usar. Esse arquivo é seu —
-adapte à vontade.
+E a barra de status aparece no rodapé depois de reiniciar. Pronto. 🎉
 
-### 4. Confira se deu certo
-```bash
-claude mcp list        # deve aparecer "dotcontext ... ✓ Connected"
+### Atualizar depois
+
 ```
-Abra o Claude Code e rode `/help` ou comece a digitar `/` — você deve ver as skills
-do kit na lista. Pronto. 🎉
+/plugin update kit-vamoo
+```
+
+Rode `/kit-vamoo:setup` de novo se quiser atualizar também a barra de status e
+as preferências.
 
 ---
 
@@ -117,10 +160,14 @@ do kit na lista. Pronto. 🎉
 
 - **Memória de projeto:** num projeto novo, na primeira conversa, peça
   **"init the context"**. O Claude cria a pasta `.context/` e passa a lembrar do projeto.
+- **Memória que sobrevive à máquina:** rode `/kit-vamoo:memoria-projeto` num
+  projeto em git. O que o Claude aprende passa a morar em `.context/memoria/`,
+  dentro do repositório — vai junto no commit, e continua lá no próximo
+  computador ou pra quem mais trabalhar no projeto.
 - **Modo aprendizado:** diga **"explica"** ou **"modo aula"** e o Claude passa a ensinar
   o porquê de cada coisa, passo a passo (definido no seu CLAUDE.md).
-- **Skills de decisão:** use `/grill-me` quando quiser testar um plano e
-  `/grill-with-docs` quando a decisão precisar considerar a documentação do projeto.
+- **Skills de decisão:** use `/kit-vamoo:grill-me` quando quiser testar um plano e
+  `/kit-vamoo:grill-with-docs` quando a decisão precisar considerar a documentação do projeto.
 - **TDD e debugging:** as regras do `CLAUDE.md` já exigem teste failing-first e
   investigação de causa raiz; não dependem de plugin externo.
 
@@ -135,37 +182,50 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
 3. [`docs/seguranca.md`](docs/seguranca.md) — os 7 furos que iniciante esquece (RLS, secrets, deps, limite de uso, secret que não é secret) + revisão automática.
 4. [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md) — por que seu limite acaba tão rápido e os 4 hábitos que fazem ele render (spoiler: sessão longa custa juros compostos).
-5. Use `/explicar` e `/revisar`, modo "explica", e a skill `find-docs`.
+5. Use `/kit-vamoo:explicar` e `/kit-vamoo:revisar`, modo "explica", e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
 1. [`docs/observabilidade.md`](docs/observabilidade.md) — *"como você descobre que quebrou?"*. Se a resposta é "tento reproduzir", leia antes de colocar qualquer coisa no ar.
-2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `templates/playwright/`).
+2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `plugin/templates/playwright/`).
 3. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
 4. Skill **`baseline`** — *"está pronto pra produção?"* nas 7 frentes. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
-5. Skill **`/ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
-6. Skill **`/handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
-7. [`templates/ci.yml`](templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
+5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
+6. Skill **`/kit-vamoo:handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
+7. [`plugin/templates/ci.yml`](plugin/templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 8. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
-9. [`templates/CLAUDE-projeto.md.exemplo`](templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
+9. [`plugin/templates/CLAUDE-projeto.md.exemplo`](plugin/templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
 
 ---
 
 ## Perguntas comuns
 
 **Já tinha um CLAUDE.md (ou skills, ou statusline), vou perder?**
-Não. Tudo que o instalador sobrescreve ganha uma cópia em
-`~/.claude/backup-kit-<data>/` antes. Skills suas que não vieram do kit ficam
-intactas. O `settings.json`, se já existir, **não** é sobrescrito — o modelo do
-kit fica em `settings.kit.json` pra você comparar e mesclar.
+Não. O `CLAUDE.md` que já existir **não** é tocado — o modelo do kit fica em
+`~/.claude/CLAUDE.kit.md` pra você comparar, e trocar é uma escolha explícita
+sua (`bash kit-setup.sh --force`). O `settings.json` é **mesclado**: suas chaves
+ganham, a lista de permissões vira a união das duas, e nada de `env` ou hook seu
+se perde. Tudo que é tocado ganha cópia em `~/.claude/backup-kit-<data>/` antes.
+
+**Eu já tinha instalado o kit pelo `install.sh` antigo. E agora?**
+O setup detecta a instalação antiga pelo manifesto e **remove** as skills, hooks
+e comandos que ele tinha copiado pra `~/.claude/` — porque agora eles vêm do
+plugin, e ter os dois significaria skill duplicada e hook rodando em dobro, na
+versão velha inclusive. O que sai vai pro backup.
 
 **Funciona no Windows?**
-O kit foi pensado pra macOS/Linux. No Windows, use o WSL (Ubuntu) e rode os mesmos
-comandos. O som de "terminou" no `settings.json` é específico de Mac — pode remover
-a parte do `afplay` sem problema.
+Sim, com WSL (Ubuntu). Fora do WSL, o Git Bash roda os hooks e a barra (tudo é
+`bash` + `node`, sem `jq`), mas o som de "terminou" é só macOS — o hook checa se
+o `afplay` existe antes de tocar, então no Windows ele simplesmente não faz nada.
+
+**Isso vai deixar minhas sessões mais caras?**
+O plugin adiciona ~3,1k tokens por sessão: são as descrições das skills, que é
+como o Claude sabe quando usar cada uma. Se alguma você nunca vai usar, desligue
+em `/plugin`. O que pesa de verdade no seu limite é sessão longa — está em
+[`docs/economia-de-tokens.md`](docs/economia-de-tokens.md).
 
 **Posso desinstalar?**
-Sim. Restaure seus arquivos de `~/.claude/backup-kit-<data>/` e rode
-`claude mcp remove dotcontext`.
+Sim: `/plugin uninstall kit-vamoo`. E restaure o que quiser de
+`~/.claude/backup-kit-<data>/`.
 
 ---
 

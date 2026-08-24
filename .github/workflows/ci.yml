@@ -13,23 +13,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: settings.json é JSON válido
-        run: python3 -m json.tool settings.json > /dev/null
+      - name: JSONs do plugin são válidos
+        run: |
+          for f in .claude-plugin/marketplace.json \
+                   plugin/.claude-plugin/plugin.json \
+                   plugin/hooks/hooks.json \
+                   plugin/.mcp.json \
+                   plugin/templates/settings.json; do
+            python3 -m json.tool "$f" > /dev/null && echo "ok $f"
+          done
+
+      - name: A versão do plugin bate com a do kit-setup
+        run: |
+          v_plugin="$(python3 -c 'import json;print(json.load(open("plugin/.claude-plugin/plugin.json"))["version"])')"
+          v_setup="$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' plugin/scripts/kit-setup.sh)"
+          v_inst="$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' install.sh)"
+          echo "plugin=$v_plugin kit-setup=$v_setup install=$v_inst"
+          [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]
 
       - name: Sintaxe dos scripts shell
         run: |
           bash -n install.sh
-          bash -n statusline-command.sh
-          find hooks scripts skills -name '*.sh' -type f -print -exec bash -n {} \;
+          bash -n plugin/templates/statusline-command.sh
+          find plugin -name '*.sh' -type f -print -exec bash -n {} \;
+          node --check plugin/scripts/statusline.js
+          node --check plugin/scripts/hookjson.js
 
-      - name: Instalador roda limpo em HOME temporário (com --dry-run antes)
+      - name: Setup roda limpo em HOME temporário (com --dry-run antes)
         run: |
           export HOME="$(mktemp -d)"
-          bash install.sh --dry-run
-          bash install.sh
+          bash plugin/scripts/kit-setup.sh --dry-run
+          bash plugin/scripts/kit-setup.sh
           test -f "$HOME/.claude/CLAUDE.md"
-          test -d "$HOME/.claude/skills/find-docs"
-          test -f "$HOME/.claude/.kit-manifest"
+          test -f "$HOME/.claude/agents.md"
+          test -f "$HOME/.claude/scripts/statusline.js"
+          python3 -m json.tool "$HOME/.claude/settings.json" > /dev/null
+
+      - name: Setup não destrói configuração que já existia
+        run: |
+          export HOME="$(mktemp -d)"
+          mkdir -p "$HOME/.claude"
+          echo "minhas regras" > "$HOME/.claude/CLAUDE.md"
+          echo '{"env":{"MEU":"valor"},"permissions":{"allow":["Bash(pytest:*)"]}}' > "$HOME/.claude/settings.json"
+          bash plugin/scripts/kit-setup.sh
+          grep -q "minhas regras" "$HOME/.claude/CLAUDE.md"        # CLAUDE.md preservado
+          test -f "$HOME/.claude/CLAUDE.kit.md"                    # modelo ficou ao lado
+          grep -q '"MEU"' "$HOME/.claude/settings.json"            # env preservado
+          grep -q 'pytest' "$HOME/.claude/settings.json"           # allow do usuário preservado
+          grep -q 'npm test' "$HOME/.claude/settings.json"         # allow do kit acrescentado
+
+      - name: Guard-rails de git funcionam rodando do plugin
+        run: |
+          repo="$(mktemp -d)"; cd "$repo"; git init -q -b main
+          git config user.email ci@ci; git config user.name ci
+          # o hook manda a mensagem de bloqueio pra stderr — sem o 2>&1 o
+          # $( ) volta vazio e o teste reprova um hook que funcionou.
+          out="$(printf '{"tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$repo" \
+                 | bash "$GITHUB_WORKSPACE/plugin/hooks/block-main-commit.sh" 2>&1 || true)"
+          echo "$out" | grep -q BLOQUEADO
+          printf '{"tool_input":{"command":"git push --force origin main"}}' \
+            | bash "$GITHUB_WORKSPACE/plugin/hooks/check-careful.sh" | grep -q '"ask"'
 
       - name: Links Markdown internos existem
         run: |
@@ -57,7 +100,7 @@ jobs:
       - name: Frontmatter das skills bate com o nome da pasta
         run: |
           fail=0
-          for skill in skills/*/SKILL.md; do
+          for skill in plugin/skills/*/SKILL.md; do
             dir="$(basename "$(dirname "$skill")")"
             name="$(awk -F': *' '/^name:/{gsub(/\r/,""); print $2; exit}' "$skill")"
             if [ "$name" != "$dir" ]; then

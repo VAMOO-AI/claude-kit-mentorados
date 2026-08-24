@@ -5,7 +5,10 @@
 #   2) Checa a branch do REPO-ALVO real (git -C <path> ou primeiro `cd <path>`), não só o cwd.
 # Override: prefixe o comando com HOTFIX_MAIN=1 (commit em main proposital).
 # Lê o JSON do hook via node (sem depender de jq). Falha-aberta: erro => exit 0.
-H="$HOME/.claude/scripts/hookjson.js"
+# Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
+# se não achar, cai pro ~/.claude de quem instalou pelo install.sh.
+H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
+[ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 j="$(cat)"

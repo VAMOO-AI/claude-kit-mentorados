@@ -1,0 +1,25 @@
+{
+  "language": "portuguese",
+  "theme": "dark",
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test)",
+      "Bash(node --version)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(git log:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "WebSearch"
+    ]
+  }
+}

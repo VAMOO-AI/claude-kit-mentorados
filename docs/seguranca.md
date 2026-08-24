@@ -77,5 +77,5 @@ Duas ideias dela que valem pra qualquer auditoria que você fizer na vida:
 
 ## No CI
 
-O `templates/ci.yml` deste kit já tem um job opcional de **Semgrep → SARIF** (segurança automática em todo
+O `plugin/templates/ci.yml` deste kit já tem um job opcional de **Semgrep → SARIF** (segurança automática em todo
 PR, manda os achados pro "Security" do GitHub). É de graça e pega muita coisa cedo.

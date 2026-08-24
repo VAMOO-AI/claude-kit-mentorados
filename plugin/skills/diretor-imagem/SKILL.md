@@ -1,13 +1,6 @@
 ---
-name: diretor-banana
+name: diretor-imagem
 description: Generates premium, photorealistic prompts for AI image generators (nano banana, Midjourney, Flux, Imagen) and AI video generators (Kling AI image-to-video and text-to-video). Translates natural-language requests ("zoom out lentamente", "fica mais cinematográfico") into precise cinematographic commands. Activate whenever the user asks for "um prompt", "comando", "prompt para imagem/vídeo", or pastes a reference image and asks for generation guidance. Returns ready-to-paste prompt text engineered for 8K, full-frame, cinema-grade output.
-type: prompt
-version: 2.0.0
-categories:
-  - content
-  - prompting
-  - image-generation
-  - video-generation
 ---
 
 # Diretor Banana 🍌🎬

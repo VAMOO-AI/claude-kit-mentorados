@@ -14,7 +14,7 @@ npm i -D @playwright/test
 npx playwright install chromium
 ```
 
-Copie os exemplos de `templates/playwright/` (tirando o `.exemplo` do nome):
+Copie os exemplos de `plugin/templates/playwright/` (tirando o `.exemplo` do nome):
 - `playwright.config.ts` — sobe seu app e configura o browser
 - `e2e/smoke.spec.ts` — o teste (ajuste os seletores pra SUA tela)
 - `scripts/seed-e2e-user.mjs` — cria um usuário de teste no Supabase

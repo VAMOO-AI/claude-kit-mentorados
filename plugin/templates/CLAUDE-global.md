@@ -27,6 +27,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 | Vários terminais no mesmo projeto / worktree | `worktrees` |
 | **Começar a mexer num projeto** (ainda mais se tem outra pessoa nele), "atualiza com o GitHub", Source Control desatualizado | `git-sync` |
 | Checar segurança do código (scan local) | `secscan` |
+| **Começar a trabalhar num projeto em git**, "o Claude esqueceu o que aprendeu", troquei de computador, outra pessoa vai mexer | `memoria-projeto` |
 
 ## Modos de operação (detecte e ajuste)
 - **EXECUTE** (default): tarefa pequena, fix, ajuste mecânico. Output curto, direto ao código. Se eu disser "sim/faz/manda" → executa, não repete o plano.
@@ -85,6 +86,11 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - O MCP `dotcontext` está ativo (instalado pelo kit). Em projeto novo, na 1ª sessão: peça **"init the context"**.
 - Toda documentação nova vai em `./.context/docs/`. O `AGENTS.md` na raiz do projeto é o ponto de partida que Claude/Codex/Cursor leem.
 - `.context/` é a fonte única de contexto — não duplique informação espalhada.
+- **A memória do projeto mora no repositório**, em `.context/memoria/`. O que o
+  Claude aprende nasce em `~/.claude/projects/<slug>/memory`, que é local: some
+  quando você troca de máquina e é invisível pra qualquer outra pessoa ou
+  ferramenta. Ligue com a skill `memoria-projeto` e **commite** — ligar não
+  publica. Nunca escreva credencial ali: isso vai pro repositório.
 
 ## Subagentes
 Regras de como sub-agentes devem se comportar estão em `~/.claude/agents.md`. Resumo: subagentes são read-only por padrão (exploração), Edit/Write acontece na conversa principal, e ninguém afirma "passou" sem rodar. Pra disparar vários em paralelo (>5 arquivos independentes) → skill `orquestracao`.
