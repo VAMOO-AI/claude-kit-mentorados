@@ -64,10 +64,13 @@ claude plugin list | grep -A2 kit-vamoo     # deve aparecer enabled
 ls ~/.claude/CLAUDE.md ~/.claude/statusline-command.sh
 ```
 
-A barra de status **só aparece depois de reiniciar o Claude Code** — avise, ou a
-pessoa vai achar que falhou. Depois de reiniciar ela mostra diretório, branch,
-alterações não salvas, à frente/atrás do remoto, `gh✓`, PR aberto e o contexto
-em número absoluto.
+**Diga pra pessoa reiniciar o Claude Code** — e diga que é pra tudo, não só pra
+barra. A sessão que está aberta começou com o `settings.json` antigo: idioma,
+lista de permissões e barra de status só valem no próximo start. Sem esse aviso
+a pessoa conclui que o setup não pegou e vai debugar um problema que não existe.
+
+Depois de reiniciar, a barra mostra diretório, branch, alterações não salvas,
+à frente/atrás do remoto, `gh✓`, PR aberto e o contexto em número absoluto.
 
 ## Se algo não estiver funcionando
 

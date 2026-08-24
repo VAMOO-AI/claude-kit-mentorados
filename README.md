@@ -114,8 +114,9 @@ O que cada uma faz:
    (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o
    CLAUDE.md com os seus dados, ali na conversa mesmo.
 
-Depois **reinicie o Claude Code** — a barra de status só aparece no próximo
-start.
+Depois **reinicie o Claude Code**. Não é só pela barra: a sessão aberta começou
+com as configurações antigas, então idioma, permissões e barra de status só
+valem no próximo start.
 
 ### Duas garantias, porque instalador que apaga config é traumático
 
