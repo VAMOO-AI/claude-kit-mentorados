@@ -110,6 +110,7 @@ deixe pra depois: sincronizar o repo antes de commitar é como se perde memória
 |---|---|
 | "Liguei, mas continua só na minha máquina" | Ligar não commita. O symlink põe no clone, o commit põe no repositório (§4) |
 | Máquina nova sem nada da memória | O symlink é por máquina. Rode a §3 em cada computador que você usar |
-| Projeto com espaço no nome era ignorado | O diretório do Claude Code troca **barra e espaço** por `-`; conta trocar só a barra gera um caminho que não existe |
+| Projeto com espaço no nome era ignorado | O diretório do Claude Code troca **todo caractere fora de `[a-zA-Z0-9]`** por `-` — barra, espaço, ponto, `+`. Trocar só barra e espaço acerta o clone e erra **todo worktree**, porque o caminho dele tem `.claude` |
+| Sessão em worktree "não conseguiu" registrar | O worktree tem diretório de projeto próprio, e o link do clone não serve: gravar no `.context/memoria` do clone é gravar fora da árvore da branch, e o Claude recusa. O hook `memoria-worktree-link.sh` liga na hora; sem ele, escreva em `.context/memoria/` do próprio worktree e **commite junto com o código** |
 | `--adotar` recusou e o projeto é meu mesmo | O gate não pergunta de quem é o repo. Limpar o arquivo é mais barato que trocar credencial depois |
 | Memória sumiu depois de dar `git pull` | Não estava commitada. Commite antes de sincronizar — sempre |
