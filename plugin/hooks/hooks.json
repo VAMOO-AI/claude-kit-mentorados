@@ -32,6 +32,13 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memoria-worktree-link.sh\"" }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

@@ -37,7 +37,21 @@ diz() { printf '%s\n' "$*"; }
 # O nome do diretório de projeto é o caminho com '/' E espaço virando '-'.
 # Sem trocar o espaço, todo projeto com nome composto ("MINHA PASTA/app") gera
 # um slug que não existe, e o script passa direto achando que não há o que ligar.
-slug_de() { printf '%s' "$1" | tr '/ ' '--'; }
+#
+# E não é só barra e espaço: TODO caractere fora de [a-zA-Z0-9] vira '-'. Medido
+# em 26/08/2026 contra 125 diretórios de projeto — a regra bate em todos. Trocar
+# só '/' e espaço acerta o clone e erra TODO worktree, porque o caminho dele tem
+# `.claude` e o ponto ficava intacto.
+slug_de() { printf '%s' "$1" | LC_ALL=C tr -c 'a-zA-Z0-9' '-' | sed 's/-$//'; }
+
+# O clone dono de um caminho: worktree devolve o repo de onde ele saiu.
+# `<repo>/.claude/worktrees/<nome>` → `<repo>`.
+clone_dono() {
+  case "$1" in
+    */.claude/worktrees/*) printf '%s' "${1%%/.claude/worktrees/*}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
 
 # O caminho real do projeto vem do `cwd` gravado no transcript — deduzir a partir
 # do nome do diretório é ambíguo assim que o repo tem hífen no nome.
@@ -172,6 +186,38 @@ ligar() {
   LIGADOS=$((LIGADOS + 1))
 }
 
+# Worktree tem diretório de projeto PRÓPRIO (o slug sai do cwd), e o link do clone
+# não serve pra ele: numa sessão isolada em worktree, escrever no `.context/memoria`
+# do clone é escrever fora da árvore da branch, e o Claude recusa — com razão. Sem
+# link próprio a memória não tem pra onde ir e a sessão desiste de registrar.
+# Ligado, o fato nasce dentro do worktree e viaja no PR, igual a código.
+ligar_worktrees() {
+  local repo="$1" wt
+  for wt in "$repo"/.claude/worktrees/*/; do
+    [ -d "$wt" ] || continue
+    wt="${wt%/}"
+    [ -d "$wt/.context/memoria" ] || continue
+    ligar "$wt"
+  done
+}
+
+# Worktree apagado deixa o link apontando pro vazio. Link quebrado não é só
+# sujeira: o Claude escreve nele achando que gravou, e o arquivo não existe em
+# lugar nenhum depois.
+limpar_quebrados() {
+  local dir
+  for dir in "$PROJ_DIR"/*/memory; do
+    [ -L "$dir" ] || continue
+    [ -e "$dir" ] && continue
+    if [ "$DRY" -eq 1 ]; then
+      diz "→  removeria link quebrado: $dir → $(readlink "$dir")"
+    else
+      rm "$dir"
+      diz "✓  link quebrado removido: $(basename "$(dirname "$dir")")"
+    fi
+  done
+}
+
 if [ -n "$ALVO" ]; then
   ALVO="$(cd "$ALVO" && git rev-parse --show-toplevel)"
   if [ ! -d "$ALVO/.context/memoria" ]; then
@@ -184,25 +230,31 @@ if [ -n "$ALVO" ]; then
     exit 1
   fi
   ligar "$ALVO"
+  ligar_worktrees "$ALVO"
 else
   [ -d "$PROJ_DIR" ] || { diz "sem $PROJ_DIR — o Claude Code ainda não rodou aqui."; exit 0; }
-  # Cada worktree vira um diretório de projeto próprio, mas o `cwd` da sessão
-  # aponta pro clone onde ela começou — sem deduplicar, o mesmo repo seria
-  # contado uma vez por worktree que já existiu.
+  # Um clone por vez: o `cwd` do transcript pode apontar pro clone ou pra um
+  # worktree dele, e sem colapsar os dois o mesmo repo seria varrido uma vez por
+  # worktree que já existiu. Os worktrees VIVOS são ligados por `ligar_worktrees`,
+  # lendo o disco — diretório de projeto de worktree já apagado não interessa.
   VISTOS="|"
   for d in "$PROJ_DIR"/*/; do
     [ -d "$d" ] || continue
     repo="$(caminho_de "$d" || true)"
     [ -n "$repo" ] || continue
+    repo="$(clone_dono "$repo")"
     case "$VISTOS" in *"|$repo|"*) continue ;; esac
     VISTOS="$VISTOS$repo|"
     if [ ! -d "$repo/.context/memoria" ]; then
       [ "$ADOTAR" -eq 1 ] || continue
       adotar "$repo"
+      ligar_worktrees "$repo"
       continue
     fi
     ligar "$repo"
+    ligar_worktrees "$repo"
   done
+  limpar_quebrados
 fi
 
 diz "memória: $LIGADOS ligado(s), $JA já em dia, $AVISOS aviso(s)."
