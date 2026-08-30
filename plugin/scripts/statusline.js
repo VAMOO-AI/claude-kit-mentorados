@@ -8,7 +8,7 @@
 // em BACKGROUND (modo refresh) pra atualizar o cache sem travar a barra — a barra
 // sempre pinta o último valor conhecido na hora.
 'use strict';
-const { execSync, spawn } = require('child_process');
+const { execSync, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -24,13 +24,17 @@ if (process.env.CLAUDE_SL_REFRESH === '1') {
   const cacheFile = process.env.CLAUDE_SL_CACHE;
   const lockFile = cacheFile + '.lock';
   const out = { ts: Date.now(), branch, auth: false, pr: null };
-  const gh = (args) => execSync('gh ' + args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 8000 }).trim();
+  // execFileSync (argv separado), NÃO execSync com string: `branch` vem do git e nome de
+  // branch aceita metacaractere de shell — `x$(touch${IFS}/tmp/x)` é ref válida no git e
+  // executava aqui. Dar checkout numa branch vinda de PR de terceiro bastava pra rodar
+  // comando arbitrário na máquina de quem instalou o kit.
+  const gh = (args) => execFileSync('gh', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 8000 }).trim();
   try {
-    execSync('gh auth status', { encoding: 'utf8', stdio: 'ignore', timeout: 8000 });
+    execFileSync('gh', ['auth', 'status'], { encoding: 'utf8', stdio: 'ignore', timeout: 8000 });
     out.auth = true;
     if (branch && branch !== 'main' && branch !== 'master') {
       // número do PR aberto pra essa branch (vazio = sem PR)
-      const n = gh(`pr list --head ${branch} --state open --json number --jq '.[0].number // empty'`);
+      const n = gh(['pr', 'list', '--head', branch, '--state', 'open', '--json', 'number', '--jq', '.[0].number // empty']);
       out.pr = n ? String(n).trim() : 'none';
     }
   } catch { /* não autenticado / gh ausente → auth:false */ }
