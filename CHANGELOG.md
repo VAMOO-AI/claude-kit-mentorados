@@ -16,6 +16,12 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   undo** — `git push --force-with-lease` (que já recusa se o remoto andou), `git rm -r`
   (volta com `git restore`), `rm -rf` de path relativo dentro de repo git, `cat > x.sql`
   escrevendo SQL sem executar, `supabase db reset` local, `git add -A` dentro de worktree.
+- **`block-main-commit` quebrava com aspas no path, nos dois sentidos.** `cd "$W" && git
+  commit` dentro de worktree era bloqueado (o hook caía no cwd da sessão), e
+  `git -C "$W" commit` num repo em main PASSAVA (o path era capturado com as aspas e o git
+  não resolvia — falha aberta num hook que existe pra fechar). Aspas é a prática certa:
+  sem elas, path com espaço no nome nem funciona. Entra `tests/test-block-main-commit.sh`,
+  que o hook não tinha: 14 casos, 6 falhas contra a versão anterior.
 - **Em `bypassPermissions` o hook se cala.** Nesse modo o `ask` não freia subagent nem
   workflow, então ele não era controle — era só interrupção. Quem protege em bypass é
   `permissions.deny`, que vale em todo modo. `CAREFUL_ON=1` traz o hook de volta;
