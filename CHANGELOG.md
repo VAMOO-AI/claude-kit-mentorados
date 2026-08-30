@@ -5,6 +5,49 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.8.0] — 2026-08-29
+
+### Corrigido
+
+- **O Claude pedia autorização o tempo todo — e pedia até no modo bypass.** São
+  duas causas independentes, as duas resolvidas aqui.
+
+  A primeira: um hook `PreToolUse` que responde `ask` **passa por cima do modo
+  bypass**. O `check-careful` tinha três regras com falso positivo, e a pior era
+  a de `git push --force`: ela procurava `git push` e `-f` no comando inteiro,
+  sem `case`, então `git commit -F - <<EOF && git push` — o jeito normal de
+  escrever uma mensagem de commit — disparava. Medido nos transcritos de quem
+  usa o kit todo dia: **139 interrupções indevidas em 14 dias, 89% delas por
+  esse `-F`**. Agora o flag só conta dentro do trecho do push. Junto: `rm -rf
+  .next` parou de perguntar (a lista de pastas descartáveis exigia barra no
+  fim) e `git add -A src app` também (tem caminho explícito, não é "add
+  amplo").
+
+  A segunda: a lista de permissões do template tinha **12 entradas**, e o modo
+  era `default` — ou seja, quase todo comando e toda edição de arquivo parava
+  pra perguntar. Agora são **85 permissões** (inspeção do repo, git e gh só de
+  leitura, npm/npx/bun/pnpm, type-check, lint e teste) e o modo é
+  `acceptEdits`: o Claude edita arquivo sem perguntar, mas `git commit`, `git
+  push`, `gh pr merge` e qualquer comando fora da lista continuam pedindo.
+
+### Segurança
+
+- **`deny` no template** (não existia): `.env`, `.env.local` e variantes fora do
+  alcance da ferramenta Read, e `supabase login` / `supabase link` / `supabase
+  db push` / `vercel login` bloqueados — login interativo trava a sessão e
+  `db push` empurra migration sem revisão.
+- **`check-careful` agora pega leitura de `.env` pelo terminal** (`cat`,
+  `head`, `base64`…). O `deny` acima cobre só a ferramenta Read; pelo Bash a
+  credencial entraria no contexto assim mesmo. Append (`cat >> .env`) não conta,
+  é escrita.
+
+### Adicionado
+
+- `tests/test-check-careful.sh` — 25 casos tirados de comandos reais, rodando no
+  CI. Falha em 14 contra o hook anterior; passa inteiro no novo. Aceita um
+  caminho de hook como argumento, pra rodar contra a versão antiga e ver a
+  diferença.
+
 ## [0.7.0] — 2026-08-24
 
 ### Instalar deixou de precisar de terminal

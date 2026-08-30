@@ -31,6 +31,9 @@ jobs:
           echo "plugin=$v_plugin kit-setup=$v_setup install=$v_inst"
           [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]
 
+      - name: O check-careful não interrompe à toa (e ainda pega o destrutivo)
+        run: bash tests/test-check-careful.sh
+
       - name: Sintaxe dos scripts shell
         run: |
           bash -n install.sh
