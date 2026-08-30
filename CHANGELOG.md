@@ -5,6 +5,47 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.9.0] — 2026-08-30
+
+### Corrigido
+
+- **O hook `check-careful` para de perguntar no que tem undo.** Ele interrompia demais, e
+  interrupção demais faz a pessoa desligar o guard-rail inteiro — o pior desfecho possível.
+  Recalibrado contra 75.184 comandos reais de 30 dias replayados contra o hook: dos 303
+  disparos, sobram 100 (e zero em modo bypass). O que saiu era quase tudo operação **com
+  undo** — `git push --force-with-lease` (que já recusa se o remoto andou), `git rm -r`
+  (volta com `git restore`), `rm -rf` de path relativo dentro de repo git, `cat > x.sql`
+  escrevendo SQL sem executar, `supabase db reset` local, `git add -A` dentro de worktree.
+- **Em `bypassPermissions` o hook se cala.** Nesse modo o `ask` não freia subagent nem
+  workflow, então ele não era controle — era só interrupção. Quem protege em bypass é
+  `permissions.deny`, que vale em todo modo. `CAREFUL_ON=1` traz o hook de volta;
+  `CAREFUL_OFF=1` como prefixo do comando desliga pontualmente (mesmo idioma do
+  `HOTFIX_MAIN=1`).
+
+### Segurança
+
+- **A barra de status executava o nome da branch.** `plugin/scripts/statusline.js` montava
+  `execSync('gh pr list --head ' + branch)` por concatenação, e nome de branch aceita
+  metacaractere de shell: `x$(touch${IFS}/tmp/x)` é ref válida no git. Dar checkout numa
+  branch vinda de PR de terceiro bastava pra rodar comando arbitrário na sua máquina.
+  Agora usa `execFileSync` com argv separado, que não passa por shell.
+- **`npx @dotcontext/cli@latest` sem pin** rodava a cada Write/Edit/Bash: qualquer
+  publicação futura, inclusive comprometida, executaria aí. Pinado em `1.1.1` (junto do
+  `@dotcontext/mcp` no `.mcp.json`).
+- **Nova regra de exfiltração**: comando de rede (`curl`/`wget`/`scp`/`rsync`) carregando
+  credencial no próprio segmento agora pede confirmação. Nada barrava isso — o
+  `permissions.deny` só cobre a ferramenta `Read`, não o Bash.
+- **`deny` do template ganha chave privada e certificado** (`~/.ssh/**`, `id_rsa*`,
+  `id_ed25519*`, `*.pem`, `serviceAccountKey.json`). Chega em quem já instalou: o
+  `merge-settings.js` acrescenta `deny` por união.
+
+### Melhorado
+
+- `hookjson.js` lê vários campos numa chamada só — eram 3 startups de node por comando
+  Bash — e não estoura mais stack trace quando o pipe fecha antes (`| head`).
+- `tests/test-check-careful.sh` reescrito a partir do corpus medido: 39 casos, e falha 16
+  vezes contra a versão anterior do hook (prova de regressão).
+
 ## [0.8.1] — 2026-08-29
 
 ### Corrigido
