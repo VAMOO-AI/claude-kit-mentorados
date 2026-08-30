@@ -17,7 +17,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.8.0"
+KIT_VERSION="0.8.1"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -85,6 +85,7 @@ run chmod +x "$CLAUDE_DIR/statusline-command.sh"
 backup "scripts/statusline.js"
 run cp "$PLUGIN_ROOT/scripts/statusline.js" "$CLAUDE_DIR/scripts/statusline.js"
 run cp "$PLUGIN_ROOT/scripts/hookjson.js" "$CLAUDE_DIR/scripts/hookjson.js"
+run cp "$PLUGIN_ROOT/scripts/merge-settings.js" "$CLAUDE_DIR/scripts/merge-settings.js"
 ok "barra de status instalada (diretório, branch, ↑↓, gh, PR, contexto)"
 
 # ── settings.json: MESCLA, nunca sobrescreve ────────────────────────────────
@@ -95,37 +96,7 @@ backup "settings.json"
 if [ "$DRY" -eq 1 ]; then
   echo "  [dry-run] mesclaria $TPL/settings.json em $CLAUDE_DIR/settings.json"
 elif command -v node >/dev/null 2>&1; then
-  node - "$TPL/settings.json" "$CLAUDE_DIR/settings.json" <<'NODE'
-const fs = require('fs');
-const [, , kitPath, userPath] = process.argv;
-const kit = JSON.parse(fs.readFileSync(kitPath, 'utf8'));
-let user = {};
-if (fs.existsSync(userPath)) {
-  try {
-    user = JSON.parse(fs.readFileSync(userPath, 'utf8'));
-  } catch {
-    console.log('! settings.json existente está com JSON inválido — mantive o seu e não mesclei nada.');
-    process.exit(0);
-  }
-}
-const novas = [];
-for (const [k, v] of Object.entries(kit)) {
-  if (k === 'permissions') continue;
-  if (user[k] === undefined) { user[k] = v; novas.push(k); }
-}
-// permissions.allow é união: o kit acrescenta, nunca tira o que você liberou.
-const kitAllow = (kit.permissions && kit.permissions.allow) || [];
-user.permissions = user.permissions || {};
-const antes = new Set(user.permissions.allow || []);
-const depois = [...antes, ...kitAllow.filter((p) => !antes.has(p))];
-if (depois.length > antes.size) novas.push(`permissions.allow (+${depois.length - antes.size})`);
-user.permissions.allow = depois;
-if (user.permissions.defaultMode === undefined && kit.permissions) {
-  user.permissions.defaultMode = kit.permissions.defaultMode;
-}
-fs.writeFileSync(userPath, JSON.stringify(user, null, 2) + '\n');
-console.log(novas.length ? `  acrescentado: ${novas.join(', ')}` : '  já estava tudo lá — nada mudou');
-NODE
+  node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json"
   ok "settings.json mesclado (as suas chaves foram preservadas)"
 else
   warn "sem node — não deu pra mesclar o settings.json. Modelo em $TPL/settings.json"
