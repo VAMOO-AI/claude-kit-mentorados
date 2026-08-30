@@ -5,6 +5,63 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.0] — 2026-08-30
+
+### Corrigido
+
+- **A skill de memória mandava você rodar um comando que mente.** A linha que
+  descobre se este projeto já está ligado montava o nome do diretório trocando
+  só `/` e espaço por `-`. Só que o Claude Code troca **todo** caractere fora de
+  `[a-zA-Z0-9]` — ponto, `_`, `+`, tudo. Resultado: acerta no clone e erra em
+  **todo worktree**, porque o caminho de um worktree tem `.claude`/`.worktrees` e
+  o ponto ficava intacto. O `readlink` volta vazio, e a tabela logo abaixo lê
+  vazio como "não adotado" — a skill dizia que a memória não estava ligada num
+  projeto que estava. O mesmo arquivo já explicava por que essa forma é errada,
+  na tabela de armadilhas: o comando contradizia a própria skill.
+
+  A forma correta é a que os scripts do kit (`memoria-link.sh`,
+  `memoria-worktree-link.sh`) já usavam: `printf '%s' "$PWD"` em vez de `pwd`
+  (que emite uma quebra de linha, e a quebra viraria mais um `-` no fim, gerando
+  um slug que não existe em lugar nenhum) e um `sed` cortando o `-` final.
+
+- **`find-docs` mandava reinstalar o `ctx7` global antes de cada consulta.**
+  Agora só instala se faltar (`command -v ctx7 >/dev/null || npm install -g …`).
+  Um `npm install -g` por pergunta de documentação é tempo e rede que ninguém
+  pediu.
+
+### Adicionado
+
+- **O `secscan` passa a fechar com um checklist de 7 linhas que não dá para
+  omitir.** Antes o relatório listava o que foi achado — e categoria nenhuma
+  investigada saía do relatório sem deixar rastro, o que um iniciante lê como
+  aprovação. Agora toda execução imprime as sete categorias (C1 injeção · C2
+  auth · C3 exposição de dado · C4 validação de entrada · C5 dependências · C6
+  configuração · C7 cripto e armazenamento) com um de quatro estados: `N
+  achado(s)`, `nenhum problema identificado`, `não medido (<ferramenta>
+  ausente)` ou `não aplicável (<motivo>)`. Ferramenta que não rodou vira **não
+  medido**, nunca limpo. Junto vêm o bloco de sugestões que proíbe correção
+  genérica ("valide o input" não é correção, é o problema repetido) e a Fase 7,
+  que registra o que o modo pedagógico **não** simplifica: o checklist.
+- **Sonda de validação de entrada na Fase 3 do `secscan`** — sem ela a linha C4
+  do checklist sairia "não medido" em toda execução. Cobre handler que usa
+  `body`/`query` sem schema, valor de dinheiro/permissão/identidade vindo do
+  cliente e `{ ...body }` espalhado no update (mass assignment).
+- **`verificacao`: como diagnosticar CI vermelho.** Pegue a mensagem literal
+  (`gh run view <id> --log-failed`; se você já rerodou e passou, ela só existe na
+  tentativa 1, via `gh api`) **antes** de olhar o diff — é onde mais se inventa
+  causa plausível e errada. E as três condições para chamar um teste de instável:
+  não está no seu diff, passa localmente e o rerun fecha verde. Duas não bastam.
+- **`handoff`: a memória do projeto sai junto.** O handoff conta uma frente de
+  trabalho; a memória guarda o que sobrevive a ela. A skill agora pede o
+  `git status --short .context/memoria/` antes de fechar, manda apagar o fato que
+  se provou errado, marcar hipótese como hipótese, e transformar em memória o que
+  este handoff descobriu e vai valer daqui a um mês.
+- **Proveniência nas 13 skills derivadas.** Cada uma diz de qual skill do repo do
+  time ela saiu, com o convite explícito de registrar ali o que diverge de
+  propósito e por quê. Fork silencioso é como o kit ficou publicando um bug que o
+  time já tinha corrigido — a linha existe para o drift ficar visível na próxima
+  leitura, não seis meses depois.
+
 ## [0.9.0] — 2026-08-30
 
 ### Corrigido

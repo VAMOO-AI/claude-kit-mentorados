@@ -8,6 +8,8 @@ description: >-
   vale. Gatilhos: "grill com docs", "fecha o plano com o contexto do projeto".
 ---
 
+> Derivada de `claude-config-team/skills/grill-with-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Grill with docs — grilling ancorado no projeto
 
 Igual à skill `grilling`, com dois acréscimos que só fazem sentido dentro de um

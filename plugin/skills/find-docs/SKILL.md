@@ -22,21 +22,19 @@ description: >-
   knowledge may be outdated.
 ---
 
+> Derivada de `claude-config-team/skills/find-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Documentation Lookup
 
 Retrieve current documentation and code examples for any library using the Context7 CLI.
 
-Make sure the CLI is up to date before running commands:
+Use the installed CLI; only install it if missing:
 
 ```bash
-npm install -g ctx7@latest
+command -v ctx7 >/dev/null || npm install -g ctx7@latest
 ```
 
-Or run directly without installing:
-
-```bash
-npx ctx7@latest <command>
-```
+Or run directly without installing: `npx ctx7@latest <command>`.
 
 ## Workflow
 

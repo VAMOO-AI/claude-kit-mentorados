@@ -7,4 +7,6 @@ description: >-
 disable-model-invocation: true
 ---
 
+> Derivada de `claude-config-team/skills/grill-me`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 Rode a skill `grilling` sobre o plano ou design atual.
