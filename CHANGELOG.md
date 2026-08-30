@@ -5,6 +5,41 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.8.1] — 2026-08-29
+
+### Corrigido
+
+- **Barreira de segurança nova não chegava em quem já tinha o kit.** O merge do
+  `settings.json` unia só `permissions.allow` — `deny` e `ask` ficavam de fora.
+  Na prática: quem instalou o kit meses atrás recebia toda permissão nova e
+  nenhuma proteção nova, calado. Agora as três listas são união. Foi assim que
+  os 7 `deny` da 0.8.0 (`.env`, `supabase login`/`link`/`db push`,
+  `vercel login`) não chegaram sozinhos em quem já era usuário.
+
+### Mudado
+
+- **O instalador passou a dizer o que não mexeu.** Se o seu
+  `permissions.defaultMode` é diferente do recomendado pelo kit, ele mantém o
+  seu — como sempre fez — mas agora **avisa** e mostra como trocar, em vez de
+  ficar mudo. Preferência sua continua sendo sua; o que muda é você saber que
+  existe uma recomendação diferente.
+- O merge saiu de dentro do `kit-setup.sh` e virou
+  `plugin/scripts/merge-settings.js`, que dá para testar sozinho. Antes só era
+  possível exercitá-lo rodando o instalador inteiro contra o `~/.claude` de
+  verdade.
+
+### Adicionado
+
+- `tests/test-merge-settings.sh`, no CI: 11 casos cobrindo os dois lados — o que
+  o kit precisa entregar (deny, allow em união, chave nova) e o que é seu e não
+  pode ser tocado (tema, barra de status, permissão própria, modo de permissão),
+  mais idempotência e `settings.json` inválido. Falha em 3 contra o merge da
+  0.8.0.
+- **Guard de versão no CI**: mexeu em `plugin/` e não subiu a `version` do
+  `plugin.json`, o CI barra. O Claude Code usa esse campo para decidir se baixa
+  a atualização — publicar sem bumpar deixa quem já instalou com a cópia em
+  cache, sem erro e sem aviso.
+
 ## [0.8.0] — 2026-08-29
 
 ### Corrigido

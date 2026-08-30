@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: JSONs do plugin são válidos
         run: |
@@ -30,6 +32,29 @@ jobs:
           v_inst="$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' install.sh)"
           echo "plugin=$v_plugin kit-setup=$v_setup install=$v_inst"
           [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]
+
+      - name: Mexeu no plugin? A versão tem que subir
+        # O Claude Code decide se baixa a atualização pela `version` do plugin.json.
+        # Publicar mudança sem bumpar deixa quem já instalou com a cópia antiga em
+        # cache — sem erro, sem aviso, e a gente só descobre quando alguém reclama
+        # de um problema que já foi corrigido.
+        if: github.event_name == 'pull_request'
+        run: |
+          base="origin/${{ github.base_ref }}"
+          if [ -z "$(git diff --name-only "$base"...HEAD -- plugin/)" ]; then
+            echo "plugin/ intocado — nada a checar"; exit 0
+          fi
+          ver() { python3 -c "import json,sys;print(json.load(sys.stdin)['version'])"; }
+          v_base="$(git show "$base:plugin/.claude-plugin/plugin.json" | ver)"
+          v_head="$(ver < plugin/.claude-plugin/plugin.json)"
+          echo "plugin/ mudou · versão $v_base → $v_head"
+          if [ "$v_base" = "$v_head" ]; then
+            echo "::error::plugin/ mudou e a versão continua $v_head. Quem já instalou fica com a cópia em cache e não recebe esta mudança. Suba a versão nos três lugares (plugin.json, install.sh, kit-setup.sh) e acrescente a entrada no CHANGELOG."
+            exit 1
+          fi
+
+      - name: O merge do settings entrega o deny e preserva o que é seu
+        run: bash tests/test-merge-settings.sh
 
       - name: O check-careful não interrompe à toa (e ainda pega o destrutivo)
         run: bash tests/test-check-careful.sh
