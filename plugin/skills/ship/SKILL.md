@@ -13,6 +13,8 @@ description: >-
   fresco, commitar de diretório errado, e deployar coisa que não devia.
 ---
 
+> Derivada de `claude-config-team/skills/ship`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # /ship — Pipeline de Release
 
 Rode os passos **na ordem**, sequencialmente. **Nunca pule um portão de verificação.**

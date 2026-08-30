@@ -9,6 +9,8 @@ description: >-
   collect.sh sozinho — aqui mora o método e o julgamento dos achados.
 ---
 
+> Derivada de `claude-config-team/skills/vamoo-baseline`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # baseline — Ambiente e Segurança
 
 > Origem: escrito a partir da auditoria de um app real em produção (React + Vite

@@ -9,6 +9,8 @@ description: >-
   "meu colega não vê o que decidimos aqui", "essa memória está no repo?".
 ---
 
+> Derivada de `claude-config-team/skills/memoria-projeto`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Memória do projeto dentro do repositório
 
 O Claude Code guarda o que aprende sobre um projeto em
@@ -27,9 +29,14 @@ Claude Code nela. A partir daí tudo que ele registrar nasce versionado.
 ## 1. Onde estamos
 
 ```bash
-git rev-parse --show-toplevel
-ls .context/memoria/*.md 2>/dev/null | wc -l
-readlink ~/.claude/projects/"$(pwd | tr '/ ' '--')"/memory
+git rev-parse --show-toplevel                       # o repo
+ls .context/memoria/*.md 2>/dev/null | wc -l        # fatos versionados
+# O nome do diretório do Claude Code é o caminho com TODO caractere fora de
+# [a-zA-Z0-9] virando '-' — não só a barra. E `pwd` termina com uma quebra de
+# linha, que vira mais um '-' no fim: o slug com traço sobrando não existe, o
+# readlink sai vazio e a resposta abaixo mente "não adotado" num projeto ligado.
+# Por isso `printf '%s' "$PWD"` (sem newline) e o `sed` cortando o '-' final.
+readlink ~/.claude/projects/"$(printf '%s' "$PWD" | LC_ALL=C tr -c 'a-zA-Z0-9' '-' | sed 's/-$//')"/memory
 ```
 
 | O que você vê | Estado | Vá para |

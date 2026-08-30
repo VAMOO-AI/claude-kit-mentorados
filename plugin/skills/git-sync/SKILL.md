@@ -19,6 +19,8 @@ description: >-
   (isolamento) e a ship (release).
 ---
 
+> Derivada de `claude-config-team/skills/git-sync`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # /git-sync — Atualizar local com o GitHub
 
 Objetivo: deixar o clone e os worktrees **em dia com o remoto**, reportar o que a IDE mostra no Source Control, e opcionalmente listar PRs + dry-run de lixo (branches `gone`, worktrees mortos).

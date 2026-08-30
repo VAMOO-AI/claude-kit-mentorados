@@ -9,6 +9,8 @@ description: >-
   "rate limit 429/529".
 ---
 
+> Derivada de `claude-config-team/skills/vamoo-orquestracao`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Orquestração de subagents
 
 ## Quando fan-out (e quando NÃO)

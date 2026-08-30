@@ -7,6 +7,8 @@ description: >-
   usa qualquer gatilho "grill" / "me interroga" / "fecha o plano comigo".
 ---
 
+> Derivada de `claude-config-team/skills/grilling`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Grilling — interrogatório de plano
 
 Transforma "instruções vagas → pergunte" (regra passiva) num loop ativo que

@@ -9,6 +9,8 @@ description: >-
   "verificar", "testar antes de entregar", "erro de prod / digest".
 ---
 
+> Derivada de `claude-config-team/skills/vamoo-verificacao`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # Verificação e2e — casos de produção
 
 Os **princípios** ("verify don't claim", tsc+eslint antes de pronto, caminho
@@ -52,6 +54,29 @@ entrega, não polimento.
 Nunca pipe `tsc`/`eslint` pra `head`/`tail` sem `set -o pipefail` (ou checar
 `${PIPESTATUS[0]}`) — o exit code é o do pipe, não do checker, e mascara falha
 como falso verde.
+
+## CI vermelho → leia o erro literal antes de formular hipótese
+
+Diagnóstico de CI é onde mais se inventa causa plausível e errada. A ordem que
+funciona:
+
+1. **Pegue a mensagem literal.** `gh run view <id> --log-failed` (o
+   `sed -e 's/\x1b\[[0-9;]*m//g'` limpa os códigos de cor). Se você já rerodou
+   e passou, o `--log-failed` volta vazio — baixe a tentativa 1 com
+   `gh api "repos/<owner>/<repo>/actions/runs/<id>/attempts/1/logs"`.
+2. **Só então** olhe o diff e a arquitetura.
+
+Num caso real (2026-08-11) a hipótese de pé era estado compartilhado entre
+testes. Errada: o erro literal era `duplicate key value violates unique
+constraint` — o seed gerava sufixo aleatório num espaço pequeno demais, e a
+colisão aparecia em menos de 1% das execuções. Uma linha de log encerrou o que
+horas de teoria de arquitetura não encerravam.
+
+Antes de chamar um teste de **instável**, exija as três coisas juntas: o arquivo
+não está no seu diff, ele passa localmente **e** o rerun fecha verde. Duas não
+bastam. E quando for instável mesmo, **corrija a causa** e escreva um teste
+determinístico que provaria o bug antigo — rode-o contra o código anterior pra
+confirmar que ele falharia. Teste novo que passa nos dois lados não prova nada.
 
 ## Fechamento
 

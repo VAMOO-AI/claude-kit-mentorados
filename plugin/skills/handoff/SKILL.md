@@ -10,6 +10,8 @@ description: >-
 disable-model-invocation: true
 ---
 
+> Derivada de `claude-config-team/skills/handoff`. Ao divergir de propósito, diga aqui o quê e por quê.
+
 # handoff
 
 > Origem: num projeto real, três handoffs tinham três estruturas diferentes, e um
@@ -58,6 +60,45 @@ Sem `.context/` no projeto → `docs/handoffs/`. **Nunca no diretório temporár
 sistema**: o handoff que some no reboot é o que você mais vai querer daqui a duas
 semanas. Ao terminar, imprima o caminho absoluto — é o que a próxima sessão
 recebe.
+
+## Antes de fechar: a memória do projeto
+
+O handoff conta a frente de trabalho. A **memória** guarda o que sobrevive a ela
+— e é aqui que ela se publica, porque este é o único momento do fluxo em que
+alguém está olhando para trás de propósito.
+
+Quando o projeto tem `.context/memoria/` (a pasta que a skill `memoria-projeto`
+liga), o passo é curto:
+
+```bash
+git status --short .context/memoria/
+```
+
+Se a sessão rodou **num worktree**, rode no clone principal
+(`git -C <clone-principal> status --short .context/memoria/`) — o worktree tem
+diretório de memória próprio, e o link do clone não serve pra ele; o que você
+escreveu dentro do worktree sai commitado junto com o código.
+
+O que aparecer aí foi escrito nesta sessão e ainda não está no repositório. Antes
+de fechar, passe os olhos em cada arquivo tocado e faça três coisas:
+
+1. **Apague o que se provou errado.** Memória errada é pior que memória faltando:
+   ela é lida com confiança e ninguém re-checa. Se a sessão derrubou um fato
+   antigo, o arquivo dele sai — não ganha um parágrafo de ressalva.
+2. **Marque hipótese como hipótese.** A mesma regra do handoff vale aqui: o que
+   foi medido e o que é inferência precisam estar escritos com essas palavras. A
+   memória é lida por sessões que não viram nada do que você viu.
+3. **Troque data relativa por absoluta.** "Semana passada" não sobrevive a três
+   sessões.
+
+Depois, o inverso: o que **este handoff** descobriu e vai valer daqui a um mês não
+pode ficar só no handoff — handoff é de uma frente, memória é do projeto. Causa
+raiz de incidente recorrente, decisão do cliente que parece bug, armadilha que
+custou horas: isso vira arquivo na memória, com link para o handoff.
+
+Sem `.context/memoria/` no projeto, diga no handoff onde a memória mora (ou que
+não existe) — a próxima sessão precisa saber se pode confiar em algo além do
+documento.
 
 ## Política de conteúdo
 
@@ -155,6 +196,9 @@ Ex.: `baseline` (auditar antes de mexer) · `ship` (deploy) ·
 - A pessoa que assume começa a trabalhar em vez de pedir para você re-explicar.
 - Nenhuma linha afirma estado sem dizer como aquilo foi provado.
 - Não tem chave, token, senha nem dado pessoal.
+- A memória do projeto saiu junto: o que a sessão escreveu está publicado, o que
+  ela derrubou está apagado, e o que ela descobriu de durável virou arquivo lá —
+  não só um parágrafo aqui.
 
 ## Armadilhas
 
@@ -166,3 +210,5 @@ Ex.: `baseline` (auditar antes de mexer) · `ship` (deploy) ·
 | Doc envelheceu sem ninguém notar | Faltou a âncora `**Base:** <branch> @ <sha>`. Sem ela não há como saber a distância |
 | Quem assumiu perdeu um dia em doc obsoleta | Faltou a seção "não use como fonte" |
 | Segredo vazou junto | Redação não foi feita. É item de checklist, não de bom senso |
+| Fato descoberto com esforço se perdeu depois do handoff | Ficou só no documento da frente. Handoff é de uma frente; memória é do projeto — o durável tem que sair dos dois lados |
+| Memória ficou só na máquina de quem saiu | O agente escreve sozinho, mas publicar é passo de gente. Se não sai no handoff, não sai nunca |
