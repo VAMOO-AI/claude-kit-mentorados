@@ -96,6 +96,11 @@
     ],
     "deny": [
       "Read(**/.env)",
+        "Read(~/.ssh/**)",
+        "Read(**/id_rsa*)",
+        "Read(**/id_ed25519*)",
+        "Read(**/*.pem)",
+        "Read(**/serviceAccountKey.json)",
       "Read(**/.env.local)",
       "Read(**/.env.*.local)",
       "Bash(supabase login:*)",

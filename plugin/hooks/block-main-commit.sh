@@ -31,12 +31,19 @@ fi
 [ "$is_commit" = 0 ] && exit 0
 
 # Resolve o repo-alvo: git -C <path>  >  primeiro cd <path>  >  cwd da sessão.
+# As aspas quebravam OS DOIS caminhos, e em direções opostas: no `cd "x"` o hook caía
+# no cwd da sessão e bloqueava commit legítimo; no `git -C "x"` ele capturava o path
+# COM as aspas, o git não resolvia, a branch saía vazia e o commit em main PASSAVA.
+# O segundo é falha aberta — é o que a suíte de 30/08 pegou.
 tgt="${cwd:-.}"
-p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]]+).*/\1/p' | head -1)
+p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+["'"'"']?([^[:space:]"'"'"']+).*/\1/p' | head -1)
 if [ -n "$p" ]; then
   tgt="$p"
 else
-  cdp=$(printf '%s' "$c" | sed -nE "s/.*cd[[:space:]]+([^[:space:]'\";&|]+).*/\1/p" | head -1)
+  # Aspas fazem parte da prática correta (há repo com espaço no nome, tipo
+  # "WELD MENTORIA /") — sem tirá-las o `cd "$W"` não resolvia, o hook caía no cwd da
+  # sessão e bloqueava commit legítimo em worktree. Medido em 30/08.
+  cdp=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+[\"']?([^[:space:]\"';&|]+).*/\2/p" | head -1)
   [ -n "$cdp" ] && tgt="$cdp"
 fi
 

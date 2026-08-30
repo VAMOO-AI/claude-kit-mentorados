@@ -1,21 +1,48 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash): pede CONFIRMAÇÃO ("ask") antes de comandos irreversíveis.
 # Mecaniza a regra "ops destrutivas exigem confirmação" — que como prosa pode ser
-# ignorada no meio de um fluxo. Cobre só os IRREVERSÍVEIS de dado (não atrapalha o dia a dia).
-# Lê o JSON via node (sem jq). Fail-open: sem node / sem match => não interfere.
+# ignorada no meio de um fluxo. Lê o JSON via node (sem jq). Fail-open: sem node /
+# sem match => não interfere.
 #
 # ATENÇÃO ao mexer: um "ask" daqui ATRAVESSA o modo bypass. Cada falso positivo vira
-# uma interrupção real no meio do trabalho. Em 29/08/2026 três regras foram corrigidas
-# por isso (medição em 261 comandos reais: 139 interrupções indevidas eliminadas).
+# uma interrupção real no meio do trabalho — e interrupção demais faz a pessoa desligar
+# o hook inteiro, que é o pior desfecho possível. Duas recalibrações por medição:
+#
+#   29/08/2026 — 261 comandos reais, 139 interrupções indevidas eliminadas (o -F do
+#   heredoc casava com o -f do force porque as duas metades da regra eram testadas no
+#   comando inteiro, não no trecho do push).
+#
+#   30/08/2026 — corpus de 75.184 comandos Bash de 30 dias replayados contra o hook.
+#   O que sobrava era quase todo operação COM undo. Por regra:
+#     • --force-with-lease (48 de 56 disparos de push) recusa o push se o remoto andou:
+#       é a variante segura, e é a que a skill ship manda usar. Isento.
+#     • `git rm -r` é versionado — volta com git restore. Isento.
+#     • `rm -rf` de path RELATIVO dentro de repo git tem o git como undo. Só pergunta
+#       em path absoluto/~ ou fora de repo, que é onde a perda é definitiva.
+#     • SQL destrutivo casava em quem CITA (`cat > x.sql <<SQL`, `grep "drop table"`,
+#       `--dry-run`) e não em quem EXECUTA. Agora exige executor no comando.
+#     • `supabase db reset` local é rotina de migration; só o remoto apaga dado real.
+#     • `git add -A` só é risco em clone compartilhado — worktree tem index próprio.
+#
+# ESCOTILHA: prefixe o comando com CAREFUL_OFF=1 para o hook não opinar nele (mesmo
+# idioma do HOTFIX_MAIN=1 do block-main-commit.sh).
+# BYPASS: em permission_mode=bypassPermissions o hook se cala. Em bypass o `ask` não
+# freia subagent nem workflow, então ele não é controle — é interrupção. Quem protege
+# em bypass é `permissions.deny`, que a doc garante valer em TODO modo
+# (https://code.claude.com/docs/en/permission-modes). CAREFUL_ON=1 traz o hook de volta.
+#
 # Todo caso tem teste em tests/test-check-careful.sh — rode antes de commitar.
-# Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
-# se não achar, cai pro ~/.claude de quem instalou pelo install.sh.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-c="$(cat | node "$H" tool_input.command)"
+info="$(cat | node "$H" permission_mode cwd tool_input.command)"
+modo="$(printf '%s\n' "$info" | sed -n 1p)"
+cwd="$(printf '%s\n' "$info"  | sed -n 2p)"
+c="$(printf '%s\n' "$info"    | sed '1,2d')"
 [ -z "$c" ] && exit 0
+case "$c" in *CAREFUL_OFF=1*) exit 0 ;; esac
+if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then exit 0; fi
 
 ask() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}' \
@@ -25,27 +52,85 @@ ask() {
 m()  { printf '%s' "$c" | grep -qiE "$1"; }   # case-insensitive: SQL, nomes de comando
 ms() { printf '%s' "$c" | grep -qE  "$1"; }   # case-sensitive: flags (-f do force ≠ -F do heredoc)
 
-# rm recursivo/forçado — exceto pastas descartáveis comuns
+# rm recursivo — só quando não há undo (nem pasta descartável, nem git, nem temp da sessão)
 if ms '\brm[[:space:]]+-[a-zA-Z]*[rR]'; then
   DESCARTAVEL='(node_modules|\.next|\.turbo|\.cache|__pycache__|coverage|playwright-report|/tmp/|/private/tmp/|/var/folders/|(^|[[:space:]/])(dist|build|out|tmp[-_a-zA-Z0-9]*|temp[-_a-zA-Z0-9]*)([[:space:]/]|$))'
-  ms "$DESCARTAVEL" || ask "[cuidado] rm recursivo fora de pasta descartável. Confirme o alvo antes."
+  rm_ok=0
+  ms "$DESCARTAVEL" && rm_ok=1
+  ms '\bgit[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?rm\b' && rm_ok=1
+  { ms 'mktemp' || ms '\btrap\b'; } && ms 'rm[[:space:]]+-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+"?\$' && rm_ok=1
+  if [ "$rm_ok" = 0 ]; then
+    ms 'rm[[:space:]]+-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*["'"'"']?(~|/)' \
+      && ask "[cuidado] rm recursivo em path absoluto (fora de repo, sem undo do git). Confirme o alvo."
+    git -C "${cwd:-.}" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+      || ask "[cuidado] rm recursivo fora de repo git (sem undo). Confirme o alvo."
+  fi
 fi
-# git push --force reescreve história remota. O flag TEM que estar no trecho do push:
-# senão `git commit -F - <<EOF && git push` dispara (o -F do heredoc casava com o -f).
+
+# git push --force. O flag TEM que estar no trecho do push (senão `git commit -F - && git push`
+# dispara) e --force-with-lease é isento: ele já recusa se o remoto andou.
 push_seg=$(printf '%s' "$c" | tr '\n' ';' | grep -oE 'git[[:space:]]+push[^;&|]*' 2>/dev/null)
-if [ -n "$push_seg" ] && printf '%s' "$push_seg" | grep -qE '(^|[[:space:]])(--force(-with-lease)?|-f)([[:space:]]|=|$)'; then
-  ask "[cuidado] git push --force/-f reescreve a história remota. Confirme que NÃO é branch compartilhada."
+if [ -n "$push_seg" ]; then
+  sem_lease=$(printf '%s' "$push_seg" | sed 's/--force-with-lease[^[:space:]]*//g')
+  printf '%s' "$sem_lease" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|=|$)' \
+    && ask "[cuidado] git push --force (sem lease) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
 fi
-# SQL destrutivo
-m '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE([[:space:]]+TABLE)?)\b' && ask "[cuidado] SQL destrutivo (DROP/TRUNCATE). É produção? Confirme."
-m 'supabase[[:space:]]+db[[:space:]]+reset'       && ask "[cuidado] supabase db reset apaga o banco. Confirme."
-# git add amplo — leva staged de outra sessão / arquivo indesejado de carona
+
+# SQL destrutivo: só quando há EXECUTOR. Corpo de heredoc cuja linha de abertura não tem
+# executor (`cat > x.sql <<SQL`, `python3 - <<PY`) é conteúdo sendo escrito, não comando.
+if m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli)' \
+   && ! m '(--check|--dry-run)' && ! m 'docker[[:space:]]+exec'; then
+  c_exec=$(printf '%s' "$c" | awk -v ex='psql|db-query\\.sh|supabase[ \t]+db|PGPASSWORD|pgcli' '
+    BEGIN { inhd=0 }
+    inhd { if ($0 == tag || $0 == tag";") { inhd=0 }; next }
+    {
+      print
+      if (match($0, /<<-?[ \t]*'"'"'?"?[A-Za-z_][A-Za-z0-9_]*'"'"'?"?/)) {
+        t = substr($0, RSTART, RLENGTH); gsub(/^<<-?[ \t]*|['"'"'"]/, "", t)
+        if ($0 !~ ex) { tag=t; inhd=1 }
+      }
+    }')
+  printf '%s' "$c_exec" | grep -qiE '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE([[:space:]]+TABLE)?)\b' \
+    && ask "[cuidado] SQL destrutivo (DROP/TRUNCATE) sendo EXECUTADO. É produção? Confirme."
+fi
+
+# supabase db reset: o local é rotina de migration; só o remoto apaga dado que importa.
+if m 'supabase[[:space:]]+db[[:space:]]+reset' && m '(--linked|--db-url)' \
+   && ! m '(localhost|127\.0\.0\.1|:54322|host\.docker\.internal)'; then
+  ask "[cuidado] supabase db reset em banco REMOTO apaga o banco. Confirme."
+fi
+
+# git add amplo — o risco é o index compartilhado entre sessões no mesmo clone.
+# Worktree tem index próprio, então lá não pergunta.
 if ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-[a-zA-Z]*[Au]\b|--all\b|\.)[[:space:]]*($|[;&|])'; then
-  ask "[cuidado] git add amplo (-A/-u/--all/.). Prefira paths explícitos pra não commitar arquivo errado."
+  em_worktree=0
+  case "$cwd" in *worktree*|*.worktrees*) em_worktree=1;; esac
+  case "$c" in *worktree*) em_worktree=1;; esac
+  [ -f "${cwd:-.}/.git" ] && em_worktree=1
+  [ "$em_worktree" = 0 ] && ask "[cuidado] git add amplo (-A/-u/--all/.) em clone compartilhado. Prefira paths explícitos pra não commitar arquivo errado."
 fi
+
 # Ler .env pelo terminal traz a credencial pro contexto — o deny de Read só cobre a
 # ferramenta Read, o Bash passaria livre. `cat >> .env` é escrita e não conta.
-if m '(\b(cat|head|tail|less|more|bat|strings|base64)\b|rtk[[:space:]]+read\b)[^|;&>]*\.env(\.[A-Za-z0-9_.-]+)?([[:space:]]|$)' && ! m '\.env\.example'; then
+if m '(\b(cat|head|tail|less|more|bat|strings|base64)\b|rtk[[:space:]]+read\b)[^|;&>]*\.env(\.[A-Za-z0-9_.-]+)?([[:space:]]|$)' \
+   && ! m '\.env\.(example|1password|sample|template)' \
+   && ! m 'grep[[:space:]]+-c'; then
   ask "[cuidado] ler .env/.env.local pelo terminal traz a credencial pro contexto. Pra saber só se a chave existe: grep -c '^CHAVE=' arquivo"
+fi
+
+# Exfiltração de credencial pra fora da máquina. Nada mais no harness barra isso:
+# permissions.deny só cobre o tool Read, e o `ask` de hook não freia subagent — mas na
+# sessão interativa esta é a última chance antes do segredo sair.
+# A credencial tem que estar DENTRO do segmento do comando de rede: testar as duas
+# metades no comando inteiro dispara em `source .env.tokens; ...; curl`, que é o padrão
+# mais comum aqui — 3.407 disparos no corpus de 30 dias contra 118 da versão por
+# segmento. E o destino "dono" da credencial (a própria API do Supabase/n8n/GitHub) é
+# isento: mandar a service_role PRO Supabase é o uso correto dela. Sobram 13 em 30 dias.
+net_seg=$(printf '%s' "$c" | grep -oE '\b(curl|wget|nc|ncat|scp|rsync)\b[^;&|]*' 2>/dev/null)
+if [ -n "$net_seg" ] \
+   && printf '%s' "$net_seg" | grep -qiE '(\.env\b|\.env\.|id_rsa|id_ed25519|\.ssh/|SERVICE_ROLE|SERVICE_KEY|ANTHROPIC_API_KEY)' \
+   && ! printf '%s' "$net_seg" | grep -qiE '\.env\.(example|sample|template)' \
+   && ! printf '%s' "$net_seg" | grep -qiE '(supabase\.(co|com)|SUPABASE_URL|api\.github\.com|githubusercontent|api\.anthropic\.com|/rest/v1/|/auth/v1/|/functions/v1/|n8n|localhost|127\.0\.0\.1)'; then
+  ask "[cuidado] comando de rede junto com arquivo/variável de credencial: isso pode estar MANDANDO segredo pra fora. Confirme o destino."
 fi
 exit 0
