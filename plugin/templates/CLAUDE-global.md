@@ -73,6 +73,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Trabalhe com dados reais. Sem o erro/print real, peça — não invente o output.
 - Código humano, sem comentário robótico. Não over-engineer, não construa pra cenário imaginário.
 - Doc/relatório gerado: substância sem filler — sem seções boilerplate nem resumos redundantes.
+- **Artefato (página publicada) só quando eu pedir com essa palavra.** O Claude às vezes decide publicar um Artifact porque acha que o resultado "merece uma página bonita" — e aí seu relatório vira um link em vez de um arquivo. Relatório, plano, comparativo, análise: quero no terminal ou em arquivo no projeto, onde o `grep` acha e o git versiona. Se eu disser "artefato", "publica isso" ou "faz uma página", aí sim. Na dúvida, ofereça em uma linha no fim e siga sem criar.
 - Quando fizer sentido, apresente 2 visões (perfeccionista vs pragmático) e me deixe decidir.
 - **Sessão longa é o que mais consome seu limite.** A cada comando que o Claude roda, ele relê a conversa inteira — então uma sessão de 3 horas custa muito mais que três de 1 hora com o mesmo trabalho. Terminou uma tarefa e vai começar assunto novo? Me avise pra eu dar `/clear`. Contexto passando de ~60%? Sugira `/compact` antes de continuar. Não emende tarefa sem relação na mesma sessão só porque "já está tudo carregado" — é justamente aí que o custo dispara. (Detalhes em `docs/economia-de-tokens.md`.)
 
