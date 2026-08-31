@@ -49,6 +49,30 @@ check pass "DROP TABLE em bypass"     'psql -c "drop table clientes;"' "$REPO_GI
 check ask  "CAREFUL_ON=1 traz de volta" 'git push --force origin main' "$REPO_GIT" bypassPermissions_com_careful_on
 
 echo
+echo "== ...mas avisa UMA vez que está calado (senão o silêncio vira falsa segurança) =="
+# Quem liga o bypass sem saber que ele desarma o hook acha que continua protegido.
+# O aviso sai no primeiro comando da sessão e nunca mais — repetir a cada comando
+# seria a mesma interrupção que a calibração de 30/08 foi remover.
+aviso_out() { # aviso_out <session_id>
+  SID="$1" node -e \
+    'process.stdout.write(JSON.stringify({session_id:process.env.SID,permission_mode:"bypassPermissions",cwd:"/tmp",tool_input:{command:"git push --force origin main"}}))' \
+    | bash "$HOOK" 2>/dev/null
+}
+SID_TESTE="teste-aviso-$$"
+rm -f "${TMPDIR:-/tmp}/.careful-bypass-$SID_TESTE"
+if aviso_out "$SID_TESTE" | grep -q 'bypassPermissions: o check-careful está DESLIGADO'; then
+  printf '  ok    1º comando da sessão avisa que o hook está desarmado\n'
+else
+  printf '  FALHA 1º comando da sessão avisa que o hook está desarmado\n'; falhas=$((falhas+1))
+fi
+if [ -z "$(aviso_out "$SID_TESTE")" ]; then
+  printf '  ok    2º comando da mesma sessão é mudo (avisa uma vez só)\n'
+else
+  printf '  FALHA 2º comando da mesma sessão é mudo\n'; falhas=$((falhas+1))
+fi
+rm -f "${TMPDIR:-/tmp}/.careful-bypass-$SID_TESTE"
+
+echo
 echo "== não pode interromper (falsos positivos medidos em produção) =="
 check pass "commit com heredoc -F e push na mesma linha" \
   'git add e2e/spec.ts && git commit -F - <<EOF && git push -u origin feat/x'

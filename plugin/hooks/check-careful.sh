@@ -36,13 +36,25 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-info="$(cat | node "$H" permission_mode cwd tool_input.command)"
+info="$(cat | node "$H" permission_mode cwd session_id tool_input.command)"
 modo="$(printf '%s\n' "$info" | sed -n 1p)"
 cwd="$(printf '%s\n' "$info"  | sed -n 2p)"
-c="$(printf '%s\n' "$info"    | sed '1,2d')"
+sid="$(printf '%s\n' "$info"  | sed -n 3p)"
+c="$(printf '%s\n' "$info"    | sed '1,3d')"
 [ -z "$c" ] && exit 0
 case "$c" in *CAREFUL_OFF=1*) exit 0 ;; esac
-if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then exit 0; fi
+if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then
+  # Este hook é a rede de proteção do kit, e em bypass ele fica MUDO. Quem liga o
+  # bypass sem saber disso acha que continua protegido — então avisa uma vez por
+  # sessão (marker), com o caminho pra ligar de volta. Silêncio virando falsa
+  # sensação de segurança é o pior desfecho de um kit de ensino.
+  aviso="${TMPDIR:-/tmp}/.careful-bypass-${sid:-sem-id}"
+  if [ -n "$sid" ] && [ ! -f "$aviso" ]; then
+    : > "$aviso" 2>/dev/null
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"modo bypassPermissions: o check-careful está DESLIGADO nesta sessão (ele não freia subagent em bypass, então vira só interrupção). O que ainda protege é o permissions.deny do settings.json. Para trazer as confirmações de volta nesta sessão, rode o Claude Code com CAREFUL_ON=1."}}'
+  fi
+  exit 0
+fi
 
 ask() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}' \
