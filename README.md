@@ -118,6 +118,12 @@ Depois **reinicie o Claude Code**. Não é só pela barra: a sessão aberta come
 com as configurações antigas, então idioma, permissões e barra de status só
 valem no próximo start.
 
+> **Instalou o kit antes de 24/08/2026, pelo `install.sh`?** Você precisa de um passo a
+> mais, senão fica com cada skill duas vezes — a cópia velha em `~/.claude/skills/` e a
+> nova do plugin, com o mesmo nome. O `/kit-vamoo:setup` limpa isso sozinho, mas vale ler
+> [`docs/migrar-do-install-antigo.md`](docs/migrar-do-install-antigo.md): tem um prompt
+> pronto pra colar no Claude, que faz o diagnóstico, a migração e a conferência.
+
 ### Duas garantias, porque instalador que apaga config é traumático
 
 - **Seu `CLAUDE.md` não é sobrescrito.** Se você já tem um, o modelo do kit fica
