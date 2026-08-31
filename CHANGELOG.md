@@ -5,6 +5,18 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.2] — 2026-08-31
+
+### Adicionado
+
+- **Regra: artefato só quando você pedir com essa palavra.** O Claude às vezes
+  decide publicar um Artifact por conta própria, porque julga que o resultado
+  "merece uma página" — e aí o seu relatório vira um link em vez de um arquivo
+  no projeto, fora do alcance do `grep` e do git. Agora o `CLAUDE-global.md`
+  diz explicitamente que relatório, plano e análise vão pro terminal ou pro
+  repositório, e que artefato só sai quando você pedir ("artefato", "publica
+  isso", "faz uma página").
+
 ## [0.10.1] — 2026-08-31
 
 ### Corrigido
