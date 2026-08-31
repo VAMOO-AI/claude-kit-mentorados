@@ -1,9 +1,38 @@
 # Changelog
 
 Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/).
-Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
+Mentorado: atualizar **não é automático** — o Claude Code desliga o auto-update para
+marketplaces de terceiros. Ligue uma vez em `/plugin` → Marketplaces → vamoo-ai →
+Enable auto-update (e depois só `/reload-plugins`), ou atualize na mão com
+`/plugin marketplace update vamoo-ai` + `/plugin update kit-vamoo` + `/reload-plugins`.
+Veja **Atualizar depois** no README — inclusive o que o auto-update NÃO cobre.
+
+Mantenedor: **suba o `version` do `plugin.json` em toda entrega.** Ele é a chave do
+cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update ligado.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
+
+## [0.10.3] — 2026-08-31
+
+### Documentado
+
+- **Atualizar o kit não é automático, e isso não estava escrito.** O Claude Code
+  desliga o auto-update para marketplaces de terceiros — este kit é um deles.
+  O README dizia só `/plugin update kit-vamoo`, o que dá a entender que basta
+  lembrar de rodar. Agora a seção **Atualizar depois** traz os dois caminhos: ligar
+  o auto-update de uma vez (`/plugin` → Marketplaces → vamoo-ai → Enable
+  auto-update) ou atualizar na mão, com os três comandos na ordem certa —
+  `marketplace update` re-lê o catálogo, `plugin update` baixa, `/reload-plugins`
+  aplica sem reiniciar.
+- **O que o auto-update não faz.** Ele não toca no que veio do `/kit-vamoo:setup`
+  (CLAUDE.md global, barra de status, preferências), porque um plugin não consegue
+  declarar essas chaves. E o aviso de versão nova só aparece dentro do menu
+  `/plugin` — quem nunca abre, nunca vê.
+- **Para quem mantém o kit:** o `version` do `plugin.json` é a chave do cache. Sem
+  bump, ninguém recebe a mudança, nem com auto-update ligado. Está escrito no
+  README e no topo deste arquivo.
+- **Migração da instalação antiga** ganhou doc próprio na v0.10.2
+  (`docs/migrar-do-install-antigo.md`), com prompt pronto para colar no Claude.
 
 ## [0.10.2] — 2026-08-31
 

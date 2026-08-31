@@ -154,12 +154,54 @@ E a barra de status aparece no rodapé depois de reiniciar. Pronto. 🎉
 
 ### Atualizar depois
 
+**Atualização não é automática por padrão.** O Claude Code desliga o auto-update para
+marketplaces de terceiros — e este kit é um deles. Enquanto ninguém rodar nada, você
+continua na versão que instalou, mesmo com versão nova publicada.
+
+Você escolhe entre os dois caminhos abaixo. O primeiro é o recomendado: liga uma vez e
+acabou.
+
+**Ligar o auto-update (uma vez, recomendado)**
+
 ```
-/plugin update kit-vamoo
+/plugin
 ```
 
-Rode `/kit-vamoo:setup` de novo se quiser atualizar também a barra de status e
-as preferências.
+Vá em **Marketplaces → vamoo-ai → Enable auto-update**. A partir daí o kit se atualiza
+sozinho e você só precisa aplicar as mudanças na sessão aberta:
+
+```
+/reload-plugins
+```
+
+**Atualizar na mão (quando quiser)**
+
+```
+/plugin marketplace update vamoo-ai
+/plugin update kit-vamoo
+/reload-plugins
+```
+
+O primeiro comando re-lê o catálogo do repositório (é o que descobre que existe versão
+nova); o segundo baixa; o terceiro aplica sem precisar reiniciar. Se o `/reload-plugins`
+avisar sobre cache de prompt, rode `/reload-plugins --force`.
+
+#### Duas coisas que o auto-update **não** faz
+
+1. **Não atualiza o que veio do `/kit-vamoo:setup`.** O `CLAUDE.md` global, a barra de
+   status e as preferências não são parte do plugin — um plugin não consegue declarar
+   essas chaves. Depois de uma atualização grande, rode `/kit-vamoo:setup` de novo. Ele
+   **não sobrescreve** o seu `CLAUDE.md`: deixa o modelo novo em `~/.claude/CLAUDE.kit.md`
+   para você comparar. Regra nova do kit fica parada ali até alguém olhar.
+2. **Não te avisa em voz alta.** O indicador de versão nova aparece dentro do `/plugin`.
+   Se você nunca abre esse menu, não vê.
+
+#### Se você mantém o kit (não é o caso do mentorado)
+
+O campo `version` do `plugin/.claude-plugin/plugin.json` é a **chave do cache**: o Claude
+Code guarda cada versão numa pasta própria e só busca de novo quando o número muda.
+Publicar mudança sem subir a versão significa que **ninguém recebe** — nem quem está com
+auto-update ligado. Bump de versão não é formalidade, é o mecanismo de entrega.
 
 ---
 
