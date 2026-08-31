@@ -96,17 +96,22 @@
     ],
     "deny": [
       "Read(**/.env)",
-        "Read(~/.ssh/**)",
-        "Read(**/id_rsa*)",
-        "Read(**/id_ed25519*)",
-        "Read(**/*.pem)",
-        "Read(**/serviceAccountKey.json)",
+      "Read(~/.ssh/**)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(**/*.pem)",
+      "Read(**/serviceAccountKey.json)",
       "Read(**/.env.local)",
       "Read(**/.env.*.local)",
       "Bash(supabase login:*)",
       "Bash(supabase link:*)",
       "Bash(supabase db push:*)",
-      "Bash(vercel login:*)"
+      "Bash(vercel login:*)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.config/op/**)"
     ]
   }
 }

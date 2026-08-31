@@ -5,6 +5,31 @@ Mentorado: pra atualizar, rode `/plugin update kit-vamoo` dentro do Claude Code.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.1] — 2026-08-31
+
+### Corrigido
+
+- **Ligar o modo bypass desarmava o check-careful em silêncio.** Em
+  `bypassPermissions` o hook se cala de propósito (ali o `ask` não freia subagent
+  nem workflow, então ele vira só interrupção) — mas quem ligava o modo não
+  tinha como saber disso, e continuava trabalhando achando que a rede de
+  proteção estava lá. Agora o primeiro comando da sessão traz um aviso dizendo
+  que o hook está desligado, que quem protege nesse modo é o `permissions.deny`,
+  e como trazer as confirmações de volta (`CAREFUL_ON=1`). **Uma vez por sessão,
+  nunca mais** — repetir a cada comando seria exatamente a interrupção que a
+  recalibração de agosto existiu para remover. Coberto por dois casos novos em
+  `tests/test-check-careful.sh`.
+
+### Adicionado
+
+- **Cinco arquivos de credencial a mais no `permissions.deny`**, todos de
+  caminho fixo e leitura rara: `~/.config/gh/hosts.yml` (token do GitHub em
+  texto claro), `~/.netrc`, `~/.npmrc` do home (o `.npmrc` **de projeto**
+  continua livre — é onde mora `legacy-peer-deps` e é lido o tempo todo),
+  `~/.docker/config.json` e `~/.config/op/**`. A escolha não foi por intuição:
+  cada padrão foi medido contra 30 dias de comandos reais antes de entrar, e o
+  que tinha uso legítimo ficou de fora.
+
 ## [0.10.0] — 2026-08-30
 
 ### Corrigido
