@@ -12,6 +12,24 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.13.0]
+
+### Adicionado
+- **Teste de coerência de versão** (`tests/test-versao-changelog.sh`). São quatro
+  lugares que precisam dizer a mesma coisa — `plugin.json`,
+  `plugin/scripts/kit-setup.sh`, `install.sh` e o topo do CHANGELOG — e o CI só
+  comparava os três primeiros. O teste cobre o CHANGELOG e pega **versão
+  repetida**, que é o sintoma de dois PRs bumpando para o mesmo número: o git
+  auto-mergeia linha idêntica, o segundo bump vira no-op e o kit anuncia uma
+  versão que já saiu. Na v0.12.0 uma variante disso passou: o bump esqueceu o
+  `kit-setup.sh` porque quem bumpou procurou o arquivo na raiz e ele mora em
+  `plugin/scripts/`.
+- **Skill `worktrees`: o que fazer quando o Claude recusa um comando** com "too
+  complex to verify that it stays inside the worktree". É guard do harness, não
+  bug: heredoc grande, `&&` encadeado e `cd` pro clone caem nele. Entrou a tabela
+  de trocas (heredoc → `Write`, patch → `Edit`) e a regra de parar na segunda
+  recusa idêntica em vez de reescrever o mesmo comando.
+
 ## [0.12.0]
 
 ### Corrigido

@@ -69,6 +69,12 @@ jobs:
       - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
         run: bash tests/test-git-sync-cleanup.sh
 
+      - name: As quatro versões do kit dizem a mesma coisa
+        # plugin.json, plugin/scripts/kit-setup.sh, install.sh e o topo do CHANGELOG.
+        # O step acima compara os três primeiros; este cobre o CHANGELOG e pega
+        # versão repetida — o sintoma de dois PRs que bumparam para o mesmo número.
+        run: bash tests/test-versao-changelog.sh
+
       - name: Sintaxe dos scripts shell
         run: |
           bash -n install.sh
