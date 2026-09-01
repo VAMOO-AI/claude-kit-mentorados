@@ -8,7 +8,12 @@
 - Edit/Write acontece na conversa principal por padrão — assim você vê cada mudança.
 - Exceção (write em sub-agente permitido): tarefa mecânica e isolada (ex.: renomear em N arquivos, formatar, gerar testes) com escopo explícito.
 
-## Contrato de escopo (OBRIGATÓRIO para writes paralelos)
+## Revisor: o que corrige sozinho e o que pergunta
+- Severidade diz a ordem; **natureza** diz se o revisor toca. Se um sênior aplicaria o fix sem discutir, é mecânico e o revisor corrige. Se dois sêniores poderiam discordar, é decisão e o revisor reporta com a correção proposta, sem aplicar.
+- Mecânico: dead code, variável nunca lida, N+1 sem eager loading, comentário que contradiz o código, número mágico → constante, validação faltando em saída de IA, versão/caminho desatualizado.
+- Decisão: segurança (auth, XSS, injeção), race / ler-e-depois-gravar, remover funcionalidade, mudança de comportamento visível, qualquer fix acima de ~20 linhas.
+- Quatro categorias que revisor costuma pular e entram em todo review: valor novo de enum/status (ler TODOS os consumidores fora do diff), saída de IA que vira dado, ler-e-depois-gravar sem atomicidade, e migration (checklist na skill `baseline`, `references/02-banco.md`).
+
 - Cada agente recebe no prompt:
   - A lista exata de arquivos que pode modificar.
   - O que pode LER mas não alterar.

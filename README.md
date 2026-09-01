@@ -29,7 +29,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
 | `plugin/skills/` | plugin | **18 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
-| `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff) e `/kit-vamoo:explicar` (explica um código de forma didática). |
+| `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`, roda lint a cada edição, e avisa no início da sessão quando sua branch está atrás do remoto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -38,6 +38,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/scripts/statusline.js` | `~/.claude/scripts/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e o contexto **em número absoluto**. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
+| `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao` e `worktrees`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
 | `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
@@ -65,7 +66,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
 | **auditoria-seguranca** | Auditoria em 5 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
-| **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
+| **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. | projeto em git |
@@ -85,7 +86,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 | **grill-me** | Gatilho manual do `/kit-vamoo:grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
 | **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
 | **guardrails-ia** | Agente de IA que fala com cliente: o que ele pode afirmar, pedido de parar, escalar pra humano, e quem responde o fio quando IA e humano disputam. | nenhum |
-| **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
+| **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod), o formato do veredito de QA e o método pra teste instável (esperar condição, achar o teste que suja o estado). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
 | **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
 

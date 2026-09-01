@@ -45,7 +45,10 @@ sobrevivem a mudança de CSS.
 3. **Página "server component" que usa a service_role** → no CI o app dá **erro 500** se você não passar
    `SUPABASE_SERVICE_ROLE_KEY` pro passo que roda o app (não basta passar só pro seed).
 4. **Esperar tempo fixo é frágil.** Nada de `waitForTimeout(2000)`. Use `await expect(algo).toBeVisible()` —
-   o Playwright espera o elemento aparecer, no tempo certo.
+   o Playwright espera o elemento aparecer, no tempo certo. Fora do Playwright vale o mesmo: espere a
+   condição, não o relógio. E quando um teste só falha rodando a suíte inteira, o culpado costuma ser
+   outro teste que sujou o estado — a skill `verificacao` tem o método e um script de bisseção pra isso
+   (`references/testes-flaky.md`).
 5. **Login com botão "custom"** que não é `<button type="submit">` de verdade: às vezes o clique não envia o
    form. Saídas: apertar Enter no campo de senha, ou logar via API (`fetch('/api/login')`) no setup.
 6. **Teste que se auto-pula quando falta variável** vira **CI verde mentiroso** (parece que passou, mas nada rodou).

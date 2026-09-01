@@ -12,6 +12,54 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.17.0]
+
+O que sobrou da leitura do `AlbertoGRB/dev-kit` (um agregador de superpowers,
+gstack e ponytail) depois de cruzar com o que o kit já faz. Cinco ideias
+pequenas; nada de roteador novo nem de skill de 1.800 linhas.
+
+### Adicionado
+- **`/kit-vamoo:atalhos` e a convenção `// atalho: <teto>; <quando revisitar>`.**
+  Quando você (ou o Claude) simplifica de propósito — um lock global, ler o
+  arquivo inteiro em memória, deixar sem índice — a simplificação ganha uma marca
+  no código dizendo até onde aguenta e quando voltar. O comando lista todas em
+  uma tela e aponta as `[sem-gatilho]`, que são as que viram "depois" pra sempre.
+  A regra entrou no `CLAUDE-global.md` (ao lado de "não over-engineer").
+- **Skill `baseline`, `02-banco.md`: "Migration que não derruba produção".**
+  A checklist do que quebra um banco com dado mesmo com RLS perfeita: NOT NULL
+  antes do backfill, índice em tabela viva sem CONCURRENTLY, DROP ou RENAME de
+  coluna que o código em produção ainda lê, e a ordem entre schema e código. A
+  regra de caminho de `supabase/migrations/` e o passo de deploy do `ship`
+  passam a apontar pra ela.
+- **Skill `verificacao`, duas referências e um script.** `qa-taxonomia.md` dá
+  o formato do veredito de QA (severidade em quatro níveis, sete categorias,
+  checklist por página, e a contagem do que foi coberto — "nenhum achado" sem
+  contagem é relatório vazio). `testes-flaky.md` cobre as duas causas que mais
+  voltam em teste instável: esperar tempo em vez de condição, e um teste que
+  suja o estado de outro — com `scripts/find-polluter.sh`, que roda os arquivos
+  um a um e para no culpado.
+
+- **`plugin/scripts/skill-pressure-test.sh` + `tests/skills/` + `docs/testar-skills-sob-pressao.md`.**
+  Teste pra skill de disciplina, como se fosse código: um cenário com três ou
+  mais pressões (prazo, autoridade, evidência parcial) roda **sem** a skill
+  (`--baseline`) e **com** a skill do plugin no system prompt (`--com-skill`), e
+  o runner compara a letra escolhida com a esperada. Três cenários entram (dois
+  da `verificacao`, um da `worktrees`). Honestidade: no `haiku` eles passam
+  também sem a skill, então hoje são regressão, não prova — o doc diz o que
+  falta pra virarem prova. Serve pra quem cria as próprias skills e quer saber
+  se a regra segura quando o Claude tem motivo pra furar.
+
+### Alterado
+- **`/kit-vamoo:revisar` e o `agents.md`: revisor separa o que é mecânico do que
+  é decisão.** Cada achado sai marcado `[mecânico]` (um sênior aplicaria sem
+  discutir: dead code, N+1, número mágico) ou `[decisão]` (segurança, race,
+  remover funcionalidade, mudança visível). "Aplica os mecânicos" vira um pedido
+  seguro. E quatro categorias que revisor costuma pular entram sempre: valor
+  novo de enum/status (ler TODOS os consumidores fora do diff), saída de IA que
+  vira dado, ler-e-depois-gravar sem atomicidade, e migration.
+- `.gitignore` passa a ignorar `.claude-worktrees/`, onde as sessões do Claude
+  criam worktrees dentro do repositório.
+
 ## [0.16.0]
 
 ### Adicionado

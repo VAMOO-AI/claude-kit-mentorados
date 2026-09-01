@@ -24,6 +24,9 @@ Você pode invocar de propósito: *"usa a skill verificacao antes de fechar"*.
 > **Crie as suas.** Quando você se pega repetindo a mesma instrução em toda sessão,
 > isso é uma skill esperando pra nascer. Peça: *"cria uma skill que faça X"*. Skills
 > ficam em `~/.claude/skills/<nome>/SKILL.md` (global) ou `.claude/skills/` (do projeto).
+> E teste a skill como testaria código: [`docs/testar-skills-sob-pressao.md`](testar-skills-sob-pressao.md)
+> mostra como montar um cenário em que furar a regra é a escolha confortável e
+> ver se a skill segura — sem ela (RED) e com ela (GREEN).
 
 ---
 

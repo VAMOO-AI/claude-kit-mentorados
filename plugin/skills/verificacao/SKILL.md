@@ -51,6 +51,10 @@ Rode o app e inspecione visualmente (skill `run`/`verify`/screenshot) antes de
 static check não pega blur, layout quebrado nem botão morto. Isso é bug de
 entrega, não polimento.
 
+QA em subagent devolve o veredito no formato de `references/qa-taxonomia.md`:
+severidade (crítico/alto/médio/baixo), categoria, passos e a contagem do que
+foi coberto. "Nenhum achado" sem contagem é relatório vazio.
+
 ## Pipe não mascara falha
 
 Nunca pipe `tsc`/`eslint` pra `head`/`tail` sem `set -o pipefail` (ou checar
@@ -79,6 +83,10 @@ não está no seu diff, ele passa localmente **e** o rerun fecha verde. Duas nã
 bastam. E quando for instável mesmo, **corrija a causa** e escreva um teste
 determinístico que provaria o bug antigo — rode-o contra o código anterior pra
 confirmar que ele falharia. Teste novo que passa nos dois lados não prova nada.
+
+As duas causas de instabilidade que mais voltam, com o fix de cada uma (espera
+por condição em vez de `sleep`; bisseção do teste que suja o estado com
+`scripts/find-polluter.sh`), estão em `references/testes-flaky.md`.
 
 ## Efeito colateral externo → simulado, dry-run, e só então o real
 

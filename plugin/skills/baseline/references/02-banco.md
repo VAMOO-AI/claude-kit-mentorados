@@ -156,3 +156,49 @@ ainda está. Estático é `nao_medido` com ressalva, nunca `conforme`.
 | Migration nova quebrou prod na hora | Deploy do front é automático e foi junto. Migration que muda contrato de coluna entra **antes** do merge |
 | Lint acusa `0007` | Alguém escreveu policy e esqueceu do `enable row level security`. A policy existe e não vale nada — pior que não ter |
 | Cliente diz que "está tudo com RLS" | Confirme com `0013` no banco real. Migration é intenção, `pg_tables.rowsecurity` é fato |
+
+## Migration que não derruba produção
+
+RLS protege o dado de quem não devia ler. Esta seção protege o dado de quem
+devia escrever: a migration certa, aplicada na ordem errada, derruba o app sem
+tocar em nenhuma policy. No Supabase o deploy do front é automático e sai junto
+com o merge, então "código velho rodando com schema novo" e "código novo
+rodando com schema velho" são estados reais, não hipótese.
+
+Checklist antes de aplicar qualquer migration em banco com dado:
+
+- [ ] **Reversível.** Existe o caminho de volta e ele desfaz de verdade — não um
+      arquivo `down` vazio. Se a volta perde dado (DROP, TRUNCATE, type que
+      trunca), isso está escrito na migration, com o dono que aceitou.
+- [ ] **NOT NULL só depois do backfill.** `ALTER TABLE … ADD COLUMN x NOT NULL`
+      sem `DEFAULT` falha em tabela com linhas; com `DEFAULT` funciona e esconde
+      o problema: toda linha antiga recebe um valor que ninguém escolheu. A
+      ordem é ADD COLUMN nullable → backfill em lotes → `SET NOT NULL`. Três
+      migrations, não uma.
+- [ ] **Índice em tabela viva é `CREATE INDEX CONCURRENTLY`.** Sem o
+      CONCURRENTLY o Postgres tranca a tabela pra escrita até o índice
+      terminar. Em tabela de 100 mil linhas isso é segundos de app parado; em
+      um milhão, minutos. CONCURRENTLY não roda dentro de transação, então a
+      migration precisa de uma marcação que o runner respeite (no Supabase CLI,
+      um arquivo só com esse statement).
+- [ ] **Um ALTER por lock, não cinco.** Vários `ALTER TABLE` na mesma tabela
+      viram um só statement com cláusulas separadas por vírgula. Cada ALTER
+      separado adquire e solta o lock exclusivo, e cada aquisição espera as
+      queries em voo terminarem.
+- [ ] **Coluna que some passa por depreciação.** DROP COLUMN só depois que
+      nenhum código lê a coluna em produção há pelo menos um deploy. Renomear é
+      o mesmo caso com outro nome: o código antigo continua rodando com o nome
+      antigo até o próximo deploy terminar. Renomeie criando a nova, copiando,
+      trocando o código, e só então dropando a velha.
+- [ ] **Foreign key nova tem índice.** O Postgres não cria índice na coluna que
+      referencia. Sem ele, todo DELETE ou UPDATE na tabela referenciada faz
+      seq scan na referenciadora pra checar a constraint.
+- [ ] **A ordem entre schema e código está decidida.** Migration que ADICIONA
+      (coluna, tabela, índice) vai antes do merge, porque o código novo
+      depende dela e o código velho a ignora. Migration que REMOVE ou RENOMEIA
+      vai depois de o código que parou de usar estar em produção. Migration que
+      muda contrato de coluna que o front lê (tipo, nome, semântica) é a que
+      mais quebra, e é a que o `ship` já exige antes do merge.
+
+O `data-migration` do gstack (garrytan/gstack, MIT) é a origem desta lista; o
+que mudou foi tirar Rails e pôr o cenário Supabase.
