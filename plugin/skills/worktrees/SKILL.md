@@ -32,6 +32,36 @@ perceber no lugar errado. Duas formas de se proteger:
   outro clone na mão (ele pode estar desatualizado e você sobrescreve código
   novo com velho).
 
+## Quando o Claude recusa seu comando dentro do worktree
+
+Trabalhando numa sessão isolada, alguns comandos de shell são recusados com
+*"too complex to verify that it stays inside the worktree"*. Isso é do **harness**,
+não do kit, e não é bug: ele não consegue provar que aquele comando fica dentro
+do worktree, então nega.
+
+Pega heredoc grande (`cat > arquivo <<'EOF'`, `python3 - <<'EOF'`), encadeamento
+de `&&` com heredoc, laço artesanal com `for`/`comm`/`jq`, e qualquer coisa com
+`cd` para o clone compartilhado — inclusive `git worktree add` rodado de lá.
+
+**Não insista no mesmo comando.** Troque de ferramenta:
+
+| Em vez de | Faça |
+|---|---|
+| `cat > arquivo <<'EOF'` com conteúdo longo | `Write` |
+| `python3 - <<'EOF'` com patch de texto | `Edit` (é exatamente o caso de uso dele) |
+| `cd <clone>` + `git worktree add` | rode `git worktree add` de dentro do próprio worktree |
+| heredoc `&&` comando encadeado | comandos separados, um por chamada |
+
+Heredoc curto (10–15 linhas, sem `&&` depois) costuma passar. O sinal de que
+você está insistindo é a **segunda recusa idêntica**: pare e troque de
+ferramenta em vez de reescrever o mesmo comando.
+
+Uma pegadinha relacionada: worktree criado fora de `<repo>/.claude/worktrees/`
+**não pode ser habitado** pelo `EnterWorktree` ("switching is limited to
+worktrees managed by Claude Code"). Se você já está num worktree e precisa de
+outra branch, o barato é `git checkout -b <nova> origin/main` no worktree que
+você já tem — desde que o trabalho anterior já esteja mergeado ou pusheado.
+
 ## Commit seguro quando o clone é compartilhado
 
 - Confirme a branch **no mesmo comando** do commit, não em passos separados (a
