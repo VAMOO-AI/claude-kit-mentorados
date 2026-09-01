@@ -12,6 +12,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.12.0]
+
+### Corrigido
+- **Materialized view era ponto cego do `secscan` e do `baseline`.** Uma auditoria
+  real em 01/09/2026 achou 904 linhas de 16 workspaces de clientes legíveis **sem
+  nenhum login**, por uma MV — e `materialized` não aparecia em nenhuma das duas
+  skills. MV **não tem RLS**: não existe policy que a proteja, e o
+  `GRANT ALL ON ALL TABLES IN SCHEMA public` do Supabase (certo para tabela, onde
+  a RLS decide a linha) é, para MV, o acesso. Quem cria a primeira MV pra montar
+  um dashboard não tem como saber que publicou a tabela inteira. Entrou a sonda
+  (`relkind='m'` + `has_table_privilege`) com prova pela porta do atacante, mais
+  o item de contrato no `02-banco.md`, antes do item de RLS.
+- `.worktrees/` no `.gitignore` — estava untracked e a um `git add -A` de virar
+  commit.
+
 ## [0.11.0]
 
 ### Adicionado

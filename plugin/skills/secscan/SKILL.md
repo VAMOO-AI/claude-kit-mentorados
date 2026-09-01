@@ -68,6 +68,23 @@ grep -rniE "enable row level security|create policy|using *\(true\)|security def
 ```
 Caça:
 - **RLS desligada** numa tabela, ou tabela pública **sem policy** pra `anon`/`authenticated` → qualquer um com a chave `anon` lê/escreve tudo.
+- **Materialized view legível por `anon`/`authenticated`** → vazamento que a RLS não cobre, porque **MV não tem RLS**. É o achado que passa despercebido justamente em projeto com RLS impecável: quem confere RLS e vê tudo verde para de olhar.
+
+  ```sql
+  SELECT c.relname,
+         has_table_privilege('anon',          c.oid, 'SELECT') AS anon,
+         has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relkind = 'm';
+  ```
+
+  Qualquer `true` é finding, e dá pra provar pela porta do atacante:
+  `curl "$SUPABASE_URL/rest/v1/<mv>?select=*" -H "apikey: <anon>"`. Medido numa
+  auditoria real em 01/09/2026: 180 de 180 tabelas com RLS, 170 funções
+  `SECURITY DEFINER` sem uma falha — e 904 linhas de 16 clientes saindo por uma
+  MV, sem nenhum login. Confira o **estado vivo**, não a migration: naquele repo
+  o `REVOKE` certo estava versionado havia meses e um `GRANT ALL` posterior o
+  desfez em silêncio.
 - **`service_role` no código client** ou atrás de `NEXT_PUBLIC_` → bypass total do banco no navegador. **CRÍTICO**.
 - Policy com `using (true)` / `with check (true)` → RLS efetivamente desligada.
 - Função `security definer` sem `set search_path` fixo → escalada de privilégio.
