@@ -27,8 +27,9 @@ Usage: git-sync.sh [options]
                       in origin/<default> over the last 30 days)
   --since DAYS        activity window for team mode (default 14)
   --cleanup-dry-run   list gone branches / removable worktree candidates
-  --cleanup-apply     delete safe gone branches (-d only) + remove clean,
-                      merged, unlocked worktrees (never --force)
+  --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged
+                      confirmado no gh) + remove worktrees clean e mergeados
+                      (nunca --force; lock de sessão morta é destravado)
   --default-branch B  override default branch (else origin/HEAD, main, master)
   --cwd PATH          run from PATH
   -h, --help          this help
@@ -127,9 +128,25 @@ if [[ ${#WT_PATHS[@]} -eq 0 ]]; then
 fi
 MAIN_WT="${WT_PATHS[0]}"
 
-# Locked worktrees — single porcelain pass
-LOCKED_PATHS="$(git worktree list --porcelain | awk '/^worktree /{p=substr($0,10)} /^locked/{print p}')"
-is_locked() { printf '%s\n' "$LOCKED_PATHS" | grep -qxF "$1"; }
+# Locked worktrees — single porcelain pass.
+# Guardamos "path<TAB>motivo" porque o lock do Claude traz o pid da sessão que travou:
+# quando esse processo morre o lock fica pra trás e imunizaria o worktree pra sempre.
+LOCKED_INFO="$(git worktree list --porcelain \
+  | awk '/^worktree /{p=substr($0,10)} /^locked/{r=(length($0)>6)?substr($0,8):""; print p "\t" r}')"
+is_locked() { printf '%s\n' "$LOCKED_INFO" | cut -f1 | grep -qxF "$1"; }
+lock_reason() { printf '%s\n' "$LOCKED_INFO" | awk -F'\t' -v w="$1" '$1==w{print $2; exit}'; }
+
+# Lock morto = tem "pid N" no motivo e o processo N não existe mais.
+# Sem pid extraível assumimos vivo (conservador: nunca destrave lock de terceiro).
+lock_is_stale() {
+  local _r _pid
+  _r="$(lock_reason "$1")"
+  _pid="$(printf '%s' "$_r" | sed -n -E 's/.*[Pp]id[[:space:]]+([0-9]+).*/\1/p')"
+  [[ -n "$_pid" ]] || return 1
+  kill -0 "$_pid" 2>/dev/null && return 1
+  STALE_PID="$_pid"
+  return 0
+}
 
 UPDATED=()
 SKIPPED=()
@@ -474,6 +491,35 @@ if [[ "$TEAM" -eq 1 ]]; then
   hr
 fi
 
+# Squash merge nunca faz o commit da branch virar ancestral de origin/<default>:
+# `branch -d` e `merge-base --is-ancestor` recusam trabalho que JÁ está inteiro em main.
+# A prova real é o PR.
+#
+# Cache em arquivo, não em array associativo: o bash do macOS é 3.2 e lá
+# `declare -A` degrada CALADO para array indexado — toda chave vira índice 0 e
+# uma branch sem PR herdaria o número da última consultada (= -D em trabalho vivo).
+MERGED_PR_CACHE=""
+trap '[[ -n "$MERGED_PR_CACHE" ]] && rm -f "$MERGED_PR_CACHE"' EXIT
+merged_pr_num() {
+  # template com XXXXXX: `mktemp -t <prefixo>` é forma do macOS e o GNU coreutils recusa
+  [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp "${TMPDIR:-/tmp}/gitsync-pr.XXXXXX")"
+  local b="$1" hit n=""
+  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2; found=1; exit} END{if(!found) exit 1}' \
+         "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
+  if [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
+    n="$(gh pr list --state merged --head "$b" --limit 1 --json number \
+         --jq '.[0].number // empty' 2>/dev/null || true)"
+  fi
+  printf '%s\t%s\n' "$b" "$n" >> "$MERGED_PR_CACHE"
+  printf '%s' "$n"
+}
+
+GH_CLEANUP_OK=0
+if [[ "$CLEANUP_DRY" -eq 1 ]] && command -v gh >/dev/null 2>&1 \
+   && gh repo view --json name >/dev/null 2>&1; then
+  GH_CLEANUP_OK=1
+fi
+
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   echo "### cleanup candidates"
 
@@ -485,7 +531,20 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   if [[ ${#GONE_BRANCHES[@]} -eq 0 ]]; then
     echo "  (none)"
   else
-    for b in "${GONE_BRANCHES[@]}"; do echo "  $b"; done
+    for b in "${GONE_BRANCHES[@]}"; do
+      if git merge-base --is-ancestor "$b" "$ORIGIN_DEFAULT" 2>/dev/null; then
+        echo "  $b — mergeada (branch -d resolve)"
+      else
+        _pr="$(merged_pr_num "$b")"
+        if [[ -n "$_pr" ]]; then
+          echo "  $b — SQUASH de PR #$_pr merged → candidata a -D"
+        elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
+          echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
+        else
+          echo "  $b — (gh indisponível: sem prova, será só skipada)"
+        fi
+      fi
+    done
   fi
 
   echo "--- worktrees candidatos a remoção (clean + merged em $ORIGIN_DEFAULT + não locked) ---"
@@ -497,18 +556,27 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       [[ "$wt" == "$MAIN_WT" ]] && continue
       [[ -d "$wt" ]] || continue
       wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
-      reason=""
+      reason=""; nota=""; STALE_PID=""
       if [[ "$wt_branch" == "HEAD" ]]; then
         reason="detached HEAD — avaliar manualmente"
-      elif is_locked "$wt"; then
-        reason="locked"
+      elif is_locked "$wt" && ! lock_is_stale "$wt"; then
+        reason="locked (sessão viva)"
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
-        reason="não mergeado em $ORIGIN_DEFAULT"
+        _pr="$(merged_pr_num "$wt_branch")"
+        if [[ -n "$_pr" ]]; then
+          nota=" [squash: PR #$_pr merged]"
+        elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
+          reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
+        else
+          reason="não mergeado em $ORIGIN_DEFAULT (gh indisponível — sem prova de PR)"
+        fi
       fi
       if [[ -z "$reason" ]]; then
-        echo "  CANDIDATO: $wt ($wt_branch)"
+        _stale_nota=""
+        is_locked "$wt" && _stale_nota=" [lock stale — pid ${STALE_PID:-?} morto, será destravado]"
+        echo "  CANDIDATO: $wt ($wt_branch)${nota:-}${_stale_nota}"
         WT_REMOVE+=("$wt")
       else
         echo "  keep: $wt ($wt_branch) — $reason"
@@ -528,6 +596,11 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       echo "  (nenhum worktree candidato)"
     else
       for wt in "${WT_REMOVE[@]}"; do
+        # lock stale só é destravado aqui, no apply — nunca no dry-run
+        if is_locked "$wt" && lock_is_stale "$wt"; then
+          git worktree unlock "$wt" >/dev/null 2>&1 \
+            && echo "  unlocked $wt (lock stale — pid $STALE_PID morto)"
+        fi
         if git worktree remove "$wt" >/dev/null 2>&1; then
           echo "  removed worktree $wt"
         else
@@ -549,8 +622,20 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         fi
         if git branch -d "$b" >/dev/null 2>&1; then
           echo "  deleted branch $b (-d)"
+          continue
+        fi
+        # -d recusou: só o PR distingue squash-merge de trabalho de verdade
+        _pr="$(merged_pr_num "$b")"
+        if [[ -n "$_pr" ]]; then
+          if git branch -D "$b" >/dev/null 2>&1; then
+            echo "  deleted branch $b (-D — squash de PR #$_pr merged)"
+          else
+            echo "  skip $b (-D falhou)"
+          fi
+        elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
+          echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
         else
-          echo "  skip $b (branch -d recusou — não mergeada ou squash-merge; -D manual só com OK do usuário)"
+          echo "  skip $b (gh indisponível — sem prova de merge, não deleto no escuro)"
         fi
       done
     fi

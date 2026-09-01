@@ -59,6 +59,9 @@ jobs:
       - name: O check-careful não interrompe à toa (e ainda pega o destrutivo)
         run: bash tests/test-check-careful.sh
 
+      - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
+        run: bash tests/test-git-sync-cleanup.sh
+
       - name: Sintaxe dos scripts shell
         run: |
           bash -n install.sh

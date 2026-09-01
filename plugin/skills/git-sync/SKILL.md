@@ -123,7 +123,7 @@ Flags:
 | `--no-team` | desliga o modo time mesmo em repo multi-autor |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
 | `--cleanup-dry-run` | lista branches `gone` e worktrees candidatos a remoção (não apaga) |
-| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + não-locked** (`git worktree remove`, nunca `--force`) e depois branches `gone` via `-d` (nunca `-D` automático); pede confirmação implícita via flag |
+| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) e depois as branches `gone`: `-d` primeiro, e `-D` **só quando o `gh` confirma um PR mergeado com aquela head** (squash merge quebra a ancestralidade — sem isso o cleanup skipa 100% das branches). Branch sem PR encontrado, ou `gh` indisponível, é sempre preservada |
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
@@ -211,7 +211,7 @@ Classificar cada checkout (alvo = `@{u}` se existir, senão `origin/$DEFAULT`):
 | only untracked (`??`) | pode ff; reportar untracked no final |
 | detached HEAD | skip; não mover HEAD solto (e fora dos candidatos de cleanup) |
 | upstream configurado mas **gone** (pruned) | não mexer — branch morta, candidata a cleanup |
-| locked worktree | se clean, ainda pode ff; reportar locked |
+| locked worktree | se clean, ainda pode ff; reportar locked (e se o pid do lock estiver morto, dizer que é stale) |
 | branch sem upstream, ancestral de `origin/$DEFAULT` | ff para `origin/$DEFAULT` se clean |
 
 **Nunca** `checkout` no clone principal só para “alinhar” se isso derrubar outra sessão. Prefira atualizar o worktree/branch **já checkoutado**.
@@ -284,7 +284,7 @@ Candidatos típicos a remoção (só listar no dry-run):
 **Apply** (só com pedido explícito) — worktrees primeiro, para liberar as branches deles:
 
 ```bash
-# worktree candidato (clean + HEAD ancestral de origin/$DEFAULT + não locked)
+# worktree candidato (clean + mergeado por ancestralidade OU por PR + sem sessão viva)
 git worktree remove <path>      # falha se dirty — não force
 git worktree prune
 
@@ -358,7 +358,10 @@ Fetch:    ok | erro
 
 - `git pull` sem `--ff-only` em main compartilhada
 - `git add -A` / commit dos untracked “pra limpar o status”
-- Apagar worktree locked com sessão ativa
+- Apagar worktree locked com sessão ativa — mas `locked` **não** é prova de sessão viva:
+  o lock traz o pid (`.git/worktrees/<nome>/locked`) e fica pra trás quando a sessão morre.
+  O script confere com `kill -0` e só destrava o que está morto, no `--cleanup-apply`.
+  Sem pid legível no motivo, assume vivo e não toca
 - Assumir que “Sync Changes 6↓” na IDE é o clone principal — **pode ser worktree**
 - Copiar arquivos do clone principal para worktree “pra sincronizar” (use `origin/*`)
 
