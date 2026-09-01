@@ -9,3 +9,6 @@ settings.kit.json
 .Codex/
 .claude/worktrees/
 .worktrees/
+
+# worktrees de sessão do Claude Code (git worktree add .claude-worktrees/<nome>)
+.claude-worktrees/

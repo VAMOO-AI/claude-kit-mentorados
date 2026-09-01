@@ -117,6 +117,7 @@ só confirma que o PR vai pro ambiente certo.
 Se o seu projeto exige um comando de deploy manual:
 
 - **Confirme `pwd` de novo antes de qualquer comando de deploy.** Diretório errado é destrutivo.
+- **Diff toca `supabase/migrations/` (ou qualquer DDL)?** Passe pela checklist "Migration que não derruba produção" da skill `baseline` (`references/02-banco.md`) antes de aplicar: NOT NULL só depois do backfill, índice em tabela viva com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que reprova num item não sobe inteira; vira duas ou três.
 - **Migração de banco contra produção é destrutiva** — pergunte ao usuário antes de aplicar.
 - Rode o comando de deploy do seu projeto só depois dos gates passarem.
 
