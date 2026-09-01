@@ -12,7 +12,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.14.0]
+## [0.15.0]
+
+### Adicionado
+- **Hook `path-rules`**: a regra do caminho entra no contexto quando o arquivo
+  aparece, uma vez por sessão, sem bloquear nada. Regra escrita no `CLAUDE.md`
+  custa contexto em **toda** request da sessão, usada ou não — "migration é
+  irreversível" não interessa em nenhuma sessão que não toca migration.
+  As regras ficam em `plugin/hooks/path-rules.conf`, no formato `glob | texto`,
+  e o arquivo é feito pra você acrescentar as suas: é o lugar de "no MEU projeto,
+  quando mexer em X, lembre de Y". Nasce cobrindo `.env`/`.env.local`,
+  migrations, edge functions, `settings.json` e `package.json`.
+  Teste em `tests/test-path-rules.sh`, provado contra um hook quebrado antes de
+  entrar.
+
+
 
 ### Adicionado
 - **Skill `auditoria-seguranca`**: auditoria em 5 categorias — isolamento de

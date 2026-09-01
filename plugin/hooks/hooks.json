@@ -4,8 +4,23 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-main-commit.sh\"" },
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-careful.sh\"" }
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-main-commit.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-careful.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Read|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
+          }
         ]
       }
     ],
@@ -13,36 +28,59 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\"" }
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\""
+          }
         ]
       },
       {
         "matcher": "Write|Edit|Bash",
         "hooks": [
-          { "type": "command", "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0", "timeout": 60 }
+          {
+            "type": "command",
+            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0",
+            "timeout": 60
+          }
         ]
       }
     ],
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-behind.sh\"" },
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-worktree-stale.sh\"" },
-          { "type": "command", "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0", "timeout": 60 }
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-behind.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-worktree-stale.sh\""
+          },
+          {
+            "type": "command",
+            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0",
+            "timeout": 60
+          }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memoria-worktree-link.sh\"" }
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memoria-worktree-link.sh\""
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "command -v afplay >/dev/null 2>&1 && afplay /System/Library/Sounds/Glass.aiff & exit 0" }
+          {
+            "type": "command",
+            "command": "command -v afplay >/dev/null 2>&1 && afplay /System/Library/Sounds/Glass.aiff & exit 0"
+          }
         ]
       }
     ]
