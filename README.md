@@ -28,7 +28,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **15 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **18 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff) e `/kit-vamoo:explicar` (explica um código de forma didática). |
 | `plugin/hooks/` | plugin | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`, roda lint a cada edição, e avisa no início da sessão quando sua branch está atrás do remoto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -63,6 +63,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
+| **auditoria-seguranca** | Auditoria em 5 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |

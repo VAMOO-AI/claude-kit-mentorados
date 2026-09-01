@@ -2,7 +2,7 @@
 name: baseline
 description: >-
   Postura de ambiente e segurança de app web (Vite/Next + Supabase + Vercel +
-  n8n) em 7 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
+  n8n) em 8 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
   segredos. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
   produção está apto?). Use em "está pronto pra prod", "auditar produção",
   "hardening", "app novo do zero", "baseline". O gate do /ship já roda o
@@ -65,7 +65,7 @@ App novo, feature nova, ou primeira ida ao ar. Pode escrever código.
 2. **Leia só o pilar que a tarefa toca.** Tocou build/CSP → `01`. Tocou migration
    → `02`. Tocou rota/papel → `03`. Tocou edge/webhook → `04`. Tocou query/lista
    → `05`. Tocou tratamento de erro → `06`. Tocou env/chave → `07`.
-   Carregar os sete de uma vez é desperdício de contexto.
+   Carregar os oito de uma vez é desperdício de contexto.
 3. **Aplique o Contrato do pilar** usando o bloco "Como implementar" como ponto
    de partida, adaptado ao stack real do projeto — não cole cego.
 4. **Prove.** Rode o comando do bloco "Como provar" e cole o output. Sem output,
@@ -150,7 +150,7 @@ comando é alegação, e alegação é exatamente o que a invariante 4 proíbe.
 
 ---
 
-## Os sete pilares
+## Os oito pilares
 
 Carregue **só o que a tarefa toca**. Cada arquivo tem a mesma estrutura:
 Contrato · Como implementar · Como provar · Armadilhas.
@@ -164,6 +164,7 @@ Contrato · Como implementar · Como provar · Armadilhas.
 | 05 | Carga / cache | `references/05-carga.md` | paginação, cache em 3 camadas, índice, gargalo, balanceamento |
 | 06 | Observabilidade | `references/06-observabilidade.md` | error tracking, log estruturado, alerta, auditoria |
 | 07 | Segredos | `references/07-segredos.md` | inventário, scan de HEAD+histórico, rotação, exceções |
+| 08 | Perímetro | `references/08-perimetro.md` | inventário de hosts, headers na borda, painel interno, versão exposta |
 
 O contrato por projeto: `references/contrato-template.md`.
 
