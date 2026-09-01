@@ -12,6 +12,16 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.5]
+
+### Documentação
+- `ship`: como esperar o CI sem torrar contexto. O caminho que parece natural — deixar
+  um comando com `--watch` num monitor de eventos — custa caro: ele redesenha a tabela
+  inteira a cada poucos segundos, e cada redesenho acorda a sessão, que relê a conversa
+  toda. Medido no kit do time em 01/09/2026: ~40 despertares num único deploy, nenhum
+  com informação nova. Em background (`run_in_background`) o mesmo comando dá uma
+  notificação, no fim, e `--fail-fast` aborta no primeiro check obrigatório vermelho.
+
 ## [0.10.4]
 
 ### Corrigido
