@@ -96,6 +96,18 @@ EOF
 
 Capture a URL do PR.
 
+**Esperando o CI sem torrar contexto:** rode a espera como comando de background
+(`run_in_background`), nunca como monitor de stream:
+
+```bash
+gh pr checks <n> --watch --fail-fast > /tmp/ci-<n>.log 2>&1
+```
+
+`--watch` **redesenha a tabela inteira** a cada poucos segundos. Num monitor de
+eventos, cada redesenho acorda a sessão e faz reler a conversa toda — dezenas de
+despertares sem uma linha de informação nova. Em background você recebe **uma**
+notificação, no fim, e `--fail-fast` aborta no primeiro check obrigatório vermelho.
+
 ## 5. Deploy (condicional — adapte ao SEU projeto)
 
 A maioria dos setups faz deploy automático quando o PR é mergeado (Vercel, Netlify,
