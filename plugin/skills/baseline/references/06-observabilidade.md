@@ -15,6 +15,9 @@ instabilidade.
 - [ ] Erro capturado carrega contexto: usuário, rota, build, request id — e
       **nunca** PII sensível ou token.
 - [ ] **Log estruturado com prefixo estável** em toda função de servidor.
+- [ ] **Toda chamada de IA grava modelo, tokens e custo estimado — e o custo é
+      atribuível a uma unidade de negócio** (lead, conversa, cliente ativo).
+      "Quanto gastamos de IA no mês" é fatura; "quanto custa um lead" é decisão.
 - [ ] **Um identificador de correlação atravessa** front → edge → n8n → banco.
 - [ ] **Alerta sai do sistema monitorado.** Alerta que só aparece dentro do
       próprio app morre junto com ele.
@@ -23,6 +26,36 @@ instabilidade.
 - [ ] O caminho "erro em produção → linha de código" está escrito em algum lugar.
 
 ## Como implementar
+
+**Custo de IA — uma tabela, escrita na mesma transação da resposta:**
+
+```sql
+create table public.ai_calls (
+  id           bigserial primary key,
+  criado_em    timestamptz not null default now(),
+  modelo       text        not null,      -- o nome exato, nunca um alias
+  operacao     text        not null,      -- 'classificar' | 'redigir' | ...
+  tokens_in    integer     not null,
+  tokens_out   integer     not null,
+  custo_usd    numeric(10,6) not null,    -- calculado no momento, com a tabela vigente
+  entidade_tipo text,                     -- 'lead' | 'conversa' | 'cliente'
+  entidade_id   uuid                      -- é isto que transforma fatura em decisão
+);
+create index on public.ai_calls (criado_em);
+create index on public.ai_calls (entidade_tipo, entidade_id);
+```
+
+Duas decisões que parecem detalhe e não são. **Grave o custo, não só os
+tokens** — preço muda, e recalcular seis meses depois com a tabela de hoje
+mente sobre o que a operação custou naquele dia. E **grave o nome exato do
+modelo**: alias flutuante em produção muda o custo e a qualidade da resposta
+sem uma linha de diff.
+
+Sem `entidade_id` você tem gasto total e nada mais. Com ele, custo por lead e
+por cliente ativo saem de um `group by` — e é essa razão, contra a receita do
+mesmo lead, que diz se a automação dá lucro ou se você está comprando conversa
+com desconto. Automação de IA sem custo por unidade é a única categoria de
+sistema em que "está funcionando" e "está dando prejuízo" convivem em silêncio.
 
 **Error tracking (Sentry como default do stack):**
 

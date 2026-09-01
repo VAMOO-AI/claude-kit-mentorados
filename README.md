@@ -83,6 +83,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 | **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande. | nenhum |
 | **grill-me** | Gatilho manual do `/kit-vamoo:grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
 | **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
+| **guardrails-ia** | Agente de IA que fala com cliente: o que ele pode afirmar, pedido de parar, escalar pra humano, e quem responde o fio quando IA e humano disputam. | nenhum |
 | **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
 | **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |

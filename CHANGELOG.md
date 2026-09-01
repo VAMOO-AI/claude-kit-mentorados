@@ -12,6 +12,30 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.11.0]
+
+### Adicionado
+- Skill **`guardrails-ia`**: os guard-rails de um agente que fala com pessoa real. Os dois
+  erros que teste de fluxo não pega — a IA afirmar o que a empresa não sustenta, e continuar
+  falando com quem mandou parar — não aparecem como erro no log, aparecem como conversa
+  normal. O que está ali: alegações numa allowlist verificada, que entra no prompt **e**
+  filtra a saída (prompt pedindo "não invente" vaza por paráfrase); `nao_contatar` como
+  estado permanente, checado na montagem da fila e de novo antes do envio; `precisa_humano`
+  com destino real; e **propriedade de canal — quem responde não é quem grava**: o guard de
+  pausa antes do nó que grava o inbound apaga do banco tudo que o cliente escreve enquanto
+  o humano conduz.
+- Skill **`baseline`**: teto de gasto acumulado de IA consultado antes da chamada, com pausa
+  (pilar 04 — rate limit é por identidade, e worker autônomo não tem usuário; o limite dele
+  é dinheiro); tabela `ai_calls` com custo atribuível a lead/conversa/cliente (pilar 06 —
+  gasto total é fatura, custo por lead é decisão); config de negócio num arquivo único e
+  gitignored, com `.example` espelhado (pilar 07).
+- Skill **`verificacao`**: efeito colateral externo tem três degraus — simulado, **dry-run
+  com o envio final bloqueado** e smoke real autorizado. Sem o degrau do meio, o primeiro
+  exercício do caminho real é o disparo em produção.
+- Skill **`orquestracao`**: cláusula de degradação em sandbox — ambiente que não alcança a
+  dependência implementa, testa contra fake e declara o que não foi verificado, em vez de
+  travar o projeto ou fingir que testou.
+
 ## [0.10.7]
 
 ### Corrigido

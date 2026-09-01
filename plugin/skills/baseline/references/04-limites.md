@@ -14,6 +14,9 @@ banco.
       chave de API — o que existir).
 - [ ] **Toda chamada que custa dinheiro tem teto por usuário e por janela.**
 - [ ] **Chamada de LLM tem `max_tokens` explícito.** Sempre.
+- [ ] **Gasto acumulado de IA tem teto próprio, consultado ANTES da chamada.**
+      Rate limit por identidade não alcança worker autônomo — ele não tem
+      usuário. Bateu o teto, o sistema pausa e avisa; não degrada em silêncio.
 - [ ] **Webhook público valida segredo com comparação em tempo constante**, no
       header — nunca em query string, nunca em body.
 - [ ] **Função sem verificação de JWT está em allowlist explícita**, e cada uma
@@ -63,18 +66,32 @@ if (!ok) return new Response(
   { status: 429, headers: { 'Retry-After': '3600', 'Content-Type': 'application/json' } })
 ```
 
-**Teto de LLM — dois limites, não um:**
+**Teto de LLM — três limites, não um:**
 
 ```ts
+// 3) teto de gasto acumulado — consultado ANTES de chamar, não depois
+const gasto = await gastoDoPeriodo()             // soma de custo_usd em ai_calls
+if (gasto >= Number(env.AI_MONTHLY_BUDGET_USD)) {
+  await pausarSistema('ai_budget_exceeded')      // pausa geral + alerta
+  throw new OrcamentoEstouradoError(gasto)
+}
+
 const res = await openai.chat.completions.create({
   model, messages,
-  max_tokens: 1500,          // teto por chamada — impede resposta infinita
+  max_tokens: 1500,          // 1) teto por chamada — impede resposta infinita
 })
-// + teto por usuário/janela via rate_limit_take acima — impede mil chamadas
+// 2) teto por usuário/janela via rate_limit_take acima — impede mil chamadas
 ```
 
 `max_tokens` sozinho não protege: mil chamadas de 1500 tokens custam o mesmo que
-uma de 1.5M. Os dois limites são ortogonais e ambos são necessários.
+uma de 1.5M. Os três limites são ortogonais e todos são necessários.
+
+Os dois primeiros são **por identidade** — e é exatamente isso que falta num
+worker que classifica, resume ou prospecta sozinho: não há usuário a limitar, o
+único limite dele é dinheiro. Quem não consulta o gasto antes da chamada
+descobre o loop pela fatura. E o corte tem que **pausar**: cair para um modelo
+mais barato em silêncio troca uma conta alta por uma queda de qualidade que
+ninguém liga à causa.
 
 **Segredo de webhook — comparação em tempo constante:**
 

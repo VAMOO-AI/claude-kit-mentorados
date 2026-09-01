@@ -17,6 +17,11 @@ cada um está*, inclusive os que estão em lugar errado por decisão consciente.
 - [ ] Nenhum segredo em arquivo versionado — ou, se houver, **exceção aceita**
       registrada com dono e data de revisão.
 - [ ] Segredo de servidor nunca sob prefixo público (ver pilar 01).
+- [ ] **Dado de negócio real não mora espalhado pelo código.** Identidade,
+      oferta, links, preço, ICP e o que a IA pode afirmar ficam num arquivo de
+      config único e gitignored, com `.example` espelhado em placeholders.
+      Valor real colado em prompt, componente e seed não tem inventário, não
+      rotaciona, some do `grep` — e vaza no primeiro print ou vídeo.
 - [ ] **Runbook de rotação escrito** e testado ao menos uma vez.
 - [ ] Chave com prazo tem data de expiração conhecida e anotada.
 - [ ] Um token por escopo: token de cliente A não abre porta de cliente B.
