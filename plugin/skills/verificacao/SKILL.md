@@ -5,8 +5,10 @@ description: >-
   os ramos de um fluxo, rodar TODOS os runners, pegar o erro REAL de prod antes
   do repro, inspecionar UI visualmente. Use antes de declarar "pronto" em fix
   com ramos, mudança que toca UI, erro de prod mascarado, ou teste em pasta com
-  múltiplos runners. Complementa a skill built-in `verify`. Gatilhos: "pronto",
-  "verificar", "testar antes de entregar", "erro de prod / digest".
+  múltiplos runners, ou ANTES de qualquer disparo que sai da máquina e chega
+  numa pessoa (mensagem, e-mail, cobrança, webhook de terceiro). Complementa a
+  skill built-in `verify`. Gatilhos: "pronto", "verificar", "testar antes de
+  entregar", "erro de prod / digest", "dry-run", "pode disparar?".
 ---
 
 > Derivada de `claude-config-team/skills/vamoo-verificacao`. Ao divergir de propósito, diga aqui o quê e por quê.
@@ -40,7 +42,7 @@ REAL primeiro — logs/Observability do Vercel pelo digest, Sentry, ou peça pro
 usuário colar — ANTES de montar repro local. Repro que não exercita o caminho
 real engana: passa verde e some o bug (ex: render em vitest/jsdom NÃO tem
 fronteira RSC, então erro server→client de Next "passa"). O erro real aponta
-arquivo:linha na hora; horas de eliminação não. Ver skill `rsc-client-boundary`.
+arquivo:linha na hora; horas de eliminação não.
 
 ## Mudança que toca UI → inspeção visual
 
@@ -77,6 +79,33 @@ não está no seu diff, ele passa localmente **e** o rerun fecha verde. Duas nã
 bastam. E quando for instável mesmo, **corrija a causa** e escreva um teste
 determinístico que provaria o bug antigo — rode-o contra o código anterior pra
 confirmar que ele falharia. Teste novo que passa nos dois lados não prova nada.
+
+## Efeito colateral externo → simulado, dry-run, e só então o real
+
+Vale para tudo que sai da sua máquina e chega numa pessoa: mensagem de
+WhatsApp, e-mail, cobrança, webhook em sistema de terceiro, post. Aqui "rodei e
+passou" e "mandei mensagem errada pra 200 pessoas" são separados por um degrau
+só, e ele quase nunca é escrito:
+
+1. **Simulado** — provider fake/mock. Prova a lógica, prova ramo, não prova
+   integração.
+2. **Dry-run com o envio final bloqueado** — o fluxo REAL roda inteiro (fila,
+   template, dedupe, guard de pausa, montagem do payload), e a última chamada,
+   a que entrega, é a única coisa desligada. Logue o payload exato que teria
+   saído e confira destinatário, texto e contagem. É aqui que aparecem os erros
+   que o mock não tem: destinatário duplicado, template com variável vazia,
+   lista maior do que devia.
+3. **Smoke real e limitado, com autorização explícita** — um destinatário, seu
+   próprio número, e você olhando. Nunca um lote, nunca "só pra ver se sobe".
+
+O degrau 2 é o que costuma faltar: sem ele, o primeiro exercício do caminho
+real de verdade é o disparo em produção. Um flag de ambiente (`DRY_RUN=1`) que
+corta só o `POST` de entrega custa uma linha e é o que separa teste de
+incidente.
+
+**A contagem antes do disparo é parte do teste.** Antes de tirar o freio,
+imprima quantos vão receber e quem são os 3 primeiros. Número que surpreende =
+não dispare; um filtro está errado.
 
 ## Fechamento
 

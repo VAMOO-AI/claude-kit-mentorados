@@ -34,6 +34,28 @@ description: >-
 - `pipeline()` > `parallel()` onde der: barrier concentra carga, pipeline
   espalha.
 
+## Ambiente sem a dependência → implemente, simule, documente o real
+
+Agente em container/cloud/sandbox não alcança o que só existe na máquina do
+operador: Chrome logado, VPN, banco de produção, dispositivo, credencial que
+não sai do cofre. O default do agente aí é ruim de dois jeitos — trava o
+projeto inteiro por causa de um pedaço, ou finge que testou.
+
+Escreva a cláusula no prompt do dispatch, sempre nestes termos:
+
+> Se este ambiente não alcança <dependência>, **não pare o projeto**: implemente
+> a camada completa, teste contra um fake/página simulada, e deixe o teste real
+> DOCUMENTADO (comando exato + o que observar) para rodar no ambiente que
+> alcança. Reporte o bloqueio exato quando chegar nele; siga com tudo que não
+> depende dele.
+
+Duas metades, e a segunda é a que costuma sumir: o trabalho continua **e** o
+que não foi verificado é declarado como não verificado, com o comando pronto
+para quem tem o ambiente. Sem ela, o relatório volta com "implementado e
+testado" e ninguém sabe qual metade é qual.
+
+Vale igual para credencial faltando: continue tudo que não depende dela.
+
 ## Writes em paralelo (scope contract)
 
 - Subagents read-only por default (Grep/Read/Glob). Edit/Write na conversa
