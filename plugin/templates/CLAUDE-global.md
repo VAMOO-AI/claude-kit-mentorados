@@ -27,6 +27,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 | Vários terminais no mesmo projeto / worktree | `worktrees` |
 | **Começar a mexer num projeto** (ainda mais se tem outra pessoa nele), "atualiza com o GitHub", Source Control desatualizado | `git-sync` |
 | Checar segurança do código (scan local) | `secscan` |
+| Criar bot de Discord, subir bot na VPS, "o bot não responde", "o bot caiu" | `bot-discord` |
 | **Começar a trabalhar num projeto em git**, "o Claude esqueceu o que aprendeu", troquei de computador, outra pessoa vai mexer | `memoria-projeto` |
 
 ## Modos de operação (detecte e ajuste)

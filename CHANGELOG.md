@@ -12,6 +12,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.6]
+
+### Adicionado
+- Skill **`bot-discord`**: bot de Discord em Node/TypeScript hospedado em VPS própria, do
+  Developer Portal ao container rodando. Nasceu de um bot que está em produção há meses —
+  o que está escrito ali é o que quebrou na prática, não o que costuma aparecer em tutorial:
+  a intent de conteúdo de mensagem que fica desligada no portal e deixa o bot online e mudo
+  **sem erro nenhum**; o `dotenv` que precisa carregar antes do import da aplicação porque
+  import ES é *hoisted*; o `COPY` seletivo no Dockerfile que builda verde e mata o container
+  no boot; e o gate de idempotência sem o qual mensagem editada, restart e reação re-notificam
+  a equipe inteira. A skill obriga a conferir o log de boot depois do deploy: build verde não
+  é prova de que o bot subiu.
+  Estrutura: `SKILL.md` com as perguntas iniciais, as armadilhas caras e o gate de verificação;
+  as três references (`01-portal-discord`, `02-codigo-base`, `03-deploy-vps`) carregam sob demanda.
+
 ## [0.10.5]
 
 ### Documentação
