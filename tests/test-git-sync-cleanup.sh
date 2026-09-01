@@ -18,7 +18,11 @@ SCRIPT="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/git-sync/scripts/gi
 [ -f "$SCRIPT" ] || { echo "script não encontrado: $SCRIPT"; exit 2; }
 
 falhas=0
-TMP="$(mktemp -d -t gitsync-test)"
+# `mktemp -t <prefixo>` é forma do macOS; o GNU coreutils exige XXXXXX no template e
+# falha com "too few X's". Sem a guarda abaixo, TMP vazio faz o teste operar na RAIZ —
+# foi o que aconteceu no primeiro run deste arquivo no CI (Ubuntu).
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/gitsync-test.XXXXXX")"
+[ -n "$TMP" ] && [ -d "$TMP" ] || { echo "mktemp -d falhou — abortando antes de tocar em /"; exit 2; }
 trap 'rm -rf "$TMP"' EXIT
 
 check() { # <esperado-regex> <descrição> <saída>

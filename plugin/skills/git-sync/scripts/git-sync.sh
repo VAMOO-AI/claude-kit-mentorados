@@ -501,7 +501,8 @@ fi
 MERGED_PR_CACHE=""
 trap '[[ -n "$MERGED_PR_CACHE" ]] && rm -f "$MERGED_PR_CACHE"' EXIT
 merged_pr_num() {
-  [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp -t gitsync-pr)"
+  # template com XXXXXX: `mktemp -t <prefixo>` é forma do macOS e o GNU coreutils recusa
+  [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp "${TMPDIR:-/tmp}/gitsync-pr.XXXXXX")"
   local b="$1" hit n=""
   hit="$(awk -F'\t' -v k="$b" '$1==k{print $2; found=1; exit} END{if(!found) exit 1}' \
          "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
