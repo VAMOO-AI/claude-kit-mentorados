@@ -78,6 +78,34 @@ você já tem — desde que o trabalho anterior já esteja mergeado ou pusheado.
   `git checkout -b X && git commit` é bloqueado (ele vê a main). Crie a branch
   num comando separado, depois commite.
 
+## O banco local NÃO é isolado por worktree
+
+O worktree isola os arquivos do projeto. O banco de desenvolvimento — o
+`supabase start`, o Postgres em Docker, o que for — é **um só na sua máquina**,
+compartilhado por todos os worktrees. A migration que você roda num worktree
+aparece no banco que o outro está usando.
+
+O sintoma não é um erro de banco: é um **`git push` recusado** por um gate que
+compara o schema do código com o schema vivo (tipos gerados, checagem de
+migrations). Ele acha tabelas que não estão nas suas migrations e reprova por
+um motivo que não tem nada a ver com o que você mexeu.
+
+O que fazer, nessa ordem:
+
+1. **`git fetch && git log HEAD..origin/main`.** Quase sempre o trabalho do
+   outro worktree já foi mergeado. Traga a `main` para a sua branch — as
+   tabelas "estranhas" viram legitimamente suas e o gate fica verde sozinho.
+2. Se ainda não foi mergeado: pule o hook no push (`--no-verify`), **desde que**
+   o gate completo tenha passado antes do drift aparecer, e **diga isso** na
+   resposta. Quem cobre é o CI, que roda contra um banco limpo.
+3. **Nunca resete o banco para "limpar".** `db reset` apaga as migrations do
+   outro worktree junto: você desbloqueia o seu push destruindo o ambiente de
+   quem está trabalhando ao lado.
+
+Vale para os DADOS também: linha de teste que você inserir para provar alguma
+coisa aparece na tela da outra sessão. Insira, prove e **apague o que você
+criou** — não com um reset.
+
 ## Limpeza no fim
 
 Ao terminar o trabalho num worktree: remova worktrees órfãos
