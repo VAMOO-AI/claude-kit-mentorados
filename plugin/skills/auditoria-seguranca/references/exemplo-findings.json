@@ -1,0 +1,109 @@
+{
+  "projeto": "acme-crm (fixture de teste)",
+  "data": "01/09/2026",
+  "escopo": ["src/", "api/routes/", "supabase/", "docker-compose.yml", ".github/workflows/"],
+  "stack": {
+    "Linguagem": "TypeScript (Node 20)",
+    "Framework": "Fastify 4",
+    "ORM": "Prisma 5 (PostgreSQL)",
+    "Auth": "JWT próprio (jsonwebtoken) + middleware requireAuth",
+    "Frontend": "React 18 + Vite",
+    "Deploy": "docker-compose + GitHub Actions"
+  },
+  "nota_metodologica": "Categoria A1 foi mapeada para o filtro manual por organization_id no Prisma (o projeto não usa RLS). A2 cruzou cada gate de papel do frontend (useRole) com o handler correspondente. A3 percorreu os 34 handlers de api/routes. A4 varreu HEAD, histórico git e o bundle de produção. A5 varreu sinks de React e o HTML dos e-mails transacionais.",
+  "resumo": "Foram percorridos 34 handlers de rota, 12 componentes com gate de papel e 3 templates de e-mail. Cinco achados, dois deles críticos, concentrados no isolamento por organização.",
+  "categorias": [
+    {"id": "A1", "nome": "Isolamento de inquilino", "aplicavel": true, "nota": "O projeto não usa RLS: o isolamento é filtro manual por organizationId nas queries Prisma. Auditado sob esse mecanismo."},
+    {"id": "A2", "nome": "Permissão definida no navegador", "aplicavel": true},
+    {"id": "A3", "nome": "IDOR", "aplicavel": true},
+    {"id": "A4", "nome": "Chaves expostas", "aplicavel": true},
+    {"id": "A5", "nome": "Inputs sem tratamento (XSS)", "aplicavel": true}
+  ],
+  "cobertura": [
+    {"categoria": "A1", "estado": "medido", "medido": "34 queries de listagem/agregação lidas uma a uma; conferido filtro por organizationId"},
+    {"categoria": "A2", "estado": "medido", "medido": "12 gates de useRole cruzados com o handler equivalente"},
+    {"categoria": "A3", "estado": "medido", "medido": "34/34 handlers percorridos, não amostra"},
+    {"categoria": "A4", "estado": "medido", "medido": "gitleaks em HEAD + histórico; grep no bundle dist/"},
+    {"categoria": "A5", "estado": "medido", "medido": "sinks de React + 3 templates de e-mail"}
+  ],
+  "pontos_fortes": [
+    {"categoria": "A3", "titulo": "Router de faturas valida posse em todos os handlers", "descricao": "Os 7 handlers de api/routes/invoices.ts carregam a fatura com where: { id, organizationId: req.user.orgId } — o ID sozinho nunca alcança um registro de outra organização.", "evidencia": "api/routes/invoices.ts:22,48,71,95,118,140,166"},
+    {"categoria": "A4", "titulo": "Nenhum segredo no histórico git", "descricao": "gitleaks detect --redact percorreu 412 commits sem achado.", "evidencia": "gitleaks v8.18 · 0 leaks"}
+  ],
+  "pontos_fracos": [
+    {"titulo": "O isolamento por organização depende de disciplina, não de mecanismo", "descricao": "Não há RLS nem middleware de tenant: cada query precisa lembrar do filtro. Duas já esqueceram. Sem uma barreira estrutural, o próximo endpoint tem a mesma chance de errar."},
+    {"titulo": "Segredo de assinatura de JWT com default público", "descricao": "O docker-compose entrega um valor padrão que vira segredo real em qualquer deploy que não sobrescreva a variável, e não existe validação de startup que rejeite o default."}
+  ],
+  "achados": [
+    {
+      "id": "F1", "categoria": "A1", "severidade": "critica",
+      "titulo": "Relatório de vendas agrega todas as organizações",
+      "arquivo": "api/routes/reports.ts", "linhas": "88-96",
+      "trecho": "const rows = await prisma.sale.groupBy({\n  by: ['productId'],\n  _sum: { amount: true },\n  where: { createdAt: { gte: from, lte: to } },   // sem organizationId\n});",
+      "por_que": "Qualquer usuário autenticado, de qualquer organização, recebe a soma de vendas de todos os clientes da plataforma. O filtro de tenant simplesmente não existe nesta query.",
+      "impacto": "Vazamento de faturamento entre concorrentes na mesma instância.",
+      "correcao": "Adicionar organizationId: req.user.orgId no where e cobrir com teste que consulta com dois tenants."
+    },
+    {
+      "id": "F2", "categoria": "A3", "severidade": "critica",
+      "titulo": "DELETE /contacts/:id não verifica posse",
+      "arquivo": "api/routes/contacts.ts", "linhas": "142-149",
+      "trecho": "fastify.delete('/contacts/:id', { preHandler: requireAuth }, async (req) => {\n  await prisma.contact.delete({ where: { id: req.params.id } });\n  return { ok: true };\n});",
+      "por_que": "requireAuth só prova que existe uma sessão. O ID vem do path e é usado direto no where: um usuário logado apaga o contato de qualquer organização iterando UUIDs conhecidos.",
+      "impacto": "Destruição de dados de outros clientes, sem trilha que identifique o autor.",
+      "condicoes": "Nenhuma. Basta uma conta válida de qualquer plano.",
+      "correcao": "deleteMany({ where: { id, organizationId: req.user.orgId } }) e responder 404 quando count === 0."
+    },
+    {
+      "id": "F3", "categoria": "A4", "severidade": "alta",
+      "titulo": "JWT_SECRET com default público no docker-compose",
+      "arquivo": "docker-compose.yml", "linhas": "31",
+      "trecho": "JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}",
+      "por_que": "O default está no repositório: quem não sobrescrever a variável roda em produção com um segredo conhecido, e qualquer pessoa forja um token de admin. Não há validação de startup que rejeite o valor.",
+      "impacto": "Comprometimento total da autenticação.",
+      "correcao": "Remover o default e falhar no boot se JWT_SECRET estiver ausente ou for o valor conhecido."
+    },
+    {
+      "id": "F4", "categoria": "A2", "severidade": "alta",
+      "titulo": "Gate de admin só existe no frontend em POST /users/invite",
+      "arquivo": "api/routes/users.ts", "linhas": "58-64",
+      "trecho": "fastify.post('/users/invite', { preHandler: requireAuth }, async (req) => {\n  // o botão só aparece para admin no front (useRole)\n  return invite(req.body.email, req.body.role);\n});",
+      "por_que": "O componente InviteButton esconde a UI com role === 'admin' (src/components/InviteButton.tsx:14), mas o handler exige apenas sessão. Um curl de um usuário comum convida a si mesmo como admin.",
+      "impacto": "Escalação de privilégio para qualquer usuário autenticado.",
+      "correcao": "Adicionar requireRole('admin') no preHandler e testar 403 com token de usuário comum."
+    },
+    {
+      "id": "F5", "categoria": "A5", "severidade": "media",
+      "titulo": "Nome do usuário entra sem escape no HTML do e-mail de convite",
+      "arquivo": "api/mail/templates.ts", "linhas": "27",
+      "trecho": "return `<p>Olá, <strong>${user.name}</strong>! Você foi convidado...</p>`;",
+      "por_que": "user.name é livre no cadastro e vai para o corpo HTML sem escape. React protege a aplicação, mas o e-mail não passa por React.",
+      "impacto": "HTML injetado no e-mail; em clientes que renderizam, vira phishing com a marca do produto.",
+      "condicoes": "Depende do cliente de e-mail do destinatário; a maioria bloqueia script, não bloqueia link forjado.",
+      "correcao": "Escapar as interpolações do template com um helper único e cobrir com teste."
+    }
+  ],
+  "recomendacoes": [
+    {"prioridade": "P1", "texto": "Fechar os dois furos de isolamento (relatório agregado e DELETE de contato) e adicionar teste com dois tenants em ambos", "achados": ["F1", "F2"]},
+    {"prioridade": "P1", "texto": "Remover o default de JWT_SECRET e falhar no boot sem segredo válido", "achados": ["F3"]},
+    {"prioridade": "P2", "texto": "Exigir papel no servidor em toda rota que o frontend esconde por papel", "achados": ["F4"]},
+    {"prioridade": "P3", "texto": "Escapar interpolações nos templates de e-mail", "achados": ["F5"]}
+  ],
+  "issues": [
+    {"titulo": "Relatório de vendas agrega dados de todas as organizações", "severidade": "critica", "achados": ["F1"],
+     "problema": "A agregação de vendas não filtra por organização: qualquer usuário autenticado vê o faturamento de todos os tenants.",
+     "impacto": "Vazamento de dado financeiro entre clientes concorrentes.",
+     "correcao": "Incluir organizationId no where da query e criar um teste que consulta o endpoint com dois tenants distintos.",
+     "criterios_aceite": ["A query em api/routes/reports.ts:88 filtra por organizationId", "Teste com dois tenants prova que o tenant B não vê venda do tenant A", "O teste falha no commit anterior ao fix"]},
+    {"titulo": "Endpoints de contato não verificam posse do registro", "severidade": "critica", "achados": ["F2"],
+     "problema": "DELETE /contacts/:id usa o ID do path direto no where, sem cruzar com a organização do chamador.",
+     "impacto": "Qualquer conta autenticada apaga dados de qualquer organização.",
+     "correcao": "Trocar delete por deleteMany com organizationId e responder 404 quando nada for afetado.",
+     "criterios_aceite": ["deleteMany filtra por organizationId", "Requisição com ID de outro tenant devolve 404", "Teste de regressão cobre o caso"]},
+    {"titulo": "Segredos com valor padrão público no docker-compose e ausência de validação de startup", "severidade": "alta", "achados": ["F3"],
+     "problema": "JWT_SECRET tem default versionado; sem sobrescrita, o segredo de assinatura é público.",
+     "impacto": "Forja de token de administrador.",
+     "correcao": "Remover os defaults e adicionar validação de startup que aborta o boot com segredo ausente ou conhecido.",
+     "criterios_aceite": ["Nenhum ${VAR:-valor} de segredo no compose", "App aborta o boot sem JWT_SECRET", "README documenta as variáveis obrigatórias"]}
+  ]
+}

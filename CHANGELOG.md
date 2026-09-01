@@ -12,7 +12,30 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.13.0]
+## [0.14.0]
+
+### Adicionado
+- **Skill `auditoria-seguranca`**: auditoria em 5 categorias — isolamento de
+  inquilino, permissão decidida no navegador, IDOR, chaves expostas e XSS — que
+  sai como **PDF em pt-BR dentro do repo auditado + issues prontas pra colar**.
+  Detecta a stack antes de auditar, então funciona em projeto que não é Supabase.
+  O gerador do PDF não tem dependência: stdlib do Python + um Chromium já
+  instalado. Não substitui o `secscan`: aquele varre e entrega Markdown fora do
+  repo, este é o pacote de entrega pra outra pessoa ler e agir.
+- **Pilar 08 do `baseline` — perímetro e superfície exposta.** Os sete pilares
+  olhavam para dentro do app; nenhum perguntava o que responde na internet com o
+  nome do projeto. Inventário de hosts, headers em **toda** borda (não só a
+  Vercel), painel de infra fora do domínio principal e atrás de allowlist,
+  versão não publicada, saúde detalhada autenticada, repositório privado
+  conferido.
+- **Força bruta em autenticação no pilar 04.** O pilar define o gatilho como
+  "custa alguma coisa" — e tentar senha não custa nada, então o endpoint mais
+  atacado escapava por construção. Entrou limite por IP **e** por identidade,
+  escalada de resposta (atraso → desafio → bloqueio) e paridade de mensagem
+  entre conta que existe e conta que não existe, que é a metade esquecida
+  (enumeração de usuário entrega a base de e-mails sem descobrir uma senha).
+
+
 
 ### Adicionado
 - **Teste de coerência de versão** (`tests/test-versao-changelog.sh`). São quatro

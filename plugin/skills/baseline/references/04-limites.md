@@ -23,6 +23,13 @@ banco.
       tem auth própria *provada*.
 - [ ] Job agendado autentica com segredo próprio, não com a anon key.
 - [ ] Falha de limite retorna `429` com `Retry-After`, e é logada.
+- [ ] **O login tem limite próprio, por IP e por identidade.** O gatilho deste
+      pilar é "custa alguma coisa" — e tentar senha não custa nada, por isso o
+      login escapa da regra geral e precisa da linha dele.
+- [ ] **Falha repetida escala a resposta**: atraso, desafio (CAPTCHA/Turnstile)
+      e bloqueio temporário da identidade, não só do IP.
+- [ ] **Login, cadastro e "esqueci a senha" respondem igual para conta que
+      existe e conta que não existe** — mensagem e tempo.
 
 ## Como implementar
 
@@ -128,6 +135,34 @@ o webhook em silêncio se a exceção só existia no dashboard.
 
 Cada nome nessa lista precisa de uma linha no contrato dizendo **qual** auth
 própria ele tem. Sem isso, a allowlist vira a lista de portas abertas.
+
+### Força bruta em autenticação
+
+Cem tentativas de senha não custam dinheiro, não queimam reputação e mal
+aparecem no CPU do banco — passam por baixo do gatilho deste pilar inteiro. É
+por isso que precisam de item próprio: sem ele, o endpoint mais atacado da
+aplicação é o único sem limite.
+
+Três camadas, e a de baixo não substitui a de cima:
+
+1. **Borda** — regra de taxa no CDN/WAF sobre a rota de login (ex.: 5 tentativas
+   por minuto por IP) + desafio quando estourar. É a única que segura tráfego
+   distribuído antes de custar backend.
+2. **Provedor de auth** — o limite nativo, que quase ninguém confere. No Supabase
+   ele existe e é configurável (e-mail, SMS, token, verificação); confirme o
+   valor em vigor em vez de supor o default.
+3. **Aplicação** — bloqueio progressivo por identidade. IP sozinho não protege:
+   uma botnet distribui um IP por tentativa e nenhum estoura o limite. Conte por
+   `(identidade, janela)` também.
+
+**Enumeração de usuário é a metade esquecida.** "E-mail não cadastrado" e
+"senha incorreta" entregam a base de e-mails válidos sem nenhuma senha
+descoberta — e o cadastro entrega a mesma coisa com "e-mail já em uso". Resposta
+única para os dois casos, e cuidado com o **tempo**: comparar hash só quando o
+usuário existe vaza a resposta pelo relógio.
+
+Limite de login é evento de segurança: `429` no login vai para o alerta do
+pilar `06`, não para o ruído.
 
 ## Como provar
 
