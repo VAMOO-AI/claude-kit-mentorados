@@ -12,6 +12,24 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.7]
+
+### Corrigido
+- **O guard de commit em main lia o path CRU do comando.** O shell expande `~` e `$VAR`
+  antes de o git ver o path; o hook, não — então ele decidia pelo repo errado, nas duas
+  direções. `cd ~/projetos/meu-worktree && git commit` e `W=/x; git -C $W commit`
+  **bloqueavam commit legítimo** (o hook caía no diretório da sessão, que estava em main),
+  e o inverso é pior: com a sessão numa feature branch, `W=<repo-em-main>; git -C $W commit`
+  **deixava o commit em main passar**. Agora o hook reproduz as duas expansões antes de
+  resolver o repositório — variável só quando o próprio comando a atribui, que é o único
+  valor que ele pode conhecer; sem isso o path segue cru e cai no diretório da sessão,
+  que é a falha segura.
+  Junto vieram as correções que o kit do time já tinha e este não: path entre aspas na
+  detecção do commit, `git -C`/`cd` lidos até a aspa de fechamento (path com espaço) e
+  path que não resolve como repositório não virar passe livre.
+  A suíte `tests/test-block-main-commit.sh` passou a ser a mesma do kit do time:
+  22 casos, **11 vermelhos** na versão anterior deste hook.
+
 ## [0.10.6]
 
 ### Adicionado

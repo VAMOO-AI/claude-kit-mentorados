@@ -18,14 +18,20 @@ cwd="$(printf '%s' "$j" | node "$H" cwd)"
 case "$c" in *HOTFIX_MAIN=1*) exit 0 ;; esac
 
 # Detecta `git commit` como COMANDO (posição de comando), não como argumento de string.
+#
+# O `-C` aceita path ENTRE ASPAS com espaço. Com `[^[:space:]]+` sozinho,
+# `git -C "/Users/x/repo - cópia" commit` não casava, o hook desistia antes de
+# olhar a branch, e o commit em main saía — falha aberta, não falso-positivo.
+ALVO='git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+commit'
+
 is_commit=0
-if printf '%s\n' "$c" | grep -qE '(^|;|&&|\|\||\()[[:space:]]*git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+commit([[:space:]]|$)'; then
+if printf '%s\n' "$c" | grep -qE "(^|;|&&|\|\||\()[[:space:]]*${ALVO}([[:space:]]|$)"; then
   is_commit=1
 fi
 # Também pega commits embutidos em bash -c / sh -c.
 if [ "$is_commit" = 0 ] \
    && printf '%s' "$c" | grep -qE '(bash|sh)[[:space:]]+-c' \
-   && printf '%s\n' "$c" | grep -qE 'git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+commit'; then
+   && printf '%s\n' "$c" | grep -qE "$ALVO"; then
   is_commit=1
 fi
 [ "$is_commit" = 0 ] && exit 0
@@ -35,16 +41,58 @@ fi
 # no cwd da sessão e bloqueava commit legítimo; no `git -C "x"` ele capturava o path
 # COM as aspas, o git não resolvia, a branch saía vazia e o commit em main PASSAVA.
 # O segundo é falha aberta — é o que a suíte de 30/08 pegou.
+#
+# O conserto de 30/08 tirou as aspas mas manteve a classe de caractere parando no
+# ESPAÇO — que é justamente o caso que motivou a mudança. `cd "/Users/x/icaro-crm
+# - cópia/.claude/worktrees/w"` virava `/Users/x/icaro-crm`, um repo que existe e
+# está em main: commit legítimo em worktree bloqueado (31/08). Path entre aspas se
+# lê até a aspa de fechamento, não até o primeiro espaço.
+# O shell expande `~` e `$VAR` antes de o git ver o path; o hook lê a string CRUA.
+# Sem reproduzir essas duas expansões, o `git -C "<path>"` interno não resolve e o
+# hook decide pelo repo errado — nas duas direções: `cd ~/wt && git commit` bloqueia
+# commit legítimo em worktree, e `WT=/repo-em-main; git -C $WT commit` (cwd numa
+# feature branch) deixa o commit em main PASSAR. Os dois em 01/09/2026.
+# Variável só é expandida quando o PRÓPRIO comando a atribui — é o único valor que
+# o hook pode conhecer; sem atribuição, o path segue cru e cai no cwd (falha fechada).
+expand_shell_path() {
+  local p="$1" c="$2" name val i=0
+  while [ "$i" -lt 5 ]; do
+    i=$((i+1))
+    case "$p" in *'$'*) ;; *) break ;; esac
+    name=$(printf '%s' "$p" | sed -nE 's/^[^$]*\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?.*/\1/p')
+    [ -z "$name" ] && break
+    val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=\"([^\"]*)\".*/\2/p" | head -1)
+    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}='([^']*)'.*/\2/p" | head -1)
+    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=([^[:space:];&|\"']+).*/\2/p" | head -1)
+    [ -z "$val" ] && break
+    p=${p//\$\{$name\}/$val}
+    p=${p//\$$name/$val}
+  done
+  case "$p" in
+    "~")   p="$HOME" ;;
+    "~/"*) p="$HOME/${p#\~/}" ;;
+  esac
+  printf '%s' "$p"
+}
+
 tgt="${cwd:-.}"
-p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+["'"'"']?([^[:space:]"'"'"']+).*/\1/p' | head -1)
-if [ -n "$p" ]; then
+
+# `git -C <path>`: aspas duplas, aspas simples, nu — nessa ordem.
+p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"([^"]+)".*/\1/p' | head -1)
+[ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+'([^']+)'.*/\1/p" | head -1)
+[ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]"'"'"';&|]+).*/\1/p' | head -1)
+
+# `cd <path>` em posição de comando. O path é o grupo 2 — o 1 é o separador.
+if [ -z "$p" ]; then
+  p=$(printf '%s' "$c" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+"([^"]+)".*/\2/p' | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+'([^']+)'.*/\2/p" | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+([^[:space:]"'"'"';&|]+).*/\2/p' | head -1)
+fi
+# Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
+# sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
+[ -n "$p" ] && p=$(expand_shell_path "$p" "$c")
+if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
   tgt="$p"
-else
-  # Aspas fazem parte da prática correta (há repo com espaço no nome, tipo
-  # "WELD MENTORIA /") — sem tirá-las o `cd "$W"` não resolvia, o hook caía no cwd da
-  # sessão e bloqueava commit legítimo em worktree. Medido em 30/08.
-  cdp=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+[\"']?([^[:space:]\"';&|]+).*/\2/p" | head -1)
-  [ -n "$cdp" ] && tgt="$cdp"
 fi
 
 b=$(git -C "$tgt" branch --show-current 2>/dev/null)
