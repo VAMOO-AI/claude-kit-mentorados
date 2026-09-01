@@ -39,6 +39,16 @@ pequenas; nada de roteador novo nem de skill de 1.800 linhas.
   suja o estado de outro — com `scripts/find-polluter.sh`, que roda os arquivos
   um a um e para no culpado.
 
+- **`plugin/scripts/skill-pressure-test.sh` + `tests/skills/` + `docs/testar-skills-sob-pressao.md`.**
+  Teste pra skill de disciplina, como se fosse código: um cenário com três ou
+  mais pressões (prazo, autoridade, evidência parcial) roda **sem** a skill
+  (`--baseline`) e **com** a skill do plugin no system prompt (`--com-skill`), e
+  o runner compara a letra escolhida com a esperada. Três cenários entram (dois
+  da `verificacao`, um da `worktrees`). Honestidade: no `haiku` eles passam
+  também sem a skill, então hoje são regressão, não prova — o doc diz o que
+  falta pra virarem prova. Serve pra quem cria as próprias skills e quer saber
+  se a regra segura quando o Claude tem motivo pra furar.
+
 ### Alterado
 - **`/kit-vamoo:revisar` e o `agents.md`: revisor separa o que é mecânico do que
   é decisão.** Cada achado sai marcado `[mecânico]` (um sênior aplicaria sem
