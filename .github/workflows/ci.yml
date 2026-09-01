@@ -6,6 +6,13 @@ on:
   push:
   pull_request:
 
+# Sem esta linha o GITHUB_TOKEN do job herda a permissão default da organização,
+# que costuma ser write em contents/issues/PRs. Este CI só lê o repositório para
+# rodar os testes — nada aqui escreve. Alerta #8 do code scanning
+# (actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
