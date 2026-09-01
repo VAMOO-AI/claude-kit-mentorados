@@ -12,7 +12,19 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.15.0]
+## [0.16.0]
+
+### Adicionado
+- **Skill `worktrees`: o banco local não é isolado por worktree.** O worktree
+  isola os arquivos; o banco de desenvolvimento é **um só na máquina**,
+  compartilhado por todos eles — a migration que você roda num worktree aparece
+  no banco que o outro está usando. E o sintoma não é erro de banco: é um
+  `git push` recusado por um gate que compara o schema do código com o schema
+  vivo, reprovando por um motivo sem relação com o que você mexeu. Entrou o que
+  fazer em ordem, com o aviso que mais importa: **nunca resetar o banco para
+  "limpar"** — isso apaga as migrations de quem está trabalhando ao lado.
+
+
 
 ### Adicionado
 - **Hook `path-rules`**: a regra do caminho entra no contexto quando o arquivo
