@@ -17,7 +17,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.10.0"
+KIT_VERSION="0.10.4"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"

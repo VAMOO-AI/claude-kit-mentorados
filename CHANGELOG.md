@@ -12,6 +12,24 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.10.4]
+
+### Corrigido
+- `git-sync --cleanup-apply` limpava **zero** em repo com squash merge. Ele decidia por
+  ancestralidade em dois pontos (`branch -d` e `merge-base --is-ancestor`), e squash nunca
+  faz o commit da branch virar ancestral de `main` — então trabalho já publicado aparecia
+  como "não mergeado" e nada era removido. Agora a ancestralidade segue sendo o primeiro
+  teste e o `gh pr list --head` entra quando ela falha: PR mergeado vira `-D` citando o
+  número, ausência de PR vira skip avisando que pode haver trabalho exclusivo, e sem `gh`
+  o comportamento antigo volta inteiro. O dry-run mostra a intenção de `-D` antes de você
+  aprovar.
+- `git-sync` tratava worktree `locked` como sessão viva sempre. O motivo do lock traz o pid
+  e fica pra trás quando a sessão morre, imunizando o worktree para sempre; agora confere
+  com `kill -0` e só destrava o morto, no apply. Sem pid legível, assume vivo.
+- `tests/test-git-sync-cleanup.sh` cobre os dois, mais o caso em que o cache de PR vazaria
+  entre branches — o bash 3.2 do macOS degrada `declare -A` calado para array indexado, e
+  uma branch sem PR herdaria o número da última consultada.
+
 ## [0.10.3] — 2026-08-31
 
 ### Documentado
