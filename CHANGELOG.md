@@ -12,6 +12,20 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.17.1]
+
+### Corrigido
+- **A skill `worktrees` descrevia mal o guard do harness.** Ela listava heredoc
+  grande e laço artesanal como os gatilhos da recusa *"too complex to verify
+  that it stays inside the worktree"* — e quem lê conclui que comando simples
+  passa. Não passa: a detecção é casamento de **texto**, então a substring `git`
+  dentro de `githubCommitSha` faz um `curl` à API da Vercel ser recusado como
+  comando git, e o colchete de uma rota dinâmica (`.../[id]/route.ts`) num
+  comando composto vira "construct too complex". Um terceiro caso não estava
+  documentado: `cd` para **outro repositório** também é recusado — de dentro de
+  um worktree não se mexe em outro repo, nem para ler o status. Cada linha nova
+  da tabela vem com o contorno correspondente.
+
 ## [0.17.0]
 
 O que sobrou da leitura do `AlbertoGRB/dev-kit` (um agregador de superpowers,
