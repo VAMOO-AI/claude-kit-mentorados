@@ -12,6 +12,25 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.23.1] — 2026-09-03
+
+### Corrigido
+
+- **`check-careful` lia heredoc pela metade e deixava passar o comando destrutivo de verdade**
+  (#72; vindo do kit do time, lá #137). Tag que o parser não reconhecia nunca fechava, e aí ele
+  engolia o resto do comando — inclusive o que vem DEPOIS do terminador, que é comando real.
+  Medido: `cat > x.sql <<'END-OF-SQL' … END-OF-SQL` seguido de `psql -c "DROP TABLE users"`
+  **não pedia confirmação nenhuma**; sem o heredoc antes, o mesmo `psql` pergunta. E este é
+  o hook que roda vivo neste kit (`acceptEdits`) — no time ele fica calado no bypass.
+  Faltavam quatro formas: tag com hífen ou ponto, terminador indentado por tab do `<<-`,
+  `EOF)`/`EOF)"` fechando um `$(cat <<EOF`, e `<<<` (here-string), cujo `<<EOF` interno era
+  lido como abertura. A escotilha `CAREFUL_OFF=1` também: era lida do comando **cru**, então
+  um doc que apenas a mencionava desligava o hook inteiro — não só o bloco de SQL — para o
+  `rm -rf` real que viesse depois; agora é lida depois do parser, como o `HOTFIX_MAIN=1` do
+  `block-main-commit` já fazia. Como prefixo de verdade continua valendo. 8 casos novos em
+  `tests/test-check-careful.sh` — 4 falham contra o hook anterior, os outros 4 provam que
+  o conserto não vira falso positivo (`DROP` dentro do corpo continua calado).
+
 ## [0.23.0] — 2026-09-03
 
 ### Adicionado

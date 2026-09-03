@@ -42,7 +42,26 @@ cwd="$(printf '%s\n' "$info"  | sed -n 2p)"
 sid="$(printf '%s\n' "$info"  | sed -n 3p)"
 c="$(printf '%s\n' "$info"    | sed '1,3d')"
 [ -z "$c" ] && exit 0
-case "$c" in *CAREFUL_OFF=1*) exit 0 ;; esac
+# A escotilha é lida do comando SEM o corpo de heredoc. Medido em 03/09/2026: um doc que
+# apenas MENCIONA `CAREFUL_OFF=1` desligava o hook inteiro para o `rm -rf` real escrito
+# depois do terminador. Mesmo parser do bloco SQL lá embaixo (duplicado porque lá ele tem
+# a leniência do executor `ex`, que aqui não faz sentido).
+c_hd=$(printf '%s\n' "$c" | awk '
+    BEGIN { inhd=0; dash=0 }
+    inhd {
+      l=$0; if (dash) sub(/^\t+/, "", l)
+      if (l == tag || l == tag";" || l == tag")" || l == tag")\"" || l == tag"\"") { inhd=0 }
+      next
+    }
+    {
+      print
+      l=$0; gsub(/<<</, "", l)
+      if (match(l, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_.-]*[\047"]?/)) {
+        t = substr(l, RSTART, RLENGTH); dash = (t ~ /^<<-/)
+        gsub(/^<<-?[ \t]*|[\047"]/, "", t); tag=t; inhd=1
+      }
+    }')
+case "$c_hd" in *CAREFUL_OFF=1*) exit 0 ;; esac
 if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then
   # Este hook é a rede de proteção do kit, e em bypass ele fica MUDO. Quem liga o
   # bypass sem saber disso acha que continua protegido — então avisa uma vez por
@@ -102,15 +121,26 @@ fi
 
 # SQL destrutivo: só quando há EXECUTOR. Corpo de heredoc cuja linha de abertura não tem
 # executor (`cat > x.sql <<SQL`, `python3 - <<PY`) é conteúdo sendo escrito, não comando.
+# Tag que o parser não fecha engole o resto do comando — e aí o SQL destrutivo escrito
+# DEPOIS do terminador some junto e o ask nunca dispara. Medido em 03/09/2026: um
+# `cat > x.sql <<'END-OF-SQL' … END-OF-SQL` seguido de `psql -c "DROP TABLE users"`
+# passava calado. Por isso o parser aceita tag com hífen/ponto, terminador indentado
+# por tab do `<<-`, `EOF)` do `$(cat <<EOF` e ignora `<<<` (here-string, não heredoc).
 if m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli)' \
    && ! m '(--check|--dry-run)' && ! m 'docker[[:space:]]+exec'; then
-  c_exec=$(printf '%s' "$c" | awk -v ex='psql|db-query\\.sh|supabase[ \t]+db|PGPASSWORD|pgcli' '
-    BEGIN { inhd=0 }
-    inhd { if ($0 == tag || $0 == tag";") { inhd=0 }; next }
+  c_exec=$(printf '%s\n' "$c" | awk -v ex='psql|db-query\\.sh|supabase[ \t]+db|PGPASSWORD|pgcli' '
+    BEGIN { inhd=0; dash=0 }
+    inhd {
+      l=$0; if (dash) sub(/^\t+/, "", l)
+      if (l == tag || l == tag";" || l == tag")" || l == tag")\"" || l == tag"\"") { inhd=0 }
+      next
+    }
     {
       print
-      if (match($0, /<<-?[ \t]*'"'"'?"?[A-Za-z_][A-Za-z0-9_]*'"'"'?"?/)) {
-        t = substr($0, RSTART, RLENGTH); gsub(/^<<-?[ \t]*|['"'"'"]/, "", t)
+      l=$0; gsub(/<<</, "", l)
+      if (match(l, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_.-]*[\047"]?/)) {
+        t = substr(l, RSTART, RLENGTH); dash = (t ~ /^<<-/)
+        gsub(/^<<-?[ \t]*|[\047"]/, "", t)
         if ($0 !~ ex) { tag=t; inhd=1 }
       }
     }')
