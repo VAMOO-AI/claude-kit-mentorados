@@ -1,0 +1,84 @@
+# Release automática: a versão do plugin.json é a fonte da verdade.
+#
+# A instalação pelo marketplace nunca dependeu de tag — o Claude Code chaveia o
+# cache pelo `version` do plugin.json. Tag e release existem para o humano: o
+# badge do README, a página de releases, o `git describe`. Feitas à mão, pararam
+# na v0.7.0 enquanto o plugin ia a 0.19.0. Este workflow tira o passo manual:
+# todo merge em main que muda o plugin.json vira tag anotada + release, com o
+# bloco daquela versão do CHANGELOG como corpo.
+#
+# Idempotente: tag que já existe não é recriada, release que já existe não é
+# duplicada — reexecutar (inclusive à mão, pelo workflow_dispatch) é seguro.
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - plugin/.claude-plugin/plugin.json
+  workflow_dispatch:
+
+# Cria tag e release — precisa escrever em contents. Nada além disso.
+permissions:
+  contents: write
+
+# Dois merges seguidos não disputam: o segundo espera o primeiro terminar.
+# Cancelar no meio poderia deixar a tag no ar sem a release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lê a versão do plugin.json
+        id: versao
+        run: |
+          v="$(python3 -c 'import json;print(json.load(open("plugin/.claude-plugin/plugin.json"))["version"])')"
+          case "$v" in
+            ""|*[!0-9.]*) echo "::error::version inválida no plugin.json: '$v'"; exit 1 ;;
+          esac
+          echo "versao=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          echo "plugin.json declara $v → tag v$v"
+
+      - name: Extrai o bloco da versão do CHANGELOG
+        # Sem bloco o script sai 1 e o job para aqui: release sem corpo é pior
+        # que nenhuma, e o gate tests/test-versao-changelog.sh já exige a entrada.
+        env:
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          bash .github/scripts/changelog-bloco.sh "$VERSAO" CHANGELOG.md > "$RUNNER_TEMP/notas.md"
+          echo "--- corpo da release ---"
+          cat "$RUNNER_TEMP/notas.md"
+
+      - name: Cria a tag anotada (se ainda não existir)
+        env:
+          TAG: ${{ steps.versao.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "tag $TAG já existe — mantida"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "kit-vamoo $TAG"
+          git push origin "refs/tags/$TAG"
+          echo "tag $TAG criada em $(git rev-parse --short HEAD)"
+
+      - name: Publica a release (se ainda não existir)
+        env:
+          TAG: ${{ steps.versao.outputs.tag }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "release $TAG já existe — mantida"; exit 0
+          fi
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notas.md"
+          echo "release $TAG publicada"

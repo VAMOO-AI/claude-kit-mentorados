@@ -4,6 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/VAMOO-AI/claude-kit-mentorados)](https://github.com/VAMOO-AI/claude-kit-mentorados/releases)
 
+Cada merge que sobe a `version` do `plugin/.claude-plugin/plugin.json` vira tag e release
+no GitHub automaticamente — o badge acima mostra a versão publicada.
+
 A configuração de Claude Code que eu uso em projetos reais — regras, skills,
 automações e método — empacotada pra você instalar em **~2 minutos**.
 
@@ -210,6 +213,10 @@ O campo `version` do `plugin/.claude-plugin/plugin.json` é a **chave do cache**
 Code guarda cada versão numa pasta própria e só busca de novo quando o número muda.
 Publicar mudança sem subir a versão significa que **ninguém recebe** — nem quem está com
 auto-update ligado. Bump de versão não é formalidade, é o mecanismo de entrega.
+
+A tag e a release do GitHub saem sozinhas: o workflow `release.yml` roda a cada merge em
+`main` que altera o `plugin.json`, cria a tag `v<version>` se ela ainda não existir e publica
+a release com o bloco daquela versão do `CHANGELOG.md`. Não crie tag na mão.
 
 ---
 
