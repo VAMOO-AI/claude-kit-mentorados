@@ -3,6 +3,7 @@
 # Mais robusto que a checagem por substring:
 #   1) NÃO bloqueia quando "git commit" aparece dentro de string (grep/echo).
 #   2) Checa a branch do REPO-ALVO real (git -C <path> ou primeiro `cd <path>`), não só o cwd.
+#   3) Ignora o corpo de heredoc: `cat > x.sh <<'EOF' … git commit … EOF` é conteúdo.
 # Override: prefixe o comando com HOTFIX_MAIN=1 (commit em main proposital).
 # Lê o JSON do hook via node (sem depender de jq). Falha-aberta: erro => exit 0.
 # Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
@@ -15,7 +16,33 @@ j="$(cat)"
 c="$(printf '%s' "$j" | node "$H" tool_input.command)"
 cwd="$(printf '%s' "$j" | node "$H" cwd)"
 [ -z "$c" ] && exit 0
-case "$c" in *HOTFIX_MAIN=1*) exit 0 ;; esac
+
+# Corpo de heredoc é conteúdo sendo escrito, não comando — some antes de qualquer match.
+# Sem isto, `cat > script.sh <<'EOF'` com `git commit` e `bash -c` no corpo, numa sessão
+# cujo cwd está em main, bloqueava quem só estava ESCREVENDO o script — 3 vezes num
+# subagente em 03/09/2026. E o corpo também contaminava o resto: um `cd <worktree>` de
+# dentro dele resolvia o repo-alvo e deixava o commit REAL em main passar (falha aberta),
+# e um `HOTFIX_MAIN=1` citado num doc virava escotilha.
+# Terminador é a tag sozinha na linha; bash também aceita `EOF)` e `EOF)"` fechando um
+# `$(cat <<EOF`. Com `<<-` a tag pode vir indentada por tabs. `<<<` é here-string, não
+# heredoc. Tag não reconhecida engole o resto do comando — por isso a leniência: ela erra
+# pro lado de VER comando demais, nunca de menos.
+c_cmd=$(printf '%s\n' "$c" | awk '
+  BEGIN { inhd=0; dash=0 }
+  inhd {
+    l=$0; if (dash) sub(/^\t+/, "", l)
+    if (l == tag || l == tag";" || l == tag")" || l == tag")\"" || l == tag"\"") { inhd=0 }
+    next
+  }
+  {
+    print
+    l=$0; gsub(/<<</, "", l)
+    if (match(l, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_.-]*[\047"]?/)) {
+      t = substr(l, RSTART, RLENGTH); dash = (t ~ /^<<-/)
+      gsub(/^<<-?[ \t]*|[\047"]/, "", t); tag=t; inhd=1
+    }
+  }')
+case "$c_cmd" in *HOTFIX_MAIN=1*) exit 0 ;; esac
 
 # Detecta `git commit` como COMANDO (posição de comando), não como argumento de string.
 #
@@ -25,13 +52,13 @@ case "$c" in *HOTFIX_MAIN=1*) exit 0 ;; esac
 ALVO='git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+commit'
 
 is_commit=0
-if printf '%s\n' "$c" | grep -qE "(^|;|&&|\|\||\()[[:space:]]*${ALVO}([[:space:]]|$)"; then
+if printf '%s\n' "$c_cmd" | grep -qE "(^|;|&&|\|\||\()[[:space:]]*${ALVO}([[:space:]]|$)"; then
   is_commit=1
 fi
 # Também pega commits embutidos em bash -c / sh -c.
 if [ "$is_commit" = 0 ] \
-   && printf '%s' "$c" | grep -qE '(bash|sh)[[:space:]]+-c' \
-   && printf '%s\n' "$c" | grep -qE "$ALVO"; then
+   && printf '%s' "$c_cmd" | grep -qE '(bash|sh)[[:space:]]+-c' \
+   && printf '%s\n' "$c_cmd" | grep -qE "$ALVO"; then
   is_commit=1
 fi
 [ "$is_commit" = 0 ] && exit 0
@@ -78,19 +105,19 @@ expand_shell_path() {
 tgt="${cwd:-.}"
 
 # `git -C <path>`: aspas duplas, aspas simples, nu — nessa ordem.
-p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"([^"]+)".*/\1/p' | head -1)
-[ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+'([^']+)'.*/\1/p" | head -1)
-[ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]"'"'"';&|]+).*/\1/p' | head -1)
+p=$(printf '%s' "$c_cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"([^"]+)".*/\1/p' | head -1)
+[ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+'([^']+)'.*/\1/p" | head -1)
+[ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]"'"'"';&|]+).*/\1/p' | head -1)
 
 # `cd <path>` em posição de comando. O path é o grupo 2 — o 1 é o separador.
 if [ -z "$p" ]; then
-  p=$(printf '%s' "$c" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+"([^"]+)".*/\2/p' | head -1)
-  [ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+'([^']+)'.*/\2/p" | head -1)
-  [ -z "$p" ] && p=$(printf '%s' "$c" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+([^[:space:]"'"'"';&|]+).*/\2/p' | head -1)
+  p=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+"([^"]+)".*/\2/p' | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+'([^']+)'.*/\2/p" | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+([^[:space:]"'"'"';&|]+).*/\2/p' | head -1)
 fi
 # Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
 # sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
-[ -n "$p" ] && p=$(expand_shell_path "$p" "$c")
+[ -n "$p" ] && p=$(expand_shell_path "$p" "$c_cmd")
 if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
   tgt="$p"
 fi

@@ -68,6 +68,25 @@ check bloqueia "git -C \$VAR do próprio comando apontando pra main" \
                                                            "WT=$MAIN; git -C \$WT commit -m x" "$FEAT"
 check bloqueia "cd \$VAR do próprio comando apontando pra main" \
                                                            "WT=$MAIN; cd \$WT && git commit -m x" "$FEAT"
+# Heredoc (03/09): o corpo some do match, mas o que vem DEPOIS do terminador é comando.
+# Tag não reconhecida engole o resto do comando e o commit em main passa — cada forma
+# de fechar (tab do `<<-`, `EOF)"` do `$(cat <<EOF`, tag com hífen) precisa ser vista.
+NL=$'\n'; TAB=$'\t'
+check bloqueia "commit depois de um heredoc fechado"        "cat > s.sh <<'EOF'${NL}echo oi${NL}EOF${NL}git commit -m x"
+check bloqueia "<<- fecha com o terminador indentado por tab" \
+                                                           "cat > s.sh <<-EOF${NL}${TAB}echo oi${NL}${TAB}EOF${NL}git commit -m x"
+check bloqueia "\$(cat <<EOF) fechado por EOF)\" e commit depois" \
+                                                           "b=\"\$(cat <<'EOF'${NL}corpo${NL}EOF)\"${NL}git commit -m x"
+check bloqueia "&& git commit na linha após o \$(cat <<EOF)" \
+                                                           "gh pr create --body \"\$(cat <<'EOF'${NL}corpo${NL}EOF${NL})\" && git commit -m x"
+check bloqueia "tag com hífen fecha o heredoc"              "cat > s.sh <<'END-OF-SCRIPT'${NL}echo oi${NL}END-OF-SCRIPT${NL}git commit -m x"
+check bloqueia "here-string não é heredoc"                  "grep -q x <<<\"git commit\"${NL}git commit -m x"
+# O corpo não pode contaminar o resto: `cd <worktree>` de dentro dele resolvia o
+# repo-alvo e deixava o commit REAL em main passar (falha aberta do hook anterior).
+check bloqueia "cd pra feature branch DENTRO do heredoc não resolve o alvo" \
+                                                           "cat > s.sh <<'EOF'${NL}cd $FEAT && git commit -m x${NL}EOF${NL}git commit -m x"
+check bloqueia "HOTFIX_MAIN=1 citado no heredoc não é a escotilha" \
+                                                           "cat >> CHANGELOG.md <<'EOF'${NL}prefixe com HOTFIX_MAIN=1${NL}EOF${NL}git commit -m x"
 
 echo
 echo "== não pode bloquear =="
@@ -92,6 +111,18 @@ check passa "HOTFIX_MAIN=1 é a escotilha"                  'HOTFIX_MAIN=1 git c
 check passa "'git commit' dentro de string não é comando"  'grep -n "git commit" plugin/hooks/*.sh'
 check passa "echo mencionando git commit"                  'echo "rode git commit depois"'
 check passa "comando que não é commit"                     "cd $MAIN && git status"
+# O falso positivo de 03/09: subagente ESCREVENDO um script (`cat > x <<'EOF'`) cujo
+# corpo tem `git commit` e `bash -c`, numa sessão com cwd em main — bloqueado 3 vezes.
+SCRIPT="#!/bin/bash${NL}[ \"\$(git branch --show-current)\" = feat/x ] && git commit -m x${NL}bash -c 'git commit -m y'"
+check passa "heredoc <<'EOF' escrevendo script com git commit e bash -c" \
+                                                           "cat > s.sh <<'EOF'${NL}${SCRIPT}${NL}EOF"
+check passa "o mesmo com <<EOF sem aspas"                  "cat > s.sh <<EOF${NL}${SCRIPT}${NL}EOF"
+check passa "o mesmo com <<\"EOF\""                        "cat > s.sh <<\"EOF\"${NL}${SCRIPT}${NL}EOF"
+check passa "o mesmo com <<-EOF e corpo indentado por tab" \
+                                                           "cat > s.sh <<-EOF${NL}${TAB}git commit -m x${NL}${TAB}bash -c 'git commit -m y'${NL}${TAB}EOF"
+check passa "redirect depois da tag (cat <<'EOF' > s.sh)"  "cat <<'EOF' > s.sh${NL}git commit -m x${NL}EOF"
+check passa "gh pr create com corpo heredoc que cita git commit" \
+                                                           "gh pr create --title t --body \"\$(cat <<'EOF'${NL}git commit -m x rodou${NL}EOF${NL})\""
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
