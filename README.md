@@ -76,6 +76,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **setup** | `/kit-vamoo:setup` — instala o que o plugin não consegue (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o CLAUDE.md. Rode uma vez, depois de instalar. | nenhum |
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, só perde a visão de PR) |
 | **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
+| **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
