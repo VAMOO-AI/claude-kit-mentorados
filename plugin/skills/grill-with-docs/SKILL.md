@@ -6,6 +6,7 @@ description: >-
   volta na doc. Use quando o projeto tem .context/ e o plano toca regras de
   negócio, automação (n8n/Pipedrive) ou dado sensível — onde read-before-act
   vale. Gatilhos: "grill com docs", "fecha o plano com o contexto do projeto".
+disable-model-invocation: true
 ---
 
 > Derivada de `claude-config-team/skills/grill-with-docs`. Ao divergir de propósito, diga aqui o quê e por quê.

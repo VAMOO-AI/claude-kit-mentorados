@@ -32,7 +32,11 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh"
 ```
 
 O script faz backup de tudo que toca em `~/.claude/backup-kit-<data>/` antes de
-mexer. Duas decisões já vêm tomadas nele, e vale dizer em voz alta:
+mexer (ficam os 3 mais recentes). Se a pessoa tem algo próprio em `~/.claude`
+que a limpeza da instalação antiga poderia levar — uma skill do kit que ela
+editou, um script com nome igual —, liste em `~/.claude/.keep-local` (um
+caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
+`--dry-run`. Duas decisões já vêm tomadas nele, e vale dizer em voz alta:
 
 - **`CLAUDE.md` que já existir não é sobrescrito.** O modelo do kit fica em
   `~/.claude/CLAUDE.kit.md` pra comparar. Só troca com `--force`, e só se a

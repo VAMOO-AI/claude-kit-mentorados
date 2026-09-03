@@ -33,16 +33,6 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\""
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0",
-            "timeout": 60
-          }
-        ]
       }
     ],
     "SessionStart": [
@@ -58,7 +48,7 @@
           },
           {
             "type": "command",
-            "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dotcontext-session.sh\"",
             "timeout": 60
           }
         ]

@@ -12,6 +12,81 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.19.0] — 2026-09-03
+
+Lote de desempenho: o que o kit roda a cada ação, medido em 03/09/2026, e o que
+ele carrega em toda request.
+
+### Performance
+- **O dispatch do dotcontext saiu do `PostToolUse`.** Rodava depois de todo
+  `Write`, `Edit` e `Bash`: 1,27 s por chamada para devolver `{"continue":true}`
+  sem tocar arquivo nenhum (testado com payload completo em dois projetos). Só o
+  `SessionStart` injeta algo útil (~1 KB de contexto do `.context/`), e é o único
+  que fica.
+- **O `SessionStart` do dotcontext virou `plugin/hooks/dotcontext-session.sh`, e
+  só dispara em projeto com `.context/`.** Em repositório git SEM a pasta, o
+  `hook dispatch` do dotcontext 1.1.1 sai varrendo o repo e não volta em menos de
+  10 s (130–150% de CPU em três repos reais; em pasta vazia, `git init` novo ou
+  repo com `.context/` responde em 0,2–0,6 s) — o hook estourava o teto de 60 s e
+  toda sessão aberta num projeto sem dotcontext esperava um minuto para receber
+  o aviso "this repository does not have .context/ yet". O CLAUDE.md do kit já
+  ensina o `init the context`; o aviso não pagava o minuto. Com `.context/`, o
+  hook usa o binário global `dotcontext` quando existe (~0,6 s) e cai para o
+  `npx` pinado quando não (~1,3 s). Prova: `tests/test-dotcontext-session.sh`
+  (sem `.context/` não chama; com, chama uma vez, pelo binário, com o payload
+  intacto; sem binário, `npx -y @dotcontext/cli@1.1.1`).
+- **O `notify-stop.sh` consulta o dispositivo de áudio uma vez a cada 10 min.**
+  O `system_profiler SPAudioDataType` rodava em todo `Stop` (1 a 3 s) só para
+  escrever no log para onde o som foi. O resultado fica em
+  `~/.claude/.cache/notify-stop/output-device`, com idade checada por
+  `find -mmin` (igual no macOS e no Linux). Medido: 0,43 s → 0,02 s por turno. O
+  som e a notificação não mudam. Prova: `tests/test-notify-stop-cache.sh`, com um
+  `system_profiler` falso que conta as chamadas.
+- **Descriptions enxutas.** A description de cada skill entra em toda request,
+  use-se a skill ou não. `git-sync` 1.069 → 459 chars (a de 0.18.0 listava 14
+  gatilhos e repetia o corpo), `find-docs` 919 → 289 (e em pt-BR — estava em
+  inglês), `diretor-imagem` 540 → 389, `guardrails-ia` 578 → 503,
+  `auditoria-seguranca` 604 → 509. `grilling` cresceu de propósito (286 → 440)
+  para dizer quando NÃO disparar. Soma das 18 skills: 8.924 → 7.517 chars.
+  Nenhum gatilho de uso real saiu.
+
+### Alterado
+- **`diretor-imagem` só dispara para prompt de imagem/vídeo.** A description
+  antiga, em inglês, ativava a skill em `"um prompt"` e `"comando"` — e cada
+  disparo indevido carregava 65 KB de corpo. Os gatilhos agora são "prompt de
+  imagem", "prompt de vídeo", "gerar imagem", "direção de arte", nano
+  banana/Kling/Midjourney ou foto colada pedindo prompt; título e persona
+  passaram a "Diretor de imagem" (o apelido Banana fica como apelido).
+- **`grilling` não dispara mais por vagueza.** A description dizia "use quando o
+  pedido é vago" e o interrogatório abria em tarefa de cinco minutos. Agora
+  aciona em implementação GRANDE (multi-sistema, schema/auth/infra,
+  irreversível) e ganhou a seção sobre ancorar o loop em `.context/docs` quando o
+  projeto tem dotcontext. Portado do kit do time.
+- **`grill-with-docs` ganhou `disable-model-invocation: true`.** A description
+  já dizia que é manual; agora o Claude Code também sabe.
+
+### Adicionado
+- **`~/.claude/.keep-local`: o que é seu, o `kit-setup.sh` não remove.** A
+  limpeza da instalação antiga lê o `.kit-manifest` e apaga o que está listado —
+  inclusive a skill do kit que você editou e o script seu com nome igual. O
+  arquivo é um caminho por linha, relativo a `~/.claude`, `#` comenta, glob
+  simples (`skills/meu-*`; pasta listada protege o que está dentro). Protege
+  contra remoção, não contra instalação: `agents.md` e a barra continuam sendo
+  atualizados. Documentado no README, em `docs/migrar-do-install-antigo.md` e na
+  skill `setup`.
+- **Rotação de backups: ficam os 3 `backup-kit-<data>/` mais recentes.** Antes
+  cada execução do setup criava um e nenhum saía. Prova das duas coisas:
+  `tests/test-kit-setup-keep-local.sh` (fantasma sem `.keep-local` sai, com fica,
+  glob funciona, 5 execuções deixam 3 backups — os mais novos).
+
+### Corrigido
+- **`install.sh` anunciava "2 comandos"; o plugin tem 3** (`atalhos`,
+  `explicar`, `revisar`). Agora conta a pasta, como já fazia com as skills.
+- O teste do cleanup do `git-sync` citava um repositório interno pelo nome.
+- `docs/programacao-avancada-com-claude.md` dizia que os hooks vinham do
+  `settings.json`; vêm do plugin, e a seção agora lista os que existem e o que
+  cada um custa.
+
 ## [0.18.0] — 2026-09-03
 
 ### Segurança

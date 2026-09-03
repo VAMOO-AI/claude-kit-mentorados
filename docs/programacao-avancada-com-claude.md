@@ -64,8 +64,18 @@ Ao terminar: faça merge/PR e limpe a worktree e a branch.
 
 ## 4. Hooks: automação que dispara sozinha
 
-Hooks rodam comandos automaticamente em eventos do Claude Code. O `settings.json` do kit
-já traz um: depois de toda edição, roda `eslint --fix` + `tsc --noEmit` no arquivo.
+Hooks rodam comandos automaticamente em eventos do Claude Code. O plugin do kit já traz
+alguns: depois de toda edição, roda `eslint --fix` + `tsc --noEmit` no arquivo; antes de
+todo comando, barra commit na `main` e pede confirmação no destrutivo; e na abertura da
+sessão injeta o resumo do `.context/` do projeto (dotcontext).
+
+Hook é código que roda a **cada** ação — vale medir. Até a 0.18.0 o dispatch do dotcontext
+rodava também depois de todo `Write`/`Edit`/`Bash`: 1,27 s por chamada para devolver
+`{"continue":true}` sem tocar arquivo nenhum. Saiu; só o `SessionStart` injeta algo útil.
+E ele só dispara em projeto com `.context/` — em repo sem a pasta, o dotcontext 1.1.1 sai
+varrendo o repositório e não volta em menos de 10 s (o hook estourava o teto de 60 s e a
+sessão esperava um minuto para receber um aviso). Se você instalar o `@dotcontext/cli`
+globalmente, o hook usa o binário (~0,6 s) em vez do `npx` (~1,3 s).
 
 Outros úteis pra você adicionar:
 - Rodar testes do módulo afetado depois de salvar.

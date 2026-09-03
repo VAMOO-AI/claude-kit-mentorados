@@ -1,25 +1,10 @@
 ---
 name: find-docs
 description: >-
-  Retrieves authoritative, up-to-date technical documentation, API references,
-  configuration details, and code examples for any developer technology.
-
-  Use this skill whenever answering technical questions or writing code that
-  interacts with external technologies. This includes libraries, frameworks,
-  programming languages, SDKs, APIs, CLI tools, cloud services, infrastructure
-  tools, and developer platforms.
-
-  Common scenarios:
-  - looking up API endpoints, classes, functions, or method parameters
-  - checking configuration options or CLI commands
-  - answering "how do I" technical questions
-  - generating code that uses a specific library or service
-  - debugging issues related to frameworks, SDKs, or APIs
-  - retrieving setup instructions, examples, or migration guides
-  - verifying version-specific behavior or breaking changes
-
-  Prefer this skill whenever documentation accuracy matters or when model
-  knowledge may be outdated.
+  Busca documentação oficial atualizada (API, config, exemplos) de lib/SDK/serviço
+  via Context7 (ctx7). Use ANTES de escrever código com tecnologia externa, ao
+  checar versão/breaking changes ou quando o modelo pode estar desatualizado.
+  Gatilhos: "find-docs", dúvida de API/SDK/CLI, migração.
 ---
 
 > Derivada de `claude-config-team/skills/find-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
