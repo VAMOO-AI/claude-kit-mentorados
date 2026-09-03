@@ -81,6 +81,9 @@ jobs:
       - name: O warn-branch-behind faz fetch uma vez a cada 10 min por repo+branch
         run: bash tests/test-warn-branch-behind.sh
 
+      - name: Leitura relativa depois de cd é bloqueada, e comando legítimo não
+        run: bash tests/test-block-cd-leitura-relativa.sh
+
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 
@@ -90,9 +93,25 @@ jobs:
         # versão repetida — o sintoma de dois PRs que bumparam para o mesmo número.
         run: bash tests/test-versao-changelog.sh
 
+      - name: O guard de commit na main não bloqueia quem só escreve um script
+        # A suíte inteira (42 casos, incluindo heredoc) nunca rodou aqui: o CI só tinha o
+        # teste de fumaça inline mais abaixo. O gate no fim deste arquivo evita a recaída.
+        run: bash tests/test-block-main-commit.sh
+
       - name: O corpo da release sai certo do CHANGELOG
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
         run: bash tests/test-changelog-bloco.sh
+
+      - name: Nenhum teste ficou de fora deste workflow
+        # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
+        # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.
+        run: |
+          fail=0
+          for t in tests/test-*.sh; do
+            grep -qF "$t" .github/workflows/ci.yml \
+              || { echo "::error file=$t::teste não referenciado em .github/workflows/ci.yml"; fail=1; }
+          done
+          exit $fail
 
       - name: Sintaxe dos scripts shell
         run: |
