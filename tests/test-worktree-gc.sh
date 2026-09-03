@@ -39,7 +39,11 @@ ORIGIN="$TMP/origin.git"; CLONE="$TMP/clone"; WTS="$CLONE/.claude/worktrees"
 git init -q --bare "$ORIGIN"
 git init -q "$CLONE"
 G() { git -C "$CLONE" -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@"; }
-echo base > "$CLONE/base.txt"; G add base.txt; G commit -qm base
+# O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
+# só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
+# Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
+echo base > "$CLONE/base.txt"; printf '.env.local\n' > "$CLONE/.gitignore"
+G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 echo "ENV=clone" > "$CLONE/.env.local"
 mkdir -p "$WTS"
@@ -64,7 +68,6 @@ git -C "$WTS/wt-after" -c user.email=t@t -c user.name=t commit -q --allow-empty 
 G worktree add -q "$WTS/wt-env" -b env
 G merge -q --no-ff -m "merge env" env 2>/dev/null || true
 echo "ENV=outro" > "$WTS/wt-env/.env.local"
-printf '.env.local\n' >> "$CLONE/.gitignore"; G add .gitignore; G commit -qm gitignore; G push -q origin main
 
 # det: detached no tip da main, limpo
 G worktree add -q --detach "$WTS/wt-det" origin/main
