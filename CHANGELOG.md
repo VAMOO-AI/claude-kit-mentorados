@@ -12,6 +12,33 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.19.1] — 2026-09-03
+
+### Corrigido
+- **CHANGELOG: os cabeçalhos `## [0.13.0]`, `## [0.14.0]` e `## [0.15.0]` voltaram.**
+  Três PRs seguidos resolveram o conflito no topo do arquivo trocando o
+  cabeçalho do vizinho pelo seu em vez de inserir acima dele — o texto de cada
+  versão ficou, o título sumiu, e o bloco `0.16.0` acabou com quatro
+  `### Adicionado` colados. Nada foi reescrito: cada trecho só voltou para
+  baixo do cabeçalho que já tinha quando nasceu (`c30cb97`, `c8a325d`, `63c0c95`).
+
+### Adicionado
+- **O gate de versão pega seção repetida e cabeçalho fora de ordem.**
+  `tests/test-versao-changelog.sh` só via versão duplicada, e a corrupção acima
+  passou por ele três vezes: versão engolida não repete — some. Agora reprova
+  bloco com a mesma `### Seção` duas vezes (o sintoma do cabeçalho engolido) e
+  lista de `## [x.y.z]` que não desce estritamente. Provado contra o CHANGELOG
+  anterior (reprova) e contra o corrigido (passa).
+- **Release automática por versão do `plugin.json`** (`.github/workflows/release.yml`).
+  Merge em `main` que muda o `plugin/.claude-plugin/plugin.json` cria a tag
+  anotada `v<version>` e a GitHub Release com o bloco daquela versão do
+  CHANGELOG como corpo (`.github/scripts/changelog-bloco.sh`, com teste). A
+  instalação pelo marketplace nunca dependeu de tag — o cache do Claude Code é
+  chaveado pelo `version` — mas a última release feita à mão foi a `v0.7.0`, e
+  o badge do README parou nela enquanto o plugin ia a `0.19.0`. Reexecutar não
+  duplica: tag e release que já existem são mantidas. Nenhuma action de
+  terceiro além do `actions/checkout`.
+
 ## [0.19.0] — 2026-09-03
 
 Lote de desempenho: o que o kit roda a cada ação, medido em 03/09/2026, e o que
@@ -217,7 +244,7 @@ pequenas; nada de roteador novo nem de skill de 1.800 linhas.
   fazer em ordem, com o aviso que mais importa: **nunca resetar o banco para
   "limpar"** — isso apaga as migrations de quem está trabalhando ao lado.
 
-
+## [0.15.0]
 
 ### Adicionado
 - **Hook `path-rules`**: a regra do caminho entra no contexto quando o arquivo
@@ -231,7 +258,7 @@ pequenas; nada de roteador novo nem de skill de 1.800 linhas.
   Teste em `tests/test-path-rules.sh`, provado contra um hook quebrado antes de
   entrar.
 
-
+## [0.14.0]
 
 ### Adicionado
 - **Skill `auditoria-seguranca`**: auditoria em 5 categorias — isolamento de
@@ -254,7 +281,7 @@ pequenas; nada de roteador novo nem de skill de 1.800 linhas.
   entre conta que existe e conta que não existe, que é a metade esquecida
   (enumeração de usuário entrega a base de e-mails sem descobrir uma senha).
 
-
+## [0.13.0]
 
 ### Adicionado
 - **Teste de coerência de versão** (`tests/test-versao-changelog.sh`). São quatro
