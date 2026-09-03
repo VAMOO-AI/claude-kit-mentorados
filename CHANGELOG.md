@@ -12,6 +12,52 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.21.0] — 2026-09-03
+
+### Adicionado
+
+- **Índice de memória em dois níveis** (`plugin/scripts/memoria-indice.sh`, passo 5 da skill
+  `memoria-projeto`). O `MEMORY.md` de `.context/memoria/` entra em toda request e crescia
+  sem teto — 57 KB num CRM com 303 memórias. O script mantém o curto até 8 KB, por
+  prioridade de tipo, e move a cauda para `MEMORY-completo.md`, no mesmo formato.
+  Idempotente, dry-run por padrão. Vindo do kit do time (lá, #120).
+- **Subagente `revisor`** (`plugin/agents/revisor.md`): review read-only de trabalho já
+  feito — spec compliance, checks rodados de novo por conta própria, findings com
+  `arquivo:linha`, veredito em 4 seções. Não edita nada; quem aplica é a conversa
+  principal. Vindo do kit do time (lá, #124).
+
+### Corrigido
+
+- **`git-sync --cleanup` enxerga branch mergeada sem `[gone]`** (#68). O cleanup só coletava
+  branch com upstream apagado; branch mergeada por PR cujo remoto sobreviveu ao
+  `--delete-branch` (o `gh pr merge` quebra depois do merge quando roda de dentro de um
+  worktree) ou que nunca teve upstream ficava invisível — 10 num kit e 5 num CRM em 03/09.
+  A consulta ao `gh` passa a devolver número e head do PR; fora do `[gone]` a prova para o
+  `-D` é dupla: PR mergeado **e** head == tip; commit depois do merge preserva a branch.
+  Só o local sai; o remoto sobrevivente fica com o comando impresso. 6 checks novos em
+  `tests/test-git-sync-cleanup.sh`, que falham no script anterior.
+- **`block-main-commit.sh` ignora o corpo de heredoc** (#65). `cat > script.sh <<'EOF'` com
+  `git commit` e `bash -c` no corpo, numa sessão com cwd em main, era bloqueado como se
+  fosse o commit. O corpo some antes de qualquer match — inclusive da resolução de
+  `git -C`/`cd` e do `HOTFIX_MAIN=1`, que um corpo conseguia contaminar. 14 casos novos
+  em `tests/test-block-main-commit.sh` (8 falhavam antes).
+
+### Performance
+
+- **`warn-branch-behind.sh` faz `git fetch` no máximo 1x a cada 10 min por repositório +
+  branch** (#63): custava ~1 s em todo SessionStart. Marcador em
+  `~/.claude/.cache/warn-branch-behind/`; dentro da janela compara com o `origin/<branch>`
+  já local e continua avisando. `tests/test-warn-branch-behind.sh` novo, com `git` falso
+  que conta os fetches.
+
+### Docs
+
+- **Skill `worktrees`**: três recusas novas do guard do harness, medidas em 03/09 (#51):
+  `source <arquivo>` mesmo sendo `.env`, `gh` com `VAR="$(…)"` e `--jq` entre aspas, e o
+  parêntese de `tipo(escopo):` no título do PR lido como subshell — com o contorno de cada
+  uma na tabela, e a afirmação de que o guard inspeciona a linha de comando, não o corpo do
+  arquivo.
+
 ## [0.20.0] — 2026-09-03
 
 ### Adicionado

@@ -500,19 +500,27 @@ fi
 # uma branch sem PR herdaria o número da última consultada (= -D em trabalho vivo).
 MERGED_PR_CACHE=""
 trap '[[ -n "$MERGED_PR_CACHE" ]] && rm -f "$MERGED_PR_CACHE"' EXIT
-merged_pr_num() {
+# Uma consulta por branch devolve número E head do PR. O head é o que separa "tudo que
+# está aqui foi mergeado" de "continuou commitando depois do merge": fora do caso [gone],
+# o -D só acontece com os dois iguais. Um gh que responda só o número (fake de teste
+# antigo, API sem o campo) deixa o head vazio, e vazio nunca prova nada.
+merged_pr_lookup() {
   # template com XXXXXX: `mktemp -t <prefixo>` é forma do macOS e o GNU coreutils recusa
   [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp "${TMPDIR:-/tmp}/gitsync-pr.XXXXXX")"
-  local b="$1" hit n=""
-  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2; found=1; exit} END{if(!found) exit 1}' \
+  local b="$1" hit line="" n="" oid=""
+  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3; found=1; exit} END{if(!found) exit 1}' \
          "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
   if [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
-    n="$(gh pr list --state merged --head "$b" --limit 1 --json number \
-         --jq '.[0].number // empty' 2>/dev/null || true)"
+    line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
+         --jq '.[0] | "\(.number // "") \(.headRefOid // "")"' 2>/dev/null || true)"
+    n="${line%% *}"
+    [[ "$line" == *" "* ]] && oid="${line#* }"
   fi
-  printf '%s\t%s\n' "$b" "$n" >> "$MERGED_PR_CACHE"
-  printf '%s' "$n"
+  printf '%s\t%s\t%s\n' "$b" "$n" "$oid" >> "$MERGED_PR_CACHE"
+  printf '%s\t%s' "$n" "$oid"
 }
+merged_pr_num() { merged_pr_lookup "$1" | cut -f1; }
+merged_pr_oid() { merged_pr_lookup "$1" | cut -f2; }
 
 GH_CLEANUP_OK=0
 if [[ "$CLEANUP_DRY" -eq 1 ]] && command -v gh >/dev/null 2>&1 \
@@ -545,6 +553,41 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         fi
       fi
     done
+  fi
+
+  # [gone] depende de a ref remota ter sido apagada no merge. Branch mergeada por PR cujo
+  # remoto sobreviveu (o `gh pr merge --delete-branch` quebra depois do merge quando roda de
+  # dentro de um worktree) ou que nunca teve upstream fica com track vazio e não aparecia
+  # aqui — 10 no kit mentorados e 5 no CRM Multipedidos em 03/09/2026, todas resíduo. A
+  # prova continua sendo o PR; aqui exige-se também head do PR == tip da branch, porque
+  # commit depois do merge é trabalho, não resíduo. Uma chamada ao gh por branch, cacheada.
+  echo "--- branches com PR mergeado e remoto vivo ou sem upstream ---"
+  MERGED_ALIVE=()
+  if [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
+    _listadas=0
+    _checked="$(git worktree list --porcelain | awk '/^branch /{sub(/^branch refs\/heads\//,""); print}')"
+    while IFS='|' read -r b track; do
+      [[ -z "$b" || "$b" == "$DEFAULT_BRANCH" || "$track" == "[gone]" ]] && continue
+      printf '%s\n' "$_checked" | grep -qxF "$b" && continue
+      _pr="$(merged_pr_num "$b")"
+      [[ -n "$_pr" ]] || continue
+      _listadas=1
+      _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
+      _remoto=""
+      git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1 \
+        && _remoto=" (remoto ainda existe: git push origin --delete $b)"
+      if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
+        echo "  $b — PR #$_pr merged, head == tip → candidata a -D$_remoto"
+        MERGED_ALIVE+=("$b")
+      elif [[ -n "$_oid" ]]; then
+        echo "  $b — ! PR #$_pr merged, mas o tip avançou depois do head do PR: preservada$_remoto"
+      else
+        echo "  $b — ! PR #$_pr merged sem head para conferir: preservada$_remoto"
+      fi
+    done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads)
+    [[ "$_listadas" -eq 0 ]] && echo "  (none)"
+  else
+    echo "  (gh indisponível — sem prova de PR, nada a listar)"
   fi
 
   echo "--- worktrees candidatos a remoção (clean + merged em $ORIGIN_DEFAULT + não locked) ---"
@@ -636,6 +679,24 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
         else
           echo "  skip $b (gh indisponível — sem prova de merge, não deleto no escuro)"
+        fi
+      done
+    fi
+
+    # 3) branches com PR mergeado e head == tip, sem [gone] (remoto vivo ou sem upstream).
+    #    Só o local: apagar o remoto de outra pessoa não é cleanup, é decisão — fica o comando.
+    if [[ ${#MERGED_ALIVE[@]} -gt 0 ]]; then
+      for b in "${MERGED_ALIVE[@]}"; do
+        [[ -z "$b" ]] && continue
+        if printf '%s\n' "$CHECKED_OUT" | grep -qxF "$b"; then
+          echo "  keep $b (checked out em worktree)"
+          continue
+        fi
+        _pr="$(merged_pr_num "$b")"
+        if git branch -D "$b" >/dev/null 2>&1; then
+          echo "  deleted branch $b (-D — PR #$_pr merged, head == tip)"
+        else
+          echo "  skip $b (-D falhou)"
         fi
       done
     fi

@@ -12,6 +12,11 @@
 #     chave vira índice 0, e uma branch sem PR herdaria o número da última consultada);
 #   - lock de worktree cuja sessão morreu, que imunizaria o worktree pra sempre.
 #
+# E o buraco de 03/09/2026: o cleanup só olhava branch [gone]. Branch mergeada por PR cujo
+# remoto sobreviveu (gh pr merge --delete-branch quebrando de dentro de um worktree) ou que
+# nunca teve upstream ficava invisível — 10 no kit mentorados, 5 no CRM Multipedidos. A
+# prova é PR merged + head do PR == tip; commit depois do merge é trabalho e fica.
+#
 # Uso: bash tests/test-git-sync-cleanup.sh [caminho-do-script]
 set -uo pipefail
 SCRIPT="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/git-sync/scripts/git-sync.sh}"
@@ -56,7 +61,34 @@ git checkout -qb orfa
 echo exclusivo > exclusivo.txt; git add exclusivo.txt; git commit -qm "so aqui"
 git push -qu origin orfa
 
+# branch 'semupstream': mergeada por squash mas nunca pushada — sem upstream, nunca fica [gone]
 git checkout -q main
+git checkout -qb semupstream
+echo local > local.txt; git add local.txt; git commit -qm "so local"
+SHA_SEMUPSTREAM="$(git rev-parse HEAD)"
+git checkout -q main
+git merge -q --squash semupstream >/dev/null && git commit -qm "so local (#43)"
+
+# branch 'viva': mergeada por squash, remoto sobreviveu ao --delete-branch — track vazio
+git checkout -qb viva
+echo viva > viva.txt; git add viva.txt; git commit -qm "viva"
+SHA_VIVA="$(git rev-parse HEAD)"
+git push -qu origin viva
+git checkout -q main
+git merge -q --squash viva >/dev/null && git commit -qm "viva (#44)"
+
+# branch 'avancou': PR mergeado, mas continuou commitando depois — tip != head do PR
+git checkout -qb avancou
+echo a > a.txt; git add a.txt; git commit -qm "a"
+SHA_AVANCOU_PR="$(git rev-parse HEAD)"
+git push -qu origin avancou
+git checkout -q main
+git merge -q --squash avancou >/dev/null && git commit -qm "a (#45)"
+git checkout -q avancou
+echo b > b.txt; git add b.txt; git commit -qm "b depois do merge"
+
+git checkout -q main
+git push -q origin main
 git push -q origin --delete squashed >/dev/null 2>&1
 git push -q origin --delete orfa >/dev/null 2>&1
 git fetch -q --prune origin
@@ -69,6 +101,9 @@ mkdir -p "$TMP/bin"
   echo '  *"repo view"*) exit 0 ;;'
   echo '  *"pr list"*"--head squashed"*) echo "42"; exit 0 ;;'
   echo '  *"pr list"*"--head orfa"*)     echo "";   exit 0 ;;'
+  echo "  *\"pr list\"*\"--head semupstream\"*) echo \"43 $SHA_SEMUPSTREAM\"; exit 0 ;;"
+  echo "  *\"pr list\"*\"--head viva\"*)        echo \"44 $SHA_VIVA\"; exit 0 ;;"
+  echo "  *\"pr list\"*\"--head avancou\"*)     echo \"45 $SHA_AVANCOU_PR\"; exit 0 ;;"
   echo '  *"pr list"*) echo ""; exit 0 ;;'
   echo 'esac'
   echo 'exit 0'
@@ -82,12 +117,22 @@ OUT="$(run --cleanup-dry-run)"
 check 'squashed — SQUASH de PR #42 merged'      "squashed: reconhecida pelo PR"       "$OUT"
 check 'orfa — ! sem PR merged'                  "orfa: marcada como suspeita"         "$OUT"
 refute 'orfa — SQUASH'                          "orfa: NÃO herda PR de outra branch"  "$OUT"
+check 'semupstream — PR #43 merged, head == tip' "semupstream: sem upstream, reconhecida pelo PR" "$OUT"
+check 'viva — PR #44 merged, head == tip.*remoto ainda existe' "viva: remoto vivo, reconhecida e aponta o remoto" "$OUT"
+check 'avancou — ! PR #45 merged, mas o tip avançou' "avancou: commit depois do merge preserva" "$OUT"
 
 echo "== apply deleta a provada e preserva a órfã =="
 OUT="$(run --cleanup-apply)"
 check 'deleted branch squashed \(-D — squash de PR #42 merged\)' "squashed: deletada com prova" "$OUT"
 check 'skip orfa \(nenhum PR merged'            "orfa: preservada"                    "$OUT"
+check 'deleted branch semupstream \(-D — PR #43 merged, head == tip\)' "semupstream: deletada com prova" "$OUT"
+check 'deleted branch viva \(-D — PR #44 merged, head == tip\)'        "viva: deletada com prova"        "$OUT"
+refute 'deleted branch avancou'                 "avancou: não deletada"               "$OUT"
 has_branch() { git -C "$CLONE" show-ref --verify --quiet "refs/heads/$1"; }
+if has_branch avancou; then printf '  ok    %s\n' "avancou: ainda existe no repo"
+else printf '  FALHA %s\n' "avancou: deletada com commit depois do merge"; falhas=$((falhas+1)); fi
+if has_branch semupstream || has_branch viva; then printf '  FALHA %s\n' "semupstream/viva: continuam no repo"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "semupstream e viva: sumiram do repo"; fi
 if has_branch orfa; then printf '  ok    %s\n' "orfa: ainda existe no repo"
 else printf '  FALHA %s\n' "orfa: foi deletada sem prova de merge"; falhas=$((falhas+1)); fi
 if has_branch squashed; then printf '  FALHA %s\n' "squashed: continua no repo"; falhas=$((falhas+1))
@@ -96,6 +141,7 @@ else printf '  ok    %s\n' "squashed: sumiu do repo"; fi
 echo "== sem gh não deleta no escuro =="
 OUT="$(PATH="/usr/bin:/bin" bash "$SCRIPT" --cwd "$CLONE" --status-only --no-pr --cleanup-apply 2>&1)"
 refute 'deleted branch orfa'                    "orfa: intacta sem gh"                "$OUT"
+refute 'deleted branch avancou'                 "avancou: intacta sem gh"             "$OUT"
 
 echo "== lock stale não imuniza worktree =="
 WT="$TMP/wt"; git -C "$CLONE" worktree add -q "$WT" orfa 2>/dev/null

@@ -117,8 +117,8 @@ Flags:
 | `--team` | força modo time (quem mudou o quê, PR com autor/mergeable, branches ativas, risco de conflito) |
 | `--no-team` | desliga o modo time mesmo em repo multi-autor |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
-| `--cleanup-dry-run` | lista branches `gone` e worktrees candidatos a remoção (não apaga) |
-| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) e depois as branches `gone`: `-d` primeiro, e `-D` **só quando o `gh` confirma um PR mergeado com aquela head** (squash merge quebra a ancestralidade — sem isso o cleanup skipa 100% das branches). Branch sem PR encontrado, ou `gh` indisponível, é sempre preservada |
+| `--cleanup-dry-run` | lista branches `gone`, branches com **PR mergeado e head == tip** (remoto vivo ou sem upstream — as que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga) |
+| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) e depois as branches `gone`: `-d` primeiro, e `-D` **só quando o `gh` confirma um PR mergeado com aquela head** (squash merge quebra a ancestralidade — sem isso o cleanup skipa 100% das branches). Branch sem PR encontrado, ou `gh` indisponível, é sempre preservada. Fora do `[gone]` (remoto vivo ou nunca pushada) a prova é dupla: PR mergeado **e** head do PR igual ao tip — commit depois do merge preserva a branch; e só o local sai: o remoto sobrevivente fica com o comando `git push origin --delete <b>` impresso para você decidir |
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
