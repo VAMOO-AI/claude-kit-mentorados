@@ -79,7 +79,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v afplay >/dev/null 2>&1 && afplay /System/Library/Sounds/Glass.aiff & exit 0"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-stop.sh\"",
+            "timeout": 15
           }
         ]
       }
