@@ -12,6 +12,20 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.17.3]
+
+### Corrigido
+- **O aviso de fim de turno rodava em background e podia morrer com o hook.** O
+  `Stop` era `afplay ... & exit 0` inline: em background o aviso só sai se o
+  processo sobreviver ao fim do hook, e quando o harness encerra o processo do
+  hook o filho morre junto no mesmo grupo — sem erro e sem som. Agora o hook chama
+  `plugin/hooks/notify-stop.sh`, que toca em foreground com teto (`afplay -t 1.2`)
+  e escreve uma linha por turno em `~/.claude/logs/notify-stop.log`.
+- **O log registra o dispositivo de saída, que é a causa mais comum do silêncio.**
+  Com um fone Bluetooth pareado o `afplay` devolve 0 e o som vai para o fone: o
+  sintoma é idêntico ao de "o hook não disparou", e sem o log não havia como
+  separar os dois. `CLAUDE_STOP_QUIET=1` silencia sem editar o plugin.
+
 ## [0.17.2]
 
 ### Corrigido
