@@ -14,6 +14,11 @@
 
 set -uo pipefail
 
+# Onde a skill mora, resolvido pelo próprio arquivo. Instalada como plugin ela
+# fica no cache do marketplace, não num caminho fixo — e o comando de
+# reconferência emitido em cada finding precisa apontar para um arquivo real.
+SK="$(cd "$(dirname "$0")/.." && pwd)"
+
 OUT="" ; ROOT="$PWD" ; DIFF_BASE="" ; ONLY=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -183,17 +188,17 @@ if want 02; then
     # [[:space:]]+ e não espaço literal: as migrations alinham as colunas
     # ("ALTER TABLE public.deal_tags     ENABLE ROW LEVEL SECURITY") e um regex
     # com espaço único reporta como desprotegida uma tabela que tem RLS.
-    created="$(grep -rhoiE 'create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?(public\.)?"?[a-z0-9_]+' $MIG_FILES 2>/dev/null \
+    created="$(grep -rhoiE 'create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+' $MIG_FILES 2>/dev/null \
       | grep -oiE '[a-z0-9_]+$' | sort -u)"
-    rls="$(grep -rhoiE 'alter[[:space:]]+table[[:space:]]+(only[[:space:]]+)?(public\.)?"?[a-z0-9_]+"?[[:space:]]+enable[[:space:]]+row[[:space:]]+level[[:space:]]+security' $MIG_FILES 2>/dev/null \
-      | sed -E 's/.*table[[:space:]]+(only[[:space:]]+)?(public\.)?"?([a-z0-9_]+)"?[[:space:]]+enable.*/\3/I' | sort -u)"
+    rls="$(grep -rhoiE 'alter[[:space:]]+table[[:space:]]+(only[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+"?[[:space:]]+enable[[:space:]]+row[[:space:]]+level[[:space:]]+security' $MIG_FILES 2>/dev/null \
+      | sed -E 's/.*table[[:space:]]+(only[[:space:]]+)?([a-z0-9_]+\.)?"?([a-z0-9_]+)"?[[:space:]]+enable.*/\3/I' | sort -u)"
     semrls="$(comm -23 <(printf '%s\n' "$created") <(printf '%s\n' "$rls") 2>/dev/null | grep -v '^$')"
     n="$(hits "$semrls")"
     if [ "${n:-0}" -gt 0 ]; then
       add_finding 02 HIGH heuristic "Tabela criada sem ENABLE ROW LEVEL SECURITY nas migrations ($n)" \
         "$MIG" \
         "Tabela em schema exposto sem RLS é legível por qualquer um com a anon key. Migrations podem não refletir o banco: confirme com o lint 0013. Tabelas: $(printf '%s' "$semrls" | tr '\n' ' ' | cut -c1-300)" \
-        "bash ~/.claude/skills/baseline/scripts/splinter.sh 0013" "lint 0013_rls_disabled_in_public"
+        "bash $SK/scripts/splinter.sh 0013" "lint 0013_rls_disabled_in_public"
     fi
     add_coverage 02 rls_migrations medido grep "estático: policy aplicada pelo dashboard não aparece aqui"
 
@@ -204,7 +209,7 @@ if want 02; then
       add_finding 02 MEDIUM heuristic "SECURITY DEFINER sem SET search_path (aprox. $((sd_total - sd_sp)) de $sd_total)" \
         "$MIG" \
         "Função SECURITY DEFINER sem search_path fixo é vetor de escalonamento de privilégio — pior ainda quando é chamada de dentro de uma policy. Contagem aproximada; confirme com o lint 0011." \
-        "bash ~/.claude/skills/baseline/scripts/splinter.sh 0011" "lint 0011_function_search_path_mutable"
+        "bash $SK/scripts/splinter.sh 0011" "lint 0011_function_search_path_mutable"
     fi
     add_coverage 02 security_definer medido grep "contagem agregada, não por função"
 
@@ -218,7 +223,7 @@ if want 02; then
     if [ "${si:-0}" -gt 0 ]; then
       add_finding 02 MEDIUM heuristic "Views com security_invoker = false ($si)" "$MIG" \
         "View com security_invoker=false roda com o privilégio do dono e fura a RLS de quem consulta. Legítimo para agregação de BI; exige justificativa versionada." \
-        "bash ~/.claude/skills/baseline/scripts/splinter.sh 0010" "lint 0010_security_definer_view"
+        "bash $SK/scripts/splinter.sh 0010" "lint 0010_security_definer_view"
     fi
     add_coverage 02 policies_permissivas medido grep ""
     fi
