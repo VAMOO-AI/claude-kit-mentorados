@@ -12,6 +12,19 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.17.2]
+
+### Corrigido
+- **Launcher na frente do `git` faz o guard do worktree recusar o comando.** A
+  skill `worktrees` já listava as recusas por casamento de texto, mas faltava a
+  que ninguém liga à causa: o guard só sabe ler `git` como **primeiro token**, e
+  um hook de PreToolUse que prefixa comandos esconde o git. A recusa muda de
+  texto para *"runs `<launcher>` with a git command among its operands: what runs
+  it … cannot be read here"*, e o comando não roda — um `git add` de um arquivo
+  só para de funcionar. Este kit não tem hook assim; a linha existe para quem
+  instala o seu. Espelho de `claude-config-team#114`, onde o hook do RTK causava
+  isso na prática (03/09/2026).
+
 ## [0.17.1]
 
 ### Corrigido
