@@ -53,7 +53,13 @@ sem nada de git. Três recusas medidas num único ship, em 02/09/2026:
 - **colchete de rota dinâmica** (`src/app/.../[id]/route.ts`) num comando
   composto vira "construct too complex";
 - **`cd` para OUTRO repositório** também é recusado, não só para o clone pai: de
-  dentro de um worktree você não mexe em outro repo, nem para ler o status.
+  dentro de um worktree você não mexe em outro repo, nem para ler o status;
+- **`git` tem de ser o PRIMEIRO token do comando.** Qualquer launcher na frente
+  esconde o git e a recusa muda de texto: *"runs `<launcher>` with a git command
+  among its operands: what runs it … cannot be read here"*. Um hook que reescreve
+  `git add x` para `<launcher> git add x` faz um `git add` de um arquivo só parar
+  de rodar (03/09/2026). Se você tem hook de PreToolUse que prefixa comandos,
+  desligue-o para git quando o `cwd` estiver sob `.claude/worktrees/`.
 
 **Não insista no mesmo comando.** Troque de ferramenta:
 
