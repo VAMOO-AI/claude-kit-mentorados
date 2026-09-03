@@ -82,6 +82,21 @@ gh auth status || gh auth login     # precisa de acesso ao repo
 
 Se `gh auth status` falhar, o script reporta e segue — não trava a sessão.
 
+**Duas contas no mesmo keyring.** Máquina com conta pessoal e conta de trabalho/cliente
+logadas no `gh`: a ativa devolve `Could not resolve to a Repository` para o repo da
+outra — que lê como repositório inexistente, não como conta errada, e o relatório saía
+cego para PR sem dizer o motivo. O script testa as outras contas de `gh auth status`,
+usa a que enxerga o repo (só neste processo, sem trocar a ativa) e diz qual foi:
+
+```
+### PRs abertos (gh)
+(conta gh: trabalho — a ativa não enxerga este repositório; 'gh auth switch -u trabalho' se for ficar nele)
+```
+
+Se nenhuma enxerga, ele diz isso com todas as letras (`nenhuma conta do gh enxerga
+<owner/repo>`) em vez de deixar o `gh pr list falhou` sozinho. `GH_TOKEN` exportado
+por você tem precedência e desliga a busca.
+
 ## Regras duras (nunca violar)
 
 1. **Só fast-forward** — `git pull --ff-only` / `git merge --ff-only`. Nunca `pull` com merge commit, nunca `rebase` automático, nunca `reset --hard`.

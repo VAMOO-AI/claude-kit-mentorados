@@ -12,6 +12,50 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.24.0] — 2026-09-03
+
+### Adicionado
+
+- **`git-sync` acha a conta do `gh` que enxerga o repositório** (#54; vindo do kit do time,
+  lá #63). Máquina com conta pessoal e conta de trabalho no mesmo keyring: a ativa devolve
+  `Could not resolve to a Repository` para o repo da outra — que lê como repositório
+  inexistente, não como conta errada, e o relatório saía cego para PR sem dizer o motivo.
+  O script testa as demais contas de `gh auth status`, usa a que enxerga (só neste
+  processo, sem trocar a ativa) e diz qual foi; se nenhuma enxerga, diz isso com todas as
+  letras. `GH_TOKEN` exportado tem precedência. Junto vem o bloco de avisos do time:
+  branch cujo upstream sumiu e alteração não commitada direto na branch compartilhada
+  entram em `### avisos (ação sua)`, e o `### summary` grita quando há aviso. 18 checks
+  em `tests/test-git-sync-conta.sh`, com `gh` falso — 10 falham no script anterior.
+- **`memoria-link` não perde projeto sem transcript** (#56; time #49/#60/#61). O caminho
+  vinha só do `cwd` gravado no transcript, e o Claude Code poda os `.jsonl` antigos:
+  projeto sem transcript perdia o caminho e o loop dava `continue` sem uma linha de aviso —
+  memória presa na máquina enquanto a varredura dizia que estava tudo em dia. Agora o slug
+  é resolvido contra os diretórios reais (só aceita resposta única; empate é aviso),
+  memória sem destino é reportada com o comando para ligar à mão, o README do formato é
+  escrito em `--adotar`/`--repo` (nunca na varredura automática, que só conta e aponta),
+  `README.md`/`MEMORY.md` não contam como fato, e `memory` que virou link quebrado é
+  tratado como problema, não como "sem memória local". `tests/test-memoria-link.sh` novo —
+  8 checks falham no script anterior.
+
+### Corrigido
+
+- **`worktree-gc` só apaga worktree cuja branch está mesmo mergeada** (#55). "Mergeada"
+  era `gh pr list --state merged | length > 0`: bastava a branch ter tido um PR mergeado um
+  dia. Commit feito depois, ainda sem push, contava como lixo — e `--apply` apagava trabalho
+  novo (no teste, o script anterior **apagou** o worktree). Agora o tip local precisa estar
+  contido no head do PR mergeado (fail-closed: sem prova, mantém); `.env.local` diferente do
+  clone principal segura o worktree, porque é invisível no `status` e some junto; e worktree
+  detached limpo com HEAD já em `origin/main` vira candidato em vez de ser pulado para
+  sempre. `tests/test-worktree-gc.sh` novo, com `gh` falso que responde às duas formas de
+  consulta — 7 checks falham no anterior.
+
+### Docs
+
+- **README: são 19 skills.** A tabela dizia 18 e a seção "Skills incluídas" dizia 15; o
+  diretório tem 19, e todas já estavam descritas.
+- **Skill `git-sync`**: parágrafo "Duas contas no mesmo keyring", com a saída que o script
+  imprime quando usa a outra conta.
+
 ## [0.23.1] — 2026-09-03
 
 ### Corrigido
