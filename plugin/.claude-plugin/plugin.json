@@ -1,7 +1,7 @@
 {
   "name": "kit-vamoo",
   "displayName": "Claude Starter Kit — VAMOO AI",
-  "version": "0.17.3",
+  "version": "0.18.0",
   "description": "As regras, skills e guard-rails de Claude Code que eu uso em projetos reais: busca de doc oficial, revisão de segurança, deploy com gates, sincronia com o GitHub, memória de projeto versionada e proteção contra commit na main.",
   "author": {
     "name": "Ruan Miranda",
