@@ -122,6 +122,12 @@ você já tem — desde que o trabalho anterior já esteja mergeado ou pusheado.
   `HOTFIX_MAIN=1` na frente. O hook checa a branch **antes** do comando —
   `git checkout -b X && git commit` é bloqueado (ele vê a main). Crie a branch
   num comando separado, depois commite.
+- O kit também **bloqueia `git checkout`/`switch`/`stash`/`reset --hard` no
+  clone principal quando outra sessão Claude esteve ativa nele nos últimos 30
+  minutos** — é a regra de cima virando hook. Worktree próprio é livre. Se tiver
+  certeza de que ninguém mais está escrevendo naquele clone, prefixe o comando
+  com `PARALLEL_OK=1`. E, a cada prompt, ele avisa se a branch mudou desde o
+  prompt anterior: alguém trocou por fora — confirme antes de editar.
 
 ## O banco local NÃO é isolado por worktree
 
