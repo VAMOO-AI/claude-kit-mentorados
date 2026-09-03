@@ -56,7 +56,19 @@ if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then
   exit 0
 fi
 
+# Cada `ask` fica registrado: data, sessão, modo e a regra — nunca o comando, que pode
+# carregar segredo. Aprovação concedida não deixa rastro no transcript (medido em
+# 03/09/2026), então "por que está pedindo aprovação?" só se responde com este arquivo.
+# CHECK_CAREFUL_LOG aponta outro arquivo; vazio desliga (é o que a suíte usa).
+LOG="${CHECK_CAREFUL_LOG-$HOME/.claude/.cache/check-careful/decisoes.tsv}"
+registra() {
+  [ -n "$LOG" ] || return 0
+  mkdir -p "${LOG%/*}" 2>/dev/null || return 0
+  printf '%s\t%s\t%s\task\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "${sid:-?}" "${modo:-?}" "$1" >> "$LOG" 2>/dev/null || true
+}
+
 ask() {
+  registra "$1"
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}' \
     "$(printf '%s' "$1" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(s)))')"
   exit 0

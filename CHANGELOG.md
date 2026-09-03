@@ -25,6 +25,11 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   feito — spec compliance, checks rodados de novo por conta própria, findings com
   `arquivo:linha`, veredito em 4 seções. Não edita nada; quem aplica é a conversa
   principal. Vindo do kit do time (lá, #124).
+- **`check-careful` registra cada `ask`** em `~/.claude/.cache/check-careful/decisoes.tsv`:
+  data, sessão, modo de permissão e a regra — nunca o comando, que pode carregar segredo.
+  Aprovação concedida não deixa rastro no transcript, então "por que está pedindo
+  aprovação?" só se responde com este arquivo. `CHECK_CAREFUL_LOG` redireciona; vazio
+  desliga (a suíte usa).
 
 ### Corrigido
 
