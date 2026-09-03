@@ -27,7 +27,7 @@ mas NÃO testa nada rodando/deployado/produção. Aponta os problemas; quem corr
 - **Verify, don't claim.** Todo "limpo / sem findings" precisa do output REAL da ferramenta colado na mesma resposta. Não rodou uma ferramenta? Diga "não executado" + o comando que falta.
 - **Zero findings ≠ seguro.** Relatório limpo só diz que ESTE scan + as ferramentas disponíveis não acharam nada no escopo. O relatório TEM que deixar isso claro.
 - **Só o workspace local.** Ler código, rodar SAST/SCA local, ler o SQL do projeto. Nunca cutucar endpoint externo/deployado. Ler doc oficial (OWASP/CWE) pra embasar um fix é permitido.
-- **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode os scanners reais (`semgrep`, `gitleaks`, `npm/pnpm audit`, `osv-scanner`) ANTES de confiar em grep. Achado visto por ferramenta real **+** heurística = `CONFIRMED` (alta confiança); só-heurística = marcado como possível falso-positivo. *(Modelo adaptado do `decksoftware/csreview`, MIT — crédito preservado.)*
+- **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode os scanners reais (`semgrep`, `gitleaks`, `npm/pnpm audit`, `osv-scanner`) ANTES de confiar em grep. Esta é a única definição de `Confiança` da skill: achado é `CONFIRMED` quando ferramenta real e heurística concordam **ou** quando um teste do próprio projeto exercita o mesmo ponto; qualquer outro é `heuristic` (pode ser falso positivo). *(Modelo adaptado do `decksoftware/csreview`, MIT — crédito preservado.)*
 - **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: baixe só da fonte oficial, **confira o SHA-256 antes de rodar**, instale num dir isolado e gitignored (nunca global, nunca `sudo`), e siga em modo só-heurística se não der.
 - **Na dúvida, pesquise.** Não chute comportamento de framework / detalhe de CVE. Use a skill `find-docs` e cite a fonte no finding.
 
@@ -48,7 +48,14 @@ command -v semgrep && semgrep scan --config auto --sarif --output secscan.sarif 
 command -v gitleaks && gitleaks detect --no-banner --redact || echo "gitleaks AUSENTE"
 command -v osv-scanner && osv-scanner scan --format json . || echo "osv-scanner AUSENTE (opcional)"
 ```
-Anote quais rodaram vs faltaram no disclaimer do relatório. Semgrep é o que mais agrega.
+Anote quais rodaram vs faltaram no disclaimer do relatório. Semgrep é o que mais agrega —
+mas saiba o que ele corrobora de fato. **Medido em 31/08/2026** num app React + Supabase:
+o ruleset OWASP rodou 255 regras sobre 2.198 arquivos e devolveu 27 findings, **100% em
+`.github/` e `.npmrc`**, zero em `src/`, zero em `supabase/functions/`. Num diretório com
+quatro vulnerabilidades de código plantadas de propósito: 2 findings, ambos no `ci.yml`,
+nenhuma das quatro. Consequência: neste stack **todo achado de C1 (injeção) é
+`heuristic`** por construção, e a linha C1 do checklist diz isso — em vez de deixar o
+leitor supor que o silêncio do semgrep é ausência de problema.
 
 ## Fase 1 — Secrets
 
@@ -118,10 +125,22 @@ grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
 ## Fase 4 — Dependências (SCA)
 
 ```bash
+ls package-lock.json pnpm-lock.yaml bun.lock 2>/dev/null | head -1 \
+  || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
 test -f package-lock.json && npm audit || true
 test -f pnpm-lock.yaml && pnpm audit || true
 ```
+A primeira linha não é decoração: os `|| true` são exatamente o modo de falha que esta
+skill acusa nos outros — sem lockfile, tudo falha em silêncio e C5 sairia limpa sem ter
+lido uma linha. `osv-scanner` tem o mesmo defeito: não lê `package.json` puro, roda, sai 0
+e não mede nada (medido em 31/08/2026: zero achado, e as vulnerabilidades estavam lá).
+
 Sinalize versão com CVE conhecido e **pacote alucinado** (importado mas não existe no registry — comum em código gerado por IA).
+Pra achar o alucinado, `npm install --package-lock-only --ignore-scripts` falha com E404
+nomeando o fantasma — rode numa **cópia** do `package.json` fora do repo (o comando escreve
+lockfile, e você é read-only aqui). Efeito colateral que vai no relatório: essa mesma falha
+impede gerar o lockfile, então um repo com dependência inventada deixa C5 cega também para
+as CVEs reais. Reporte os dois fatos juntos.
 
 ## Fase 5 — Heurísticas de "vibe-coding"
 
@@ -132,6 +151,34 @@ Padrões que IA costuma gerar. Grep no projeto:
 - `eval` / `new Function` / `child_process.exec` com input do usuário.
 - TLS desligado: `NODE_TLS_REJECT_UNAUTHORIZED=0`, `rejectUnauthorized:false`.
 - Comentário dizendo "seguro/production-ready" sem nenhum controle real atrás.
+
+## Falso positivo — o que a calibração ensinou
+
+Medido em 31/08/2026, rodando esta skill num app real: **5 dos 14 achados HIGH+ eram
+reais — 36% de precisão**, contra uma meta de 70%. Um relatório onde dois em cada três
+alertas graves são ruído deixa de ser lido — e aí o achado real passa junto. Regras que
+saíram dessa rodada:
+
+- **Grep localiza; leitura decide.** Nenhum comando desta skill emite veredito. Ele aponta
+  o arquivo; você abre a linha, segue de onde o valor vem e só então escreve o finding.
+  Finding sem `arquivo:linha` que você mesmo leu não existe.
+- **Anotação de exemplo apodrece.** Todo `arquivo:linha` que veio de relatório anterior,
+  de memória ou de exemplo nesta skill foi medido num repo, numa data. Na calibração, a
+  skill mandava reportar um fallback `Math.random()` de token de convite que já tinha
+  virado `crypto.randomUUID()` — repetir a anotação era **fabricar finding**. Antes de
+  citar, abra o arquivo: se o código mudou, a anotação é ruído, não atalho.
+- **Não conte o mesmo hit duas vezes.** Greps de bullets vizinhos se sobrepõem (na
+  calibração, "29 mass assignment" eram 20 + 9 coerções `Number()` que o bullet seguinte
+  contava de novo). Some as contagens do Resumo só depois de triar.
+- **O discriminante é o destino do valor, nunca a primitiva.** `md5()` num fingerprint e
+  `Math.random()` numa key de lista React não são finding; `Math.random()` gerando token de
+  reset é. Diga no finding por que aquele uso é explorável, não que a função existe.
+- **Falso positivo julgado mora num arquivo, não no código.** `nosemgrep` e
+  `eslint-disable` espalham a decisão pelo diff e não dizem quem decidiu nem quando. O dono
+  do projeto registra em `.context/docs/security/vereditos.md` (fingerprint · veredito ·
+  por quê · quem · quando — a skill `baseline` lê a mesma tabela). Antes de reportar,
+  consulte: achado já julgado não volta como novo. O veredito vence quando o código ao
+  redor muda — por isso o "por quê" é obrigatório.
 
 ## Fase 6 — Relatório
 
@@ -149,7 +196,7 @@ nenhuma categoria tem sonda própria fora das fases acima.
 
 | Categoria | Prova mínima (o que precisa ter rodado pra linha sair limpa) | Vem de |
 |---|---|---|
-| **C1** injeção de código | SAST com ruleset de injeção (`semgrep`) + grep de sink recebendo valor de request: `eval`, `exec`, SQL montado por concatenação, HTML por template | F0.5 + F3 + F5 |
+| **C1** injeção de código | SAST com ruleset de injeção (`semgrep`) + grep de sink recebendo valor de request: `eval`, `exec`, SQL montado por concatenação, HTML por template. O semgrep não corrobora código de app neste stack (Fase 0.5): todo achado sai `heuristic`, e a linha diz isso | F0.5 + F3 + F5 |
 | **C2** autenticação e controle de acesso | Toda rota/handler público checa identidade antes de ler ou mutar; tabela sem RLS ou com policy `using (true)` | F2 + F3 + F5 |
 | **C3** exposição de dados sensíveis | Segredo no versionamento **e** no bundle publicado; `service_role`/secret atrás de prefixo público; endpoint devolvendo a linha inteira | F1 + F2 + F3 |
 | **C4** validação de entrada | Handler que lê `body`/`query` valida contra schema antes de usar; valor de dinheiro/permissão/identidade vindo do cliente | F3 (bloco de validação) |
@@ -166,7 +213,10 @@ está tudo limpo. Os estados são **quatro**:
 - **`nenhum problema identificado`** — procurou e não achou. Só sai assim se
   **todas** as provas mínimas daquela linha rodaram.
 - **`não medido (<ferramenta> ausente)`** — nomeie o binário que faltou
-  (`semgrep`, `gitleaks`, `osv-scanner`).
+  (`semgrep`, `gitleaks`, `osv-scanner`). **Ferramenta presente com input ausente
+  também é não medido**, e é o caso que mais engana: `osv-scanner` instalado num projeto
+  sem lockfile roda, sai 0 e não lê nada. Escreva o motivo real — `não medido (lockfile
+  ausente)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
 - **`não aplicável (<motivo>)`** — a precondição da Fase 0 não existe (projeto sem
   banco não tem RLS; site estático não tem rota de API).
 
