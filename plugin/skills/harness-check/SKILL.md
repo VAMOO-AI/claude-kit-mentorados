@@ -39,10 +39,11 @@ apertar Enter.
 
 Leia o output com esta pergunta: **quanto do preload é arquivo meu?** Numa
 medição de 03/09/2026 (conta do autor do kit, harness carregado) o preload era
-~52,7K tokens e só ~5K — **10%** — vinha de arquivo editável: CLAUDE.md 2,1K,
-descrições das skills visíveis 1,7K, memória 0,9K. Os outros 90% eram system
-prompt, schemas de ferramenta e MCP. Enxugar o CLAUDE.md ali economizaria ~2%
-do preload, ou seja, nada — e é exatamente o corte que todo mundo tenta primeiro.
+**52,7K tokens** (MEDIDO) e só ~5K — **10%** — vinha de arquivo editável
+(ESTIMADO por `chars÷4`: CLAUDE.md 2,1K, descrições das skills visíveis 1,7K,
+memória 0,9K). Os outros 90% eram system prompt, schemas de ferramenta e MCP —
+INDISPONÍVEL sem o `/context`. Enxugar o CLAUDE.md ali economizaria ~2% do
+preload, ou seja, nada — e é exatamente o corte que todo mundo tenta primeiro.
 
 ## Passo 2 — o gasto durante o uso
 
