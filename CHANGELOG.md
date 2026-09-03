@@ -12,6 +12,29 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.20.0] — 2026-09-03
+
+### Adicionado
+
+- **Skill `harness-check`: para onde vai o seu token.** O pedido "me ajuda a
+  gastar menos token" sempre terminava no mesmo lugar errado — cortar o
+  CLAUDE.md, que é a parte que dá pra ver. Medido em 03/09/2026 numa conta com o
+  harness carregado: o contexto inicial era **52,7K tokens** e só **~5K (10%)**
+  vinha de arquivo editável (CLAUDE.md 2,1K, descrições de skill 1,7K, memória
+  0,9K). Os outros 90% são system prompt, schemas de ferramenta e MCP. Enxugar o
+  CLAUDE.md ali economiza ~2% do preload: faxina, não economia.
+  A skill manda medir antes de cortar, em quatro passos — `/context` para a
+  composição do preload (comando built-in não se invoca por `Bash`: peça o output
+  ao usuário), `ccusage` para o gasto real, `claude mcp list` para o MCP que
+  ninguém usa, e os hábitos que de fato movem a conta, com a sessão-maratona em
+  primeiro lugar. Fecha com uma regra que vale para qualquer relatório de custo:
+  **rotule todo número como MEDIDO, ESTIMADO ou INDISPONÍVEL** — a maior fatia do
+  preload não é mensurável arquivo a arquivo, e apresentar `chars÷4` como medição
+  é como a auditoria de token engana.
+  Espelho da mesma entrega no kit do time (`claude-config-team` 0.27.0), onde a
+  skill se apoia nos scripts de telemetria que aquele kit tem; aqui ela é
+  autocontida, só com o que o Claude Code já dá de fábrica.
+
 ## [0.19.2] — 2026-09-03
 
 ### Corrigido
