@@ -1,12 +1,11 @@
 ---
 name: guardrails-ia
 description: >-
-  Guard-rails de agente de IA que fala com pessoa real (WhatsApp, DM, chat do
-  site, bot): o que ele pode afirmar (lista de alegações verificadas), pedido
-  de parar como estado permanente, escalar pra humano, e quem responde o fio
-  quando IA e humano disputam (propriedade de canal). Use ao construir ou
-  revisar bot/agente que conversa com cliente, antes de ligar o disparo, ou
-  quando "a IA respondeu por cima do humano" / "a IA prometeu o que a gente não
+  Guard-rails de agente de IA que fala com pessoa real (WhatsApp, DM, chat,
+  bot): o que ele pode afirmar, pedido de parar como estado permanente, escalar
+  pra humano e quem responde quando IA e humano disputam o canal. Use ao
+  construir ou revisar bot que conversa com cliente, antes de ligar o disparo,
+  ou quando "a IA respondeu por cima do humano" / "prometeu o que a gente não
   faz". Gatilhos: "bot que responde cliente", "agente de IA", "a IA inventou",
   "opt-out", "transferir pra humano", "pausar a IA".
 ---

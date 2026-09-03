@@ -75,6 +75,23 @@ você sabe que a limpeza rodou. (Código: `plugin/scripts/kit-setup.sh`.)
 Dois arquivos ficam de propósito, porque são dele e não do plugin: `statusline.js` e
 `hookjson.js` em `~/.claude/scripts/`.
 
+E fica também tudo que você listar em `~/.claude/.keep-local`. O manifesto diz o que o
+instalador antigo copiou, não o que você fez com a cópia depois — quem editou uma skill
+do kit, ou escreveu um script com um nome que o manifesto também tinha, perderia
+trabalho seu. O arquivo é um caminho por linha, relativo a `~/.claude`; `#` comenta e
+glob simples funciona:
+
+```
+# meu, não remove
+skills/minha-skill
+skills/meu-projeto-*
+scripts/deploy-cliente.sh
+```
+
+Protege contra remoção, não contra instalação: `agents.md`, a barra de status e os
+scripts do kit continuam sendo atualizados a cada setup, mesmo listados. E o setup
+guarda só os 3 `backup-kit-<data>/` mais recentes — antes acumulava um por execução.
+
 ## O passo que ninguém automatiza: o seu CLAUDE.md
 
 O setup **não sobrescreve** um `CLAUDE.md` que já existe. Isso é deliberado — se

@@ -12,12 +12,19 @@
 # disparou" e "disparou e o aviso não chegou" — este último costuma ser saída de
 # áudio (fone Bluetooth pareado leva o som embora com afplay devolvendo 0).
 #
+# O dispositivo de saída vem do `system_profiler`, que leva de 1 a 3 s — mais do que
+# o som. Fica em cache por 10 minutos (~/.claude/.cache/notify-stop/output-device):
+# trocar de fone no meio desse intervalo aparece no log com atraso, nunca no som.
+#
 # Env: CLAUDE_STOP_SOUND (arquivo), CLAUDE_STOP_SOUND_SECS (teto), CLAUDE_STOP_QUIET=1 (mudo)
 set -u
 
 SOUND="${CLAUDE_STOP_SOUND:-/System/Library/Sounds/Glass.aiff}"
 MAXSEC="${CLAUDE_STOP_SOUND_SECS:-1.2}"
 LOG="$HOME/.claude/logs/notify-stop.log"
+CACHE_DIR="$HOME/.claude/.cache/notify-stop"
+CACHE="$CACHE_DIR/output-device"
+CACHE_MIN=10
 
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 
@@ -32,7 +39,15 @@ fi
 
 # `saida` é o dispositivo para onde o som foi: exit 0 com fone pareado é som que
 # tocou onde ninguém estava ouvindo, e o log é o único lugar onde isso aparece.
-saida="$(system_profiler SPAudioDataType 2>/dev/null | awk '/^ +[A-Za-z].*:$/{d=$0} /Default Output Device: Yes/{gsub(/^ +| *:$/,"",d); print d; exit}')"
+# `find -mmin` é a checagem de idade que existe igual no macOS e no Linux (o
+# `stat` muda de flag entre os dois).
+saida=""
+if [ -f "$CACHE" ] && [ -n "$(find "$CACHE" -mmin "-$CACHE_MIN" 2>/dev/null)" ]; then
+  saida="$(cat "$CACHE" 2>/dev/null)"
+elif command -v system_profiler >/dev/null 2>&1; then
+  saida="$(system_profiler SPAudioDataType 2>/dev/null | awk '/^ +[A-Za-z].*:$/{d=$0} /Default Output Device: Yes/{gsub(/^ +| *:$/,"",d); print d; exit}')"
+  mkdir -p "$CACHE_DIR" 2>/dev/null && printf '%s\n' "$saida" > "$CACHE" 2>/dev/null || true
+fi
 printf '%s afplay=%s sound=%s saida=%s cwd=%s\n' \
   "$(date '+%Y-%m-%dT%H:%M:%S')" "$rc" "$(basename "$SOUND")" "${saida:-?}" "$PWD" >> "$LOG" 2>/dev/null || true
 

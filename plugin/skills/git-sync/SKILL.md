@@ -2,21 +2,11 @@
 name: git-sync
 description: >-
   Sincroniza o clone local e todos os worktrees com o GitHub de forma segura
-  (fetch --prune + fast-forward only). Use when the user says "git-sync",
-  "/git-sync", "atualiza com o github", "sync github", "puxa o remote",
-  "atualiza a main", "source control desatualizado", "Sync Changes",
-  "verificar git control", "fica em dia com o origin", ou pede o estado
-  completo do repo vs GitHub na IDE (Claude Code Desktop/VS Code).
-  USE TAMBÉM no INÍCIO de qualquer sessão de trabalho num repo compartilhado
-  com outra pessoa — "vou mexer no projeto", "começar a trabalhar",
-  "meu colega mexeu?", "tem PR aberto?", "o que mudou desde ontem?", "abrir
-  sessão", "fechar sessão". Em repo de time (auto-detectado) reporta quem
-  mudou o quê, PRs abertos com autor/mergeable, branches remotas ativas e
-  risco de conflito com o que você já tocou.
-  Lista worktrees, ahead/behind, untracked, branches gone, PRs abertos e
-  dry-run de cleanup. Nunca commita, force-push, merge/rebase forçado ou
-  apaga worktree/branch sem pedido explícito. Complementa a skill worktrees
-  (isolamento) e a ship (release).
+  (fetch --prune + fast-forward only) e reporta o estado vs GitHub (worktrees,
+  ahead/behind, PRs abertos). Use quando pedirem "/git-sync", "atualiza com o
+  github", "sync github", "puxa o remote", "source control desatualizado", ou no
+  INÍCIO/FIM de sessão num repo compartilhado ("vou mexer no projeto", "meu
+  colega mexeu?", "tem PR aberto?"). Complementa a skill worktrees (isolamento).
 ---
 
 > Derivada de `claude-config-team/skills/git-sync`. Ao divergir de propósito, diga aqui o quê e por quê.

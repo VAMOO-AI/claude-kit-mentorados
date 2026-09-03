@@ -135,7 +135,11 @@ valem no próximo start.
   sua, explícita.
 - **Seu `settings.json` é mesclado, não substituído.** Suas chaves ganham; a
   lista de permissões vira a união das duas. E tudo que é tocado ganha cópia em
-  `~/.claude/backup-kit-<data>/` antes.
+  `~/.claude/backup-kit-<data>/` antes (ficam os 3 backups mais recentes).
+- **O que é seu em `~/.claude` não é removido se você disser que é seu.** Liste
+  em `~/.claude/.keep-local` — um caminho por linha, relativo a `~/.claude`,
+  `#` comenta, glob simples (`skills/meu-*`). A limpeza da instalação antiga
+  pula o que está lá; o kit continua instalando e atualizando o que é dele.
 
 ### Pelo terminal (alternativa)
 
@@ -263,7 +267,9 @@ se perde. Tudo que é tocado ganha cópia em `~/.claude/backup-kit-<data>/` ante
 O setup detecta a instalação antiga pelo manifesto e **remove** as skills, hooks
 e comandos que ele tinha copiado pra `~/.claude/` — porque agora eles vêm do
 plugin, e ter os dois significaria skill duplicada e hook rodando em dobro, na
-versão velha inclusive. O que sai vai pro backup.
+versão velha inclusive. O que sai vai pro backup. Editou uma dessas cópias, ou
+tem algo seu com o mesmo nome? Liste em `~/.claude/.keep-local` antes de rodar
+o setup e fica.
 
 **Funciona no Windows?**
 Sim, com WSL (Ubuntu). Fora do WSL, o Git Bash roda os hooks e a barra (tudo é
@@ -271,9 +277,11 @@ Sim, com WSL (Ubuntu). Fora do WSL, o Git Bash roda os hooks e a barra (tudo é
 o `afplay` existe antes de tocar, então no Windows ele simplesmente não faz nada.
 
 **Isso vai deixar minhas sessões mais caras?**
-O plugin adiciona ~3,1k tokens por sessão: são as descrições das skills, que é
+O plugin adiciona ~2,6k tokens por sessão: são as descrições das skills, que é
 como o Claude sabe quando usar cada uma. Se alguma você nunca vai usar, desligue
-em `/plugin`. O que pesa de verdade no seu limite é sessão longa — está em
+em `/plugin`. Em tempo, os hooks custam menos de 0,1 s por ação (o do dotcontext
+roda só na abertura da sessão, e só em projeto com `.context/`). O que pesa de
+verdade no seu limite é sessão longa — está em
 [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md).
 
 **Posso desinstalar?**

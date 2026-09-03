@@ -72,6 +72,15 @@ jobs:
       - name: O hook de regra por caminho injeta uma vez e nunca bloqueia
         run: bash tests/test-path-rules.sh
 
+      - name: O dotcontext só dispara onde há .context/ e prefere o binário ao npx
+        run: bash tests/test-dotcontext-session.sh
+
+      - name: O notify-stop consulta o dispositivo de áudio uma vez a cada 10 min
+        run: bash tests/test-notify-stop-cache.sh
+
+      - name: O kit-setup respeita o .keep-local e mantém só 3 backups
+        run: bash tests/test-kit-setup-keep-local.sh
+
       - name: As quatro versões do kit dizem a mesma coisa
         # plugin.json, plugin/scripts/kit-setup.sh, install.sh e o topo do CHANGELOG.
         # O step acima compara os três primeiros; este cobre o CHANGELOG e pega

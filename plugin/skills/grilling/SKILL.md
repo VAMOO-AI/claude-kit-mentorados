@@ -3,8 +3,10 @@ name: grilling
 description: >-
   Interroga o usuário sem dó sobre um plano ou design até chegar a
   entendimento compartilhado, resolvendo cada ramo da árvore de decisão antes
-  de codar. Use quando o pedido é vago, a decisão está aberta, ou o usuário
-  usa qualquer gatilho "grill" / "me interroga" / "fecha o plano comigo".
+  de codar. Acione ao detectar uma implementação GRANDE — multi-sistema,
+  schema/auth/infra, irreversível ou de escopo material — onde vale fechar o
+  plano antes de codar. NÃO acione por vagueza genérica de tarefa pequena. Os
+  comandos manuais "/grill-me" e "/grill-with-docs" continuam sendo do usuário.
 ---
 
 > Derivada de `claude-config-team/skills/grilling`. Ao divergir de propósito, diga aqui o quê e por quê.
@@ -14,6 +16,15 @@ description: >-
 Transforma "instruções vagas → pergunte" (regra passiva) num loop ativo que
 **não deixa começar** enquanto houver ramo de decisão em aberto. É o Target Lock
 levado a sério.
+
+## Antes de começar: projeto com `.context/`?
+
+Se o projeto tem `.context/` e o plano toca regra de negócio, automação
+(n8n/Pipedrive) ou dado sensível, **ancore o loop na doc**: leia `.context/docs`
+antes de perguntar (não re-pergunte o que já está decidido lá) e grave as
+decisões novas de volta em `.context/docs` ao fechar. (Não delegue pra
+`grill-with-docs` — essa skill é `disable-model-invocation`, roda só quando o
+usuário a dispara manualmente com `/grill-with-docs`.)
 
 ## O loop
 

@@ -22,7 +22,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.18.0"
+KIT_VERSION="0.19.0"
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKETPLACE="vamoo-ai"
 PLUGIN="kit-vamoo"
@@ -56,7 +56,7 @@ else
   say "Registrando o marketplace e instalando o plugin…"
   claude plugin marketplace add "$KIT_DIR" 2>&1 | tail -1
   claude plugin install "$PLUGIN@$MARKETPLACE" 2>&1 | tail -1
-  ok "plugin instalado ($(ls -d "$KIT_DIR/plugin/skills"/*/ | wc -l | tr -d ' ') skills, 2 comandos, guard-rails de git, MCP dotcontext)"
+  ok "plugin instalado ($(ls -d "$KIT_DIR/plugin/skills"/*/ | wc -l | tr -d ' ') skills, $(ls "$KIT_DIR/plugin/commands"/*.md | wc -l | tr -d ' ') comandos, guard-rails de git, MCP dotcontext)"
 fi
 
 # ── 2. o que o plugin não consegue instalar ─────────────────────────────────

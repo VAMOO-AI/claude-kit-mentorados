@@ -4,7 +4,7 @@
 # O repo faz squash merge, então o commit da branch nunca vira ancestral de origin/main:
 # `git branch -d` recusa e `merge-base --is-ancestor` dá falso para trabalho que JÁ está
 # inteiro em main. Até 31/08/2026 o `--cleanup-apply` skipava 100% das branches por isso —
-# no kanbanvamooai foram 20 branches gone, 20 skips e 2 worktrees `keep:`, todos falso
+# num repo de time foram 20 branches gone, 20 skips e 2 worktrees `keep:`, todos falso
 # positivo, e a limpeza teve que ser feita à mão. A prova real é o PR, via gh.
 #
 # O teste cobre também os dois modos de falhar PERIGOSAMENTE:

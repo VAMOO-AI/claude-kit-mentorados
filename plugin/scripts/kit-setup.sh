@@ -15,15 +15,23 @@
 #   bash kit-setup.sh --dry-run    # mostra o que faria, não toca em nada
 #   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir
 #
+# Tudo que o script toca ganha cópia em ~/.claude/backup-kit-<data>/ antes; ficam
+# os 3 backups mais recentes. O que você tem em ~/.claude e não quer ver removido
+# vai em ~/.claude/.keep-local (um caminho por linha, relativo a ~/.claude, `#`
+# comenta, glob simples: `skills/meu-*`). Protege contra remoção — o kit continua
+# instalando e atualizando o que é dele.
+#
 set -euo pipefail
 
-KIT_VERSION="0.18.0"
+KIT_VERSION="0.19.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/backup-kit-$STAMP"
+MANTER_BACKUPS=3
 MANIFEST="$CLAUDE_DIR/.kit-manifest"
+KEEP_LOCAL="$CLAUDE_DIR/.keep-local"
 DRY=0
 FORCE=0
 
@@ -48,6 +56,45 @@ backup() {
   [ -e "$CLAUDE_DIR/$alvo" ] || return 0
   run mkdir -p "$BACKUP_DIR/$(dirname "$alvo")"
   run cp -R "$CLAUDE_DIR/$alvo" "$BACKUP_DIR/$alvo"
+}
+
+# protegido <caminho relativo a ~/.claude>: está no .keep-local?
+# Cada linha do arquivo é um padrão de `case` (glob simples: * ? [..]); casa o
+# caminho inteiro ou uma pasta acima dele — `skills/minha-skill` protege a skill,
+# `skills/meu-*` protege todas as suas, `scripts` protege a pasta inteira.
+protegido() {
+  local rel="$1" linha pat
+  [ -f "$KEEP_LOCAL" ] || return 1
+  while IFS= read -r linha || [ -n "$linha" ]; do
+    pat="${linha%%#*}"                       # comentário até o fim da linha
+    pat="${pat#"${pat%%[![:space:]]*}"}"     # espaços à esquerda
+    pat="${pat%"${pat##*[![:space:]]}"}"     # e à direita
+    pat="${pat#./}"; pat="${pat%/}"
+    [ -n "$pat" ] || continue
+    # shellcheck disable=SC2254  # o glob é do usuário e tem que expandir
+    case "$rel" in $pat|$pat/*) return 0 ;; esac
+  done < "$KEEP_LOCAL"
+  return 1
+}
+
+# Cada execução cria um backup-kit-<data>; sem rotação, ~/.claude acumula um por
+# atualização. O nome carrega a data (AAAAMMDD-HHMMSS), então ordem alfabética
+# reversa é do mais novo pro mais velho — o desta execução está sempre no topo.
+rotaciona_backups() {
+  local d n=0 antigos
+  # O `true` no fim do grupo importa: sem nenhum backup o glob não casa, o `for`
+  # termina em 1 e, com set -e + pipefail, a atribuição derrubava o script — a
+  # primeira instalação numa máquina limpa morria calada antes do "Pronto.".
+  antigos="$({ for d in "$CLAUDE_DIR"/backup-kit-*/; do [ -d "$d" ] && printf '%s\n' "${d%/}"; done; true; } \
+             | sort -r | tail -n +"$((MANTER_BACKUPS + 1))")"
+  [ -n "$antigos" ] || return 0
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    run rm -rf "$d"
+    n=$((n + 1))
+  done <<< "$antigos"
+  say "$n backup(s) antigo(s) removido(s) — ficam os $MANTER_BACKUPS mais recentes"
+  return 0
 }
 
 [ -d "$TPL" ] || { echo "não achei $TPL — o plugin está incompleto." >&2; exit 1; }
@@ -108,7 +155,7 @@ run rm -f "$CLAUDE_DIR/settings.kit.json"
 # com o hook rodando em dobro — inclusive a versão velha, já corrigida.
 if [ -f "$MANIFEST" ]; then
   say "Removendo o que a instalação antiga deixou (agora vem do plugin)…"
-  n=0
+  n=0; m=0
   while IFS= read -r linha; do
     case "$linha" in
       skill/*)   rel="skills/${linha#skill/}" ;;
@@ -121,15 +168,25 @@ if [ -f "$MANIFEST" ]; then
         rel="scripts/$nome" ;;
       *) continue ;;
     esac
-    if [ -e "$CLAUDE_DIR/$rel" ]; then
-      backup "$rel"
-      run rm -rf "$CLAUDE_DIR/$rel"
-      n=$((n + 1))
+    [ -e "$CLAUDE_DIR/$rel" ] || continue
+    # O manifesto lista o que o instalador antigo copiou, mas quem editou a
+    # cópia (ou tem algo com o mesmo nome) perde trabalho seu. O .keep-local
+    # é a palavra final: o que está lá fica.
+    if protegido "$rel"; then
+      warn "mantido (está no .keep-local): $rel"
+      m=$((m + 1))
+      continue
     fi
+    backup "$rel"
+    run rm -rf "$CLAUDE_DIR/$rel"
+    n=$((n + 1))
   done < "$MANIFEST"
   [ "$DRY" -eq 0 ] && rm -f "$MANIFEST"
   ok "$n item(ns) da instalação antiga removido(s) (cópia no backup)"
+  [ "$m" -gt 0 ] && ok "$m item(ns) mantido(s) pelo ~/.claude/.keep-local"
 fi
+
+rotaciona_backups
 
 echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
