@@ -12,6 +12,34 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.22.0] — 2026-09-03
+
+### Corrigido
+
+- **O CI nunca rodou `tests/test-block-main-commit.sh`.** Os 42 casos do guard de commit
+  na `main` — inclusive os 14 de heredoc que entraram na 0.21.0 — existiam no repo e
+  ficavam parados; o workflow só tinha um teste de fumaça do hook. O step entra, e um gate
+  novo (`Nenhum teste ficou de fora deste workflow`, vindo do kit do time) reprova o CI
+  quando um `tests/test-*.sh` não está referenciado no `ci.yml`.
+
+### Adicionado
+
+- **Hook `block-cd-leitura-relativa`: o fim do pedido de autorização que aparecia até no
+  modo bypass.** Medido em 03/09: `cd /caminho && grep -n "cargos" src/lib/tipos.ts` fazia
+  o Claude Code parar e pedir aprovação, com a mensagem *"…after a cd would search a
+  directory that cannot be determined here, and a `Read()` deny rule is configured; only
+  you can approve running it anyway"*. Não era hook nenhum: depois do `cd` o harness não
+  sabe em que pasta a leitura vai cair e, como o kit configura regras `Read()` em
+  `permissions.deny` (as que impedem a leitura de `.env`, chave SSH e afins), ele não
+  consegue provar que a leitura é segura — então pergunta a você, mesmo em bypass.
+  Apagar as regras calaria o prompt e derrubaria junto a proteção dos seus segredos, que
+  é a única que vale em todos os modos. Então o hook faz o contrário: bloqueia o padrão e
+  devolve o comando pronto em caminho absoluto, que o harness resolve e libera sozinho.
+  O Claude lê, corrige e segue — você não aprova nada. Escotilha `CD_LEITURA_OK=1`;
+  23 casos em `tests/test-block-cd-leitura-relativa.sh`, a maioria provando que comando
+  legítimo não é barrado (trecho entre aspas nunca é caminho, `sed -i` é escrita, corpo de
+  heredoc é conteúdo). Regra correspondente no `CLAUDE-global.md`.
+
 ## [0.21.0] — 2026-09-03
 
 ### Adicionado
