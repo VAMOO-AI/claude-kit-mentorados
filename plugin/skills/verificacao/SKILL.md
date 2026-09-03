@@ -6,9 +6,8 @@ description: >-
   do repro, inspecionar UI visualmente. Use antes de declarar "pronto" em fix
   com ramos, mudança que toca UI, erro de prod mascarado, ou teste em pasta com
   múltiplos runners, ou ANTES de qualquer disparo que sai da máquina e chega
-  numa pessoa (mensagem, e-mail, cobrança, webhook de terceiro). Complementa a
-  skill built-in `verify`. Gatilhos: "pronto", "verificar", "testar antes de
-  entregar", "erro de prod / digest", "dry-run", "pode disparar?".
+  numa pessoa (mensagem, e-mail, cobrança, webhook de terceiro). Gatilhos: "pronto", "verificar", "testar antes de entregar",
+  "erro de prod / digest", "dry-run", "pode disparar?".
 ---
 
 > Derivada de `claude-config-team/skills/vamoo-verificacao`. Ao divergir de propósito, diga aqui o quê e por quê.
@@ -46,7 +45,7 @@ arquivo:linha na hora; horas de eliminação não.
 
 ## Mudança que toca UI → inspeção visual
 
-Rode o app e inspecione visualmente (skill `run`/`verify`/screenshot) antes de
+Rode o app e inspecione visualmente (skill `run`/screenshot) antes de
 "pronto", incluindo estados interativos (clique, hover, loading, empty) —
 static check não pega blur, layout quebrado nem botão morto. Isso é bug de
 entrega, não polimento.

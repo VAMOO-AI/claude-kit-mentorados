@@ -103,7 +103,8 @@ com contexto de regressão.
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
 ```bash
-SK=~/.claude/skills/baseline
+SK="${CLAUDE_PLUGIN_ROOT}/skills/baseline"          # plugin: o Claude Code preenche ao carregar a skill
+[ -d "$SK" ] || SK="$HOME/.claude/skills/baseline"   # instalação antiga pelo install.sh
 OUT=/tmp/baseline-$(basename "$PWD")
 
 bash $SK/scripts/doctor.sh  --out "$OUT"      # o que dá pra medir
@@ -177,7 +178,8 @@ seguintes são rápidos porque o método já está no lugar.
 
 ```bash
 cd <repo>
-SK=~/.claude/skills/baseline; OUT=/tmp/baseline-$(basename "$PWD")
+SK="${CLAUDE_PLUGIN_ROOT}/skills/baseline"; [ -d "$SK" ] || SK="$HOME/.claude/skills/baseline"   # plugin, ou instalação antiga
+OUT=/tmp/baseline-$(basename "$PWD")
 
 bash $SK/scripts/doctor.sh  --out "$OUT"    # 1. o que dá pra medir aqui
 bash $SK/scripts/collect.sh --out "$OUT"    # 2. mede (exit 3 = não mediu nada)

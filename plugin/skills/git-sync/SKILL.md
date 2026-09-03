@@ -52,7 +52,9 @@ autores distintos em `origin/<default>` nos últimos 30 dias. Force com `--team`
 **Ao abrir — antes de escrever qualquer linha:**
 
 ```bash
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh"
+S="${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"        # plugin: o Claude Code preenche ao carregar a skill
+[ -f "$S" ] || S="$HOME/.claude/skills/git-sync/scripts/git-sync.sh"  # instalação antiga pelo install.sh
+bash "$S"
 ```
 
 Leia nesta ordem e não comece a codar antes de zerar:
@@ -104,10 +106,13 @@ Se `gh auth status` falhar, o script reporta e segue — não trava a sessão.
 
 ## Preferência: script helper
 
-O instalador do kit põe o script junto com a skill:
+O script vem junto com a skill, dentro do plugin — o Claude Code preenche
+`${CLAUDE_PLUGIN_ROOT}` ao carregar a skill. As outras duas linhas cobrem a
+instalação antiga pelo `install.sh` e outro agente apontando por symlink:
 
 ```bash
-S="$HOME/.claude/skills/git-sync/scripts/git-sync.sh"
+S="${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"
+[ -f "$S" ] || S="$HOME/.claude/skills/git-sync/scripts/git-sync.sh"
 [ -f "$S" ] || S="$HOME/.agents/skills/git-sync/scripts/git-sync.sh"
 bash "$S"
 ```
@@ -127,23 +132,23 @@ Flags:
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
-Exemplos:
+Exemplos (`S` resolvido como acima):
 
 ```bash
 # Sync completo (padrão)
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh"
+bash "$S"
 
 # Só ver o estado
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh" --status-only
+bash "$S" --status-only
 
 # Abrindo sessão num repo compartilhado (força o modo time)
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh" --team
+bash "$S" --team
 
 # Incluir dry-run de lixo
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh" --cleanup-dry-run
+bash "$S" --cleanup-dry-run
 
 # Usuário disse "pode limpar o que for dry-run seguro"
-bash "$HOME/.claude/skills/git-sync/scripts/git-sync.sh" --cleanup-apply
+bash "$S" --cleanup-apply
 ```
 
 Se o script não existir ou falhar no shebang, execute a **sequência manual** abaixo.
@@ -376,13 +381,16 @@ Em repo de time, mais:
 
 ## Onde a skill vive
 
-O instalador do kit coloca em:
+Instalada como plugin (o caminho recomendado), a skill fica dentro do plugin, no
+cache do marketplace — é para lá que `${CLAUDE_PLUGIN_ROOT}` aponta:
 
 ```text
-~/.claude/skills/git-sync/
+${CLAUDE_PLUGIN_ROOT}/skills/git-sync/
   SKILL.md
   scripts/git-sync.sh
 ```
 
-Se você usa outro agente além do Claude Code, pode apontar um symlink da pasta
-dele para cá — a skill não depende de nada específico do harness.
+A instalação antiga pelo `install.sh` deixava a mesma pasta em
+`~/.claude/skills/git-sync/` — é o fallback dos comandos acima. Se você usa outro
+agente além do Claude Code, pode apontar um symlink da pasta dele para cá — a
+skill não depende de nada específico do harness.

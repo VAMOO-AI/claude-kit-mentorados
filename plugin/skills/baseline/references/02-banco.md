@@ -104,8 +104,9 @@ roda cada lint como **`select` puro — sem criar o schema `lint`, sem DDL no ba
 auditado**:
 
 ```bash
-bash ~/.claude/skills/baseline/scripts/splinter.sh          # todos
-bash ~/.claude/skills/baseline/scripts/splinter.sh 0013 0010 0011   # só alguns
+SK="${CLAUDE_PLUGIN_ROOT}/skills/baseline"; [ -d "$SK" ] || SK="$HOME/.claude/skills/baseline"   # plugin, ou instalação antiga
+bash "$SK/scripts/splinter.sh"                   # todos
+bash "$SK/scripts/splinter.sh" 0013 0010 0011    # só alguns
 ```
 
 Os que mais importam:

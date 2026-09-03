@@ -12,6 +12,35 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.18.0] — 2026-09-03
+
+### Segurança
+- **O gate de RLS da skill `baseline` só enxergava o schema `public`.** O regex
+  que extrai o nome da tabela tinha `(public\.)?` na frente, então
+  `create table vendas.pedidos` era lido como a tabela "vendas". Duas
+  consequências, e a segunda é a grave: tabela COM RLS fora de `public` era
+  acusada de estar sem (o schema nunca aparece do lado do `alter table … enable
+  row level security`); e numa migration com `create table crm.agendamentos`
+  sem RLS e `alter table crm.leads enable …`, os dois lados viravam "crm" e se
+  cancelavam — a tabela aberta passava calada e o gate do `/ship` rodava verde.
+  Agora qualquer `schema.` é aceito e o que se compara é o nome da tabela.
+  Portado do kit do time. Prova, na mesma migration: antes acusava
+  `aberta crm vendas` (dois schemas, e `agendamentos` não aparece); depois,
+  `aberta agendamentos` — exatamente as duas sem RLS.
+
+### Corrigido
+- **Caminhos que não existem em instalação pelo marketplace.** `baseline`
+  (SKILL.md e `references/02-banco.md`) e `git-sync` mandavam rodar os scripts
+  em `~/.claude/skills/…`, onde só a instalação antiga pelo `install.sh` deixava
+  arquivo; instalado como plugin, a skill mora dentro do plugin. Os comandos
+  passam a usar `${CLAUDE_PLUGIN_ROOT}` (o Claude Code preenche ao carregar a
+  skill) com o caminho antigo como fallback, e o `collect.sh` descobre a própria
+  pasta para montar o comando de reconferência que sai em cada finding — antes
+  ele apontava para um arquivo inexistente.
+- **`verify` não é skill deste kit.** O `CLAUDE-global.md` e a `verificacao`
+  roteavam "antes de dizer pronto" para uma skill `verify` que não existe em
+  lugar nenhum. Agora só `verificacao`.
+
 ## [0.17.3]
 
 ### Corrigido
