@@ -3,7 +3,7 @@ name: baseline
 description: >-
   Postura de ambiente e segurança de app web (Vite/Next + Supabase + Vercel +
   n8n) em 8 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
-  segredos. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
+  segredos, perímetro. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
   produção está apto?). Use em "está pronto pra prod", "auditar produção",
   "hardening", "app novo do zero", "baseline". O gate do /ship já roda o
   collect.sh sozinho — aqui mora o método e o julgamento dos achados.
@@ -63,8 +63,9 @@ App novo, feature nova, ou primeira ida ao ar. Pode escrever código.
    sem perguntar (stack, superfícies, runners). O que depende de decisão
    (retenção, quem é dono da rotação) fica marcado `PENDENTE:` — não invente.
 2. **Leia só o pilar que a tarefa toca.** Tocou build/CSP → `01`. Tocou migration
-   → `02`. Tocou rota/papel → `03`. Tocou edge/webhook → `04`. Tocou query/lista
-   → `05`. Tocou tratamento de erro → `06`. Tocou env/chave → `07`.
+   → `02`. Tocou rota/papel → `03`. Tocou edge/webhook ou login → `04`. Tocou
+   query/lista → `05`. Tocou tratamento de erro → `06`. Tocou env/chave → `07`.
+   Subiu host, painel ou domínio novo → `08`.
    Carregar os oito de uma vez é desperdício de contexto.
 3. **Aplique o Contrato do pilar** usando o bloco "Como implementar" como ponto
    de partida, adaptado ao stack real do projeto — não cole cego.

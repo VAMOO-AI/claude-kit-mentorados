@@ -12,6 +12,93 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.24.0] — 2026-09-03
+
+### Adicionado
+
+- **`git-sync` acha a conta do `gh` que enxerga o repositório** (#54; vindo do kit do time,
+  lá #63). Máquina com conta pessoal e conta de trabalho no mesmo keyring: a ativa devolve
+  `Could not resolve to a Repository` para o repo da outra — que lê como repositório
+  inexistente, não como conta errada, e o relatório saía cego para PR sem dizer o motivo.
+  O script testa as demais contas de `gh auth status`, usa a que enxerga (só neste
+  processo, sem trocar a ativa) e diz qual foi; se nenhuma enxerga, diz isso com todas as
+  letras. `GH_TOKEN` exportado tem precedência. Junto vem o bloco de avisos do time:
+  branch cujo upstream sumiu e alteração não commitada direto na branch compartilhada
+  entram em `### avisos (ação sua)`, e o `### summary` grita quando há aviso. 18 checks
+  em `tests/test-git-sync-conta.sh`, com `gh` falso — 10 falham no script anterior.
+- **`memoria-link` não perde projeto sem transcript** (#56; time #49/#60/#61). O caminho
+  vinha só do `cwd` gravado no transcript, e o Claude Code poda os `.jsonl` antigos:
+  projeto sem transcript perdia o caminho e o loop dava `continue` sem uma linha de aviso —
+  memória presa na máquina enquanto a varredura dizia que estava tudo em dia. Agora o slug
+  é resolvido contra os diretórios reais (só aceita resposta única; empate é aviso),
+  memória sem destino é reportada com o comando para ligar à mão, o README do formato é
+  escrito em `--adotar`/`--repo` (nunca na varredura automática, que só conta e aponta),
+  `README.md`/`MEMORY.md` não contam como fato, e `memory` que virou link quebrado é
+  tratado como problema, não como "sem memória local". `tests/test-memoria-link.sh` novo —
+  8 checks falham no script anterior.
+
+### Corrigido
+
+- **`worktree-gc` só apaga worktree cuja branch está mesmo mergeada** (#55). "Mergeada"
+  era `gh pr list --state merged | length > 0`: bastava a branch ter tido um PR mergeado um
+  dia. Commit feito depois, ainda sem push, contava como lixo — e `--apply` apagava trabalho
+  novo (no teste, o script anterior **apagou** o worktree). Agora o tip local precisa estar
+  contido no head do PR mergeado (fail-closed: sem prova, mantém); `.env.local` diferente do
+  clone principal segura o worktree, porque é invisível no `status` e some junto; e worktree
+  detached limpo com HEAD já em `origin/main` vira candidato em vez de ser pulado para
+  sempre. `tests/test-worktree-gc.sh` novo, com `gh` falso que responde às duas formas de
+  consulta — 7 checks falham no anterior.
+
+### Docs
+
+- **README: são 19 skills.** A tabela dizia 18 e a seção "Skills incluídas" dizia 15; o
+  diretório tem 19, e todas já estavam descritas.
+- **Skill `git-sync`**: parágrafo "Duas contas no mesmo keyring", com a saída que o script
+  imprime quando usa a outra conta.
+
+## [0.23.1] — 2026-09-03
+
+### Corrigido
+
+- **`check-careful` lia heredoc pela metade e deixava passar o comando destrutivo de verdade**
+  (#72; vindo do kit do time, lá #137). Tag que o parser não reconhecia nunca fechava, e aí ele
+  engolia o resto do comando — inclusive o que vem DEPOIS do terminador, que é comando real.
+  Medido: `cat > x.sql <<'END-OF-SQL' … END-OF-SQL` seguido de `psql -c "DROP TABLE users"`
+  **não pedia confirmação nenhuma**; sem o heredoc antes, o mesmo `psql` pergunta. E este é
+  o hook que roda vivo neste kit (`acceptEdits`) — no time ele fica calado no bypass.
+  Faltavam quatro formas: tag com hífen ou ponto, terminador indentado por tab do `<<-`,
+  `EOF)`/`EOF)"` fechando um `$(cat <<EOF`, e `<<<` (here-string), cujo `<<EOF` interno era
+  lido como abertura. A escotilha `CAREFUL_OFF=1` também: era lida do comando **cru**, então
+  um doc que apenas a mencionava desligava o hook inteiro — não só o bloco de SQL — para o
+  `rm -rf` real que viesse depois; agora é lida depois do parser, como o `HOTFIX_MAIN=1` do
+  `block-main-commit` já fazia. Como prefixo de verdade continua valendo. 8 casos novos em
+  `tests/test-check-careful.sh` — 4 falham contra o hook anterior, os outros 4 provam que
+  o conserto não vira falso positivo (`DROP` dentro do corpo continua calado).
+
+## [0.23.0] — 2026-09-03
+
+### Adicionado
+
+- **Skill `secscan`: a calibração de falso positivo do kit do time** (#53). O recorte
+  pedagógico daqui (253 linhas contra 467 lá) não tinha nada do que o time mediu em 31/08 —
+  e a medição é o que separa "achei 40 problemas" de "achei 40 linhas, 14 são problema".
+  Entra só a parte de precisão, mantendo o tamanho: a regra de ferro do `CONFIRMED`
+  (ferramenta real **e** heurística no mesmo ponto, ou teste do projeto; o resto é
+  `heuristic`); o que o semgrep de fato corrobora (255 regras em 2.198 arquivos → 27
+  findings, todos em `.github/` e `.npmrc`; 4 vulnerabilidades plantadas → 0 vistas, então
+  C1 sai sempre `heuristic`); guarda de lockfile antes dos `|| true` e o estado `não medido`
+  para ferramenta presente com input ausente; e a seção "Falso positivo — o que a
+  calibração ensinou": 36% de precisão medida, grep localiza e leitura decide, anotação de
+  exemplo apodrece, hit contado duas vezes, sink não é primitiva, veredito julgado em
+  `.context/docs/security/vereditos.md` — a mesma tabela que a `baseline` lê.
+
+### Corrigido
+
+- **Skill `baseline` roteia para o pilar 08** (#57). O `references/08-perimetro.md` existia
+  desde o porte anterior, mas nada apontava para ele: "subiu host, painel ou domínio novo →
+  08" e "edge/webhook **ou login** → 04" entram no roteamento, e a description ganha a
+  palavra "perímetro" (465 caracteres; o teto é ~600).
+
 ## [0.22.0] — 2026-09-03
 
 ### Corrigido

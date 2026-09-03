@@ -92,6 +92,29 @@ check pass "heredoc escrevendo .sql com TRUNCATE (não executa)" \
   'cat > /tmp/race.sql <<SQL
 truncate public.crm_conversations cascade;
 SQL'
+# 03/09: o corpo some do match, mas o que vem DEPOIS do terminador é comando. Tag que o
+# parser não fecha engole o resto — e o SQL destrutivo REAL escrito depois passa calado.
+# Medido antes do conserto: o caso da tag com hífen não perguntava nada.
+NL_H=$'\n'; TAB_H=$'\t'
+check ask  "tag com hífen fecha o heredoc; o psql depois é executor" \
+  "cat > x.sql <<'END-OF-SQL'${NL_H}select 1${NL_H}END-OF-SQL${NL_H}psql -c \"DROP TABLE users\""
+check ask  "<<- fecha com o terminador indentado por tab" \
+  "cat > x.sql <<-SQL${NL_H}${TAB_H}select 1${NL_H}${TAB_H}SQL${NL_H}psql -c \"DROP TABLE users\""
+check ask  "\$(cat <<EOF) fechado por EOF)\"" \
+  "b=\"\$(cat <<'EOF'${NL_H}nota${NL_H}EOF)\"${NL_H}psql -c \"DROP TABLE users\""
+check ask  "here-string não é heredoc" \
+  "grep -q x <<<\"psql\"${NL_H}psql -c \"DROP TABLE users\""
+# O outro lado: fechar a tag certo não pode transformar corpo em comando.
+check pass "DROP no corpo de heredoc com tag hifenada continua sendo conteúdo" \
+  "cat > x.sql <<'END-OF-SQL'${NL_H}DROP TABLE users;${NL_H}END-OF-SQL"
+check pass "DROP no corpo indentado de <<-SQL continua sendo conteúdo" \
+  "cat > x.sql <<-SQL${NL_H}${TAB_H}DROP TABLE users;${NL_H}${TAB_H}SQL"
+# A escotilha vale só como PREFIXO. Citada num doc, desligava o hook inteiro — não só o
+# bloco SQL — para o comando destrutivo real que vinha depois do terminador.
+check ask  "CAREFUL_OFF=1 citado num heredoc não é a escotilha" \
+  "cat > doc.md <<EOF${NL_H}pule com CAREFUL_OFF=1${NL_H}EOF${NL_H}rm -rf /Users/eu/PROJETO"
+check pass "CAREFUL_OFF=1 como prefixo continua desligando" \
+  'CAREFUL_OFF=1 rm -rf /Users/eu/PROJETO'
 check pass "db-query --dry-run executa e desfaz" './scripts/db-query.sh --dry-run -f supabase/migrations/0003.sql'
 check pass "docker exec em container local"  'docker exec pg psql -U postgres -c "truncate public.x cascade"'
 check pass "supabase db reset LOCAL é rotina de migration" 'npx supabase db reset'

@@ -69,6 +69,15 @@ jobs:
       - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
         run: bash tests/test-git-sync-cleanup.sh
 
+      - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
+        run: bash tests/test-git-sync-conta.sh
+
+      - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
+        run: bash tests/test-worktree-gc.sh
+
+      - name: O memoria-link não perde projeto sem transcript nem escreve README sem pedir
+        run: bash tests/test-memoria-link.sh
+
       - name: O hook de regra por caminho injeta uma vez e nunca bloqueia
         run: bash tests/test-path-rules.sh
 

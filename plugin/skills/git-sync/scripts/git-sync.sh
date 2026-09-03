@@ -151,7 +151,7 @@ lock_is_stale() {
 UPDATED=()
 SKIPPED=()
 UNTRACKED_LINES=()
-WARNS=()
+WARNINGS=()
 
 is_dirty_tracked() {
   # returns 0 if there are tracked modifications (staged or unstaged), ignoring untracked
@@ -283,19 +283,27 @@ for wt in "${WT_PATHS[@]}"; do
   if [[ "$branch" != "HEAD" ]]; then
     # 1) feature branch ficou para trás da default → conflito futuro no PR
     if [[ "$branch" != "$DEFAULT_BRANCH" && "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
-      WARNS+=("$branch ($wt): $d_behind commit(s) atrás de $ORIGIN_DEFAULT — atualize ANTES de continuar: git -C '$wt' merge $ORIGIN_DEFAULT (ou rebase, se a branch ainda não foi publicada)")
+      WARNINGS+=("$branch ($wt): $d_behind commit(s) atrás de $ORIGIN_DEFAULT — atualize ANTES de continuar: git -C '$wt' merge $ORIGIN_DEFAULT (ou rebase, se a branch ainda não foi publicada)")
     fi
     # 2) commits locais que o colega não enxerga
     if [[ -n "$upstream" && "$u_ahead" != "?" && "${u_ahead:-0}" -gt 0 && "${u_behind:-0}" -eq 0 ]]; then
-      WARNS+=("$branch ($wt): $u_ahead commit(s) local(is) sem push — o time não enxerga seu trabalho: git -C '$wt' push")
+      WARNINGS+=("$branch ($wt): $u_ahead commit(s) local(is) sem push — o time não enxerga seu trabalho: git -C '$wt' push")
     fi
     # 3) os dois commitaram na mesma branch
     if [[ -n "$upstream" && "$u_ahead" != "?" && "${u_ahead:-0}" -gt 0 && "${u_behind:-0}" -gt 0 ]]; then
-      WARNS+=("$branch ($wt): DIVERGED do $upstream (a$u_ahead/b$u_behind) — outra pessoa commitou na MESMA branch. Com working tree limpa: git -C '$wt' pull --rebase (ou merge). Nunca force-push.")
+      WARNINGS+=("$branch ($wt): DIVERGED do $upstream (a$u_ahead/b$u_behind) — outra pessoa commitou na MESMA branch. Com working tree limpa: git -C '$wt' pull --rebase (ou merge). Nunca force-push.")
     fi
     # 4) sujo e atrás ao mesmo tempo: não dá pra puxar
     if [[ "$dirty_flag" == "DIRTY" && "$t_behind" != "?" && "${t_behind:-0}" -gt 0 ]]; then
-      WARNS+=("$branch ($wt): dirty E $t_behind atrás de $target — commite ou 'git stash' antes de sincronizar")
+      WARNINGS+=("$branch ($wt): dirty E $t_behind atrás de $target — commite ou 'git stash' antes de sincronizar")
+    fi
+    # 5) a branch remota sumiu (PR mergeado e apagado) — continuar aqui é trabalho perdido
+    if [[ "$upstream_gone" -eq 1 ]]; then
+      WARNINGS+=("$branch ($wt): upstream sumiu do remoto (branch gone) — candidata a cleanup (--cleanup-dry-run), não continue trabalhando nela.")
+    fi
+    # 6) editando direto na default compartilhada
+    if [[ "$branch" == "$DEFAULT_BRANCH" && "$dirty_flag" == "DIRTY" ]]; then
+      WARNINGS+=("$branch ($wt): alterações não commitadas direto na branch compartilhada — mova para 'feat/<escopo>' antes de continuar.")
     fi
   fi
 
@@ -336,11 +344,11 @@ while IFS='|' read -r lb lup ltrack; do
   if [[ -z "$lup" ]]; then
     # sem upstream — o loop de checkouts não avalia isso, então vale para toda branch local
     if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1; then
-      WARNS+=("branch local '$lb' NÃO trackeia origin/$lb, que já existe no GitHub — outra pessoa pode estar nela. Ligue o upstream antes de commitar: git branch --set-upstream-to=origin/$lb $lb")
+      WARNINGS+=("branch local '$lb' NÃO trackeia origin/$lb, que já existe no GitHub — outra pessoa pode estar nela. Ligue o upstream antes de commitar: git branch --set-upstream-to=origin/$lb $lb")
     else
       lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
-        WARNS+=("branch local '$lb' tem $lb_ahead commit(s) e NUNCA foi ao GitHub — publique: git push -u origin $lb")
+        WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s) e NUNCA foi ao GitHub — publique: git push -u origin $lb")
       fi
     fi
     continue
@@ -351,19 +359,19 @@ while IFS='|' read -r lb lup ltrack; do
   lb_cnt="$(git rev-list --left-right --count "$lb...$lup" 2>/dev/null | tr '\t' ' ' || true)"
   read -r lb_a lb_b <<<"${lb_cnt:-0 0}"
   if [[ "${lb_a:-0}" -gt 0 && "${lb_b:-0}" -gt 0 ]]; then
-    WARNS+=("branch '$lb' (não checkoutada) DIVERGED de $lup (a$lb_a/b$lb_b) — alguém commitou nela pelo GitHub. Resolva ao entrar nela: git checkout $lb && git pull --rebase")
+    WARNINGS+=("branch '$lb' (não checkoutada) DIVERGED de $lup (a$lb_a/b$lb_b) — alguém commitou nela pelo GitHub. Resolva ao entrar nela: git checkout $lb && git pull --rebase")
   elif [[ "${lb_a:-0}" -gt 0 ]]; then
-    WARNS+=("branch '$lb' (não checkoutada) tem $lb_a commit(s) sem push — o time não enxerga: git push origin $lb")
+    WARNINGS+=("branch '$lb' (não checkoutada) tem $lb_a commit(s) sem push — o time não enxerga: git push origin $lb")
   elif [[ "${lb_b:-0}" -gt 0 ]]; then
-    WARNS+=("branch '$lb' (não checkoutada) está $lb_b atrás de $lup — atualize ao entrar nela")
+    WARNINGS+=("branch '$lb' (não checkoutada) está $lb_b atrás de $lup — atualize ao entrar nela")
   fi
 done < <(git for-each-ref --format='%(refname:short)|%(upstream:short)|%(upstream:track)' refs/heads)
 
 echo "### avisos (ação sua)"
-if [[ ${#WARNS[@]} -eq 0 ]]; then
+if [[ ${#WARNINGS[@]} -eq 0 ]]; then
   echo "(nenhum — pode trabalhar)"
 else
-  for w in "${WARNS[@]}"; do echo "! $w"; done
+  for w in "${WARNINGS[@]}"; do echo "! $w"; done
 fi
 hr
 
@@ -384,8 +392,35 @@ else
 fi
 hr
 
+# Máquina com 2+ contas no keyring do gh (pessoal + trabalho/cliente): a conta ativa
+# responde "Could not resolve to a Repository" para o repo da outra, e isso lê como
+# repositório inexistente, não como conta errada — o relatório saía cego para PR sem
+# dizer o motivo. Testa as demais contas já logadas e usa a que enxerga. O token vale
+# só neste processo: não troca a conta ativa nem vai para o keyring. GH_TOKEN já
+# exportado pelo usuário tem precedência e desliga a busca.
+GH_CONTA_NOTA=""
+if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/dev/null 2>&1 \
+   && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
+  _contas="$(gh auth status 2>&1 | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
+  for _c in $_contas; do
+    _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
+    [[ -n "$_t" ]] || continue
+    if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
+      export GH_TOKEN="$_t"
+      GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+      break
+    fi
+  done
+  if [[ -z "$GH_CONTA_NOTA" ]]; then
+    _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
+    GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
+  fi
+  unset _contas _c _t _slug
+fi
+
 if [[ "$NO_PR" -eq 0 ]]; then
   echo "### PRs abertos (gh)"
+  [[ -n "$GH_CONTA_NOTA" ]] && echo "$GH_CONTA_NOTA"
   if command -v gh >/dev/null 2>&1; then
     if [[ "$TEAM" -eq 1 ]]; then
       PR_FIELDS='number,title,author,headRefName,baseRefName,isDraft,mergeable,reviewDecision,updatedAt'
@@ -393,14 +428,14 @@ if [[ "$NO_PR" -eq 0 ]]; then
       if PR_OUT="$(gh pr list --state open --limit 30 --json "$PR_FIELDS" --jq "$PR_JQ" 2>&1)"; then
         if [[ -n "$PR_OUT" ]]; then printf '%s\n' "$PR_OUT"; else echo "  (nenhum PR aberto)"; fi
       else
-        echo "  (gh pr list falhou — rode 'gh auth status' e confirme acesso ao repo)"
+        echo "  (gh pr list falhou — 'gh auth status' mostra a conta ativa; o repo pode estar noutra)"
         printf '  %s\n' "$PR_OUT"
       fi
     else
       if PR_OUT="$(gh pr list --limit 20 2>&1)"; then
         if [[ -n "$PR_OUT" ]]; then printf '%s\n' "$PR_OUT"; else echo "  (nenhum PR aberto)"; fi
       else
-        echo "(gh pr list failed — check auth/repo visibility)"
+        echo "  (gh pr list falhou — 'gh auth status' mostra a conta ativa; o repo pode estar noutra)"
         printf '  %s\n' "$PR_OUT"
       fi
     fi
@@ -530,6 +565,7 @@ fi
 
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   echo "### cleanup candidates"
+  [[ "$NO_PR" -eq 1 && -n "$GH_CONTA_NOTA" ]] && echo "$GH_CONTA_NOTA"
 
   echo "--- branches com upstream gone ---"
   GONE_BRANCHES=()
@@ -709,6 +745,9 @@ fi
 
 echo "### summary"
 echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA"
-echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} warns=${#WARNS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
+echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} avisos=${#WARNINGS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
 echo "status_only=$STATUS_ONLY team=$TEAM cleanup_dry=$CLEANUP_DRY cleanup_apply=$CLEANUP_APPLY"
+if [[ ${#WARNINGS[@]} -gt 0 ]]; then
+  echo "ATENÇÃO: ${#WARNINGS[@]} aviso(s) em '### avisos (ação sua)' — resolva antes de começar a codar."
+fi
 echo "DONE"
