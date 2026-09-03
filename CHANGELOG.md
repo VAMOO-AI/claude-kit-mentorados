@@ -12,6 +12,30 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.23.0] — 2026-09-03
+
+### Adicionado
+
+- **Skill `secscan`: a calibração de falso positivo do kit do time** (#53). O recorte
+  pedagógico daqui (253 linhas contra 467 lá) não tinha nada do que o time mediu em 31/08 —
+  e a medição é o que separa "achei 40 problemas" de "achei 40 linhas, 14 são problema".
+  Entra só a parte de precisão, mantendo o tamanho: a regra de ferro do `CONFIRMED`
+  (ferramenta real **e** heurística no mesmo ponto, ou teste do projeto; o resto é
+  `heuristic`); o que o semgrep de fato corrobora (255 regras em 2.198 arquivos → 27
+  findings, todos em `.github/` e `.npmrc`; 4 vulnerabilidades plantadas → 0 vistas, então
+  C1 sai sempre `heuristic`); guarda de lockfile antes dos `|| true` e o estado `não medido`
+  para ferramenta presente com input ausente; e a seção "Falso positivo — o que a
+  calibração ensinou": 36% de precisão medida, grep localiza e leitura decide, anotação de
+  exemplo apodrece, hit contado duas vezes, sink não é primitiva, veredito julgado em
+  `.context/docs/security/vereditos.md` — a mesma tabela que a `baseline` lê.
+
+### Corrigido
+
+- **Skill `baseline` roteia para o pilar 08** (#57). O `references/08-perimetro.md` existia
+  desde o porte anterior, mas nada apontava para ele: "subiu host, painel ou domínio novo →
+  08" e "edge/webhook **ou login** → 04" entram no roteamento, e a description ganha a
+  palavra "perímetro" (465 caracteres; o teto é ~600).
+
 ## [0.22.0] — 2026-09-03
 
 ### Corrigido
