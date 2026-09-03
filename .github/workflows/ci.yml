@@ -93,6 +93,18 @@ jobs:
       - name: Leitura relativa depois de cd é bloqueada, e comando legítimo não
         run: bash tests/test-block-cd-leitura-relativa.sh
 
+      - name: Checkout no clone que outra sessão usa é bloqueado; worktree é livre
+        run: bash tests/test-block-parallel-clone-switch.sh
+
+      - name: O merge com --delete-branch não fecha PR encadeado
+        run: bash tests/test-block-delete-branch.sh
+
+      - name: O branch-guard avisa só quando a branch mudou entre prompts
+        run: bash tests/test-branch-guard.sh
+
+      - name: O session-size-guard avisa uma vez por faixa
+        run: bash tests/test-session-size-guard.sh
+
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 

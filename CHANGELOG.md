@@ -12,6 +12,47 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.25.0] — 2026-09-03
+
+### Adicionado
+
+- **Guard-rails de sessão, vindos do kit do time** (#58 — decisão hook a hook; todos leem o
+  payload via node, como os demais). Quatro comportamentos:
+  - **Checkout no clone que outra sessão está usando é bloqueado.** A regra "NUNCA faça
+    `checkout`/`switch`/`stash`/`reset` num clone que outra sessão usa" da skill `worktrees`
+    era só prosa. `repo-session.sh` registra as sessões vivas por repositório (um marker por
+    `session_id`, em `~/.claude/.cache/repo-sessions/`), e `block-parallel-clone-switch.sh`
+    bloqueia a troca no clone principal quando outra sessão esteve ativa nele nos últimos 30
+    minutos. Worktree linkado é livre — é para lá que a skill manda. Escotilha `PARALLEL_OK=1`,
+    lida depois do parser de heredoc (citada num doc não desliga nada). 33 checks em
+    `tests/test-block-parallel-clone-switch.sh`: path entre aspas, `~`, variável do próprio
+    comando, as quatro formas de heredoc, e o par registro/bloqueio de ponta a ponta.
+  - **`gh pr merge --delete-branch` não fecha PR encadeado.** Deletar a base fecha o PR filho
+    de forma irreversível — `gh pr reopen` recusa, `gh pr edit --base` recusa, só recriando.
+    `block-delete-branch-with-children.sh` consulta o `gh` só quando todas as pré-condições
+    casam (número do PR, flag de deleção, posição de comando), respeita o `--repo` do comando
+    e falha aberto sem rede. Escotilha `DELETE_BRANCH_OK=1`. 16 checks em
+    `tests/test-block-delete-branch.sh`, com `gh` falso.
+  - **A branch mudou entre um prompt e outro? Avisa.** `branch-guard.sh` compara a branch
+    de cada prompt com a do anterior na mesma sessão: outra sessão (Codex, outro terminal)
+    trocou por fora, e o próximo edit cairia no lugar errado sem nada indicar. Só avisa.
+    `tests/test-branch-guard.sh`.
+  - **Sessão longa demais? Avisa uma vez por faixa.** `session-size-guard.sh` mede o
+    transcript e, em 600 / 1.200 / 2.000 linhas, diz que `/clear` ou `/compact` sai mais
+    barato — cada tool call relê a conversa inteira, então o custo cresce com o quadrado do
+    comprimento. `tests/test-session-size-guard.sh`.
+
+  Não portados, registrados para não voltar à pauta: `rtk-claude`/`rtk-codex` (o kit não
+  distribui o RTK), `check-dev-server` (depende do MCP do Chrome), `dotcontext-doctor` (o
+  dotcontext ainda não tem diagnóstico para claude-code; o kit já tem `dotcontext-session`)
+  e o dispatcher `pre-bash.sh` (otimização da instalação via `settings.json`; o plugin
+  registra pelo `hooks.json` — revisitar se a latência dos cinco hooks de Bash pesar).
+
+### Docs
+
+- **README** descreve os guard-rails novos na linha de `plugin/hooks/`; **skill `worktrees`**
+  ganha o bullet do bloqueio de checkout em clone compartilhado, com a escotilha.
+
 ## [0.24.0] — 2026-09-03
 
 ### Adicionado
