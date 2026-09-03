@@ -78,6 +78,9 @@ jobs:
       - name: O notify-stop consulta o dispositivo de áudio uma vez a cada 10 min
         run: bash tests/test-notify-stop-cache.sh
 
+      - name: O warn-branch-behind faz fetch uma vez a cada 10 min por repo+branch
+        run: bash tests/test-warn-branch-behind.sh
+
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 
