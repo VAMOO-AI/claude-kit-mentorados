@@ -37,15 +37,18 @@ git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "  (fetch fal
 
 have_gh=0; command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && have_gh=1
 
-# É mergeada? ancestral de origin/main OU PR MERGED (squash).
+# É mergeada? ancestral de origin/main OU tip local contido no head do PR MERGED (squash).
 is_merged() {
   local br="$1"
   git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" origin/main 2>/dev/null && return 0
   if [ "$have_gh" = 1 ]; then
-    local n
-    n="$(gh pr list --head "$br" --state merged --json number --jq 'length' 2>/dev/null || echo 0)"
-    [ "${n:-0}" -gt 0 ] && return 0
+    local oid
+    oid="$(gh pr list --head "$br" --state merged --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null)"
+    # o tip LOCAL precisa estar contido no head do PR mergeado — commits feitos
+    # DEPOIS do merge (não pushados) deixam de contar como "mergeada".
+    [ -n "$oid" ] && git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$oid" 2>/dev/null && return 0
   fi
+  # Fail-closed: sem PR merged, oid vazio ou inexistente localmente → mantém a branch.
   return 1
 }
 
@@ -62,9 +65,28 @@ while IFS= read -r line; do
 
       # trava 1: nunca o clone principal
       if [ "$p" = "$PRIMARY" ]; then path=""; branch=""; continue; fi
-      # trava 2: nunca main/master, nem detached sem branch
-      if [ -z "$branch" ] || [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-        echo "  ⏭️  $p  → branch '${branch:-detached}' (mantido)"; skipped=$((skipped+1)); path=""; branch=""; continue
+      # trava 2: nunca main/master
+      if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+        echo "  ⏭️  $p  → branch '$branch' (mantido)"; skipped=$((skipped+1)); path=""; branch=""; continue
+      fi
+      # detached (EnterWorktree cria assim): lixo se limpo e HEAD já contido em origin/main
+      if [ -z "$branch" ]; then
+        if [ "$p" != "$SELF" ] && [ -z "$(git -C "$p" status --porcelain 2>/dev/null)" ] \
+           && { [ ! -f "$p/.env.local" ] || cmp -s "$p/.env.local" "$PRIMARY/.env.local"; } \
+           && git -C "$p" merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
+          if [ "$APPLY" = 1 ]; then
+            if git -C "$PRIMARY" worktree remove "$p" 2>/dev/null; then
+              echo "  ✅ removido: $p  (detached, limpo, HEAD já em origin/main)"; removed=$((removed+1))
+            else
+              echo "  ⚠️  falhou remover: $p"; kept=$((kept+1))
+            fi
+          else
+            echo "  🗑️  [dry-run] removeria: $p  (detached, limpo, HEAD já em origin/main)"; removed=$((removed+1))
+          fi
+        else
+          echo "  ⏭️  $p  → detached (mantido)"; skipped=$((skipped+1))
+        fi
+        path=""; branch=""; continue
       fi
       # trava 3: nunca o worktree atual
       if [ "$p" = "$SELF" ]; then
@@ -73,6 +95,11 @@ while IFS= read -r line; do
       # trava 4: nunca se estiver sujo
       if [ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]; then
         echo "  ✋ $p  → SUJO (mudança não-commitada) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
+      fi
+      # trava 4.5: .env.local é ignorado pelo git (invisível no status) e some
+      # junto com o worktree — só remove se for igual ao do clone principal.
+      if [ -f "$p/.env.local" ] && ! cmp -s "$p/.env.local" "$PRIMARY/.env.local"; then
+        echo "  ✋ $p  → .env.local difere do clone principal — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
       # trava 5: só se mergeada
       if ! is_merged "$branch"; then

@@ -31,7 +31,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **18 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **19 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git**: bloqueia commit na `main`, pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`, roda lint a cada edição, e avisa no início da sessão quando sua branch está atrás do remoto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -56,7 +56,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 15. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 19. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
