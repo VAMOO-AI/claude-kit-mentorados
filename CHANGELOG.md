@@ -12,6 +12,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.19.2] — 2026-09-03
+
+### Corrigido
+- **`release.yml`: grupo de concorrência por commit e job só em `main`** — os
+  dois achados do Codex no #62. O grupo era por branch, e o GitHub mantém só
+  **um** run pendente por grupo, substituído pelo run mais novo: três bumps
+  mergeados em sequência derrubariam a release do meio, e o run seguinte não
+  a refaz. Agora é `release-${{ github.sha }}`, cada merge com a própria fila.
+  E o job só roda com `github.ref` em `refs/heads/main`: `workflow_dispatch`
+  aceita qualquer branch, e um disparo numa branch tagearia um commit não
+  mergeado — que o run de `main`, vendo a tag existir, manteria.
+- Se a `v0.19.1` não aparecer entre as releases, foi por isso: o GitHub não
+  processou o push do merge do #62 — nenhum workflow rodou para aquele commit,
+  nem o `ci`. O merge desta versão é um push novo que muda o `plugin.json`.
+
 ## [0.19.1] — 2026-09-03
 
 ### Corrigido

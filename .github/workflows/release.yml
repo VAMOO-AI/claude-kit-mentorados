@@ -22,14 +22,21 @@ on:
 permissions:
   contents: write
 
-# Dois merges seguidos não disputam: o segundo espera o primeiro terminar.
-# Cancelar no meio poderia deixar a tag no ar sem a release.
+# Um grupo por commit, não por branch: o GitHub mantém só UM run pendente por
+# grupo e o run mais novo substitui o que esperava — com grupo por branch, três
+# bumps mergeados em sequência derrubariam a release do meio (Codex, no #62).
+# Por commit, cada merge tem a própria fila; o grupo ainda evita rodar o mesmo
+# commit duas vezes ao mesmo tempo (re-run, dispatch). Sem cancelamento:
+# interromper no meio poderia deixar a tag no ar sem a release.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   release:
+    # Só de main. workflow_dispatch aceita qualquer branch, e um run numa branch
+    # tagearia commit não mergeado — que o run de main, vendo a tag, manteria.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
