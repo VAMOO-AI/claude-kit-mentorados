@@ -8,6 +8,10 @@
 # Override consciente: prefixe o comando com PARALLEL_OK=1.
 #
 # Lê o JSON do hook via node (sem depender de jq). Falha-aberta: qualquer erro => exit 0.
+# gatilho: checkout switch reset stash
+#   (lido pelo hooks/pre-bash.sh: sem uma dessas palavras no payload o hook nem é
+#   aberto — nem o node dele roda; ampliou o que o hook pega? amplie a linha.)
+
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0

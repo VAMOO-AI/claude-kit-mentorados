@@ -33,7 +33,7 @@ modelo que o `/ship` já usa ao ler `.context/docs/deploy.md`.
 
 
 No pilar de código, **chame `secscan`** — não refaça SAST aqui.
-Para fan-out por área com juiz adversarial, use `~/.claude/workflows/audit-multidim.js`.
+Para fan-out por área com juiz adversarial, use o workflow `audit-multidim` que o `/kit-vamoo:setup` instala em `~/.claude/workflows/`.
 
 ---
 

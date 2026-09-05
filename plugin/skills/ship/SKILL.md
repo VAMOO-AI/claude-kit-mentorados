@@ -3,14 +3,10 @@ name: ship
 description: >-
   Pipeline de release com portões de verificação. Use quando o usuário disser
   "ship", "/ship", "deploy", "manda pra prod", ou pedir pra fechar uma feature
-  com commit + PR.
-
-  Roda o fluxo completo com gates duros: typecheck, lint, testes,
-  conventional-commit, push, PR via gh. Passos de deploy são opcionais e
-  dependem do que o projeto realmente tem.
-
-  Criada pra evitar as falhas recorrentes: dizer "passou" sem colar output
-  fresco, commitar de diretório errado, e deployar coisa que não devia.
+  com commit + PR. Roda o fluxo completo com gates duros: typecheck, lint,
+  testes, conventional-commit, push, PR via gh; passos de deploy dependem do que
+  o projeto tem. Criada contra as falhas recorrentes: dizer "passou" sem output
+  fresco, commitar do diretório errado, deployar o que não devia.
 ---
 
 > Derivada de `claude-config-team/skills/ship`. Ao divergir de propósito, diga aqui o quê e por quê.

@@ -123,6 +123,24 @@ jobs:
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
         run: bash tests/test-changelog-bloco.sh
 
+      - name: Monitor esperando CI/deploy é bloqueado; stream de eventos passa
+        run: bash tests/test-block-monitor-ci.sh
+
+      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados
+        run: bash tests/test-pre-bash.sh
+
+      - name: O dispatcher do UserPromptSubmit devolve o que os quatro hooks devolviam
+        run: bash tests/test-pre-prompt.sh
+
+      - name: Nenhuma description passa de 500 chars e o name bate com a pasta
+        run: bash tests/test-skill-descriptions.sh
+
+      - name: O índice de memória em dois níveis respeita cap e ordem sem perder linha
+        run: bash tests/test-memoria-indice.sh
+
+      - name: O relatório da auditoria de segurança sai íntegro do findings.json
+        run: bash tests/test-auditoria-relatorio.sh
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.
@@ -133,6 +151,14 @@ jobs:
               || { echo "::error file=$t::teste não referenciado em .github/workflows/ci.yml"; fail=1; }
           done
           exit $fail
+
+      - name: O relatório de paridade com o kit do time roda (sem o clone, avisa e sai 2)
+        # Aqui no CI o clone do time não existe: o que se prova é que o script não quebra e
+        # diz o que fazer. O relatório de verdade roda na máquina de quem mantém os dois.
+        run: |
+          code=0; bash scripts/paridade.sh > /tmp/paridade.log 2>&1 || code=$?
+          cat /tmp/paridade.log
+          [ "$code" = 2 ] || { echo "::error::esperava exit 2 sem o clone do time, veio $code"; exit 1; }
 
       - name: Sintaxe dos scripts shell
         run: |

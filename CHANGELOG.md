@@ -12,6 +12,56 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.26.0] — 2026-09-05
+
+### Adicionado
+
+- **Espelho da auditoria do kit do time** (`claude-config-team` 0.29.0/0.29.1, feita em
+  04/09/2026). Três coisas chegam com ela: o guard-rail que faltava, o custo por prompt, e
+  um jeito de saber quando os dois kits se afastam — que até aqui ninguém tinha.
+
+- **`hooks/block-monitor-ci.sh`: esperar CI ou deploy dentro do `Monitor` é bloqueado.**
+  O `Monitor` serve para stream de uma linha por evento (`tail -f | grep --line-buffered`,
+  `inotifywait`); esperar o resultado único de um CI é Bash com `run_in_background`. Medido
+  no time nos 14 dias até 04/09: 199 chamadas de Monitor, 31 erros (15,6%) — quase sempre um
+  `gh pr checks` que morre no timeout. A regra existia em prosa e era furada; agora o
+  bloqueio devolve o comando certo pronto. Escotilha `MONITOR_CI_OK=1`. 21 casos de teste.
+- **`hooks/pre-bash.sh` e `hooks/pre-prompt.sh` — dispatchers.** Cinco entries no
+  `PreToolUse(Bash)` e quatro no `UserPromptSubmit` viravam nove processos de shell por
+  ciclo, cada um abrindo um `node` só para ler o payload. Agora é um spawn por evento, com o
+  payload lido uma vez, e **hook cuja palavra-gatilho não está no comando nem é aberto** (a
+  linha `# gatilho:` no cabeçalho de cada hook). A semântica da cadeia é a mesma: primeiro
+  exit ≠ 0 encerra com o código, o stdout e o stderr dele; hook ausente é pulado.
+  `tests/test-pre-bash.sh` (15 casos) e `tests/test-pre-prompt.sh` (12).
+- **`docs/paridade.md` + `scripts/paridade.sh`.** Os dois kits compartilham hooks, scripts,
+  skills e testes, e **todos** divergem no arquivo — em 04/09, 13 de 13 hooks, 16 de 16
+  skills e 13 de 13 testes. Parte é desenho (aqui o payload é lido por `node`, não por `jq`;
+  as skills não têm o prefixo `vamoo-`), parte era porte atrasado, e ninguém sabia dizer
+  qual era qual. O doc registra item a item o que é deliberado e o que é espelhado; o script
+  compara a **cobertura de teste** (a lista de casos de cada suíte), que é o que sobrevive à
+  diferença de implementação.
+- **`workflows/audit-multidim.js`**, instalado pelo `/kit-vamoo:setup` em
+  `~/.claude/workflows/`. A skill `baseline` citava esse workflow pelo nome e ele não existia
+  na máquina de quem instalava o kit.
+- **Três suítes vindas do time:** `test-memoria-indice.sh`, `test-auditoria-relatorio.sh` e
+  `test-skill-descriptions.sh` (teto de 500 chars por description e `name:` igual à pasta —
+  o catálogo entra no contexto de toda request).
+
+### Alterado
+
+- **Nove `deny` novos no `templates/settings.json`** (17 → 26), vindos do kit do time:
+  `~/.claude.json`, `~/.claude/backups/**`, `~/.claude/env-backups/**`, `~/.claude/state/**`,
+  `~/.claude/.env.tokens`, `**/.env.tokens`, `~/.aws/credentials` e o `history.jsonl` (que
+  guarda tudo que já foi digitado no Claude Code). O merge do `kit-setup.sh` faz união:
+  ninguém perde o que já tinha.
+- **`lint-fix.sh` usa `--cache`** (em `~/.claude/.cache/eslint/`, não no repo de quem está
+  aprendendo) e a entrada no `hooks.json` passa a `"async": true` — eram 0,5 a 1,2 s de
+  espera por edição de JS/TS, medidos em 04/09.
+- **`harness-check`** deixa de mandar ler o `~/.claude.json` com `jq`: o arquivo está no
+  `deny` e o bloqueio vale até para o `jq`. O caminho é `claude mcp list` + `claude mcp get`.
+- **Cinco descriptions cortadas** para caber no teto: `auditoria-seguranca`, `verificacao`,
+  `ship`, `memoria-projeto` e `guardrails-ia`.
+
 ## [0.25.0] — 2026-09-03
 
 ### Adicionado

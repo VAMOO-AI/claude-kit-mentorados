@@ -8,6 +8,10 @@
 # Lê o JSON do hook via node (sem depender de jq). Falha-aberta: erro => exit 0.
 # Resolve o helper ao lado do próprio script (funciona rodando do plugin) e,
 # se não achar, cai pro ~/.claude de quem instalou pelo install.sh.
+# gatilho: commit
+#   (lido pelo hooks/pre-bash.sh: sem uma dessas palavras no payload o hook nem é
+#   aberto — nem o node dele roda; ampliou o que o hook pega? amplie a linha.)
+
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0

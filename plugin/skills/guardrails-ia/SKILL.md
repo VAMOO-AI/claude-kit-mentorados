@@ -5,9 +5,8 @@ description: >-
   bot): o que ele pode afirmar, pedido de parar como estado permanente, escalar
   pra humano e quem responde quando IA e humano disputam o canal. Use ao
   construir ou revisar bot que conversa com cliente, antes de ligar o disparo,
-  ou quando "a IA respondeu por cima do humano" / "prometeu o que a gente não
-  faz". Gatilhos: "bot que responde cliente", "agente de IA", "a IA inventou",
-  "opt-out", "transferir pra humano", "pausar a IA".
+  ou quando "a IA respondeu por cima do humano". Gatilhos: "agente de IA", "a IA
+  inventou", "opt-out", "pausar a IA".
 ---
 
 # Guard-rails da IA que fala com cliente
