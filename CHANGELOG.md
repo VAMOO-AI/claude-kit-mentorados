@@ -12,6 +12,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.26.1] — 2026-09-05
+
+### Adicionado
+
+- **A barra de status mostra o comprimento da sessão** (`ses:1.3k /compact`) a partir de 600
+  linhas de transcript, com a régua do `session-size-guard`: 600 discreto (`/clear?`), 1.200
+  amarelo (`/compact`), 2.000 vermelho (`maratona` — nessa faixa o barato é sessão nova, não
+  compactar). É outra medida que o `ctx`: a janela compacta e volta a encher, o transcript só
+  cresce, e é ele que dita o quanto é relido a cada comando — no time, as sessões com 100+
+  requests fizeram 96,6% do cache read de uma semana. O hook avisa uma vez por faixa e o
+  aviso rola para fora da tela; o número na barra fica. Conta bytes `\n` em blocos de 64 KB,
+  sem carregar o arquivo. Espelho do `claude-config-team` 0.29.2.
+  `tests/test-statusline-sessao.sh` cobre as três faixas e as duas formas de não ter
+  transcript — a barra não pode quebrar por isso, porque o wrapper engole o erro.
+
 ## [0.26.0] — 2026-09-05
 
 ### Adicionado

@@ -59,6 +59,7 @@ Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com 
 | Skills `ship`, `verificacao`, `worktrees`, `orquestracao`, `git-sync`, `harness-check`, `memoria-projeto`, `secscan`, `auditoria-seguranca`, `baseline`, `grilling`, `grill-me`, `grill-with-docs`, `handoff`, `find-docs`, `bot-discord` | 0.26.0 (05/09) | o método é o mesmo; o exemplo pode ser outro |
 | Teto de 500 chars por description | 0.26.0 (05/09) | `tests/test-skill-descriptions.sh` nos dois |
 | `workflows/audit-multidim.js` | 0.26.0 (05/09) | citado pela skill `baseline` |
+| Indicador de sessão longa na barra de status | 0.26.1 (05/09) | mesma régua (600/1.200/2.000); a barra em si diverge — uma linha aqui, sete no time |
 
 ## Como usar
 
