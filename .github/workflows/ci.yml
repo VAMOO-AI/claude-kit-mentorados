@@ -141,6 +141,9 @@ jobs:
       - name: O relatório da auditoria de segurança sai íntegro do findings.json
         run: bash tests/test-auditoria-relatorio.sh
 
+      - name: A barra mostra o comprimento da sessão e não quebra sem transcript
+        run: bash tests/test-statusline-sessao.sh
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.

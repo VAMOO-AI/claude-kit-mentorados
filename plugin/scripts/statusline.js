@@ -127,4 +127,31 @@ if (totalInput > 0) {
   ctxSeg = ` ${C.dim}·${C.reset} ${col}ctx:${Math.round(totalInput / 1000)}k${C.reset}`;
 }
 
-process.stdout.write(`${C.cyan}${currentDir}${C.reset}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}`);
+// Comprimento da SESSÃO em linhas de transcript — outra medida que o ctx. A janela
+// compacta e volta a encher; o transcript só cresce, e é ele que dita o quanto é relido a
+// cada comando: no time, as sessões com 100+ requests fizeram 96,6% do cache read de uma
+// semana. O hook session-size-guard avisa uma vez por faixa e o aviso rola para fora da
+// tela; aqui o número fica. Conta bytes \n em blocos, sem carregar o arquivo (transcript de
+// sessão longa passa de 100 MB e isto roda a cada turno).
+let sesSeg = '';
+try {
+  const tp = input.transcript_path;
+  if (tp) {
+    const fd = fs.openSync(tp, 'r');
+    try {
+      const buf = Buffer.allocUnsafe(1 << 16);
+      let linhas = 0, n;
+      while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
+        for (let i = 0; i < n; i++) if (buf[i] === 10) linhas++;
+      }
+      if (linhas >= 600) {
+        const col = linhas >= 2000 ? C.red : linhas >= 1200 ? C.yellow : C.dim;
+        // 2.000+ é a faixa das maratonas: nem adianta compactar, o barato é sessão nova.
+        const dica = linhas >= 2000 ? ' maratona' : linhas >= 1200 ? ' /compact' : ' /clear?';
+        sesSeg = ` ${C.dim}·${C.reset} ${col}ses:${linhas >= 1000 ? (linhas / 1000).toFixed(1) + 'k' : linhas}${dica}${C.reset}`;
+      }
+    } finally { fs.closeSync(fd); }
+  }
+} catch { /* sem transcript, sem permissão: a barra não pode quebrar por isto */ }
+
+process.stdout.write(`${C.cyan}${currentDir}${C.reset}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}${sesSeg}`);
