@@ -2,11 +2,11 @@
 name: memoria-projeto
 description: >-
   Põe a memória do projeto dentro do repositório em vez de deixar presa na sua
-  máquina — cria `.context/memoria/`, liga o diretório do Claude Code lá, e
-  recusa a adoção se achar credencial escrita na memória. Use ao começar a
-  trabalhar num projeto e em "/memoria-projeto", "liga a memória deste projeto",
-  "o Claude esquece o que aprendeu", "troquei de computador e perdi o contexto",
-  "meu colega não vê o que decidimos aqui", "essa memória está no repo?".
+  máquina — cria .context/memoria/, liga o diretório do Claude Code lá, e recusa
+  a adoção se achar credencial escrita na memória. Use ao começar a trabalhar
+  num projeto e em "/memoria-projeto", "liga a memória deste projeto", "o Claude
+  esquece o que aprendeu", "troquei de computador e perdi o contexto", "essa
+  memória está no repo?".
 ---
 
 > Derivada de `claude-config-team/skills/memoria-projeto`. Ao divergir de propósito, diga aqui o quê e por quê.

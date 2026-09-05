@@ -67,7 +67,7 @@ usando você ou não. É a única parte grande do preload que está na sua mão.
 
 ```bash
 claude mcp list
-jq '.mcpServers, (.projects | to_entries[] | select(.value.mcpServers))' ~/.claude.json
+claude mcp get <nome>   # escopo e comando de um servidor específico
 ```
 
 Cruze com o `/context` (linha *MCP tools*) e pergunte, um por um: usei este mês?
@@ -76,7 +76,7 @@ Não usou → desligue e reative quando precisar. Dois avisos:
 - **A tabela de uso não é a configuração de boot.** MCP que aparece pouco pode
   estar configurado só num projeto e nem carregar aqui — não há o que remover.
 - **Conector do claude.ai não sai por `claude mcp remove`** (esse comando só
-  enxerga os locais do `~/.claude.json`). Pra desligar todos no CLI e manter no
+  enxerga os locais). Pra desligar todos no CLI e manter no
   site: `"disableClaudeAiConnectors": true` no `settings.json`.
 
 Skill que você só chama na mão também pesa (a *descrição* de cada skill entra no

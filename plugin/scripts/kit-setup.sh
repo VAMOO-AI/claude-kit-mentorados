@@ -23,7 +23,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.25.0"
+KIT_VERSION="0.26.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -133,6 +133,17 @@ backup "scripts/statusline.js"
 run cp "$PLUGIN_ROOT/scripts/statusline.js" "$CLAUDE_DIR/scripts/statusline.js"
 run cp "$PLUGIN_ROOT/scripts/hookjson.js" "$CLAUDE_DIR/scripts/hookjson.js"
 run cp "$PLUGIN_ROOT/scripts/merge-settings.js" "$CLAUDE_DIR/scripts/merge-settings.js"
+
+# Workflows do Workflow tool: o plugin não os entrega sozinho (o Claude Code lê
+# ~/.claude/workflows/), e a skill `baseline` cita o audit-multidim pelo nome. Sem este
+# passo, a skill manda usar um arquivo que não existe na máquina de quem instalou.
+run mkdir -p "$CLAUDE_DIR/workflows"
+for w in "$PLUGIN_ROOT/workflows"/*.js; do
+  [ -e "$w" ] || continue
+  n="$(basename "$w")"
+  if protegido "workflows/$n"; then warn "mantido (está no .keep-local): workflows/$n"; continue; fi
+  backup "workflows/$n"; run cp "$w" "$CLAUDE_DIR/workflows/$n"
+done
 ok "barra de status instalada (diretório, branch, ↑↓, gh, PR, contexto)"
 
 # ── settings.json: MESCLA, nunca sobrescreve ────────────────────────────────

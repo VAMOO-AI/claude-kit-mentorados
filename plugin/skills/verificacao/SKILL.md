@@ -1,13 +1,12 @@
 ---
 name: verificacao
 description: >-
-  Casos de verificação end-to-end aprendidos em produção: testar TODOS
-  os ramos de um fluxo, rodar TODOS os runners, pegar o erro REAL de prod antes
-  do repro, inspecionar UI visualmente. Use antes de declarar "pronto" em fix
-  com ramos, mudança que toca UI, erro de prod mascarado, ou teste em pasta com
-  múltiplos runners, ou ANTES de qualquer disparo que sai da máquina e chega
-  numa pessoa (mensagem, e-mail, cobrança, webhook de terceiro). Gatilhos: "pronto", "verificar", "testar antes de entregar",
-  "erro de prod / digest", "dry-run", "pode disparar?".
+  Casos de verificação end-to-end aprendidos em produção: testar TODOS os ramos,
+  rodar TODOS os runners, pegar o erro REAL de prod antes do repro, inspecionar
+  a UI. Use antes de declarar "pronto" em fix com ramos, mudança de UI, erro de
+  prod mascarado, pasta com múltiplos runners, e ANTES de qualquer disparo que
+  chega numa pessoa (mensagem, e-mail, cobrança, webhook). Gatilhos: "pronto",
+  "verificar", "testar antes de entregar", "dry-run", "pode disparar?".
 ---
 
 > Derivada de `claude-config-team/skills/vamoo-verificacao`. Ao divergir de propósito, diga aqui o quê e por quê.

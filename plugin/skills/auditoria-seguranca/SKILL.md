@@ -5,9 +5,9 @@ description: >-
   decidida no navegador, IDOR, chaves expostas, XSS) com entregável: PDF em
   pt-BR dentro do repo auditado + issues de GitHub prontas para colar. Detecta a
   stack antes, então serve repo que não é Supabase. Use em "auditoria de
-  segurança", "relatório de segurança", "auditoria em PDF", "achou IDOR?",
-  "revisa esse código atrás de falhas". Não é o secscan (varredura em Markdown
-  fora do repo): este é o pacote para outra pessoa ler e agir.
+  segurança", "relatório de segurança", "auditoria em PDF", "achou IDOR?". Não é
+  o secscan (Markdown fora do repo): este é o pacote para outra pessoa ler e
+  agir.
 ---
 
 # auditoria-seguranca — 5 categorias, PDF e issues

@@ -111,7 +111,16 @@
       "Read(~/.netrc)",
       "Read(~/.npmrc)",
       "Read(~/.docker/config.json)",
-      "Read(~/.config/op/**)"
+      "Read(~/.config/op/**)",
+      "Read(~/.claude/.env.tokens)",
+      "Read(**/.env.tokens)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.claude/history.jsonl)",
+      "Read(~/.claude/history.jsonl.*)",
+      "Read(~/.claude.json)",
+      "Read(~/.claude/backups/**)",
+      "Read(~/.claude/env-backups/**)",
+      "Read(~/.claude/state/**)"
     ]
   }
 }
