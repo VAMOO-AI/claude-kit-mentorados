@@ -25,6 +25,15 @@ Isso torna `diff` inútil entre os dois. O que **dá** para comparar é cobertur
 aqui. É ponto de partida para leitura, não dívida confirmada — a mesma prova costuma estar
 escrita com outras palavras.
 
+O extrator lê a descrição do `check`/`ok` **ancorada em começo de comando** e só olha os
+argumentos depois do helper. Até 06/09/2026 ele casava qualquer linha de shell com a
+substring "ok"/"check" seguida de aspas, e o relatório acusava 47 casos "sem par" chamados
+`" ]; then bash \"`, `"$c"` e `" de "` — enquanto o `test-skill-descriptions.sh` aparecia
+como `0 0 ok`, indistinguível de uma suíte que tivesse regredido a zero caso. Suíte sem
+`check`/`ok` agora sai rotulada como **sem casos legíveis**, que é o que ela é. Limite
+conhecido: em `check <regex-esperado> <descrição>` com o regex entre aspas **duplas**, o que
+sai é o regex — o viés é o mesmo dos dois lados, então a comparação continua valendo.
+
 ## O que é deliberado (não portar)
 
 | Item | Só no time | Por quê |
@@ -36,6 +45,7 @@ escrita com outras palavras.
 | `update.sh` e suítes `test-update-*` | sim | Aqui quem instala é o plugin; o equivalente é `kit-setup.sh` (`test-kit-setup-keep-local.sh`). |
 | Skills de domínio (`n8n-workflow-agent`, `whatsapp-inbox-stack`, `pipedrive-automation`, `vamoo-infra`, `ambientes-clientes`, `vps-hardening-clientes`, `graphify`, `video-watch`, `notebooklm-project-ops`, `pulso-mentorado`, `rsc-client-boundary`, `vamoo-memoria`) | sim | Conhecimento de cliente e de infra da casa. O kit público leva o método, não o cliente. |
 | `skills/diretor-imagem`, `guardrails-ia`, `setup` | só aqui | Nasceram para o mentorado; o time não tem o problema. |
+| Aviso de novidades no SessionStart (`scripts/warn-kit-updated.sh`, `plugin/novidades.txt`, `test-warn-kit-updated.sh`) | só aqui | O time instala por `update.sh`, rodado por quem sabe o que mudou. Aqui a instalação é plugin com auto-update: o kit se troca sozinho e o único sinal é o indicador dentro do `/plugin`, que ninguém abre. O problema não existe lá — **divergência deliberada, não porte atrasado.** |
 | `agents/revisor.md` | diverge | Mesmo contrato; lá cita `bun run type-check` e caminhos do time. |
 
 ## O que é espelhado (porte obrigatório nos dois sentidos)
@@ -61,6 +71,9 @@ Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com 
 | `workflows/audit-multidim.js` | 0.26.0 (05/09) | citado pela skill `baseline` |
 | Indicador de sessão longa na barra de status | 0.26.1 (05/09) | mesma régua (600/1.200/2.000); a barra em si diverge — uma linha aqui, sete no time |
 | Cenários de pressão + a seção do `--admin` na `ship` | 0.27.0 (05/09) | os números medidos são do time (`sonnet`); aqui os cenários são os mesmos, sem os nomes de pessoas |
+| `skills/skills-projeto` + `scripts/skills-projeto-scan.sh` + `hooks/warn-skills-projeto.sh` | 0.28.0 (06/09) | mesmo problema medido (52 skills locais, ~9.030 chars), **quatro diferenças de propósito**: aqui o teto é 8 skills / 2.000 chars (menor); **não existe passo "gerar skill"** — iniciante gerando skill é a origem da casca, então a skill manda fazer na mão 3× e só depois `npx skills init`; o teste de pressão é nota, não gate; e o registro do porquê aceita `docs/skills.md` quando o projeto não tem `.context/`. O risco aqui é MAIOR: o mentorado dá `npx skills add` num bundle de dezenas e nunca liga o custo à conta. |
+| `skills/find-skills` | 0.28.0 (06/09) | só-slash nos dois (`disable-model-invocation: true`). Aqui em PT-BR e apontando para `skills-projeto`. A seção de procedência (SKILL.md de terceiro executa shell no load) nasceu neste porte e vale para os dois. |
+| `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
 
 ## Como usar
 
