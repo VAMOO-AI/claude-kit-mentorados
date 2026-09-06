@@ -67,7 +67,7 @@ Escolha uma. Justifique em até 3 linhas. Termine com a linha `ESCOLHA: <letra>`
 # RED — sem a skill (nem CLAUDE.md nem settings do usuário entram)
 bash plugin/scripts/skill-pressure-test.sh --baseline tests/skills/verificacao/
 
-# GREEN — com a skill no system prompt e o harness normal
+# GREEN — só a SKILL.md no system prompt, no mesmo isolamento do RED
 bash plugin/scripts/skill-pressure-test.sh --com-skill tests/skills/verificacao/
 
 # taxa: 3 execuções por cenário, modelo explícito
@@ -76,7 +76,12 @@ bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 --model sonnet test
 
 Cada execução é uma chamada `claude -p` sem ferramentas de execução (só `Skill`
 no modo com skill). Sem Bash de propósito: com Bash o modelo "roda o
-type-check" e escapa da escolha que o cenário quer forçar. O modelo padrão é o
+type-check" e escapa da escolha que o cenário quer forçar.
+Os dois modos rodam **isolados da máquina**: `--baseline` com `--setting-sources ""`
+e `--com-skill` com `--setting-sources project,local`, sempre num cwd vazio. Sem
+isso o GREEN herdava settings, CLAUDE.md, skills e hooks de quem estivesse rodando,
+e um "ok" podia vir de outra skill global — não do texto em teste. Comparar RED com
+GREEN só quer dizer alguma coisa quando a única diferença entre os dois é a SKILL.md. O modelo padrão é o
 da sua sessão; `--model haiku` serve pra iterar barato no texto do cenário, mas
 a prova final é no modelo que o time usa.
 

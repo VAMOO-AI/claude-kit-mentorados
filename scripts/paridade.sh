@@ -127,6 +127,7 @@ test-merge-settings.sh|test-merge-settings.sh
 test-notify-stop-cache.sh|test-notify-stop-cache.sh
 test-path-rules.sh|test-path-rules.sh
 test-pre-bash.sh|test-pre-bash.sh
+test-pressure-isolamento.sh|test-pressure-isolamento.sh
 test-pre-prompt.sh|test-pre-prompt.sh
 test-session-size-guard.sh|test-session-size-guard.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh

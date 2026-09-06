@@ -156,6 +156,12 @@ jobs:
       - name: A barra mostra o comprimento da sessão e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 
+      - name: O pressure test isola os dois modos do ambiente de quem roda
+        # Sem isolar o --com-skill, um "ok" podia vir de outra skill instalada ou do
+        # CLAUDE.md da máquina — e aqui quem roda pode ser um mentorado com uma
+        # máquina que ninguém revisou.
+        run: bash tests/test-pressure-isolamento.sh
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.
