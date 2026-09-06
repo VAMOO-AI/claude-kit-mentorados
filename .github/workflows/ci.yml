@@ -142,6 +142,11 @@ jobs:
       - name: O scan de skills do projeto reprova casca e o hook fala uma vez por mudança
         run: bash tests/test-skills-projeto.sh
 
+      - name: Nenhuma skill executa shell só de ser carregada
+        # Exclamação + crase no corpo de um SKILL.md roda o comando no load e escapa
+        # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
+        run: bash tests/test-skill-sem-injecao.sh
+
       - name: O índice de memória em dois níveis respeita cap e ordem sem perder linha
         run: bash tests/test-memoria-indice.sh
 
