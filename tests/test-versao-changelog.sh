@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # As versões do kit dizem todas a mesma coisa?
 #
-# São QUATRO lugares: plugin.json, plugin/scripts/kit-setup.sh, install.sh e o
-# topo do CHANGELOG. O CI já compara os três primeiros entre si; o que faltava é
-# o CHANGELOG e a detecção de versão repetida.
+# São CINCO lugares: plugin.json, plugin/scripts/kit-setup.sh, install.sh, o topo
+# do CHANGELOG e o topo do plugin/novidades.txt. O CI já compara os três
+# primeiros entre si; o que faltava é o CHANGELOG e a detecção de versão repetida.
+#
+# O quinto entrou junto com o aviso de novidades do SessionStart: bumpar e
+# esquecer a linha do novidades.txt não quebra nada visível — o aviso
+# simplesmente não conta a versão nova a ninguém, que é exatamente o silêncio
+# que ele existe para acabar.
 #
 # O modo silencioso de quebrar: dois PRs abertos ao mesmo tempo bumpam para a
 # MESMA versão. Quem mergeia depois não vê conflito — o git auto-mergeia linha
@@ -34,10 +39,14 @@ check() { # check <descrição> <ok|fail>
   else printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); fi
 }
 
+NOVIDADES="$RAIZ/plugin/novidades.txt"
 v_plugin=$(python3 -c "import json;print(json.load(open('$RAIZ/plugin/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
 v_setup=$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' "$RAIZ/plugin/scripts/kit-setup.sh")
 v_inst=$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' "$RAIZ/install.sh")
 topo=$(grep -m1 '^## \[' "$RAIZ/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
+# Primeira linha de dado do novidades.txt (comentário e linha vazia não contam),
+# campo antes do primeiro "|".
+topo_novidades=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next} {gsub(/[[:space:]]/,"",$1); print $1; exit}' "$NOVIDADES" 2>/dev/null)
 todas=$(grep '^## \[' "$RAIZ/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
 repetidas=$(printf '%s\n' "$todas" | sort | uniq -d)
 
@@ -51,6 +60,17 @@ if [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]; then
 else
   check "plugin.json ($v_plugin), kit-setup.sh ($v_setup) e install.sh ($v_inst) batem" fail
   echo "        → o kit-setup.sh mora em plugin/scripts/, não na raiz — é o que costuma ficar pra trás"
+fi
+
+if [ ! -f "$NOVIDADES" ]; then
+  check "plugin/novidades.txt existe" fail
+  echo "        → sem ele o aviso de novidades do SessionStart cala em toda sessão"
+elif [ "$v_plugin" = "$topo_novidades" ]; then
+  check "versão do plugin ($v_plugin) e topo do novidades.txt batem" ok
+else
+  check "versão do plugin ($v_plugin) e topo do novidades.txt ($topo_novidades) batem" fail
+  echo "        → o aviso do SessionStart só conta versão que está no novidades.txt:"
+  echo "          sem a linha, quem atualizar não fica sabendo que esta versão saiu"
 fi
 
 if [ "$v_plugin" = "$topo" ]; then
