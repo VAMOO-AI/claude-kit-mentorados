@@ -91,6 +91,15 @@ pronto: a mesma família de relatório que mente.
 | `skills/find-skills` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | só-slash nos dois (`disable-model-invocation: true`). Aqui em PT-BR e apontando para `skills-projeto`. A seção de procedência (SKILL.md de terceiro executa shell no load) nasceu neste porte e vale para os dois. |
 | `skill-pressure-test.sh` isolado do ambiente (`--setting-sources project,local` no `--com-skill`) + `tests/test-pressure-isolamento.sh` | 0.29.0 (06/09) | PR gêmeo no time na mesma sessão. Sem isolar, o GREEN herdava a máquina de quem rodava — lá as settings do Ruan, aqui as do mentorado, que ninguém revisou. Um cenário existente (`ship/cenario-01`) foi rodado 3× antes e 3× depois nos dois kits: 3/3 `C` nas quatro vezes, o isolamento não mexeu no resultado. |
 | `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
+| Régua editorial de saída da `secscan` | 0.30.0 (06/09) — time em 0.33.0, PR gêmeo na mesma sessão | Mesma decisão nos dois: o cap de 1–2 por categoria vale para o **resumo no terminal**, nunca para o arquivo do relatório; `CRITICAL`/`HIGH` fora do corte; "categoria vazia não vira seção" **recusado** nos dois (colide com *É proibido omitir uma linha*). O texto diverge por público: lá os números da casa (16 functions fora do `config.toml`, os 18 `===`, as 51 expressões `{{ $json }}`), aqui a calibração de 36% de precisão e a lição genérica escrita como lição — regra editorial boa num lugar vira defeito no outro quando muda o que a saída é. |
+
+**Divergência aberta, registrada aqui para não virar porte esquecido:** a régua editorial
+que originou a da `secscan` nasceu na `harness-check` do time (0.32.0) e **não existe na
+`harness-check` daqui**. Não é decisão — é porte não feito. Lá a saída da `harness-check`
+é conselho descartável e o cap se aplica inteiro (inclusive "categoria vazia não vira
+seção", que a `secscan` recusa); a skill daqui tem o mesmo formato de saída, então a régua
+provavelmente cabe igual. Quem for portar decide isso lendo, não por analogia com esta
+linha.
 
 ## Como usar
 

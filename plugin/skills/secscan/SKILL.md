@@ -279,6 +279,46 @@ Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de auto
 
 **Handoff:** imprima o caminho do relatório. Diga que é esse arquivo que um agente deve ler antes de planejar qualquer fix — não infira o fix só pelo resumo do chat.
 
+### O que se corta do relatório (e o que é proibido cortar)
+
+Existe uma régua anti-inflação que vale para quase todo relatório de agente: **no máximo
+1–2 recomendações por categoria, categoria sem achado não vira seção, e a última linha diz
+o que ficou de fora.** Ela é boa — a `harness-check` do kit do time roda com ela — e
+**não** se aplica inteira aqui. A diferença não é de gosto: é do que a saída **é**. Relatório
+de melhoria é conselho, vive no chat e é descartável; trinta recomendações viram zero
+porque ninguém aplica trinta. Relatório de segurança é **artefato de handoff** — o arquivo
+que outro agente lê antes de corrigir — e achado que não está escrito nele some quando a
+sessão acabar. Cortar conselho custa atenção; cortar achado esconde vulnerabilidade.
+
+Guarde a lição em si, que vale além desta skill: **regra editorial boa num lugar vira
+defeito no outro quando muda o que a saída é.** Copiar a régua sem perguntar isso é como
+copiar código sem ler.
+
+**Proibido no arquivo do relatório:**
+
+- **Limitar a 1–2 achados por categoria.** Se C2 tem 16 rotas sem checagem de identidade,
+  são 16 no relatório. Imprimir 2 e calar 14 é o mesmo *silêncio virando aprovação* que a
+  regra dura do checklist proíbe — pior, com cara de relatório completo.
+- **Pular categoria vazia.** Colide com *É proibido omitir uma linha*. Aqui a linha vazia
+  **é** informação: diz que a sonda rodou e não achou, e é ela que separa `nenhum problema
+  identificado` de `não medido`. As 7 linhas saem sempre.
+
+**O que vale, com o corte movido de lugar:** o cap é para o **resumo no terminal**, não para
+o arquivo. No chat imprima o checklist inteiro e depois no máximo **1–2 achados por
+categoria**, os mais graves; feche com `cortei N achados menores — os N estão completos em
+<caminho>`. O excedente não sumiu: já está escrito, e a linha de corte é um ponteiro.
+**`CRITICAL` e `HIGH` nunca entram no corte**, nem no terminal — se são nove, saem nove.
+
+**Agrupar não é cortar, e é o que de fato desinfla.** Vinte hits da mesma classe viram
+**um** bloco com a contagem e 2–3 representantes `arquivo:linha`, não vinte blocos quase
+iguais. A contagem continua completa; o que sai é a repetição.
+
+E o motivo de o cap ser a ferramenta errada aqui está medido logo acima: **36% de
+precisão**. O que infla relatório de scanner não é excesso de achado verdadeiro, é falso
+positivo. Teto de contagem sobre uma lista majoritariamente ruidosa não devolve sinal —
+sorteia qual dos achados reais sobrevive. Quem desinfla é triagem: abrir o `arquivo:linha`
+antes de citar, e olhar o destino do valor, não a primitiva.
+
 ## Fase 7 — Modo pedagógico (é o padrão aqui)
 
 O scan é o mesmo e a estrutura da Fase 6 é a mesma: **os três blocos, na mesma
