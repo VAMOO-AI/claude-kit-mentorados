@@ -12,6 +12,26 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.29.0] — 2026-09-06
+
+### Alterado
+
+- **O `--com-skill` do `skill-pressure-test.sh` agora isola do ambiente da máquina**
+  (`--setting-sources project,local`), como o `--baseline` sempre fez. Antes o GREEN
+  herdava settings, CLAUDE.md, skills e hooks de quem estivesse rodando — e aqui isso pesa
+  mais que no kit do time: quem roda pode ser um mentorado com uma máquina que ninguém
+  revisou, e o "passou" acabava sendo do CLAUDE.md dele, não do texto da SKILL.md em teste.
+  Comparar RED com GREEN só quer dizer alguma coisa quando a única diferença entre os dois
+  é a skill.
+  Medido antes e depois, porque mudar isolamento pode mudar resultado:
+  `ship/cenario-01-ci-pendente`, `--n 3 --model sonnet`, **3/3 `C` antes e 3/3 `C` depois**
+  (mesmo resultado no kit do time). O cenário não dependia do ambiente, então a mudança
+  entra como default e não como flag opcional.
+- **`tests/test-pressure-isolamento.sh`** (novo, no CI): fixa a linha de comando dos dois
+  modos com um `claude` de mentira que anota os argumentos — `--setting-sources` vazio no
+  baseline, `project,local` no com-skill, e `--tools` por último, porque é variádico e
+  engole o que vier depois. `scripts/paridade.sh` passa a comparar a suíte com a do time.
+
 ## [0.28.0] — 2026-09-06
 
 ### Adicionado

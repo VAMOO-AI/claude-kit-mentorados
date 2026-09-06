@@ -7,7 +7,7 @@
 # pressão em dois modos e compara:
 #
 #   --baseline    sem a skill (settings/CLAUDE.md/skills do usuário fora) — o RED
-#   --com-skill   com o harness normal e a SKILL.md do plugin no system prompt — o GREEN
+#   --com-skill   só com a SKILL.md do plugin no system prompt, mesmo isolamento — o GREEN
 #
 # O cenário é um .md em tests/skills/<skill>/, com frontmatter:
 #
@@ -52,10 +52,20 @@ corpo() { awk '/^---$/{c++; next} c>=2' "$1"; }
 
 # O cwd é um diretório vazio: nenhum CLAUDE.md nem .claude/ de projeto entra.
 # Baseline: --setting-sources vazio tira o CLAUDE.md, as skills e o settings do
-# usuário, e nenhuma ferramenta fica ligada. Com skill: harness normal, o texto
-# da SKILL.md entra no system prompt (o que está em teste é o texto, não o
-# gatilho) e só a ferramenta Skill fica ligada. Sem Bash em nenhum dos dois: o
-# cenário é de decisão, e com Bash o modelo "verifica" pra escapar da escolha.
+# usuário, e nenhuma ferramenta fica ligada. Com skill: --setting-sources
+# project,local deixa de fora as MESMAS coisas (settings, CLAUDE.md e skills do
+# usuário), o texto da SKILL.md entra no system prompt e só a ferramenta Skill
+# fica ligada. Sem Bash em nenhum dos dois: o cenário é de decisão, e com Bash o
+# modelo "verifica" pra escapar da escolha.
+#
+# Por que o --com-skill também precisa isolar: sem isso ele herdava o harness da
+# máquina de quem roda, e um "ok" podia vir de outra skill global, de um hook ou
+# do CLAUDE.md do usuário — não do texto em teste. Dois modos com ambientes
+# diferentes não são comparáveis: a única diferença entre RED e GREEN passa a ser
+# a SKILL.md, que é o que o cabeçalho deste arquivo sempre prometeu medir. Com o
+# cwd vazio, `project,local` hoje não carrega nada; fica assim, e não como
+# `--setting-sources ""`, porque config commitada no repo do cenário é parte do
+# caso de teste, config da máquina não é.
 SKILLS_DIR="$(cd "$(dirname "$0")/../skills" && pwd)"
 CWD=$(mktemp -d)
 FALHAS=0; TOTAL=0
@@ -72,7 +82,7 @@ for c in "${CENARIOS[@]}"; do
       ARGS+=(--setting-sources "" --tools "")
     else
       [ -f "$SKILLS_DIR/$SKILL/SKILL.md" ] || { echo "$c: skill '$SKILL' não está em $SKILLS_DIR"; exit 2; }
-      ARGS+=(--append-system-prompt-file "$SKILLS_DIR/$SKILL/SKILL.md" --tools Skill)
+      ARGS+=(--setting-sources project,local --append-system-prompt-file "$SKILLS_DIR/$SKILL/SKILL.md" --tools Skill)
     fi
     RESP=$(cd "$CWD" && printf '%s' "$PROMPT" | claude "${ARGS[@]}" 2>/dev/null)
     LETRA=$(printf '%s' "$RESP" | grep -oE 'ESCOLHA:[[:space:]]*[A-Z]' | tail -1 | grep -oE '[A-Z]$')

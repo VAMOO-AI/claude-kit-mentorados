@@ -38,7 +38,7 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 
 | Item | Só no time | Por quê |
 |---|---|---|
-| `hooks/rtk-claude.sh`, `rtk-codex.sh` + suítes | sim | O RTK é uma ferramenta que o time usa; mentorado não instala. |
+| `hooks/rtk-claude.sh`, `rtk-codex.sh`, `scripts/rtk-holdout.sh`, `docs/rtk-holdout.md` + suítes | sim | O RTK é uma ferramenta que o time usa; mentorado não instala. O holdout (grupo de controle da economia declarada pelo `rtk gain`) nasceu em 0.32.0 do time e não tem o que fazer aqui — sem o rtk instalado não há nem braço tratado nem ledger. |
 | `check-careful`: `db-query.sh`, `.env.1password`, cofre de tokens | sim | Regras de um fluxo que só existe no time — 25 dos 66 casos da suíte de lá. |
 | `hooks/check-dev-server.sh` | sim | Depende do fluxo de dev server + `claude-in-chrome` do time. |
 | `scripts/publicar-memoria.sh`, `memoria-link.sh` completo | parcial | Aqui a memória é ensinada pela skill `memoria-projeto`; lá há automação de publicação. |
@@ -89,6 +89,7 @@ pronto: a mesma família de relatório que mente.
 | Cenários de pressão + a seção do `--admin` na `ship` | 0.27.0 (05/09) | os números medidos são do time (`sonnet`); aqui os cenários são os mesmos, sem os nomes de pessoas |
 | `skills/skills-projeto` + `scripts/skills-projeto-scan.sh` + `hooks/warn-skills-projeto.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo problema medido (52 skills locais, ~9.030 chars), **quatro diferenças de propósito**: aqui o teto é 8 skills / 2.000 chars (menor); **não existe passo "gerar skill"** — iniciante gerando skill é a origem da casca, então a skill manda fazer na mão 3× e só depois `npx skills init`; o teste de pressão é nota, não gate; e o registro do porquê aceita `docs/skills.md` quando o projeto não tem `.context/`. O risco aqui é MAIOR: o mentorado dá `npx skills add` num bundle de dezenas e nunca liga o custo à conta. |
 | `skills/find-skills` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | só-slash nos dois (`disable-model-invocation: true`). Aqui em PT-BR e apontando para `skills-projeto`. A seção de procedência (SKILL.md de terceiro executa shell no load) nasceu neste porte e vale para os dois. |
+| `skill-pressure-test.sh` isolado do ambiente (`--setting-sources project,local` no `--com-skill`) + `tests/test-pressure-isolamento.sh` | 0.29.0 (06/09) | PR gêmeo no time na mesma sessão. Sem isolar, o GREEN herdava a máquina de quem rodava — lá as settings do Ruan, aqui as do mentorado, que ninguém revisou. Um cenário existente (`ship/cenario-01`) foi rodado 3× antes e 3× depois nos dois kits: 3/3 `C` nas quatro vezes, o isolamento não mexeu no resultado. |
 | `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
 
 ## Como usar
