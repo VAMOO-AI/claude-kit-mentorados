@@ -55,9 +55,10 @@ Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com 
 
 As três últimas linhas nasceram aqui em 06/09/2026 e o PR gêmeo do time ainda não tinha
 sido mergeado quando esta tabela foi escrita. Enquanto não for, `scripts/paridade.sh`
-mostra `test-skills-projeto.sh` e `test-skill-sem-injecao.sh` como **só aqui** — que é a
-verdade, e é por isso que as duas suítes entraram no `declare_pares()` em vez de ficarem
-fora do relatório. Quando o outro lado entrar, as linhas viram porte concluído como as
+mostra `test-skills-projeto.sh` e `test-skill-sem-injecao.sh` como **só aqui** contra o
+clone principal (onde nenhum dos arquivos existe ainda) — que é a verdade, e é por isso
+que as duas suítes entraram no `declare_pares()` em vez de ficarem fora do relatório.
+Apontando o `TEAM_REPO` para o worktree do PR gêmeo elas já comparam de verdade. Quando o outro lado entrar, as linhas viram porte concluído como as
 demais.
 
 A divisão em arquivos também não é a mesma: `test-skills-projeto.sh` é **um arquivo aqui e
