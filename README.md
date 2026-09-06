@@ -31,9 +31,9 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **19 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **21 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
-| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; roda lint a cada edição; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto e quando a sessão ficou longa demais para continuar barata. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; roda lint a cada edição; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/agents.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
@@ -46,9 +46,11 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
-> **Custo de contexto:** o plugin adiciona ~3,1k tokens a cada sessão (as
+> **Custo de contexto:** o plugin adiciona ~3,2k tokens a cada sessão (as
 > descrições das skills, que é como o Claude sabe quando usar cada uma). Skill
-> que você não usa pode ser desligada em `/plugin`.
+> que você não usa pode ser desligada em `/plugin`. A `find-skills` é só-slash:
+> só existe quando você a chama, então não entra nessa conta — é a mesma regra
+> que a skill `skills-projeto` ensina a aplicar nas skills do seu projeto.
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -56,7 +58,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 19. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 21. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -77,6 +79,8 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **setup** | `/kit-vamoo:setup` — instala o que o plugin não consegue (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o CLAUDE.md. Rode uma vez, depois de instalar. | nenhum |
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, só perde a visão de PR) |
 | **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
+| **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) e segura o `npx skills add` de um pacote com dezenas. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
+| **find-skills** | `/kit-vamoo:find-skills` — procura skill pronta no ecossistema aberto (`npx skills`, skills.sh) e verifica procedência antes de recomendar. Você chama; o Claude não aciona sozinho, então ela não pesa nas suas requests. | `npx` disponível |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
