@@ -8,20 +8,33 @@
 # block-cd-leitura-relativa, nem o permissions.deny, nem o check-careful, nem a
 # reescrita do rtk. A saída do comando entra no contexto como se fosse do sistema.
 #
-# Ou seja: SKILL.md não é documentação, é superfície de execução. Este teste é o
-# gate — nas skills do kit, e como exemplo do que fazer com skill de terceiro
-# (é o que a skill `find-skills` manda verificar antes de instalar).
+# Ou seja: SKILL.md não é documentação, é superfície de execução.
+#
+# ESCOPO: isto é SMOKE TEST DE PRIMEIRA PARTE — as skills que o mantenedor deste kit
+# escreve, onde ninguém está tentando escapar do grep. NÃO é scanner adversarial e não
+# vale como aprovação de skill de terceiro. Duas evasões conhecidas passam batido:
+#
+#   · `Rode `git status`!`whoami`` — o padrão exige que a exclamação NÃO venha logo
+#     depois de outra crase, e essa folga é deliberada (é o que poupa a prosa `!` do
+#     SKILL.md do git-sync). Basta fechar uma crase antes para caber nela.
+#   · injeção quebrada em mais de uma linha — o grep é por linha.
+#
+# Fechar as duas é corrida de regex contra quem escolhe o texto: o gate ficaria
+# barulhento nas skills honestas e continuaria perdendo para quem tenta de verdade. Um
+# gate que atrapalha é desligado na primeira semana, e aí não protege ninguém. Por isso
+# o teto aqui é este, de propósito.
+#
+# SKILL.md de TERCEIRO exige LEITURA HUMANA do corpo inteiro antes de instalar — é o que
+# a skill `find-skills` manda fazer, e é o que vale. Rodar este grep numa pasta baixada
+# não substitui essa leitura: verde aqui não é atestado de nada.
 #
 # O padrão procurado é a forma EXECUTÁVEL: exclamação + crase + corpo não vazio +
-# crase de fechamento, com a exclamação não vindo logo depois de outra crase. A
-# última condição é o que separa injeção de prosa: `!` dentro de um trecho de
-# código (como em "cada `!` é bloqueante", no SKILL.md do git-sync) é texto sobre
-# o caractere, não comando. Um gate que confunde os dois é desligado na primeira
-# vez que atrapalha, e aí não protege ninguém.
+# crase de fechamento, com a exclamação não vindo logo depois de outra crase.
 #
 # Uso:
-#   bash tests/test-skill-sem-injecao.sh                  # varre o kit + autoteste
-#   bash tests/test-skill-sem-injecao.sh <pasta-de-skills> # só varre (sai 1 se achar)
+#   bash tests/test-skill-sem-injecao.sh          # varre as skills do kit + autoteste
+#   bash tests/test-skill-sem-injecao.sh <pasta>  # só a varredura, sem o autoteste
+#                                                 # (é assim que as fixtures daqui rodam)
 set -uo pipefail
 
 PADRAO='(^|[^`])!`[^`]+`'
