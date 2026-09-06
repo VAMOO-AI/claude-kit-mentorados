@@ -60,6 +60,14 @@ verdade, e é por isso que as duas suítes entraram no `declare_pares()` em vez 
 fora do relatório. Quando o outro lado entrar, as linhas viram porte concluído como as
 demais.
 
+A divisão em arquivos também não é a mesma: `test-skills-projeto.sh` é **um arquivo aqui e
+dois lá** (`test-skills-projeto-scan.sh` + `test-warn-skills-projeto.sh`), porque lá o scan
+e o hook viraram suítes separadas. O `declare_pares()` aceita a lista separada por vírgula,
+o relatório rotula a linha como `(2 no time)` e compara contra a UNIÃO dos dois — e enquanto
+só um dos dois existir lá, a linha sai **porte do time pela metade** em vez de `ok`. Sem
+isso, um par resolvido por nome exato diria "só aqui" para sempre, mesmo depois do porte
+pronto: a mesma família de relatório que mente.
+
 | Item | Último porte | Nota |
 |---|---|---|
 | `block-main-commit.sh` | 0.25.0 (03/09) | inclui o parser de heredoc |
