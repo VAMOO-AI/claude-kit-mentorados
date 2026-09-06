@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.30.0|o secscan agora resume no terminal (1-2 achados por categoria) e mantém o relatório completo no arquivo — CRITICAL e HIGH nunca entram no corte
 0.29.0|o teste de pressão das skills passou a rodar isolado da sua máquina: o "passou" agora é da skill, não do seu CLAUDE.md
 0.28.0|o kit passou a te avisar quando ele mesmo muda (é esta mensagem) e a medir o que as skills do projeto custam
 0.27.0|quatro cenários de pressão para as skills; a skill ship aprendeu que --admin não é atalho pro verde

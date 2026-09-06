@@ -12,6 +12,37 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.30.0] — 2026-09-06
+
+### Alterado
+
+- **`skills/secscan`: o resumo no terminal encolhe, o relatório não.** Existe uma régua
+  anti-inflação que vale para quase todo relatório de agente — no máximo 1–2 recomendações
+  por categoria, categoria sem achado não vira seção, e a última linha diz o que ficou de
+  fora. Ela é boa, e **não** cabe inteira numa skill de segurança. A diferença não é de
+  gosto: é do que a saída **é**. Relatório de melhoria é conselho, vive no chat e é
+  descartável. Relatório de segurança é o arquivo que outro agente lê antes de corrigir —
+  achado que não está escrito nele some quando a sessão acaba. Cortar conselho custa
+  atenção; cortar achado esconde vulnerabilidade.
+  O que a nova seção da Fase 6 fixa:
+  - **Proibido no arquivo**: limitar a 1–2 achados por categoria (16 rotas sem checagem de
+    identidade são 16 no relatório) e pular categoria vazia (colide com *É proibido omitir
+    uma linha* — a linha vazia é o que separa `nenhum problema identificado` de
+    `não medido`; as 7 linhas saem sempre).
+  - **Vale, com o corte movido de lugar**: o cap é para o **resumo no terminal** —
+    checklist inteiro + 1–2 achados por categoria, fechando com `cortei N — os N estão
+    completos em <caminho>`. O excedente não sumiu; a linha de corte é um ponteiro.
+  - **`CRITICAL` e `HIGH` nunca entram no corte**, nem no terminal.
+  - **Agrupar não é cortar**: vinte hits da mesma classe viram um bloco com a contagem e
+    2–3 representantes `arquivo:linha`, não vinte blocos quase iguais.
+  O motivo de o cap ser a ferramenta errada aqui já estava medido na própria skill: **36%
+  de precisão** na calibração de 31/08. O que infla relatório de scanner é falso positivo,
+  não achado verdadeiro — teto de contagem sobre lista ruidosa sorteia qual achado real
+  sobrevive. Quem desinfla é triagem.
+  A lição genérica vai escrita na skill, porque vale além dela: **regra editorial boa num
+  lugar vira defeito no outro quando muda o que a saída é.** Espelhado no kit do time
+  (0.33.0), com os números da casa; ver `docs/paridade.md`.
+
 ## [0.29.0] — 2026-09-06
 
 ### Alterado
