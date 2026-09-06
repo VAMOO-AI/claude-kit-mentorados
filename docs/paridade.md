@@ -60,6 +60,7 @@ Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com 
 | Teto de 500 chars por description | 0.26.0 (05/09) | `tests/test-skill-descriptions.sh` nos dois |
 | `workflows/audit-multidim.js` | 0.26.0 (05/09) | citado pela skill `baseline` |
 | Indicador de sessão longa na barra de status | 0.26.1 (05/09) | mesma régua (600/1.200/2.000); a barra em si diverge — uma linha aqui, sete no time |
+| Cenários de pressão + a seção do `--admin` na `ship` | 0.27.0 (05/09) | os números medidos são do time (`sonnet`); aqui os cenários são os mesmos, sem os nomes de pessoas |
 
 ## Como usar
 

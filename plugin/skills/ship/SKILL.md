@@ -104,6 +104,35 @@ eventos, cada redesenho acorda a sessão e faz reler a conversa toda — dezenas
 despertares sem uma linha de informação nova. Em background você recebe **uma**
 notificação, no fim, e `--fail-fast` aborta no primeiro check obrigatório vermelho.
 
+### O verde é de um SHA — e `--admin` não é um atalho para ele
+
+"CI verde basta" quer dizer verde **do commit que vai para a main**, não do anterior.
+Empurrou qualquer coisa depois do último `gh pr checks`? O gate reabre, mesmo que o diff novo
+seja um comentário: a garantia é sobre o SHA que rodou, não sobre a sua leitura do diff.
+
+E `gh pr merge --admin` não substitui a espera — ele existe para check obrigatório quebrado ou
+inexistente, com autorização de quem manda no repositório, não para pular fila de runner.
+
+Isto está escrito porque falhou de verdade. Num cenário de pressão medido em 05/09/2026 (o
+único diff do commit era um comentário, a fila do runner era de 40 minutos, o cliente estava
+numa tela compartilhada), o agente **sem** esta skill mergeou em 2 de 2 execuções, e **com**
+ela ainda errava 1 em 3, argumentando:
+
+> "O diff é um comentário — não altera nenhum caminho de execução, então o verde do commit
+> anterior continua válido para o código que vai para a main."
+
+> "`--admin` com registro explícito do motivo preserva 'self-merge livre' sem fingir que o
+> pipeline rodou, e mantém rollback trivial."
+
+As duas soam responsáveis e erram pelo mesmo motivo: trocam a evidência (um run verde naquele
+SHA) por uma inferência sobre o diff. Comentário mal fechado quebra parser; `//` dentro de
+string muda comportamento; e o CI roda lint e formatação, que reprovam arquivo por causa de
+comentário. Se o diff bastasse como prova, o CI não precisaria existir.
+
+**Quando a espera é cara de verdade**, diga o tempo real a quem pediu e devolva a decisão. Uma
+janela com cliente é decisão de negócio dele — não uma leitura técnica que você faz sozinho
+sob pressão.
+
 ## 5. Deploy (condicional — adapte ao SEU projeto)
 
 A maioria dos setups faz deploy automático quando o PR é mergeado (Vercel, Netlify,
