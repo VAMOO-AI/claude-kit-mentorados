@@ -12,6 +12,29 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.27.0] — 2026-09-05
+
+### Adicionado
+
+- **Quatro cenários de pressão** (`tests/skills/{grilling,ship,memoria-projeto,orquestracao}/`),
+  fechando o corpus das skills de disciplina. Cada um traz no frontmatter o que foi **medido**.
+- **A skill `ship` ganha "o verde é de um SHA — e `--admin` não é um atalho para ele"**, nascida
+  de uma falha real do teste: no cenário do CI pendente (diff de um comentário, fila de 40
+  minutos, cliente numa tela compartilhada), o agente **sem** a skill mergeou em 2 de 2, e
+  **com** ela ainda errava 1 em 3, argumentando que *"`--admin` com registro explícito do motivo
+  preserva 'self-merge livre' sem fingir que o pipeline rodou"*. A skill não falava de `--admin`
+  — o buraco era real. Com a seção nova, 3 de 3.
+
+### Alterado
+
+- **`docs/testar-skills-sob-pressao.md` — "Estado em 2026-09-05"**, com o resultado que
+  contraria a premissa do próprio doc: em `sonnet`, os cenários antigos passam **sem** a skill,
+  e os quatro novos também passavam na primeira escrita. Ficam registrados os três erros que
+  causavam isso (o enunciado explicando o risco, a opção certa se anunciando pela linguagem, e
+  a pressão genérica em vez da regra do próprio usuário puxando para o lado errado) e o fato de
+  que **o gabarito também erra** — o cenário de `memoria-projeto` esperava "pare" quando a
+  skill manda sanitizar e seguir.
+
 ## [0.26.1] — 2026-09-05
 
 ### Adicionado
