@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # As versões do kit dizem todas a mesma coisa?
 #
-# São QUATRO lugares: plugin.json, plugin/scripts/kit-setup.sh, install.sh e o
-# topo do CHANGELOG. O CI já compara os três primeiros entre si; o que faltava é
-# o CHANGELOG e a detecção de versão repetida.
+# São CINCO lugares: plugin.json, plugin/scripts/kit-setup.sh, install.sh, o topo
+# do CHANGELOG e o topo do plugin/novidades.txt. O CI já compara os três
+# primeiros entre si; o que faltava é o CHANGELOG e a detecção de versão repetida.
+#
+# O quinto entrou junto com o aviso de novidades do SessionStart: bumpar e
+# esquecer a linha do novidades.txt não quebra nada visível — o aviso
+# simplesmente não conta a versão nova a ninguém, que é exatamente o silêncio
+# que ele existe para acabar.
 #
 # O modo silencioso de quebrar: dois PRs abertos ao mesmo tempo bumpam para a
 # MESMA versão. Quem mergeia depois não vê conflito — o git auto-mergeia linha
@@ -34,10 +39,14 @@ check() { # check <descrição> <ok|fail>
   else printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); fi
 }
 
+NOVIDADES="$RAIZ/plugin/novidades.txt"
 v_plugin=$(python3 -c "import json;print(json.load(open('$RAIZ/plugin/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
 v_setup=$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' "$RAIZ/plugin/scripts/kit-setup.sh")
 v_inst=$(awk -F'"' '/^KIT_VERSION=/{print $2; exit}' "$RAIZ/install.sh")
 topo=$(grep -m1 '^## \[' "$RAIZ/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
+# Primeira linha de dado do novidades.txt (comentário e linha vazia não contam),
+# campo antes do primeiro "|".
+topo_novidades=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next} {gsub(/[[:space:]]/,"",$1); print $1; exit}' "$NOVIDADES" 2>/dev/null)
 todas=$(grep '^## \[' "$RAIZ/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
 repetidas=$(printf '%s\n' "$todas" | sort | uniq -d)
 
@@ -51,6 +60,49 @@ if [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]; then
 else
   check "plugin.json ($v_plugin), kit-setup.sh ($v_setup) e install.sh ($v_inst) batem" fail
   echo "        → o kit-setup.sh mora em plugin/scripts/, não na raiz — é o que costuma ficar pra trás"
+fi
+
+if [ ! -f "$NOVIDADES" ]; then
+  check "plugin/novidades.txt existe" fail
+  echo "        → sem ele o aviso de novidades do SessionStart cala em toda sessão"
+elif [ "$v_plugin" = "$topo_novidades" ]; then
+  check "versão do plugin ($v_plugin) e topo do novidades.txt batem" ok
+else
+  check "versão do plugin ($v_plugin) e topo do novidades.txt ($topo_novidades) batem" fail
+  echo "        → o aviso do SessionStart só conta versão que está no novidades.txt:"
+  echo "          sem a linha, quem atualizar não fica sabendo que esta versão saiu"
+fi
+
+# Formato de cada linha do novidades.txt: <versão>|<resumo>[|setup]. A regra estava só
+# no cabeçalho do arquivo — e o arquivo é editado à mão a cada release. O hook lê com
+# `IFS='|' read -r v resumo flag`: um "|" dentro do resumo trunca o resumo E empurra o
+# resto para o 3º campo, então `2.0.0|resumo com | pipe no meio|setup` vira flag
+# " pipe no meio|setup", que não é "setup" — a linha do /kit-vamoo:setup some sem erro
+# nenhum, num aviso que existe justamente para acabar com silêncio.
+if [ -f "$NOVIDADES" ]; then
+  # Mesmo predicado de "linha que não é dado" do topo_novidades acima: dois extratores
+  # discordando do que é comentário é a deriva que este teste existe para não ter.
+  campos=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next}
+    NF < 2 || NF > 3 { printf "linha %d: %d campo(s) — %s\n", NR, NF, $0 }' "$NOVIDADES")
+  if [ -z "$campos" ]; then
+    check "toda linha do novidades.txt tem 2 ou 3 campos (| não vale dentro do resumo)" ok
+  else
+    check "toda linha do novidades.txt tem 2 ou 3 campos (| não vale dentro do resumo)" fail
+    printf '%s\n' "$campos" | sed 's/^/        → /'
+    echo "        → o hook lê com IFS='|' read -r v resumo flag: um | a mais trunca o"
+    echo "          resumo e empurra o resto pro 3º campo — a flag setup morre calada"
+  fi
+
+  flag_torta=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next}
+    NF == 3 { f = $3; gsub(/[[:space:]]/, "", f)
+              if (f != "setup") printf "linha %d: 3º campo \"%s\"\n", NR, f }' "$NOVIDADES")
+  if [ -z "$flag_torta" ]; then
+    check "3º campo, quando existe, é exatamente \"setup\"" ok
+  else
+    check "3º campo, quando existe, é exatamente \"setup\"" fail
+    printf '%s\n' "$flag_torta" | sed 's/^/        → /'
+    echo "        → o hook compara com = setup: qualquer outra coisa é ignorada em silêncio"
+  fi
 fi
 
 if [ "$v_plugin" = "$topo" ]; then

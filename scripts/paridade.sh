@@ -35,17 +35,80 @@ if [ ! -d "$TEAM" ]; then
   exit 2
 fi
 
-# casos <arquivo>: uma linha por caso testado (a descrição entre aspas do check/ok),
-# normalizada — sem acento de prefixo de skill nem o `vamoo-` que só existe no time.
+# casos <arquivo>: uma linha por caso testado (a descrição do check/ok), normalizada —
+# sem o prefixo `vamoo-` das skills, que só existe no time.
+#
+# O extrator precisa estar ANCORADO no início da linha. A versão anterior era
+# `grep -oE '(check|ok|...)[^"]*"[^"]+"'`, que casava qualquer linha de shell com a
+# substring "ok"/"check" seguida de aspas — e o relatório passou a acusar 47 casos
+# "sem par" chamados ` ]; then bash \`, `"$c"` e `" de "`. Relatório que mente assim
+# ninguém lê, e ele existe justamente para a divergência entre os kits não voltar a 100%.
+#
+# Onde fica a descrição depende do helper, e as duas famílias existem nos dois repos:
+#   check "descrição" ...            check bloqueia "descrição" "comando"
+#   check 'regex-esperado' "descrição" "$OUT"        → a 1ª entre ASPAS DUPLAS
+#   espera_rc 0 "$rc" "descrição"    contem "$arq" "agulha" "descrição"  → a ÚLTIMA
+# Argumento que é valor (`"$rc"`, `"$(...)"`) ou não tem letra nenhuma não é descrição:
+# pula para o próximo candidato em vez de derrubar o caso.
 casos() {
   [ -f "$1" ] || return 0
-  grep -oE '(check|ok|espera_rc|contem|nao_contem)[^"]*"[^"]+"' "$1" 2>/dev/null \
-    | sed -E 's/.*"([^"]+)"$/\1/' \
+  awk '
+    function aceita(s) {
+      if (s == "") return 0
+      if (s ~ /^\$/) return 0        # "$rc", "$OUT": valor, não descrição
+      if (s ~ /\$\(/) return 0       # "$(...)": comando
+      if (s !~ /[A-Za-z]/) return 0  # "0", "]; then": fragmento de shell
+      return 1
+    }
+    function descricao(linha, qual,   n, p, i, ultimo) {
+      n = split(linha, p, "\"")      # conteúdo entre aspas duplas = campos pares
+      ultimo = ""
+      for (i = 2; i <= n - 1; i += 2) {
+        if (!aceita(p[i])) continue
+        if (qual == "primeiro") return p[i]
+        ultimo = p[i]
+      }
+      return (qual == "primeiro") ? "" : ultimo
+    }
+    # A linha que DEFINE o helper não é caso — e ela cita o próprio nome.
+    /^[[:space:]]*[A-Za-z_][A-Za-z_0-9]*\(\)/ { next }
+    {
+      # Começo de comando: início da linha, ou depois de ";" / "&&" / "||" — há suíte
+      # que escreve `linhas 700; check "" "700 linhas: faixa 600" "$(run s1)"`. E só
+      # contam os argumentos DEPOIS do helper: senão uma linha como
+      # `grep -qF "# gatilho: $g" ... && ok "..."` doaria o texto do grep como caso.
+      if (match($0, /(^|;|&&|\|\|)[[:space:]]*(check|ok)[[:space:]]+/)) {
+        d = descricao(substr($0, RSTART + RLENGTH), "primeiro")
+        if (d != "") print d
+        next
+      }
+      if (match($0, /(^|;|&&|\|\|)[[:space:]]*(espera_rc|contem|nao_contem)[[:space:]]+/)) {
+        d = descricao(substr($0, RSTART + RLENGTH), "ultimo")
+        if (d != "") print d
+        next
+      }
+    }
+  ' "$1" 2>/dev/null \
     | sed -E 's/vamoo-//g; s/plugin\///g; s/[[:space:]]+/ /g' \
     | sort -u
 }
 
-# par <teste-daqui> <teste-do-time>
+# casos_lote <arquivo>... — a união dos casos de VÁRIOS arquivos, numa ordem só.
+# `casos` já sai ordenado, mas concatenar dois arquivos ordenados devolve duas corridas
+# ordenadas, não um fluxo ordenado — e o `comm` lá embaixo aceita isso calado e responde
+# lixo. Por isso o `sort -u` final.
+casos_lote() {
+  local f
+  for f in "$@"; do casos "$f"; done | sort -u
+}
+
+# par <teste-daqui> <teste(s)-do-time>
+# O lado do time aceita MAIS DE UM arquivo, separados por vírgula: a divisão em arquivos
+# não é a mesma dos dois lados. Aqui `test-skills-projeto.sh` cobre o scan e o hook num
+# arquivo só; lá são `test-skills-projeto-scan.sh` e `test-warn-skills-projeto.sh`. Com o
+# par resolvido por nome EXATO, declarar `test-skills-projeto.sh|test-skills-projeto.sh`
+# imprimia "só aqui" para sempre — inclusive DEPOIS do porte pronto, que é o mesmo
+# relatório-que-mente que o extrator ancorado acabou de consertar.
 declare_pares() {
   cat <<'PARES'
 test-block-cd-leitura-relativa.sh|test-block-cd-leitura-relativa.sh
@@ -67,26 +130,51 @@ test-pre-bash.sh|test-pre-bash.sh
 test-pre-prompt.sh|test-pre-prompt.sh
 test-session-size-guard.sh|test-session-size-guard.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh
+test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
+test-skills-projeto.sh|test-skills-projeto-scan.sh,test-warn-skills-projeto.sh
 test-warn-branch-behind.sh|test-warn-branch-behind.sh
 test-worktree-gc.sh|test-worktree-gc.sh
 PARES
 }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-ausentes=0; divergentes=0
+ausentes=0; divergentes=0; ilegiveis=0
 printf '%-38s %5s %5s  %s\n' "suíte" "aqui" "time" "cobertura"
 while IFS='|' read -r meu dele; do
   [ -n "$meu" ] || continue
-  a="$RAIZ/tests/$meu"; b="$TEAM/tests/$dele"
-  if [ ! -f "$a" ] && [ ! -f "$b" ]; then continue; fi
-  if [ ! -f "$a" ]; then printf '%-38s %5s %5s  SÓ NO TIME — suíte inteira sem par\n' "$meu" "-" "$(casos "$b" | wc -l | tr -d ' ')"; ausentes=$((ausentes+1)); continue; fi
-  if [ ! -f "$b" ]; then printf '%-38s %5s %5s  só aqui\n' "$meu" "$(casos "$a" | wc -l | tr -d ' ')" "-"; continue; fi
-  casos "$a" > "$TMP/a"; casos "$b" > "$TMP/b"
+  [ -n "$dele" ] || continue
+  a="$RAIZ/tests/$meu"
+  IFS=',' read -r -a nomes_time <<< "$dele"
+  bs=(); faltam_la=(); tem_la=0
+  for d in "${nomes_time[@]}"; do
+    bs+=("$TEAM/tests/$d")
+    if [ -f "$TEAM/tests/$d" ]; then tem_la=$((tem_la+1)); else faltam_la+=("$d"); fi
+  done
+  # Sem o rótulo, `37 42 ok` não deixa ver que o lado direito são dois arquivos.
+  rotulo="$meu"; [ "${#bs[@]}" -gt 1 ] && rotulo="$meu (${#bs[@]} no time)"
+  if [ ! -f "$a" ] && [ "$tem_la" -eq 0 ]; then continue; fi
+  if [ ! -f "$a" ]; then printf '%-38s %5s %5s  SÓ NO TIME — suíte inteira sem par\n' "$rotulo" "-" "$(casos_lote "${bs[@]}" | wc -l | tr -d ' ')"; ausentes=$((ausentes+1)); continue; fi
+  if [ "$tem_la" -eq 0 ]; then printf '%-38s %5s %5s  só aqui\n' "$rotulo" "$(casos "$a" | wc -l | tr -d ' ')" "-"; continue; fi
+  # Meia união é a mesma mentira de antes com outra cara: comparar contra a metade que
+  # chegou imprimiria "ok" escondendo o arquivo que ainda falta lá.
+  if [ "$tem_la" -ne "${#bs[@]}" ]; then
+    printf '%-38s %5s %5s  porte do time PELA METADE — falta(m) lá: %s\n' \
+      "$rotulo" "$(casos "$a" | wc -l | tr -d ' ')" "$(casos_lote "${bs[@]}" | wc -l | tr -d ' ')" "${faltam_la[*]}"
+    divergentes=$((divergentes+1)); continue
+  fi
+  casos "$a" > "$TMP/a"; casos_lote "${bs[@]}" > "$TMP/b"
   na=$(wc -l < "$TMP/a" | tr -d ' '); nb=$(wc -l < "$TMP/b" | tr -d ' ')
+  # Suíte que não usa check/ok (só printf, como a de descriptions) não tem caso para
+  # extrair. Isso é diferente de suíte em dia, e no formato antigo saía como "0 0 ok" —
+  # indistinguível de uma que regrediu a zero caso.
+  if [ "$na" -eq 0 ] && [ "$nb" -eq 0 ]; then
+    printf '%-38s %5s %5s  sem casos legíveis (não usa check/ok — nada a comparar)\n' "$rotulo" 0 0
+    ilegiveis=$((ilegiveis+1)); continue
+  fi
   faltando=$(comm -13 "$TMP/a" "$TMP/b" | wc -l | tr -d ' ')
-  if [ "$faltando" -eq 0 ]; then printf '%-38s %5s %5s  ok\n' "$meu" "$na" "$nb"
+  if [ "$faltando" -eq 0 ]; then printf '%-38s %5s %5s  ok\n' "$rotulo" "$na" "$nb"
   else
-    printf '%-38s %5s %5s  %s caso(s) do time sem par textual\n' "$meu" "$na" "$nb" "$faltando"
+    printf '%-38s %5s %5s  %s caso(s) do time sem par textual\n' "$rotulo" "$na" "$nb" "$faltando"
     if [ "$DETALHE" -eq 1 ]; then comm -13 "$TMP/a" "$TMP/b" | sed 's/^/      · /'
     else comm -13 "$TMP/a" "$TMP/b" | head -5 | sed 's/^/      · /'
          [ "$faltando" -gt 5 ] && printf '      … e mais %s (--detalhe)\n' "$((faltando - 5))"; fi
@@ -95,6 +183,7 @@ while IFS='|' read -r meu dele; do
 done < <(declare_pares)
 
 echo
+[ "$ilegiveis" -gt 0 ] && echo "$ilegiveis suíte(s) sem caso legível — a comparação de cobertura não alcança essas."
 if [ "$ausentes" -eq 0 ] && [ "$divergentes" -eq 0 ]; then
   echo "cobertura em dia com o kit do time."
 else

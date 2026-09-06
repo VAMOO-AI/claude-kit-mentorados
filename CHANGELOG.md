@@ -12,6 +12,44 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.28.0] — 2026-09-06
+
+### Adicionado
+
+- **O kit avisa quando ele mesmo muda** (`plugin/scripts/warn-kit-updated.sh` +
+  `plugin/novidades.txt`, no `SessionStart`). Com o auto-update ligado o plugin se troca
+  sozinho e o único sinal é o indicador dentro do `/plugin` — que ninguém abre. Agora a
+  sessão abre dizendo o que entrou desde a última vez, em até três linhas, na voz de quem
+  usa. Cala na primeira instalação e no rollback. Quando a atualização está baixada mas não
+  aplicada, manda rodar `/reload-plugins` — uma vez, não a cada `/clear`.
+- **Skill `skills-projeto`** + `scripts/skills-projeto-scan.sh` + `hooks/warn-skills-projeto.sh`:
+  quanto as skills de `.claude/skills` cobram em **toda request**, mesmo sem disparar. A
+  medição que originou isto: 52 skills locais em quatro repositórios de cliente somando
+  ~9.030 chars de description (~2.257 tokens por request). O teto aqui é 8 skills / 2.000
+  chars, e o scan reprova o que cobra sem servir — `name` diferente da pasta (não roteia) e
+  SKILL.md de corpo vazio. **Não há passo "gerar skill"**: a regra é fazer na mão três vezes
+  primeiro.
+- **Skill `find-skills`** (só-slash, `/kit-vamoo:find-skills`): procurar e instalar skill de
+  terceiro pelo `npx skills`, com verificação de procedência antes de recomendar.
+- **`tests/test-skill-sem-injecao.sh`**: nenhuma skill do kit executa shell só de ser
+  carregada. Exclamação seguida de crase no corpo de um SKILL.md **roda o comando no
+  carregamento e escapa de toda a cadeia de `PreToolUse`** (confirmado em 05/09/2026). É o
+  motivo de a `find-skills` mandar ler o SKILL.md antes de aceitar qualquer skill de fora.
+
+### Alterado
+
+- **`tests/test-versao-changelog.sh` agora confere cinco lugares**, não quatro: entrou o topo
+  do `plugin/novidades.txt`. Bumpar e esquecer a linha não quebra nada visível — o aviso
+  simplesmente não conta a versão nova a ninguém.
+- **`scripts/paridade.sh` parou de inventar caso.** O extrator casava qualquer linha de shell
+  com a substring ok/check seguida de aspas, e o relatório acusava 47 casos "sem par" chamados
+  `" ]; then bash \"` e `"$c"`, enquanto uma suíte sem `check` aparecia como `0 0 ok` —
+  indistinguível de uma que tivesse regredido a zero. Agora a leitura é ancorada em começo de
+  comando e só olha os argumentos depois do helper; suíte sem casos legíveis sai rotulada.
+- **`docs/paridade.md`**: o aviso de novidades é registrado como divergência **deliberada**
+  (o kit do time instala por `update.sh`, sem plugin e sem auto-update), e `skills-projeto`,
+  `find-skills` e o gate de injeção entram como espelhados, com as diferenças de público.
+
 ## [0.27.0] — 2026-09-05
 
 ### Adicionado
