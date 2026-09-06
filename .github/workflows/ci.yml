@@ -139,6 +139,9 @@ jobs:
       - name: Nenhuma description passa de 500 chars e o name bate com a pasta
         run: bash tests/test-skill-descriptions.sh
 
+      - name: O scan de skills do projeto reprova casca e o hook fala uma vez por mudança
+        run: bash tests/test-skills-projeto.sh
+
       - name: O índice de memória em dois níveis respeita cap e ordem sem perder linha
         run: bash tests/test-memoria-indice.sh
 
