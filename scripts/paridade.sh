@@ -115,6 +115,8 @@ test-pre-bash.sh|test-pre-bash.sh
 test-pre-prompt.sh|test-pre-prompt.sh
 test-session-size-guard.sh|test-session-size-guard.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh
+test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
+test-skills-projeto.sh|test-skills-projeto.sh
 test-warn-branch-behind.sh|test-warn-branch-behind.sh
 test-worktree-gc.sh|test-worktree-gc.sh
 PARES

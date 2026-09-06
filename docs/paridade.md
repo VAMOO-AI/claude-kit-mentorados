@@ -53,6 +53,13 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com o link do PR.
 É a regra que o `path-rules.conf` injeta ao tocar em qualquer um dos dois repositórios.
 
+As três últimas linhas nasceram aqui em 06/09/2026 e o PR gêmeo do time ainda não tinha
+sido mergeado quando esta tabela foi escrita. Enquanto não for, `scripts/paridade.sh`
+mostra `test-skills-projeto.sh` e `test-skill-sem-injecao.sh` como **só aqui** — que é a
+verdade, e é por isso que as duas suítes entraram no `declare_pares()` em vez de ficarem
+fora do relatório. Quando o outro lado entrar, as linhas viram porte concluído como as
+demais.
+
 | Item | Último porte | Nota |
 |---|---|---|
 | `block-main-commit.sh` | 0.25.0 (03/09) | inclui o parser de heredoc |
@@ -71,9 +78,9 @@ Mudou um destes de um lado? O outro entra na mesma sessão — PR, ou issue com 
 | `workflows/audit-multidim.js` | 0.26.0 (05/09) | citado pela skill `baseline` |
 | Indicador de sessão longa na barra de status | 0.26.1 (05/09) | mesma régua (600/1.200/2.000); a barra em si diverge — uma linha aqui, sete no time |
 | Cenários de pressão + a seção do `--admin` na `ship` | 0.27.0 (05/09) | os números medidos são do time (`sonnet`); aqui os cenários são os mesmos, sem os nomes de pessoas |
-| `skills/skills-projeto` + `scripts/skills-projeto-scan.sh` + `hooks/warn-skills-projeto.sh` | 0.28.0 (06/09) | mesmo problema medido (52 skills locais, ~9.030 chars), **quatro diferenças de propósito**: aqui o teto é 8 skills / 2.000 chars (menor); **não existe passo "gerar skill"** — iniciante gerando skill é a origem da casca, então a skill manda fazer na mão 3× e só depois `npx skills init`; o teste de pressão é nota, não gate; e o registro do porquê aceita `docs/skills.md` quando o projeto não tem `.context/`. O risco aqui é MAIOR: o mentorado dá `npx skills add` num bundle de dezenas e nunca liga o custo à conta. |
-| `skills/find-skills` | 0.28.0 (06/09) | só-slash nos dois (`disable-model-invocation: true`). Aqui em PT-BR e apontando para `skills-projeto`. A seção de procedência (SKILL.md de terceiro executa shell no load) nasceu neste porte e vale para os dois. |
-| `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
+| `skills/skills-projeto` + `scripts/skills-projeto-scan.sh` + `hooks/warn-skills-projeto.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo problema medido (52 skills locais, ~9.030 chars), **quatro diferenças de propósito**: aqui o teto é 8 skills / 2.000 chars (menor); **não existe passo "gerar skill"** — iniciante gerando skill é a origem da casca, então a skill manda fazer na mão 3× e só depois `npx skills init`; o teste de pressão é nota, não gate; e o registro do porquê aceita `docs/skills.md` quando o projeto não tem `.context/`. O risco aqui é MAIOR: o mentorado dá `npx skills add` num bundle de dezenas e nunca liga o custo à conta. |
+| `skills/find-skills` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | só-slash nos dois (`disable-model-invocation: true`). Aqui em PT-BR e apontando para `skills-projeto`. A seção de procedência (SKILL.md de terceiro executa shell no load) nasceu neste porte e vale para os dois. |
+| `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
 
 ## Como usar
 
