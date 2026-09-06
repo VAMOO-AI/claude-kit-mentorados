@@ -90,6 +90,9 @@ jobs:
       - name: O warn-branch-behind faz fetch uma vez a cada 10 min por repo+branch
         run: bash tests/test-warn-branch-behind.sh
 
+      - name: O aviso de novidades conta as versões certas e não repete o pedido de reload
+        run: bash tests/test-warn-kit-updated.sh
+
       - name: Leitura relativa depois de cd é bloqueada, e comando legítimo não
         run: bash tests/test-block-cd-leitura-relativa.sh
 
