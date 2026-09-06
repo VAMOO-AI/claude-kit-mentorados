@@ -73,6 +73,38 @@ else
   echo "          sem a linha, quem atualizar não fica sabendo que esta versão saiu"
 fi
 
+# Formato de cada linha do novidades.txt: <versão>|<resumo>[|setup]. A regra estava só
+# no cabeçalho do arquivo — e o arquivo é editado à mão a cada release. O hook lê com
+# `IFS='|' read -r v resumo flag`: um "|" dentro do resumo trunca o resumo E empurra o
+# resto para o 3º campo, então `2.0.0|resumo com | pipe no meio|setup` vira flag
+# " pipe no meio|setup", que não é "setup" — a linha do /kit-vamoo:setup some sem erro
+# nenhum, num aviso que existe justamente para acabar com silêncio.
+if [ -f "$NOVIDADES" ]; then
+  # Mesmo predicado de "linha que não é dado" do topo_novidades acima: dois extratores
+  # discordando do que é comentário é a deriva que este teste existe para não ter.
+  campos=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next}
+    NF < 2 || NF > 3 { printf "linha %d: %d campo(s) — %s\n", NR, NF, $0 }' "$NOVIDADES")
+  if [ -z "$campos" ]; then
+    check "toda linha do novidades.txt tem 2 ou 3 campos (| não vale dentro do resumo)" ok
+  else
+    check "toda linha do novidades.txt tem 2 ou 3 campos (| não vale dentro do resumo)" fail
+    printf '%s\n' "$campos" | sed 's/^/        → /'
+    echo "        → o hook lê com IFS='|' read -r v resumo flag: um | a mais trunca o"
+    echo "          resumo e empurra o resto pro 3º campo — a flag setup morre calada"
+  fi
+
+  flag_torta=$(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next}
+    NF == 3 { f = $3; gsub(/[[:space:]]/, "", f)
+              if (f != "setup") printf "linha %d: 3º campo \"%s\"\n", NR, f }' "$NOVIDADES")
+  if [ -z "$flag_torta" ]; then
+    check "3º campo, quando existe, é exatamente \"setup\"" ok
+  else
+    check "3º campo, quando existe, é exatamente \"setup\"" fail
+    printf '%s\n' "$flag_torta" | sed 's/^/        → /'
+    echo "        → o hook compara com = setup: qualquer outra coisa é ignorada em silêncio"
+  fi
+fi
+
 if [ "$v_plugin" = "$topo" ]; then
   check "versão do plugin ($v_plugin) e topo do CHANGELOG batem" ok
 else

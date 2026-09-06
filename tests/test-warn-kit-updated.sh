@@ -78,6 +78,27 @@ reset; semeia 1.3.0; saida="$(roda)"
 check "sem menção ao setup quando nenhuma versão pede" \
   "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
 
+echo "== resumo com | no meio: o 3º campo some, e com ele a linha do setup =="
+# Comportamento REAL, não desejado. `IFS='|' read -r v resumo flag` trunca o resumo no
+# primeiro "|" e joga o resto no `flag`, que deixa de ser "setup" — a versão pede o
+# /kit-vamoo:setup e ninguém fica sabendo. O hook não tem como distinguir separador de
+# texto, então quem impede a linha torta de chegar ao release é o gate de formato do
+# tests/test-versao-changelog.sh (2 ou 3 campos por linha). Este caso é a prova de que
+# a linha torta custa a flag — se um dia ele ficar verde ao contrário, o gate de lá
+# deixou de ser necessário e alguém mexeu no parser.
+MAL="$TMP/malformado"; mkdir -p "$MAL/.claude-plugin"
+cp "$ROOT/.claude-plugin/plugin.json" "$MAL/.claude-plugin/"
+cat > "$MAL/novidades.txt" <<'FIM'
+1.4.0|resumo com | pipe no meio|setup
+1.3.0|a terceira coisa
+FIM
+reset; semeia 1.3.0; saida="$(roda "" "$MAL")"
+check "1 bullet mesmo com a linha torta"  "$([ "$(bullets "$saida")" = 1 ] && echo ok || echo fail)"
+check "a flag setup é engolida pelo | do resumo (por isso existe o gate de formato)" \
+  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+check "o resumo sai truncado no primeiro |" \
+  "$(printf '%s' "$saida" | grep -q 'pipe no meio' && echo fail || echo ok)"
+
 echo "== mentorado muito atrás: corta em 3 e diz quantas pulou =="
 reset; semeia 1.0.0; saida="$(roda)"
 check "cabeçalho diz 4 versões"         "$(printf '%s' "$saida" | grep -q '(4 versões — as 3 mais recentes' && echo ok || echo fail)"

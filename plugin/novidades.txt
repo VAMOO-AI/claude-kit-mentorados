@@ -3,6 +3,8 @@
 #   <versão>|<resumo numa frase, voz do mentorado>[|setup]     ("|" não vale dentro do resumo)
 # O 3º campo `setup` marca versão que mexeu no CLAUDE.md global, na barra de status
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
+# O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
+# linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 0.28.0|o kit passou a te avisar quando ele mesmo muda (é esta mensagem) e a medir o que as skills do projeto custam
 0.27.0|quatro cenários de pressão para as skills; a skill ship aprendeu que --admin não é atalho pro verde
 0.26.1|a barra de status mostra o tamanho da sessão (ses:1.3k /compact) pra você saber a hora de dar /clear|setup

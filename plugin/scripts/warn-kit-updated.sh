@@ -15,7 +15,9 @@
 # O 3º campo `setup` marca a versão que mexeu no que vem do /kit-vamoo:setup
 # (CLAUDE.md global, barra de status, preferências) — o plugin sozinho não entrega
 # essas coisas, então a linha final manda rodar o setup. O `|` é separador: não pode
-# aparecer dentro do resumo (o último campo engole tudo que vier depois do 2º `|`).
+# aparecer dentro do resumo (o último campo engole tudo que vier depois do 2º `|`, e
+# com ele a flag `setup`). O parser não tem como distinguir separador de texto — quem
+# reprova a linha torta é o gate de formato do tests/test-versao-changelog.sh.
 #
 # Estado: ~/.claude/.cache/kit-vamoo/versao-avisada. Fora do diretório do plugin
 # de propósito — ~/.claude/plugins/cache/<market>/<plugin>/<versão>/ muda de nome a
