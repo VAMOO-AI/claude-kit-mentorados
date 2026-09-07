@@ -30,6 +30,22 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   variação do mesmo erro. Para `gh workflow run` o substituto não é óbvio (dispara o
   workflow, depois pega o `databaseId` do run para observar), então ele vai por extenso.
 
+- **Um teste adversarial contra o próprio hook achou mais quatro furos da mesma família.**
+  Vale como método, não só como correção: depois de escrever um guard-rail, ataque-o —
+  29 agentes geraram casos, um verificador independente tentou refutar cada um, e **6 de 24
+  sobreviveram** (os outros 18 eram opinião ou caso de laboratório). O que passou:
+  - `gh -R o/r pr checks --watch` — qualquer flag entre o binário e o subcomando desligava
+    **todas** as regras de `gh` de uma vez.
+  - `/opt/homebrew/bin/gh run watch` — a fronteira do regex tratava `/` como letra, então
+    chamar o comando pelo caminho completo escapava do hook.
+  - `npx vercel@latest deploy --prod` — o `@` da versão quebrava o match e desligava o ramo
+    `vercel` inteiro.
+  - Poll de `api.vercel.com/vN/deployments` com `curl` — esperar deploy sem usar a CLI.
+- **Uma correção foi recusada de propósito, e o motivo está escrito no hook:** heurística por
+  nome de arquivo para pegar um wrapper (`/tmp/espera-ci.sh`). Ela pegaria o `deploy.sh` de
+  quem só quer ver log e não pegaria um wrapper de nome neutro — regra que erra dos dois
+  lados é pior que a ausência dela. Guard-rail tem limite; escreva qual é.
+
   A lição que fica é sobre *regra em prosa versus executor*: a instrução "nunca use `Monitor`
   para esperar CI" estava escrita em maiúsculas num CLAUDE.md desde julho e foi violada 122
   vezes antes de virar hook. Aviso passivo não muda o que o agente faz; recusa com saída
