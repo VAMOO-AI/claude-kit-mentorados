@@ -12,6 +12,30 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.30.1] — 2026-09-06
+
+### Corrigido
+
+- **O hook que impede o agente de esperar CI dentro do `Monitor` tinha um buraco: `gh
+  workflow`.** O `Monitor` serve para stream contínuo — uma linha por evento, como
+  `tail -f`. Esperar o resultado *único* de um CI ou de um deploy é outra coisa, e dentro do
+  `Monitor` costuma morrer no timeout; o certo é `Bash` com `run_in_background`. O hook já
+  barrava `gh pr checks`, `gh run watch/view/list`, `vercel deploy` e `supabase functions
+  deploy` — mas deixava passar `gh workflow run deploy.yml`, que é a mesma espera com outro
+  nome, e `gh run rerun --watch`, que escapava porque `rerun` não estava na lista.
+- **A mensagem de bloqueio agora traz o substituto do caso novo.** Essa é a parte que faz o
+  hook funcionar, e vale como padrão para qualquer guard-rail que você escrever: **bloquear
+  sem devolver o comando pronto não muda comportamento nenhum.** O agente relê a mensagem do
+  bloqueio e usa o que estiver escrito nela — se lá não houver alternativa, ele tenta uma
+  variação do mesmo erro. Para `gh workflow run` o substituto não é óbvio (dispara o
+  workflow, depois pega o `databaseId` do run para observar), então ele vai por extenso.
+
+  A lição que fica é sobre *regra em prosa versus executor*: a instrução "nunca use `Monitor`
+  para esperar CI" estava escrita em maiúsculas num CLAUDE.md desde julho e foi violada 122
+  vezes antes de virar hook. Aviso passivo não muda o que o agente faz; recusa com saída
+  pronta, sim. E vale conferir a **borda** do executor que você escreveu: aqui a regra estava
+  certa e o regex é que cobria só parte da família de comandos.
+
 ## [0.30.0] — 2026-09-06
 
 ### Alterado

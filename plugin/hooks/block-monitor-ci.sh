@@ -8,6 +8,9 @@
 # — quase sempre um `gh pr checks` que morre no timeout. A regra existia em prosa e era
 # furada; o bloqueio devolve o comando certo pronto, que é o que o agente relê e usa.
 #
+# 06/09/2026: `gh workflow run/view/list` e `gh run rerun` passavam batido — é a mesma espera
+# com outro nome (dispara o workflow, fica olhando). Entraram no mesmo regex.
+#
 # Escotilha: MONITOR_CI_OK=1 no próprio comando. Lê o JSON via node (como os demais hooks
 # do plugin). Falha-aberta: sem node, sem o helper ou sem comando, sai 0.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
@@ -19,7 +22,7 @@ c="$(cat | node "$H" tool_input.command)"
 case "$c" in *MONITOR_CI_OK=1*) exit 0 ;; esac
 
 ci=0
-printf '%s' "$c" | grep -qE '(^|[^[:alnum:]_./-])gh[[:space:]]+(pr[[:space:]]+checks|run[[:space:]]+(watch|view|list))' && ci=1
+printf '%s' "$c" | grep -qE '(^|[^[:alnum:]_./-])gh[[:space:]]+(pr[[:space:]]+checks|run[[:space:]]+(watch|view|list|rerun)|workflow[[:space:]]+(run|view|list))' && ci=1
 printf '%s' "$c" | grep -qE '(^|[^[:alnum:]_./-])gh[[:space:]]+api[[:space:]]+[^;|&]*(check-runs|/status|/deployments|/runs)' && ci=1
 if printf '%s' "$c" | grep -qE '(^|[^[:alnum:]_./-])(npx[[:space:]]+)?vercel([[:space:]]|$)'; then
   printf '%s' "$c" | grep -qE '(^|[[:space:]])(deploy|inspect|ls|list|logs|--prod|--wait)([[:space:]]|$)' && ci=1
@@ -27,5 +30,5 @@ fi
 printf '%s' "$c" | grep -qE '(^|[^[:alnum:]_./-])supabase[[:space:]]+functions[[:space:]]+deploy' && ci=1
 [ "$ci" -eq 1 ] || exit 0
 
-echo "BLOQUEADO pelo hook: Monitor esperando CI/deploy. Monitor é para stream de UMA linha por evento (tail -f | grep --line-buffered, inotifywait); espera de CI/deploy é Bash com run_in_background, que devolve uma notificação só quando termina: 'gh pr checks <n> --watch --fail-fast > /tmp/ci.log 2>&1' · 'gh run watch <id> --exit-status > /tmp/deploy.log 2>&1' · 'vercel ... > /tmp/vercel.log 2>&1'. Precisa mesmo do Monitor aqui? Prefixe o comando com MONITOR_CI_OK=1." >&2
+echo "BLOQUEADO pelo hook: Monitor esperando CI/deploy. Monitor é para stream de UMA linha por evento (tail -f | grep --line-buffered, inotifywait); espera de CI/deploy é Bash com run_in_background, que devolve uma notificação só quando termina: 'gh pr checks <n> --watch --fail-fast > /tmp/ci.log 2>&1' · 'gh run watch <id> --exit-status > /tmp/deploy.log 2>&1' · 'gh workflow run <arquivo.yml> && gh run watch \$(gh run list -w <arquivo.yml> -L1 --json databaseId --jq .[0].databaseId) --exit-status > /tmp/deploy.log 2>&1' · 'vercel ... > /tmp/vercel.log 2>&1'. Precisa mesmo do Monitor aqui? Prefixe o comando com MONITOR_CI_OK=1." >&2
 exit 2
