@@ -3,6 +3,7 @@
 [![CI](https://github.com/VAMOO-AI/claude-kit-mentorados/actions/workflows/ci.yml/badge.svg)](https://github.com/VAMOO-AI/claude-kit-mentorados/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/VAMOO-AI/claude-kit-mentorados)](https://github.com/VAMOO-AI/claude-kit-mentorados/releases)
+[![skills.sh](https://www.skills.sh/b/VAMOO-AI/claude-kit-mentorados)](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados)
 
 Cada merge que sobe a `version` do `plugin/.claude-plugin/plugin.json` vira tag e release
 no GitHub automaticamente — o badge acima mostra a versão publicada.
@@ -159,6 +160,27 @@ bash install.sh            # ou --dry-run pra ver o que ele faria
 ```
 
 Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
+
+### Só as skills, em outro agente (skills.sh)
+
+As 21 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
+
+```bash
+npx skills add VAMOO-AI/claude-kit-mentorados -l        # lista sem instalar
+npx skills add VAMOO-AI/claude-kit-mentorados -g        # instala global
+```
+
+**Isto não substitui a instalação acima.** Esse caminho entrega **só as skills** — ficam de
+fora os hooks (o guard-rail que bloqueia commit na `main`, o lint a cada edição, os avisos de
+branch e de sessão), o `CLAUDE.md` global, a barra de status, as permissões e o MCP. É a via
+para quem quer as skills **em outro agente**, ou quer levar uma skill isolada; para ter o kit
+inteiro, use o `/plugin install` + `/kit-vamoo:setup`.
+
+Antes de instalar skill de terceiro por esse caminho — inclusive as nossas — vale a régua de
+procedência da skill `find-skills`: `SKILL.md` é execução de código, não documentação; leia
+antes. A CLI do skills.sh tem telemetria própria, e o `settings.json` do kit já exporta
+`DISABLE_TELEMETRY=1` e `DO_NOT_TRACK=1` para a sessão.
 
 ### Confira se deu certo
 
