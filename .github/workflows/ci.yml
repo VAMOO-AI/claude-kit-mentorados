@@ -28,7 +28,8 @@ jobs:
                    plugin/.claude-plugin/plugin.json \
                    plugin/hooks/hooks.json \
                    plugin/.mcp.json \
-                   plugin/templates/settings.json; do
+                   plugin/templates/settings.json \
+                   skills.sh.json; do
             python3 -m json.tool "$f" > /dev/null && echo "ok $f"
           done
 
@@ -258,6 +259,13 @@ jobs:
             fi
           done
           exit $fail
+
+      - name: O catálogo do skills.sh cobre exatamente as skills que existem
+        # skills.sh.json agrupa as skills na página pública do repo, e as duas falhas
+        # possíveis são silenciosas: skill nova sem grupo cai no fim da página (o kit
+        # anuncia 21 e o catálogo mostra 20 mais uma órfã), e slug de skill renomeada
+        # some sem erro nenhum. Nada disso quebra a instalação — por isso é teste.
+        run: bash tests/test-skills-sh-catalogo.sh
 
       - name: Secrets (gitleaks)
         run: |

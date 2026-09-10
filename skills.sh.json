@@ -1,0 +1,47 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Comece por aqui",
+      "description": "Termina a instalação: escreve o CLAUDE.md global, liga a barra de status e mescla as preferências — as partes que um plugin não instala sozinho.",
+      "skills": ["setup"]
+    },
+    {
+      "title": "Como o Claude trabalha",
+      "description": "O método, não a ferramenta: fechar o plano antes de codar, verificar antes de dizer pronto, trabalhar em paralelo sem uma sessão atrapalhar a outra e entregar com portão.",
+      "skills": [
+        "verificacao",
+        "grilling",
+        "grill-me",
+        "grill-with-docs",
+        "ship",
+        "orquestracao",
+        "worktrees",
+        "git-sync",
+        "handoff"
+      ]
+    },
+    {
+      "title": "Segurança e produção",
+      "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares e guard-rails de agente de IA que fala com pessoa real.",
+      "skills": ["secscan", "auditoria-seguranca", "baseline", "guardrails-ia"]
+    },
+    {
+      "title": "Contexto e custo",
+      "description": "Onde seu token está indo e como o que o projeto aprendeu sobrevive à troca de máquina, de sessão e de ferramenta.",
+      "skills": [
+        "memoria-projeto",
+        "harness-check",
+        "skills-projeto",
+        "find-skills",
+        "find-docs"
+      ]
+    },
+    {
+      "title": "Construir coisas específicas",
+      "description": "Receitas que vão do zero ao que está no ar, com a verificação de que subiu de verdade.",
+      "skills": ["bot-discord", "diretor-imagem"]
+    }
+  ]
+}
