@@ -12,6 +12,20 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.30.2] — 2026-09-10
+
+### Corrigido
+
+- **`memoria-link.sh`: o README do formato deixou de nascer dentro dos worktrees.**
+  `--repo <clone>` liga o clone e todos os worktrees vivos dele, e a condição que autoriza
+  escrever o README (`--adotar` ou `--repo`) valia igual para os dois. Rodar o script nos 13
+  projetos com memória de uma máquina em 10/09/2026 espalhou 7 arquivos novos não commitados
+  em branches de feature — o tipo de arquivo que entra no PR errado e depois volta duplicado
+  quando o clone publicar o dele. O README é do clone; o worktree continua ligado (o symlink
+  é o que dá destino à memória de uma sessão isolada) e recebe o arquivo pelo git, junto com
+  o resto da branch. Caso novo em `tests/test-memoria-link.sh` — clone + worktree, nenhum dos
+  dois com README — falha sem a correção.
+
 ## [0.30.1] — 2026-09-06
 
 ### Corrigido

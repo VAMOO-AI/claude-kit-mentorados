@@ -58,6 +58,9 @@ mkdir -p "$PROJ/$(slug "$D")"; printf '{"cwd":"%s"}\n' "$D" > "$PROJ/$(slug "$D"
 # E: 'memory' é symlink para pasta que não existe (worktree/projeto apagado)
 E="$HOME/WORKSPACES/proj-e"; mkdir -p "$E"; git -C "$E" init -q
 mkdir -p "$PROJ/$(slug "$E")"; ln -s "$TMP/nao-existe/memoria" "$PROJ/$(slug "$E")/memory"
+# G: clone com worktree vivo, os dois com .context/memoria e nenhum README
+G="$HOME/WORKSPACES/proj-g"; mkdir -p "$G/.context/memoria"; git -C "$G" init -q
+GW="$G/.claude/worktrees/feat-x"; mkdir -p "$GW/.context/memoria"
 
 echo "== varredura --adotar --dry-run: ninguém some calado =="
 OUT="$(run --adotar --dry-run)"
@@ -74,6 +77,12 @@ existe existe "$C/.context/memoria/README.md"             "README.md existe em p
 grep -q '^# Memória do projeto' "$C/.context/memoria/README.md" && printf '  ok    README tem o formato do fato\n' || { printf '  FALHA README sem o cabeçalho esperado\n'; falhas=$((falhas+1)); }
 check 'commite: git add .context/memoria'                 "diz como publicar (sem script que o kit não tem)"                   "$OUT"
 existe existe "$C/.context/memoria/c1.md"                 "fato da máquina migrou para o repositório"
+
+echo "== --repo liga o worktree, mas o README do formato é só do clone =="
+OUT="$(run --repo "$G")"
+existe existe "$G/.context/memoria/README.md"             "clone proj-g ganhou o README"
+existe nao "$GW/.context/memoria/README.md"               "worktree NÃO ganhou README (nasceria untracked numa branch de feature)"
+[ -L "$PROJ/$(slug "$GW")/memory" ] && printf '  ok    worktree ligado mesmo sem README\n' || { printf '  FALHA worktree de proj-g não foi ligado\n'; falhas=$((falhas+1)); }
 
 echo "== varredura automática: liga, conta, mas não escreve README em repo alheio =="
 OUT="$(run)"
