@@ -257,7 +257,7 @@ adotar() {
 }
 
 ligar() {
-  local repo="$1" mem dir slug backup base n
+  local repo="$1" tipo="${2:-clone}" mem dir slug backup base n
   mem="$repo/.context/memoria"
   [ -d "$mem" ] || return 0
   README_NOVO=0   # global: sem zerar, o segundo repo da varredura herda o do primeiro
@@ -265,7 +265,13 @@ ligar() {
   # Escrever o README é intenção explícita (--adotar / --repo). Na varredura que o
   # `kit-setup` dispara sozinho, só conta: ninguém quer 14 repositórios de cliente
   # com arquivo novo não commitado depois de um comando que era só de sincronizar.
-  if [ ! -e "$mem/README.md" ]; then
+  #
+  # E mesmo pedido, o README é do CLONE. Escrito dentro de um worktree ele nasce como
+  # arquivo novo numa branch de feature: alguém commita no PR errado, e o mesmo texto
+  # volta de novo quando o clone publicar o dele. Um `--repo <clone>` em 13 projetos
+  # em 10/09/2026 espalhou 7 desses. O worktree recebe o arquivo pelo git, junto com
+  # o resto da branch.
+  if [ ! -e "$mem/README.md" ] && [ "$tipo" = clone ]; then
     if [ "$ADOTAR" -eq 1 ] || [ -n "$ALVO" ]; then
       escrever_readme "$mem"
     else
@@ -348,7 +354,7 @@ ligar_worktrees() {
     [ -d "$wt" ] || continue
     wt="${wt%/}"
     [ -d "$wt/.context/memoria" ] || continue
-    ligar "$wt"
+    ligar "$wt" worktree
   done
 }
 
