@@ -44,6 +44,13 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
+- **O setup liga o auto-update do kit** (`extraKnownMarketplaces.vamoo-ai.autoUpdate`).
+  É o que faz o kit parar de envelhecer na máquina de quem instalou: o Claude
+  Code desliga a atualização automática de marketplace de terceiro por padrão, e
+  o botão que liga isso vive no `/plugin`, um painel que **não existe no
+  aplicativo de desktop**. Declarado no `settings.json`, vale nos dois — e a
+  fonte do marketplace que a pessoa já tinha não é trocada. Quem desligou de
+  propósito (`autoUpdate: false`) continua desligado, com aviso na saída.
 
 ## 2. Preencha o CLAUDE.md com os dados da pessoa
 
@@ -66,7 +73,14 @@ pra ajustar depois — o arquivo é dela.
 ```bash
 claude plugin list | grep -A2 kit-vamoo     # deve aparecer enabled
 ls ~/.claude/CLAUDE.md ~/.claude/statusline-command.sh
+node -e 'const s=require(require("os").homedir()+"/.claude/settings.json");
+console.log("auto-update:", s.extraKnownMarketplaces?.["vamoo-ai"]?.autoUpdate)'
 ```
+
+A última linha deve dizer `auto-update: true`. Ela é o que garante que a pessoa
+não fique presa na versão de hoje — **o Claude Code só sincroniza essa flag para
+o `known_marketplaces.json` quando uma sessão nova começa**, então ela só passa a
+valer depois do reinício do passo seguinte.
 
 **Diga pra pessoa reiniciar o Claude Code** — e diga que é pra tudo, não só pra
 barra. A sessão que está aberta começou com o `settings.json` antigo: idioma,

@@ -5,6 +5,15 @@
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
   },
+  "extraKnownMarketplaces": {
+    "vamoo-ai": {
+      "source": {
+        "source": "github",
+        "repo": "VAMOO-AI/claude-kit-mentorados"
+      },
+      "autoUpdate": true
+    }
+  },
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [

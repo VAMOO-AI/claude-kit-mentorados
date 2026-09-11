@@ -1,16 +1,58 @@
 # Changelog
 
 Mudanças notáveis do kit. Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/).
-Mentorado: atualizar **não é automático** — o Claude Code desliga o auto-update para
-marketplaces de terceiros. Ligue uma vez em `/plugin` → Marketplaces → vamoo-ai →
-Enable auto-update (e depois só `/reload-plugins`), ou atualize na mão com
-`/plugin marketplace update vamoo-ai` + `/plugin update kit-vamoo` + `/reload-plugins`.
-Veja **Atualizar depois** no README — inclusive o que o auto-update NÃO cobre.
+Mentorado: **desde a 0.31.0 o `/kit-vamoo:setup` liga o auto-update para você** — ele
+declara `extraKnownMarketplaces.vamoo-ai.autoUpdate: true` no seu `settings.json`, o que
+funciona também no aplicativo de desktop (onde o painel `/plugin` não existe). Instalou
+antes disso? Rode o setup uma vez. Para aplicar uma atualização na sessão aberta:
+`/reload-plugins`. Veja **Atualizar depois** no README — inclusive o que o auto-update
+NÃO cobre.
 
 Mantenedor: **suba o `version` do `plugin.json` em toda entrega.** Ele é a chave do
 cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update ligado.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
+
+## [0.31.0] — 2026-09-10
+
+### Adicionado
+
+- **O `/kit-vamoo:setup` liga o auto-update do kit** (`plugin/templates/settings.json`):
+  `extraKnownMarketplaces.vamoo-ai.autoUpdate: true`. O Claude Code desliga a atualização
+  automática de marketplace de terceiro por padrão, e o único jeito documentado de ligar
+  era o painel `/plugin` → Marketplaces → Enable auto-update — **um painel que não existe
+  no aplicativo de desktop**. Quem usa o app, que é a maior parte de quem está começando,
+  não tinha caminho nenhum: ficava na versão do dia da instalação para sempre.
+
+  O que o `settings.json` resolve e o painel não: a flag declarada em arquivo é
+  sincronizada para o `known_marketplaces.json` no início de **toda** sessão — medido
+  numa config isolada (`CLAUDE_CONFIG_DIR`) em 10/09/2026, a chave apareceu depois do
+  primeiro start, antes mesmo de haver login. E há um efeito colateral bem-vindo: quando
+  a flag vem das settings, o próprio painel passa a recusar alterá-la (*"is set by … and
+  can't be changed here"*), então ninguém desliga sem querer.
+
+### Corrigido
+
+- **`merge-settings.js`: `extraKnownMarketplaces` passou a ser mesclado por marketplace.**
+  Sem isto, o item acima não chegaria em ninguém que já tem o kit — e esse é o conserto de
+  verdade. A regra da casa é "a sua chave ganha, o kit só preenche o que falta", e o
+  `/plugin marketplace add` **escreve `extraKnownMarketplaces` no settings de quem
+  instala**: a chave já existe em toda máquina com o kit, então o bloco inteiro do kit era
+  descartado em silêncio. Agora o merge desce um nível:
+  - marketplace que você não tem entra inteiro (fonte + `autoUpdate`);
+  - marketplace que você já tem **mantém a sua fonte** — quem instalou de um clone local
+    (`source: directory`) continua apontando para o clone;
+  - `autoUpdate` só é preenchido quando está ausente. Quem pôs `false` de propósito
+    continua em `false`, e a saída diz que manteve a escolha em vez de religar.
+
+  Quatro casos novos em `tests/test-merge-settings.sh`, três deles falhando contra a
+  0.30.2 — inclusive o principal, "auto-update do kit é ligado em quem já tinha o
+  marketplace".
+
+  A lição, que vale para qualquer merge de configuração: **"o seu ganha" é a regra certa
+  no nível da chave e a regra errada dentro dela.** Uma chave que o próprio fluxo de
+  instalação escreve nunca está ausente — e, para ela, "o kit só preenche o que falta"
+  quer dizer "o kit nunca preenche nada".
 
 ## [0.30.2] — 2026-09-10
 
