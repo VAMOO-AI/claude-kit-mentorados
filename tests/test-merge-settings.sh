@@ -23,6 +23,12 @@ cat > "$TMP/kit.json" <<'JSON'
 {
   "language": "portuguese",
   "theme": "dark",
+  "extraKnownMarketplaces": {
+    "vamoo-ai": {
+      "source": { "source": "github", "repo": "VAMOO-AI/claude-kit-mentorados" },
+      "autoUpdate": true
+    }
+  },
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": ["Bash(ls:*)", "Bash(npm run:*)", "Bash(git status:*)"],
@@ -33,10 +39,23 @@ JSON
 
 # Como fica a máquina de quem instalou o kit meses atrás: modo antigo, poucas
 # permissões, nenhum deny, e uma preferência própria que não pode sumir.
+#
+# O `extraKnownMarketplaces` aqui não é invenção do teste: é o que o próprio
+# `/plugin marketplace add` escreve no settings.json de quem instalou. Ele é a
+# razão de o merge não poder ser tudo-ou-nada nessa chave — a chave JÁ existe,
+# então "o seu ganha" significava que o autoUpdate do kit nunca chegava.
 cat > "$TMP/meu.json" <<'JSON'
 {
   "theme": "light",
   "statusLine": { "type": "command", "command": "meu-script.sh" },
+  "extraKnownMarketplaces": {
+    "vamoo-ai": {
+      "source": { "source": "directory", "path": "/Users/eu/dev/claude-kit-mentorados" }
+    },
+    "marketplace-do-meu-time": {
+      "source": { "source": "github", "repo": "meu-time/plugins" }
+    }
+  },
   "permissions": {
     "defaultMode": "default",
     "allow": ["Bash(ls:*)", "Bash(meu-script:*)"]
@@ -70,6 +89,52 @@ check "sua permissão própria continua na lista" \
   "'Bash(meu-script:*)' in d['permissions']['allow']" "true"
 check "seu modo de permissão NÃO é trocado pelo do kit" \
   "d['permissions']['defaultMode']" '"default"'
+
+echo "== o kit precisa se manter atualizado sozinho =="
+check "auto-update do kit é ligado em quem já tinha o marketplace" \
+  "d['extraKnownMarketplaces']['vamoo-ai'].get('autoUpdate')" "true"
+check "a fonte que você já tinha NÃO é trocada pela do kit" \
+  "d['extraKnownMarketplaces']['vamoo-ai']['source']['source']" '"directory"'
+check "marketplace de outro time continua no arquivo" \
+  "'marketplace-do-meu-time' in d['extraKnownMarketplaces']" "true"
+printf '%s' "$SAIDA" | grep -q 'extraKnownMarketplaces.vamoo-ai.autoUpdate' \
+  && echo "  ok    a saída nomeia o auto-update que ligou" \
+  || { echo "  FALHA a saída não nomeia o auto-update: $SAIDA"; falhas=$((falhas+1)); }
+
+echo "== quem desligou o auto-update de propósito não é religado =="
+cat > "$TMP/desligado.json" <<'JSON'
+{
+  "extraKnownMarketplaces": {
+    "vamoo-ai": {
+      "source": { "source": "github", "repo": "VAMOO-AI/claude-kit-mentorados" },
+      "autoUpdate": false
+    }
+  }
+}
+JSON
+SAIDA_OFF="$(node "$MERGE" "$TMP/kit.json" "$TMP/desligado.json" 2>&1)"
+python3 -c "
+import json,sys
+d=json.load(open('$TMP/desligado.json',encoding='utf-8'))
+sys.exit(0 if d['extraKnownMarketplaces']['vamoo-ai']['autoUpdate'] is False else 1)
+" 2>/dev/null \
+  && echo "  ok    autoUpdate:false continua false" \
+  || { echo "  FALHA o kit religou um auto-update que a pessoa desligou"; falhas=$((falhas+1)); }
+printf '%s' "$SAIDA_OFF" | grep -qi 'auto-update' \
+  && echo "  ok    avisa que manteve a escolha da pessoa" \
+  || { echo "  FALHA não avisou sobre o auto-update desligado: $SAIDA_OFF"; falhas=$((falhas+1)); }
+
+echo "== quem nunca teve marketplace nenhum ganha o bloco inteiro =="
+echo '{}' > "$TMP/zerado.json"
+node "$MERGE" "$TMP/kit.json" "$TMP/zerado.json" >/dev/null 2>&1
+python3 -c "
+import json,sys
+d=json.load(open('$TMP/zerado.json',encoding='utf-8'))
+m=d.get('extraKnownMarketplaces',{}).get('vamoo-ai',{})
+sys.exit(0 if m.get('autoUpdate') is True and m.get('source',{}).get('repo')=='VAMOO-AI/claude-kit-mentorados' else 1)
+" 2>/dev/null \
+  && echo "  ok    fonte e auto-update chegam juntos" \
+  || { echo "  FALHA settings zerado não recebeu o marketplace do kit"; falhas=$((falhas+1)); }
 
 echo "== o instalador precisa dizer o que fez =="
 printf '%s' "$SAIDA" | grep -q 'permissions.deny (+2)' \

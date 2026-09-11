@@ -193,25 +193,45 @@ E a barra de status aparece no rodapé depois de reiniciar. Pronto. 🎉
 
 ### Atualizar depois
 
-**Atualização não é automática por padrão.** O Claude Code desliga o auto-update para
-marketplaces de terceiros — e este kit é um deles. Enquanto ninguém rodar nada, você
-continua na versão que instalou, mesmo com versão nova publicada.
+**A partir da 0.31.0 o `/kit-vamoo:setup` liga o auto-update para você** — não há mais
+passo manual. Ele declara isto no seu `~/.claude/settings.json`:
 
-Você escolhe entre os dois caminhos abaixo. O primeiro é o recomendado: liga uma vez e
-acabou.
-
-**Ligar o auto-update (uma vez, recomendado)**
-
+```json
+"extraKnownMarketplaces": {
+  "vamoo-ai": {
+    "source": { "source": "github", "repo": "VAMOO-AI/claude-kit-mentorados" },
+    "autoUpdate": true
+  }
+}
 ```
-/plugin
-```
 
-Vá em **Marketplaces → vamoo-ai → Enable auto-update**. A partir daí o kit se atualiza
-sozinho e você só precisa aplicar as mudanças na sessão aberta:
+O Claude Code sincroniza essa flag no início de cada sessão. A partir daí toda versão
+nova chega sozinha; para aplicar na sessão que já está aberta:
 
 ```
 /reload-plugins
 ```
+
+**Por que por arquivo e não pelo menu.** O botão `Enable auto-update` vive no painel
+`/plugin`, que só existe no Claude Code de **terminal** — quem usa o aplicativo de
+desktop nunca teve como ligar, e era justamente quem mais ficava para trás. Declarado
+no `settings.json`, vale nos dois. Efeito colateral bem-vindo: quando a flag vem das
+settings, o painel `/plugin` passa a recusar alterá-la (*"is set by … and can't be
+changed here"*), então ninguém desliga por engano.
+
+Conferir se pegou:
+
+```bash
+node -e 'const s=require(require("os").homedir()+"/.claude/settings.json");
+console.log("auto-update:", s.extraKnownMarketplaces?.["vamoo-ai"]?.autoUpdate)'
+```
+
+Prefere controlar quando atualiza? Ponha `"autoUpdate": false` nessa mesma chave — o
+setup respeita a sua escolha e avisa que manteve, em vez de religar.
+
+**Instalou o kit antes da 0.31.0?** Rode `/kit-vamoo:setup` uma vez: o `/plugin
+marketplace add` já tinha escrito `extraKnownMarketplaces` no seu settings, e até a
+0.30.2 o merge tratava a chave como "a sua ganha" — então a flag nunca chegava.
 
 **Atualizar na mão (quando quiser)**
 
@@ -225,15 +245,16 @@ O primeiro comando re-lê o catálogo do repositório (é o que descobre que exi
 nova); o segundo baixa; o terceiro aplica sem precisar reiniciar. Se o `/reload-plugins`
 avisar sobre cache de prompt, rode `/reload-plugins --force`.
 
-#### Duas coisas que o auto-update **não** faz
+#### O que o auto-update **não** faz
 
-1. **Não atualiza o que veio do `/kit-vamoo:setup`.** O `CLAUDE.md` global, a barra de
-   status e as preferências não são parte do plugin — um plugin não consegue declarar
-   essas chaves. Depois de uma atualização grande, rode `/kit-vamoo:setup` de novo. Ele
-   **não sobrescreve** o seu `CLAUDE.md`: deixa o modelo novo em `~/.claude/CLAUDE.kit.md`
-   para você comparar. Regra nova do kit fica parada ali até alguém olhar.
-2. **Não te avisa em voz alta.** O indicador de versão nova aparece dentro do `/plugin`.
-   Se você nunca abre esse menu, não vê.
+**Não atualiza o que veio do `/kit-vamoo:setup`.** O `CLAUDE.md` global, a barra de
+status e as preferências não são parte do plugin — um plugin não consegue declarar
+essas chaves. Depois de uma atualização grande, rode `/kit-vamoo:setup` de novo. Ele
+**não sobrescreve** o seu `CLAUDE.md`: deixa o modelo novo em `~/.claude/CLAUDE.kit.md`
+para você comparar. Regra nova do kit fica parada ali até alguém olhar.
+
+Quando isso for necessário, você fica sabendo: o aviso de novidades do `SessionStart`
+(0.28.0) marca a versão que mexeu nessas três coisas e manda rodar o setup.
 
 #### Se você mantém o kit (não é o caso do mentorado)
 

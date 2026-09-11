@@ -11,11 +11,20 @@
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
 //   • allow, deny e ask são UNIÃO: o kit acrescenta e nunca tira o que é seu;
 //   • defaultMode é preferência sua: o kit só define se você nunca escolheu, e
-//     avisa (sem mexer) quando o seu é diferente do recomendado.
+//     avisa (sem mexer) quando o seu é diferente do recomendado;
+//   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
+//     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta.
 //
 // Perder um `deny` é abrir buraco de segurança — por isso ele entra na união em
 // vez de ficar de fora, que era o caso até 0.8.0: quem já tinha o kit instalado
 // nunca recebia barreira nova.
+//
+// O caso do `extraKnownMarketplaces` é o mesmo defeito com outra cara, achado em
+// 10/09/2026: o `/plugin marketplace add` escreve essa chave no settings de quem
+// instala, então ela JÁ existe em toda máquina com o kit — e "o seu ganha"
+// significava que o `autoUpdate: true` nunca chegava em ninguém. O kit ficava
+// parado na versão do dia da instalação, que é justamente o que ele não deve
+// fazer.
 const fs = require('fs');
 const [, , kitPath, userPath] = process.argv;
 if (!kitPath || !userPath) {
@@ -35,8 +44,29 @@ if (fs.existsSync(userPath)) {
 
 const novas = [];
 for (const [k, v] of Object.entries(kit)) {
-  if (k === 'permissions') continue;
+  if (k === 'permissions' || k === 'extraKnownMarketplaces') continue;
   if (user[k] === undefined) { user[k] = v; novas.push(k); }
+}
+
+const kitMarkets = kit.extraKnownMarketplaces || {};
+if (Object.keys(kitMarkets).length) {
+  user.extraKnownMarketplaces = user.extraKnownMarketplaces || {};
+  for (const [nome, entradaKit] of Object.entries(kitMarkets)) {
+    const meu = user.extraKnownMarketplaces[nome];
+    if (!meu) {
+      user.extraKnownMarketplaces[nome] = entradaKit;
+      novas.push(`extraKnownMarketplaces.${nome}`);
+      continue;
+    }
+    if (entradaKit.autoUpdate === undefined) continue;
+    if (meu.autoUpdate === undefined) {
+      meu.autoUpdate = entradaKit.autoUpdate;
+      novas.push(`extraKnownMarketplaces.${nome}.autoUpdate (${entradaKit.autoUpdate})`);
+    } else if (meu.autoUpdate !== entradaKit.autoUpdate) {
+      console.log(`  o auto-update do marketplace "${nome}" está como ${meu.autoUpdate} no seu settings — mantive o seu.`);
+      console.log(`  pra ligar: mude autoUpdate para true em extraKnownMarketplaces.${nome} no ~/.claude/settings.json`);
+    }
+  }
 }
 
 const kitPerms = kit.permissions || {};
