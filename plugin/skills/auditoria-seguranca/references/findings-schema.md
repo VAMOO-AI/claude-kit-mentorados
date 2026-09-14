@@ -22,6 +22,13 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
       "nota": "Projeto sem frontend e sem HTML gerado no servidor." }
   ],
 
+  "ferramentas": [
+    { "nome": "gitleaks", "versao": "8.18.4", "estado": "executado",
+      "escopo": "HEAD + 412 commits" },
+    { "nome": "trivy", "versao": "—", "estado": "nao_instalado",
+      "nota": "imagem do projeto não foi varrida" }
+  ],
+
   "cobertura": [
     { "categoria": "A3", "estado": "medido", "medido": "34/34 handlers percorridos, não amostra" }
   ],
@@ -39,6 +46,9 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
 
   "achados": [
     { "id": "F1", "categoria": "A1", "severidade": "critica",
+      "evidencia": "lido", "confianca": 0.85,
+      "fonte": "leitura de api/routes/reports.ts:88-96 e do middleware de auth",
+      "status": "aberto",
       "titulo": "Relatório de vendas agrega todas as organizações",
       "arquivo": "api/routes/reports.ts", "linhas": "88-96",
       "trecho": "where: { createdAt: { gte: from, lte: to } },   // sem organizationId",
@@ -67,6 +77,50 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
 
 - **`severidade`**: `critica` · `alta` · `media` · `baixa` · `informativa`. Sem
   acento e sem maiúscula — a cor e o rótulo do chip saem daí.
+- **`evidencia`**: como o achado foi obtido. Default `padrao` — quem não declarou
+  não confirmou.
+
+  | valor | significa | confiança base | teto |
+  |---|---|---|---|
+  | `padrao` | grep/ferramenta casou, ninguém abriu o arquivo | 0,45 | **0,60** |
+  | `lido` | arquivo aberto, caminho conferido linha a linha | 0,70 | 0,85 |
+  | `corroborado` | segunda fonte **independente** confirma (outra ferramenta, ou requisição real) | 0,90 | 1,00 |
+
+- **`confianca`**: 0,0–1,0, opcional. **O teto do nível de evidência sempre vence**
+  a declaração: `padrao` com `"confianca": 0.95` sai 0,60 no relatório. Convicção
+  não é evidência — inclusive (e principalmente) a do modelo que escreveu o JSON.
+- **`corroborado` não é autodeclaração.** Só marque com uma segunda fonte que
+  exista fora da sua leitura, e nomeie-a em `fonte`. Um modelo dizendo "confirmei"
+  continua sendo fonte única.
+- **`fonte`**: uma frase dizendo de onde veio a evidência. Obrigatória na prática
+  para `corroborado`, útil sempre.
+- **`status`**: `aberto` (default) · `corrigido` · `falso_positivo` ·
+  `risco_aceito` · `aceito_por_design`. Os quatro últimos saem do cálculo do
+  veredito e aparecem com selo na tabela. Valor desconhecido em `evidencia` ou
+  `status` **aborta** o gerador em vez de virar default em silêncio.
+- **`redacao: false`**: desliga a máscara automática de segredo naquele `trecho`.
+  Use só quando o valor literal **é** a evidência — default público versionado,
+  por exemplo. Por padrão o gerador mascara chave, JWT, token e atribuição de
+  segredo antes de escrever o PDF e a issue.
+- **`ferramentas[]`**: o que rodou e o que não rodou. `estado` é `executado` ·
+  `nao_aplicavel` · `nao_instalado` · `falhou`. Os dois últimos imprimem um aviso
+  de superfície não medida no relatório — ausência de achado onde nada rodou não
+  é evidência de nada, e é assim que uma auditoria "limpa" engana quem lê.
+
+## Veredito
+
+Derivado, nunca escrito à mão. Sai na capa e abre o resumo executivo:
+
+| Condição (achado acionável) | Veredito |
+|---|---|
+| `critica` com confiança ≥ 0,50 | **BLOQUEADO** |
+| `alta` `corroborado`, ou confiança ≥ 0,70 | **BLOQUEADO** |
+| `critica` com confiança < 0,50 | **REVISAR** |
+| `alta` restante, ou qualquer `media` | **REVISAR** |
+| só `baixa`/`informativa`, ou nada acionável | **LIBERADO** |
+
+Crítica não confirmada nunca sai LIBERADO: confiança baixa é motivo para ir
+confirmar, não para dar o assunto por encerrado.
 - **`aplicavel: false`** imprime a categoria com o motivo em vez de "nenhum
   achado". Use sempre que a stack não tiver a superfície; nunca deixe a
   categoria de fora do array.

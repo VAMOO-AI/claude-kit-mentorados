@@ -73,6 +73,87 @@ else
   ok "JSON incompleto é recusado"
 fi
 
+# 7. o veredito é derivado dos achados e aparece no relatório e na saída do comando.
+#    O exemplo tem uma crítica lida com confiança 0,85 -> BLOQUEADO.
+grep -q 'BLOQUEADO' "$TMP/log.txt" && ok "veredito impresso no stdout" \
+  || falha "gerador não imprimiu o veredito"
+grep -q 'Veredito da auditoria' "$HTML" && grep -qi '>Bloqueado<' "$HTML" \
+  && ok "veredito no resumo executivo" || falha "bloco de veredito ausente do HTML"
+
+# 8. o teto de confiança do nível de evidência vence a declaração. Este é o
+#    invariante central: convicção declarada não promove evidência fraca.
+gerar_variante() {  # $1=script python  $2=nome
+  python3 - "$SKILL/references/exemplo-findings.json" "$TMP/$2.json" <<PY
+import json, sys
+d = json.load(open(sys.argv[1]))
+$1
+json.dump(d, open(sys.argv[2], "w"))
+PY
+  python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/$2.json" --out "$TMP/$2.pdf" \
+    --html-only > "$TMP/$2.log" 2>&1
+}
+
+gerar_variante 'for a in d["achados"]:
+    a["evidencia"], a["confianca"] = "padrao", 0.99' teto
+if grep -q '>0,99<' "$TMP/teto.html"; then
+  falha "confiança declarada furou o teto do nível de evidência"
+else
+  grep -q '>0,60<' "$TMP/teto.html" && ok "teto de confiança do nível aplicado (0,99 -> 0,60)" \
+    || falha "teto não aplicado: 0,60 não apareceu na tabela"
+fi
+
+# 9. sem confiança declarada, 'padrao' vale 0,45: abaixo do limiar da crítica.
+#    O veredito não bloqueia (não há leitura que sustente) e também não libera --
+#    crítica não confirmada é motivo para ir confirmar, não para encerrar.
+gerar_variante 'for a in d["achados"]:
+    a["evidencia"] = "padrao"
+    a.pop("confianca", None)' naoconf
+grep -q 'REVISAR' "$TMP/naoconf.log" && ok "crítica não confirmada vai para REVISAR" \
+  || falha "crítica só com padrão não deveria bloquear nem liberar"
+grep -q 'LIBERADO' "$TMP/naoconf.log" && falha "crítica não confirmada saiu LIBERADO" \
+  || ok "crítica não confirmada não é liberada"
+
+# 10. achado não acionável sai do cálculo, mas continua visível com selo
+gerar_variante 'for a in d["achados"]:
+    a["status"] = "risco_aceito"' aceito
+grep -q 'LIBERADO' "$TMP/aceito.log" && ok "risco aceito sai do cálculo do veredito" \
+  || falha "achado não acionável ainda pesa no veredito"
+grep -q 'Risco aceito' "$TMP/aceito.html" && ok "achado suprimido continua no relatório" \
+  || falha "achado não acionável sumiu do relatório"
+
+# 11. ferramenta que não rodou vira aviso de superfície não medida
+gerar_variante 'd["ferramentas"].append({"nome": "trivy", "estado": "nao_instalado"})' semtool
+grep -q 'Superfície não medida' "$TMP/semtool.html" && ok "ferramenta ausente vira aviso no PDF" \
+  || falha "ferramenta não instalada não gerou aviso"
+grep -q 'ATENCAO' "$TMP/semtool.log" && ok "ferramenta ausente avisada no stdout" \
+  || falha "stdout silencioso sobre superfície não medida"
+
+# 12. segredo no trecho é mascarado antes de virar PDF e issue
+gerar_variante 'd["achados"][0]["trecho"] = "const k = \"sk-proj-AbCdEf0123456789XyZq\";"
+d["issues"][0]["achados"] = ["F1"]' segredo
+grep -q 'sk-proj-AbCdEf0123456789XyZq' "$TMP/segredo.html" \
+  && falha "segredo foi para o relatório sem máscara" \
+  || ok "segredo mascarado no trecho"
+[ "$(grep -c 'CHAVE REDIGIDA' "$TMP/segredo.html")" -ge 2 ] \
+  && ok "máscara vale também no corpo da issue" \
+  || falha "issue saiu sem a máscara (o GitHub é mais público que o PDF)"
+
+# 13. o default público versionado precisa sobreviver: é a evidência do achado
+grep -q 'supersecret-change-me' "$HTML" && ok 'escotilha "redacao": false preserva a evidência' \
+  || falha "redação comeu o default público que é a própria evidência"
+
+# 14. valor desconhecido em evidencia/status aborta, não vira default em silêncio
+#     (rebaixar em silêncio mudaria o veredito sem ninguém notar)
+for par in 'evidencia:conferido' 'status:resolvido'; do
+  campo="${par%%:*}"; valor="${par##*:}"
+  gerar_variante "d[\"achados\"][0][\"$campo\"] = \"$valor\"" "inv_$campo" && :
+  if [ -s "$TMP/inv_$campo.html" ] && ! grep -qi 'invalid' "$TMP/inv_$campo.log"; then
+    falha "$campo inválido foi aceito em silêncio"
+  else
+    ok "$campo inválido é recusado"
+  fi
+done
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
 exit $((falhas > 0))

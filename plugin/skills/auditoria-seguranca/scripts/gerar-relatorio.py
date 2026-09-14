@@ -18,6 +18,7 @@ import functools
 import html
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,88 @@ SEV = {
 }
 ORDEM_SEV = ["critica", "alta", "media", "baixa", "informativa"]
 VERDE = "#059669"
+
+# --------------------------------------------------------------------------- evidencia
+# O nivel de evidencia e' a distancia entre "o padrao casou" e "eu abri o arquivo
+# e o caminho e' explorave". Sem esse eixo, o PDF trata um grep e uma leitura com
+# o mesmo peso, e a issue volta como "nao reproduz".
+EVIDENCIA = {
+    "padrao":      ("Padrão casou", "#94A3B8"),
+    "lido":        ("Lido",         "#2563EB"),
+    "corroborado": ("Corroborado",  "#059669"),
+}
+ORDEM_EVID = ["corroborado", "lido", "padrao"]
+CONF_BASE = {"padrao": 0.45, "lido": 0.70, "corroborado": 0.90}
+# Teto por nivel: confianca declarada nunca ultrapassa o que a evidencia sustenta.
+# "O grep casou" com confianca 0,95 e' exatamente o erro que o teto existe para
+# impedir -- inclusive quando quem declarou foi um modelo.
+CONF_TETO = {"padrao": 0.60, "lido": 0.85, "corroborado": 1.00}
+CONF_PISO = 0.10
+
+STATUS_NAO_ACIONAVEL = {"corrigido", "falso_positivo", "risco_aceito", "aceito_por_design"}
+STATUS_ROTULO = {
+    "aberto": "Aberto",
+    "corrigido": "Corrigido",
+    "falso_positivo": "Falso positivo",
+    "risco_aceito": "Risco aceito",
+    "aceito_por_design": "Aceito por design",
+}
+
+VEREDITO = {
+    "BLOQUEADO": ("Bloqueado", "#B91C1C"),
+    "REVISAR":   ("Revisar",   "#D97706"),
+    "LIBERADO":  ("Liberado",  "#059669"),
+}
+
+FERRAMENTA_ESTADO = {
+    "executado":     ("Executado",     VERDE),
+    "nao_aplicavel": ("Não aplicável", "#64748B"),
+    "nao_instalado": ("Não instalado", "#B91C1C"),
+    "falhou":        ("Falhou",        "#B91C1C"),
+}
+# Ferramenta que nao rodou deixa superficie sem medida: ausencia de achado ali nao
+# e' evidencia de nada, e o PDF precisa dizer isso em vez de deixar o leitor supor.
+ESTADO_SEM_MEDIDA = {"nao_instalado", "falhou"}
+
+# --------------------------------------------------------------------------- redacao
+# O relatorio copia trecho literal do codigo e a categoria A4 e' sobre segredo
+# exposto: sem isto, o PDF entregue ao cliente vira o vazamento que ele denuncia.
+PADROES_SEGREDO = [
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+                re.S), "[CHAVE PRIVADA REDIGIDA]"),
+    (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
+     "[JWT REDIGIDO]"),
+    (re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{16,}"), "[CHAVE REDIGIDA]"),
+    (re.compile(r"\b(?:sbp|sbs|ghp|gho|ghu|ghs|ghr|glpat|xoxb|xoxp|xapp|shpat)[-_]"
+                r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[CHAVE AWS REDIGIDA]"),
+]
+# O prefixo opcional cobre POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET e afins:
+# sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao.
+_CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
+          r"(?:api[_-]?key|secret|token|passwd|password|senha|private[_-]?key)")
+# Atribuicao com literal entre aspas: alta precisao, redige sempre.
+_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])([^\"'\n]{8,})\2")
+# Mesma atribuicao sem aspas. A classe do valor exclui ., (, $ e { de proposito:
+# req.body.password e ${VAR:-default} sao codigo e referencia, nao segredo -- e o
+# default publico do compose e' justamente a evidencia que precisa aparecer.
+_ATRIB_NUA = re.compile(
+    r"(?i)\b(" + _CHAVE + r"\s*[:=]\s*)([A-Za-z0-9_@#!%^&*+=/~-]{8,})(?=\s|$|[,;])")
+
+
+def redigir_segredos(texto):
+    """Mascara segredo em trecho de codigo. Devolve (texto, quantidade_mascarada)."""
+    if not texto:
+        return texto, 0
+    total = 0
+    for padrao, marca in PADROES_SEGREDO:
+        texto, n = padrao.subn(marca, texto)
+        total += n
+    texto, n = _ATRIB_ASPAS.subn(r"\1\2[SEGREDO REDIGIDO]\2", texto)
+    total += n
+    texto, n = _ATRIB_NUA.subn(r"\1[SEGREDO REDIGIDO]", texto)
+    total += n
+    return texto, total
 
 CHROMES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -58,6 +141,91 @@ def achar_chrome():
 
 def e(txt):
     return html.escape(str(txt if txt is not None else ""))
+
+
+def num(valor):
+    """Numero com virgula decimal, que e' como o leitor do relatorio escreve."""
+    return f"{valor:.2f}".replace(".", ",")
+
+
+# --------------------------------------------------------------------------- evidencia
+
+def nivel_evidencia(a):
+    """Nivel declarado, com 'padrao' como default deliberado.
+
+    Quem nao declarou nao confirmou: o default conservador forca a declaracao em
+    vez de presumir leitura que ninguem fez.
+    """
+    nivel = str(a.get("evidencia", "padrao")).strip().lower()
+    return nivel if nivel in EVIDENCIA else "padrao"
+
+
+def confianca(a):
+    """Confianca efetiva do achado, limitada pelo teto do nivel de evidencia."""
+    nivel = nivel_evidencia(a)
+    bruta = a.get("confianca")
+    if bruta is None:
+        return CONF_BASE[nivel]
+    try:
+        bruta = float(bruta)
+    except (TypeError, ValueError):
+        return CONF_BASE[nivel]
+    return round(max(CONF_PISO, min(CONF_TETO[nivel], bruta)), 2)
+
+
+def status_achado(a):
+    st = str(a.get("status", "aberto")).strip().lower()
+    return st if st in STATUS_ROTULO else "aberto"
+
+
+def acionavel(a):
+    return status_achado(a) not in STATUS_NAO_ACIONAVEL
+
+
+def calcular_veredito(achados):
+    """Veredito deterministico da auditoria. Devolve (chave, motivo).
+
+    Regra, na ordem: critica com confianca >= 0,50 bloqueia; alta corroborada ou
+    com confianca >= 0,70 bloqueia; critica ainda nao confirmada, alta restante e
+    media pedem revisao. Achado nao acionavel (corrigido, falso positivo, risco
+    aceito) nao pesa.
+
+    Severidade sozinha nao decide: 'alta' que so' bateu num grep vai para revisao,
+    nao para bloqueio. E' o que separa o veredito de uma contagem de chips. O
+    inverso tambem vale: critica sem confirmacao nunca sai LIBERADO -- confianca
+    baixa e' motivo para ir confirmar, nao para dar o assunto por encerrado.
+    """
+    gate, motivo = "LIBERADO", "Nenhum achado acionável acima do limiar de política."
+    for a in achados:
+        if not acionavel(a):
+            continue
+        sev = a.get("severidade", "informativa")
+        nivel, cf = nivel_evidencia(a), confianca(a)
+        rotulo = f"{a.get('id', '?')} ({SEV.get(sev, ('?',))[0].lower()}, confiança {num(cf)})"
+        if sev == "critica":
+            if cf >= 0.50:
+                return "BLOQUEADO", f"{rotulo}: crítica com confiança suficiente."
+            if gate == "LIBERADO":
+                gate, motivo = "REVISAR", f"{rotulo}: crítica ainda não confirmada — confirme antes de liberar."
+        elif sev == "alta":
+            if nivel == "corroborado":
+                return "BLOQUEADO", f"{rotulo}: alta corroborada por segunda fonte."
+            if cf >= 0.70:
+                return "BLOQUEADO", f"{rotulo}: alta com confiança ≥ 0,70."
+            if gate == "LIBERADO":
+                gate, motivo = "REVISAR", f"{rotulo}: alta ainda não confirmada por leitura."
+        elif sev == "media" and gate == "LIBERADO":
+            gate, motivo = "REVISAR", f"{rotulo}: média aberta."
+    return gate, motivo
+
+
+def trecho_redigido(a):
+    """Trecho do achado ja' mascarado. 'redacao': false desliga, para o caso em que
+    o valor literal E' a evidencia (default publico versionado, por exemplo)."""
+    trecho = a.get("trecho")
+    if not trecho or a.get("redacao") is False:
+        return trecho, 0
+    return redigir_segredos(trecho)
 
 
 # --------------------------------------------------------------------------- SVG
@@ -142,6 +310,33 @@ def chip(sev):
     return f'<span class="chip" style="background:{cor}">{rotulo}</span>'
 
 
+def chip_evidencia(a):
+    nivel = nivel_evidencia(a)
+    rotulo, cor = EVIDENCIA[nivel]
+    return (f'<span class="chip chip-ev" style="border-color:{cor};color:{cor}">'
+            f'{rotulo}</span>')
+
+
+def selo_status(a):
+    st = status_achado(a)
+    if st == "aberto":
+        return ""
+    return f'<span class="selo">{e(STATUS_ROTULO[st])}</span>'
+
+
+def bloco_veredito(chave, motivo, suprimidos=0):
+    rotulo, cor = VEREDITO[chave]
+    extra = ""
+    if suprimidos:
+        plural = "s" if suprimidos > 1 else ""
+        extra = (f'<div class="vd-extra">{suprimidos} achado{plural} não acionável'
+                 f'{plural} (corrigido, falso positivo ou risco aceito) fora do cálculo.</div>')
+    return (f'<div class="veredito" style="border-color:{cor}">'
+            f'<div class="vd-sel" style="background:{cor}">{rotulo}</div>'
+            f'<div class="vd-txt"><b>Veredito da auditoria</b>'
+            f'<div>{e(motivo)}</div>{extra}</div></div>')
+
+
 def local_html(a):
     """arquivo:linha com o intervalo indivisivel — quebrar "88-96" em duas linhas
     torna a referencia inutil para quem vai abrir o arquivo."""
@@ -157,10 +352,12 @@ def bloco_codigo(trecho):
     return f'<pre class="codigo">{e(trecho)}</pre>'
 
 
-def montar_html(d):
+def montar_html(d, redacoes=None):
     projeto = d.get("projeto", "projeto")
     titulo = f"Relatório de Auditoria de Segurança — {projeto}"
     achados = d.get("achados", [])
+    # lista de um elemento para servir de contador compartilhado com as issues
+    redacoes = redacoes if redacoes is not None else [0]
     cats = {c["id"]: c.get("nome", c["id"]) for c in d.get("categorias", [])}
 
     contagem = {}
@@ -177,6 +374,12 @@ def montar_html(d):
     ordem = {k: i for i, k in enumerate(ORDEM_SEV)}
     achados_ord = sorted(achados, key=lambda a: (ordem.get(a.get("severidade"), 9),
                                                  a.get("categoria", ""), a.get("arquivo", "")))
+
+    gate, motivo_gate = calcular_veredito(achados_ord)
+    suprimidos = sum(1 for a in achados if not acionavel(a))
+    ferramentas = d.get("ferramentas", [])
+    sem_medida = [f for f in ferramentas
+                  if str(f.get("estado", "")).strip().lower() in ESTADO_SEM_MEDIDA]
 
     p = []
     p.append(f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
@@ -213,6 +416,19 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
          word-break: normal; overflow-wrap: anywhere; }}
 .chip {{ color: #fff; font-size: 8.5pt; font-weight: 700; padding: 2px 8px; border-radius: 10px;
         display: inline-block; white-space: nowrap; }}
+.chip-ev {{ background: #fff; border: 1px solid #94A3B8; font-weight: 600; font-size: 8pt; }}
+.selo {{ background: #E2E8F0; color: #334155; font-size: 8pt; font-weight: 700; padding: 2px 7px;
+        border-radius: 4px; text-transform: uppercase; letter-spacing: .3px; }}
+.veredito {{ display: flex; gap: 14px; align-items: center; border: 2px solid #64748B;
+            border-radius: 7px; padding: 12px 14px; margin: 12px 0 18px; page-break-inside: avoid; }}
+.vd-sel {{ color: #fff; font-weight: 700; font-size: 13pt; letter-spacing: .5px; padding: 8px 16px;
+          border-radius: 5px; white-space: nowrap; text-transform: uppercase; }}
+.vd-txt {{ font-size: 9.8pt; }}
+.vd-txt b {{ font-size: 10.5pt; }}
+.vd-extra {{ color: #64748B; font-size: 9pt; margin-top: 3px; }}
+.aviso {{ border-left: 4px solid #B91C1C; background: #FEF2F2; padding: 9px 13px; margin: 8px 0;
+         border-radius: 0 4px 4px 0; font-size: 9.8pt; }}
+.conf {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9pt; }}
 .codigo {{ background: #0F172A; color: #E2E8F0; padding: 9px 11px; border-radius: 5px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8.5pt;
           line-height: 1.45; overflow-wrap: break-word; white-space: pre-wrap; margin: 7px 0; }}
@@ -241,6 +457,8 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     p.append(f'<div class="sub">{e(projeto)}</div>')
     p.append('<dl class="meta">')
     p.append(f"<dt>Data</dt><dd>{e(d.get('data',''))}</dd>")
+    p.append(f"<dt>Veredito</dt><dd><b style=\"color:{VEREDITO[gate][1]}\">"
+             f"{VEREDITO[gate][0]}</b> — {e(motivo_gate)}</dd>")
     escopo = d.get("escopo", [])
     p.append("<dt>Escopo auditado</dt><dd>" +
              (e(", ".join(escopo)) if isinstance(escopo, list) else e(escopo)) + "</dd>")
@@ -254,6 +472,7 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
 
     # ---- resumo executivo
     p.append("<h2>Resumo executivo</h2>")
+    p.append(bloco_veredito(gate, motivo_gate, suprimidos))
     if d.get("resumo"):
         p.append(f"<p>{e(d['resumo'])}</p>")
     p.append('<div class="painel"><div>' + donut(contagem) + "</div><div>" +
@@ -271,6 +490,27 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
             p.append(f"<tr><td>{e(cats.get(c.get('categoria'), c.get('categoria')))}</td>"
                      f"<td>{e(c.get('estado',''))}</td><td>{e(c.get('medido',''))}</td></tr>")
         p.append("</table>")
+
+    # ---- ferramentas
+    if ferramentas:
+        p.append("<h3>Ferramentas da auditoria</h3>")
+        p.append("<table><tr><th style='width:118px'>Ferramenta</th><th style='width:76px'>Versão</th>"
+                 "<th style='width:96px'>Estado</th><th>Escopo / observação</th></tr>")
+        for f in ferramentas:
+            estado = str(f.get("estado", "")).strip().lower()
+            rot, cor = FERRAMENTA_ESTADO.get(estado, (f.get("estado", "?"), "#64748B"))
+            detalhe = " · ".join(x for x in (f.get("escopo"), f.get("nota")) if x)
+            p.append(f"<tr><td><b>{e(f.get('nome',''))}</b></td>"
+                     f"<td class='arq'>{e(f.get('versao','—'))}</td>"
+                     f"<td style='color:{cor};font-weight:700'>{e(rot)}</td>"
+                     f"<td>{e(detalhe)}</td></tr>")
+        p.append("</table>")
+        if sem_medida:
+            nomes = ", ".join(str(f.get("nome", "?")) for f in sem_medida)
+            p.append(f'<div class="aviso"><b>Superfície não medida:</b> {e(nomes)} não '
+                     f'chegou a rodar. Ausência de achado nessas superfícies não é '
+                     f'evidência de ausência de falha — rode e reavalie antes de tratar '
+                     f'este relatório como completo.</div>')
 
     # ---- fortes e fracos
     p.append('<h2 class="quebra">Pontos fortes</h2>')
@@ -297,12 +537,22 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     if not achados_ord:
         p.append('<p class="vazio">Nenhum achado.</p>')
     else:
-        p.append("<table><tr><th style='width:74px'>Severidade</th><th style='width:215px'>Arquivo:linha</th>"
-                 "<th>Descrição</th></tr>")
+        p.append('<div class="nota">O nível de evidência diz como o achado foi obtido: '
+                 '<b>padrão casou</b> é busca automática ainda não confirmada, '
+                 '<b>lido</b> é o arquivo aberto e o caminho conferido, e '
+                 '<b>corroborado</b> exige uma segunda fonte independente (outra ferramenta '
+                 'ou reprodução real). A confiança é limitada pelo nível: um padrão que casou '
+                 'não passa de 0,60 por mais convincente que pareça.</div>')
+        p.append("<table><tr><th style='width:74px'>Severidade</th>"
+                 "<th style='width:88px'>Evidência</th><th style='width:52px'>Conf.</th>"
+                 "<th style='width:168px'>Arquivo:linha</th><th>Descrição</th></tr>")
         for a in achados_ord:
             p.append(f"<tr><td>{chip(a.get('severidade'))}</td>"
+                     f"<td>{chip_evidencia(a)}</td>"
+                     f"<td class='conf'>{num(confianca(a))}</td>"
                      f"<td class='arq'>{local_html(a)}</td>"
-                     f"<td><b>{e(a.get('id',''))}</b> — {e(a.get('titulo',''))}</td></tr>")
+                     f"<td><b>{e(a.get('id',''))}</b> — {e(a.get('titulo',''))} "
+                     f"{selo_status(a)}</td></tr>")
         p.append("</table>")
 
         # ---- detalhe por categoria
@@ -320,10 +570,21 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
             for a in do_cat:
                 p.append('<div class="achado">')
                 p.append(f'<div class="cab">{chip(a.get("severidade"))}'
+                         f'{chip_evidencia(a)}'
                          f'<span class="id">{e(a.get("id",""))}</span>'
-                         f'<b>{e(a.get("titulo",""))}</b></div>')
+                         f'<b>{e(a.get("titulo",""))}</b>{selo_status(a)}</div>')
+                fonte = a.get("fonte")
+                p.append(f'<div class="campo"><b>Evidência:</b> '
+                         f'{e(EVIDENCIA[nivel_evidencia(a)][0].lower())} · confiança '
+                         f'<span class="conf">{num(confianca(a))}</span>'
+                         + (f' · {e(fonte)}' if fonte else "") + '</div>')
                 p.append(f'<div class="campo arq"><b>Local:</b> <code>{local_html(a)}</code></div>')
-                p.append(bloco_codigo(a.get("trecho")))
+                texto, n_red = trecho_redigido(a)
+                redacoes[0] += n_red
+                p.append(bloco_codigo(texto))
+                if n_red:
+                    p.append('<div class="campo" style="color:#64748B;font-size:9pt">'
+                             'Segredo mascarado no trecho acima.</div>')
                 if a.get("por_que"):
                     p.append(f'<div class="campo"><b>Por que é explorável:</b> {e(a["por_que"])}</div>')
                 if a.get("impacto"):
@@ -354,15 +615,21 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     if not issues:
         p.append('<p class="vazio">Nenhuma issue gerada.</p>')
     for i, iss in enumerate(issues, 1):
-        corpo = montar_corpo_issue(iss, achados)
+        corpo = montar_corpo_issue(iss, achados, redacoes)
         p.append(f'<div class="issue">--- ISSUE {i} ---\n{e(corpo)}\n--- FIM ISSUE {i} ---</div>')
 
     p.append("</body></html>")
     return "\n".join(p)
 
 
-def montar_corpo_issue(iss, achados):
-    """Monta o markdown da issue. Aceita corpo pronto ou monta dos achados citados."""
+def montar_corpo_issue(iss, achados, redacoes=None):
+    """Monta o markdown da issue. Aceita corpo pronto ou monta dos achados citados.
+
+    A issue vai para o GitHub, que e' mais publico que o PDF: o trecho sai daqui
+    pela mesma redacao, e o nivel de evidencia acompanha para quem for corrigir
+    saber se o achado foi lido ou so' sugerido por um padrao.
+    """
+    redacoes = redacoes if redacoes is not None else [0]
     if iss.get("markdown"):
         return iss["markdown"].strip()
     idx = {a.get("id"): a for a in achados}
@@ -375,9 +642,13 @@ def montar_corpo_issue(iss, achados):
         local = a.get("arquivo", "")
         if a.get("linhas"):
             local += f":{a['linhas']}"
-        linhas.append(f"- `{local}` — {a.get('titulo','')}")
-        if a.get("trecho"):
-            linhas += ["", "```", a["trecho"].strip(), "```", ""]
+        nivel = EVIDENCIA[nivel_evidencia(a)][0].lower()
+        linhas.append(f"- `{local}` — {a.get('titulo','')} "
+                      f"({nivel}, confiança {num(confianca(a))})")
+        texto, n_red = trecho_redigido(a)
+        if texto:
+            linhas += ["", "```", texto.strip(), "```", ""]
+            redacoes[0] += n_red
     linhas += ["", "## Impacto", "", iss.get("impacto", ""), "",
                "## Correção sugerida", "", iss.get("correcao", ""), "",
                "## Critérios de aceite", ""]
@@ -429,11 +700,34 @@ def main():
         if campo not in dados:
             raise SystemExit(f"findings.json sem o campo obrigatorio: {campo}")
 
+    # Valor invalido em evidencia/status seria rebaixado em silencio para o default
+    # e mudaria o veredito sem ninguem notar. Falha alto.
+    for a in dados.get("achados", []):
+        ident = a.get("id", "?")
+        ev = a.get("evidencia")
+        if ev is not None and str(ev).strip().lower() not in EVIDENCIA:
+            raise SystemExit(f"achado {ident}: evidencia invalida {ev!r} "
+                             f"(use: {', '.join(EVIDENCIA)})")
+        st = a.get("status")
+        if st is not None and str(st).strip().lower() not in STATUS_ROTULO:
+            raise SystemExit(f"achado {ident}: status invalido {st!r} "
+                             f"(use: {', '.join(STATUS_ROTULO)})")
+
     out = Path(args.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
-    html_txt = montar_html(dados)
+    redacoes = [0]
+    html_txt = montar_html(dados, redacoes)
     html_path = out.with_suffix(".html")
     html_path.write_text(html_txt, encoding="utf-8")
+
+    gate, motivo = calcular_veredito(dados.get("achados", []))
+    print(f"Veredito: {gate} — {motivo}")
+    if redacoes[0]:
+        print(f"Redacao: {redacoes[0]} segredo(s) mascarado(s) no relatorio.")
+    sem_medida = [f.get("nome", "?") for f in dados.get("ferramentas", [])
+                  if str(f.get("estado", "")).strip().lower() in ESTADO_SEM_MEDIDA]
+    if sem_medida:
+        print(f"ATENCAO: superficie nao medida - {', '.join(sem_medida)} nao rodou.")
     print(f"HTML: {html_path}")
     if args.html_only:
         return
