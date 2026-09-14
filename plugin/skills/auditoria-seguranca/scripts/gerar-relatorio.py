@@ -631,7 +631,11 @@ def montar_corpo_issue(iss, achados, redacoes=None):
     """
     redacoes = redacoes if redacoes is not None else [0]
     if iss.get("markdown"):
-        return iss["markdown"].strip()
+        # Corpo escrito a mao tambem passa pela mascara: e' o mesmo GitHub, e quem
+        # escreve markdown custom e' justamente quem colou o trecho na unha.
+        texto, n_red = redigir_segredos(iss["markdown"].strip())
+        redacoes[0] += n_red
+        return texto
     idx = {a.get("id"): a for a in achados}
     refs = [idx[i] for i in iss.get("achados", []) if i in idx]
     sev = iss.get("severidade") or (refs[0].get("severidade") if refs else "media")

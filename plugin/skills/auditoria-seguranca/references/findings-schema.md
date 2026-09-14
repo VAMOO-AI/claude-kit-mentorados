@@ -130,7 +130,11 @@ confirmar, não para dar o assunto por encerrado.
   evidência com o trecho de cada achado citado. Um achado sem issue é decisão
   consciente (trivial ou já agrupado), não esquecimento.
 - **`issues[].markdown`** (opcional) sobrescreve a montagem automática quando a
-  issue precisa de um texto que o schema não expressa.
+  issue precisa de um texto que o schema não expressa. Também passa pela máscara
+  de segredo, e sem escotilha: aqui não há como marcar `redacao: false`.
+- **Cuidado com o nome repetido:** em `achados[]`, `evidencia` é o **nível**
+  (`padrao`/`lido`/`corroborado`); em `pontos_fortes[]`, `evidencia` é texto
+  livre (`api/routes/invoices.ts:22,48`). Campos diferentes em listas diferentes.
 - **Agrupe achados do mesmo tema numa issue só** (ex.: todos os defaults de
   segredo do compose) para não gerar spam de issues.
 

@@ -138,6 +138,13 @@ grep -q 'sk-proj-AbCdEf0123456789XyZq' "$TMP/segredo.html" \
   && ok "máscara vale também no corpo da issue" \
   || falha "issue saiu sem a máscara (o GitHub é mais público que o PDF)"
 
+# 12b. issue com markdown escrito à mão passa pela mesma máscara — é o mesmo
+#      GitHub, e quem escreve markdown custom é quem colou o trecho na unha
+gerar_variante 'd["issues"][0]["markdown"] = "## Problema\n\n```\nconst k = \"sk-proj-AbCdEf0123456789XyZq\";\n```"' md
+grep -q 'sk-proj-AbCdEf0123456789XyZq' "$TMP/md.html" \
+  && falha "markdown custom da issue escapou da máscara" \
+  || ok "markdown custom da issue também é mascarado"
+
 # 13. o default público versionado precisa sobreviver: é a evidência do achado
 grep -q 'supersecret-change-me' "$HTML" && ok 'escotilha "redacao": false preserva a evidência' \
   || falha "redação comeu o default público que é a própria evidência"
