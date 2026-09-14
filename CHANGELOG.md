@@ -13,6 +13,44 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.32.0] — 2026-09-14
+
+### Adicionado
+
+- **`auditoria-seguranca`: o achado passou a dizer como foi obtido, e o relatório passou a
+  ter veredito.** Todo achado declara `evidencia` — `padrao` (o grep casou), `lido`
+  (arquivo aberto e conferido) ou `corroborado` (segunda fonte independente, nomeada em
+  `fonte`) — e a `confianca` é limitada pelo teto do nível: `padrao` com 0,95 declarado sai
+  0,60 no PDF. Convicção não é evidência, inclusive (e principalmente) a do modelo que
+  escreveu o `findings.json`. Daí sai o **veredito** `BLOQUEADO` / `REVISAR` / `LIBERADO`
+  na capa e no resumo executivo: alta que só bateu num grep vai para revisão e não bloqueia;
+  crítica não confirmada nunca sai liberada.
+- **`ferramentas[]` no `findings.json`**, com estado `executado`, `nao_aplicavel`,
+  `nao_instalado` ou `falhou`. As duas últimas imprimem aviso de superfície não medida:
+  `gitleaks` que não rodou não é detalhe de máquina, é a categoria A4 sem varredura de
+  histórico — e sem o aviso quem lê o PDF entende ausência de achado como ausência de
+  problema.
+- **`status` por achado** (`corrigido`, `falso_positivo`, `risco_aceito`,
+  `aceito_por_design`): sai do cálculo do veredito e continua no relatório com selo. Valor
+  desconhecido em `evidencia` ou `status` aborta o gerador em vez de virar default em
+  silêncio, que mudaria o veredito sem ninguém notar.
+
+### Corrigido
+
+- **O relatório deixou de vazar o segredo que ele denuncia.** O `trecho` ia literal para o
+  PDF e para o corpo da issue — os dois mais públicos que o repositório auditado, e a
+  categoria A4 é justamente sobre segredo exposto. O gerador agora mascara chave de API,
+  JWT, token de provedor, chave AWS e atribuição de segredo antes de escrever. A escotilha
+  `"redacao": false` serve só para quando o valor literal **é** a evidência (default
+  público já versionado).
+- **Código auditado é entrada não confiável, agora explicitamente.** Instrução escondida em
+  comentário, docstring ou nome de variável do repositório auditado é **achado**, não
+  comando — e auditoria de repositório de terceiro é exatamente onde isso encontra um
+  modelo lendo arquivo por arquivo.
+
+Doze casos novos em `tests/test-auditoria-relatorio.sh`, todos reprovando no gerador
+anterior. Espelha `claude-config-team` 0.39.0.
+
 ## [0.31.0] — 2026-09-10
 
 ### Adicionado

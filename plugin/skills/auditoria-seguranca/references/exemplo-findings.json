@@ -19,6 +19,12 @@
     {"id": "A4", "nome": "Chaves expostas", "aplicavel": true},
     {"id": "A5", "nome": "Inputs sem tratamento (XSS)", "aplicavel": true}
   ],
+  "ferramentas": [
+    {"nome": "leitura manual", "versao": "—", "estado": "executado", "escopo": "34 handlers, 12 componentes, 3 templates"},
+    {"nome": "gitleaks", "versao": "8.18.4", "estado": "executado", "escopo": "HEAD + 412 commits do histórico"},
+    {"nome": "grep no bundle", "versao": "—", "estado": "executado", "escopo": "dist/ após npm run build"},
+    {"nome": "pip-audit", "versao": "—", "estado": "nao_aplicavel", "nota": "projeto sem dependência Python"}
+  ],
   "cobertura": [
     {"categoria": "A1", "estado": "medido", "medido": "34 queries de listagem/agregação lidas uma a uma; conferido filtro por organizationId"},
     {"categoria": "A2", "estado": "medido", "medido": "12 gates de useRole cruzados com o handler equivalente"},
@@ -37,6 +43,8 @@
   "achados": [
     {
       "id": "F1", "categoria": "A1", "severidade": "critica",
+      "evidencia": "lido", "confianca": 0.85,
+      "fonte": "leitura de api/routes/reports.ts:88-96 e do middleware de auth",
       "titulo": "Relatório de vendas agrega todas as organizações",
       "arquivo": "api/routes/reports.ts", "linhas": "88-96",
       "trecho": "const rows = await prisma.sale.groupBy({\n  by: ['productId'],\n  _sum: { amount: true },\n  where: { createdAt: { gte: from, lte: to } },   // sem organizationId\n});",
@@ -46,6 +54,8 @@
     },
     {
       "id": "F2", "categoria": "A3", "severidade": "critica",
+      "evidencia": "corroborado", "confianca": 0.95,
+      "fonte": "leitura + requisição real: DELETE com token do tenant B apagou registro do tenant A em ambiente de teste",
       "titulo": "DELETE /contacts/:id não verifica posse",
       "arquivo": "api/routes/contacts.ts", "linhas": "142-149",
       "trecho": "fastify.delete('/contacts/:id', { preHandler: requireAuth }, async (req) => {\n  await prisma.contact.delete({ where: { id: req.params.id } });\n  return { ok: true };\n});",
@@ -56,15 +66,20 @@
     },
     {
       "id": "F3", "categoria": "A4", "severidade": "alta",
+      "evidencia": "lido", "confianca": 0.70,
+      "fonte": "leitura do docker-compose.yml e do boot da aplicação",
       "titulo": "JWT_SECRET com default público no docker-compose",
       "arquivo": "docker-compose.yml", "linhas": "31",
       "trecho": "JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}",
+      "redacao": false,
       "por_que": "O default está no repositório: quem não sobrescrever a variável roda em produção com um segredo conhecido, e qualquer pessoa forja um token de admin. Não há validação de startup que rejeite o valor.",
       "impacto": "Comprometimento total da autenticação.",
       "correcao": "Remover o default e falhar no boot se JWT_SECRET estiver ausente ou for o valor conhecido."
     },
     {
       "id": "F4", "categoria": "A2", "severidade": "alta",
+      "evidencia": "lido", "confianca": 0.75,
+      "fonte": "leitura do handler e do componente InviteButton.tsx:14",
       "titulo": "Gate de admin só existe no frontend em POST /users/invite",
       "arquivo": "api/routes/users.ts", "linhas": "58-64",
       "trecho": "fastify.post('/users/invite', { preHandler: requireAuth }, async (req) => {\n  // o botão só aparece para admin no front (useRole)\n  return invite(req.body.email, req.body.role);\n});",
@@ -74,6 +89,8 @@
     },
     {
       "id": "F5", "categoria": "A5", "severidade": "media",
+      "evidencia": "padrao", "confianca": 0.45,
+      "fonte": "grep de interpolação em template literal; não reproduzido em cliente de e-mail",
       "titulo": "Nome do usuário entra sem escape no HTML do e-mail de convite",
       "arquivo": "api/mail/templates.ts", "linhas": "27",
       "trecho": "return `<p>Olá, <strong>${user.name}</strong>! Você foi convidado...</p>`;",
