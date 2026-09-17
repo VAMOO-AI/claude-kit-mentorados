@@ -96,6 +96,10 @@ expand_shell_path() {
     [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}='([^']*)'.*/\2/p" | head -1)
     [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=([^[:space:];&|\"']+).*/\2/p" | head -1)
     [ -z "$val" ] && break
+    # `D=$(mktemp -d)` ou `D=`pwd``: o valor só existe depois de o shell EXECUTAR aquilo.
+    # Expandir o pedaço de texto (`$(mktemp`) fabricaria um path que ninguém pediu — e ele
+    # ia parar na mensagem de bloqueio, mandando a pessoa consertar um caminho inventado.
+    case "$val" in *'$('*|*'`'*) break ;; esac
     p=${p//\$\{$name\}/$val}
     p=${p//\$$name/$val}
   done
@@ -121,15 +125,28 @@ if [ -z "$p" ]; then
 fi
 # Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
 # sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
+p_cru="$p"
 [ -n "$p" ] && p=$(expand_shell_path "$p" "$c_cmd")
+alvo_incerto=""
 if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
   tgt="$p"
+elif [ -n "$p" ]; then
+  # O comando aponta para um repo que o hook não conseguiu resolver — variável vinda de
+  # `$(mktemp -d)`/`$(…)`, path inexistente, expansão que só o shell faz. Cair no cwd
+  # continua certo (falha fechada: um `git -C $VAR commit` com VAR em main não pode
+  # passar), mas a mensagem afirmava "cairia na branch main (repo: <cwd>)" como se tivesse
+  # verificado o alvo do comando — e quem lia ia consertar o repositório errado.
+  alvo_incerto="$p_cru"
 fi
 
 b=$(git -C "$tgt" branch --show-current 2>/dev/null)
 case "$b" in
   main|master)
-    echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente." >&2
+    if [ -n "$alvo_incerto" ]; then
+      echo "BLOQUEADO pelo hook: o comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, ou expansão que só o shell faz), então decidi pelo cwd da sessão — e ele está em '$b' (repo: $tgt). Não verifiquei a branch do alvo real. Se o alvo é outro repo, escreva o caminho literal; se é repo descartável (fixture, tmpdir de teste), prefixe o comando com HOTFIX_MAIN=1." >&2
+    else
+      echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente." >&2
+    fi
     exit 2
     ;;
 esac

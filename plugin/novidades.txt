@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.32.4|quando o hook barra um commit e não consegue resolver para qual repositório o comando aponta, ele passa a dizer isso em vez de afirmar a branch de um alvo que não olhou
 0.32.3|o hook que impede leitura de caminho relativo parou de tropeçar em aspa dentro de aspa — um padrão de grep com " dentro de ' fazia o texto de um echo virar "caminho" e barrava comando legítimo
 0.32.2|o hook que impede leitura de caminho relativo parou de confundir redirecionamento (2>/dev/null, > log) com nome de arquivo e barrar comando legítimo
 0.32.0|a auditoria de segurança passou a dizer como cada achado foi obtido (grep, leitura ou segunda fonte) e a fechar um veredito bloqueado/revisar/liberado — e parou de copiar segredo para dentro do PDF e da issue
