@@ -84,6 +84,12 @@ rel=$(printf '%s' "$c_scan" | sed -E 's/(&&|\|\||;|\|)/\
     for (j = i + 1; j <= n; j++) {
       t = T[j]
       if (t == "" || t == "Q") continue
+      # Redirecionamento é operador do shell, nunca nome de arquivo. Duas formas: colado
+      # ao destino (2>/dev/null, >&1) e solto, com espaço antes dele (> out/log, 2> errs/x)
+      # — nessa o destino é um token à parte e passava por caminho relativo. Medido em
+      # 17/09/2026, num comando cuja única leitura era absoluta.
+      if (t ~ /^([0-9]*|&)(>>|>|<)$/) { j++; continue }
+      if (t ~ /^[0-9]*[<>]/ || t ~ /^&>/) continue   # redirecionamento (2>/dev/null, >&1, >>log, <arq) é operador do shell, não argumento
       p = substr(t, 1, 1)
       if (p == "-" || p == "/" || p == "~" || p == "$") continue
       if (t ~ /\/[^\/]/ || t ~ /\.[A-Za-z]+$/) { print t; exit }

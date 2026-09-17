@@ -75,6 +75,19 @@ check passa "corpo de --body com várias linhas citando comandos" \
 check passa "padrão de busca entre aspas com espaço e barra" \
                                               "cd $D && grep -n \"foo / bar\" $D/x.ts"
 
+# 17/09: `2>/dev/null` foi lido como caminho relativo e o hook barrou um comando cuja
+# única leitura era absoluta. Redirecionamento é operador do shell, nunca nome de arquivo:
+# vale colado ao destino (`2>/dev/null`) e solto, com espaço antes dele (`> out/log`),
+# forma em que o destino é um token à parte.
+check passa "2>/dev/null depois do cd não é caminho relativo" \
+                                              "cd $D && jq -r '.findings[]' /tmp/x/findings.json 2>/dev/null"
+check passa "redirecionamento colado ao destino" \
+                                              "cd $D && cat $D/x.ts 2>errs/log.txt"
+check passa "redirecionamento com espaço antes do destino" \
+                                              "cd $D && cat $D/x.ts 2> errs/log.txt"
+check passa "append e stdin redirecionados" \
+                                              "cd $D && jq . $D/a.json >> out/b.json < in/c.json"
+
 echo
 echo "== a mensagem tem que ensinar o conserto =="
 roda "cd $D && cat package.json" >/dev/null
