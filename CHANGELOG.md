@@ -13,6 +13,23 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.32.4] — 2026-09-17
+
+### Corrigido
+
+- **O hook de commit em main afirmava a branch de um alvo que não tinha olhado.** Com
+  `D=$(mktemp -d); git -C "$D/clone" commit`, ele dizia "git commit cairia na branch
+  'main' (repo: <cwd da sessão>)". Bloquear está certo — o hook não pode resolver `$(…)`,
+  e falha fechada é o lado seguro: um `git -C $VAR commit` com `VAR` em main não pode
+  passar. Errada era a mensagem, que mandava consertar outro repositório. Agora ela
+  distingue alvo resolvido de alvo incerto e ensina a saída de cada caso. De passagem, a
+  expansão de variável deixou de "resolver" valor vindo de `$(…)` — ela fabricava
+  `$(mktemp/clone` e punha esse caminho inventado na mensagem.
+- **`tests/test-git-sync-conta.sh` falhava 7 de 17 checks** na máquina de quem tem
+  `GH_TOKEN` exportado — que é o que o próprio git-sync manda usar em repo de cliente. O
+  teste agora isola o ambiente, e quem prova a precedência do token passa ele
+  explicitamente.
+
 ## [0.32.3] — 2026-09-17
 
 ### Corrigido

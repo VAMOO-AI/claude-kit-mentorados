@@ -125,4 +125,27 @@ check passa "gh pr create com corpo heredoc que cita git commit" \
                                                            "gh pr create --title t --body \"\$(cat <<'EOF'${NL}git commit -m x rodou${NL}EOF${NL})\""
 
 echo
+echo "== alvo que o hook não resolve: bloqueia, mas sem afirmar o que não viu =="
+# 17/09: `D=$(mktemp -d); git -C "$D/clone" commit -qm base`, montando fixture de teste,
+# foi bloqueado com "git commit cairia na branch 'main' (repo: <cwd da sessão>)".
+# Bloquear está certo: o hook não resolve $(…) e falha fechada é o lado seguro — um
+# `git -C $VAR commit` com VAR em main não pode passar. Errada era a mensagem, que
+# afirmava a branch de um alvo que não olhou e mandava consertar outro repositório.
+ERR=$(mktemp -d)/err
+ALVO_CRU='D=$(mktemp -d); git -C "$D/clone" commit -qm base'
+check bloqueia "path de \$(…) não vira passe livre"         "$ALVO_CRU"
+CMD="$ALVO_CRU" node -e 'process.stdout.write(JSON.stringify({cwd:process.env.MAIN,tool_input:{command:process.env.CMD}}))' \
+  MAIN="$MAIN" 2>/dev/null | bash "$HOOK" >/dev/null 2>"$ERR-cru" || true
+if [ ! -s "$ERR-cru" ]; then
+  MAIN="$MAIN" CMD="$ALVO_CRU" node -e 'process.stdout.write(JSON.stringify({cwd:process.env.MAIN,tool_input:{command:process.env.CMD}}))' \
+    | bash "$HOOK" >/dev/null 2>"$ERR-cru" || true
+fi
+if grep -qF 'NÃO resolvi como repo' "$ERR-cru"; then printf '  ok    %s\n' "diz que não resolveu o alvo, em vez de afirmar a branch dele"
+else printf '  FALHA %s (veio: %s)\n' "diz que não resolveu o alvo" "$(cat "$ERR-cru")"; falhas=$((falhas+1)); fi
+if grep -qF '$D/clone' "$ERR-cru"; then printf '  ok    %s\n' "mostra o path que o comando pedia"
+else printf '  FALHA %s\n' "mostra o path que o comando pedia"; falhas=$((falhas+1)); fi
+if grep -qF 'HOTFIX_MAIN=1' "$ERR-cru"; then printf '  ok    %s\n' "ensina a escotilha para fixture descartável"
+else printf '  FALHA %s\n' "ensina a escotilha para fixture descartável"; falhas=$((falhas+1)); fi
+
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

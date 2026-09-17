@@ -70,7 +70,16 @@ exit 0
 EOF
 chmod +x "$TMP/bin/gh"
 
-run() { PATH="$TMP/bin:$PATH" bash "$SCRIPT" --cwd "$CLONE" --status-only "$@" 2>&1; }
+# `env -u`: a máquina de quem mexe no kit costuma ter GH_TOKEN exportado (o próprio
+# git-sync manda usar `export GH_TOKEN=$(gh auth token -u …)` em repo de cliente), e o
+# script pula TODA a resolução de conta quando o token já vem do ambiente — que é o
+# comportamento certo dele e o objeto de um dos casos abaixo. Sem limpar aqui, 7 dos 17
+# checks falhavam por causa do ambiente, não do código, e a suíte passava só no CI.
+run() { env -u GH_TOKEN -u GITHUB_TOKEN PATH="$TMP/bin:$PATH" bash "$SCRIPT" --cwd "$CLONE" --status-only "$@" 2>&1; }
+run_com_token() { # <token> [args…] — prova a precedência do GH_TOKEN da pessoa
+  local tok="$1"; shift
+  env -u GITHUB_TOKEN GH_TOKEN="$tok" PATH="$TMP/bin:$PATH" bash "$SCRIPT" --cwd "$CLONE" --status-only "$@" 2>&1
+}
 
 echo "== conta ativa não enxerga o repo: usa a outra e avisa =="
 OUT="$(FAKE_GH_ACTIVE=tok-pessoal run)"
@@ -91,7 +100,9 @@ check "gh auth login"                                             "aponta o pró
 check 'gh pr list falhou'                                         "ainda reporta a falha do pr list" "$OUT"
 
 echo "== GH_TOKEN exportado pelo usuário tem precedência =="
-OUT="$(GH_TOKEN=tok-cliente FAKE_GH_ACTIVE=tok-pessoal run)"
+# GH_TOKEN vai DENTRO do env do script (o run limpa o herdado antes), então o que se
+# testa é o token que a pessoa passou, não o que a máquina tinha.
+OUT="$(FAKE_GH_ACTIVE=tok-pessoal run_com_token tok-cliente)"
 refute 'conta gh:'                                                "não procura conta com GH_TOKEN"  "$OUT"
 check '#?7  feat: coisa'                                          "usa o token do usuário"          "$OUT"
 
