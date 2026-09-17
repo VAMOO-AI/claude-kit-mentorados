@@ -53,13 +53,37 @@ case "$c_cmd" in *CD_LEITURA_OK=1*) exit 0 ;; esac
 # Sem `cd` em posição de comando não há ambiguidade de pasta: nada a fazer.
 printf '%s\n' "$c_cmd" | grep -qE '(^|;|&&|\|\||\()[[:space:]]*cd[[:space:]]' || exit 0
 
-# Trecho entre aspas some do comando INTEIRO (não linha a linha): argumento com espaço
-# — a expressão de um `sed`, um padrão de busca, o corpo de um `gh pr create --body` com
-# várias linhas — chegava partido ao separador de palavras e o pedaço do meio, com barra
-# dentro, passava por caminho relativo. Dois falsos positivos assim em 03/09, no próprio
-# comando que escrevia este kit. Aspas desbalanceadas engolem demais, que é o lado seguro
-# para um hook que BLOQUEIA: erra deixando passar, nunca barrando à toa.
-c_scan=$(printf '%s' "$c_cmd" | awk 'BEGIN{RS="\0"} { gsub(/"[^"]*"/, " Q "); gsub(/\047[^\047]*\047/, " Q "); print }')
+# 17/09: aspa DUPLA dentro de aspas simples (um padrão como '^S="$HOME') desbalanceava
+# o par de gsub que fazia isso antes — o das duplas rodava primeiro e casava aquela `"`
+# com outra `"` adiante, comendo o meio e deixando fragmentos soltos. Foi assim que o
+# texto de um `echo` virou "caminho relativo" e barrou um comando cujas leituras eram
+# todas absolutas. Regex não sabe qual aspa abriu primeiro; um scanner sabe.
+#
+# O scanner consome o comando caractere a caractere com o mesmo contrato do shell: fora
+# de aspas, `\` escapa o próximo e `'`/`"` abrem um trecho; dentro de `'` nada é especial
+# até o próximo `'`; dentro de `"`, `\` escapa e `"` fecha. Cada trecho citado sai como
+# ` Q `. Aspa que abre e não fecha engole até o fim — o lado seguro num hook que BLOQUEIA
+# é errar deixando passar, nunca barrando à toa.
+c_scan=$(printf '%s' "$c_cmd" | awk 'BEGIN{RS="\0"}
+{
+  out = ""; st = 0        # estado: 0 fora de aspas, 1 dentro de simples, 2 dentro de duplas
+  n = length($0)
+  for (i = 1; i <= n; i++) {
+    ch = substr($0, i, 1)
+    if (st == 0) {
+      if (ch == "\\") { out = out substr($0, i + 1, 1); i++; continue }
+      if (ch == "\047") { st = 1; out = out " Q "; continue }
+      if (ch == "\"")   { st = 2; out = out " Q "; continue }
+      out = out ch
+    } else if (st == 1) {
+      if (ch == "\047") st = 0
+    } else {
+      if (ch == "\\") { i++; continue }
+      if (ch == "\"") st = 0
+    }
+  }
+  print out
+}')
 
 # Procura, nos segmentos depois do `cd`, um comando de leitura com argumento de caminho
 # RELATIVO. Token com `-` na frente é flag; `/`, `~` e `$` já são absolutos ou opacos.

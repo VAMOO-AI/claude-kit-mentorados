@@ -88,6 +88,20 @@ check passa "redirecionamento com espaço antes do destino" \
 check passa "append e stdin redirecionados" \
                                               "cd $D && jq . $D/a.json >> out/b.json < in/c.json"
 
+# 17/09, o segundo do dia: aspa DUPLA dentro de aspas simples (um padrão de grep como
+# '^S="$HOME') desbalanceava a remoção de trechos citados — o gsub das duplas rodava
+# primeiro e casava aquela `"` com outra `"` adiante, comendo o meio e deixando fragmentos
+# soltos. Assim o texto de um `echo` posterior virou "caminho": o `.bak` que barrou o
+# comando não era um path, era palavra de mensagem. Regex não sabe qual aspa abriu antes.
+check passa "aspa dupla dentro de aspas simples não desbalanceia" \
+                                              "cd $D && /usr/bin/grep -A1 '^S=\"\$HOME' $D/x.md${NL}echo \"=== e o .bak que sobrou ===\"${NL}rm -rf $D/y.bak"
+check passa "aspa simples dentro de aspas duplas (o inverso)" \
+                                              "cd $D && /usr/bin/grep -n \"it's src/a.ts\" $D/x.md"
+check passa "aspa desbalanceada engole até o fim (lado seguro)" \
+                                              "cd $D && echo \"abre e nao fecha src/a.ts"
+check passa "texto de echo com palavra que parece arquivo" \
+                                              "cd $D && cat $D/x.ts && echo \"pronto: config.json atualizado\""
+
 echo
 echo "== a mensagem tem que ensinar o conserto =="
 roda "cd $D && cat package.json" >/dev/null
