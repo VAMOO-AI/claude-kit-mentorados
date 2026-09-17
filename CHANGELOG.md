@@ -13,6 +13,19 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.32.3] — 2026-09-17
+
+### Corrigido
+
+- **O hook de leitura relativa tropeçava em aspa dentro de aspa.** Ele removia os trechos
+  citados com dois `gsub` em sequência, o das duplas antes do das simples: uma `"` dentro
+  de aspas simples (um padrão de grep como `'^S="$HOME'`) fazia o primeiro casar aquela
+  aspa com outra adiante e comer o meio, deixando fragmentos soltos — o texto de um `echo`
+  posterior virava "caminho relativo" e barrava um comando cujas leituras eram todas
+  absolutas. Regex não sabe qual aspa abriu primeiro, então saiu a regex: agora um scanner
+  de estado percorre o comando caractere a caractere com o contrato do shell, e aspa que
+  abre sem fechar engole até o fim, que é o lado seguro num hook que bloqueia.
+
 ## [0.32.2] — 2026-09-17
 
 ### Corrigido
