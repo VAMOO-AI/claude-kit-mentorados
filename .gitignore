@@ -12,3 +12,7 @@ settings.kit.json
 
 # worktrees de sessão do Claude Code (git worktree add .claude-worktrees/<nome>)
 .claude-worktrees/
+
+# Zip de skill gerado à mão para mandar a alguém (o Finder ainda mete __MACOSX dentro).
+# O conteúdo é o mesmo da pasta versionada ao lado — o artefato não entra no git.
+plugin/skills/*.zip
