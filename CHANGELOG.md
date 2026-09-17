@@ -13,6 +13,16 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.32.2] — 2026-09-17
+
+### Corrigido
+
+- **A 0.32.1 publicou o fix do hook sem o aviso de novidade.** O PR mergeou no commit
+  anterior ao que acrescentava a linha do `plugin/novidades.txt`, então o `release` saiu
+  com `plugin.json` em 0.32.1 e o arquivo em 0.32.0: o gate das cinco versões passou a
+  reprovar a `main`, e quem atualizasse não veria novidade alguma — o
+  `warn-kit-updated.sh` lê justamente esse arquivo. O conteúdo é o mesmo da 0.32.1.
+
 ## [0.32.1] — 2026-09-17
 
 ### Corrigido
