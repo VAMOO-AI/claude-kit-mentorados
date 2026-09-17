@@ -13,6 +13,18 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.32.1] — 2026-09-17
+
+### Corrigido
+
+- **O hook de leitura relativa lia `2>/dev/null` como caminho de arquivo** e barrava
+  comando cuja única leitura era absoluta (`jq -r '...' /tmp/x/findings.json 2>/dev/null`).
+  Ele quebra a linha em palavras com awk, então o redirecionamento chega como um token
+  qualquer — e, tendo barra no meio, passava pela heurística de caminho relativo. A guarda
+  agora cobre as duas formas: colada ao destino (`2>/dev/null`, `>&1`) e solta, com espaço
+  antes dele (`> out/log`, `>> log`, `< arq`), em que o destino é um token à parte. Um hook
+  que bloqueia erra caro quando erra fechado, então o lado seguro é deixar passar.
+
 ## [0.32.0] — 2026-09-14
 
 ### Adicionado
