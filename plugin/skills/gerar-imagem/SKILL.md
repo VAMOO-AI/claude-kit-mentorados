@@ -32,9 +32,11 @@ python3 scripts/gerar-imagem.py --listar-modelos     # antes de assumir o modelo
 O script procura nesta ordem e **imprime de onde veio**: `$OPENAI_API_KEY` →
 `~/.codex/.env.tokens` → `.env`/`.env.local` do diretório atual → `--env-file`.
 
-Quando a chave vem de fora do diretório atual, sai o aviso `⚠️ o custo cai nessa
-conta`. Leia esse aviso: gerar material da casa com a chave de um repo de cliente
-cobra do cliente. Chave da VAMOO mora em `~/.codex/.env.tokens`, fora de qualquer repo.
+`~/.codex/.env.tokens` é o lugar da chave padrão, fora de qualquer repositório — usar
+ela não gera aviso. Chave lida de um `.env` de repo sai com `⚠️ o custo cai naquela
+conta`: material de um projeto gerado com a chave de outro cobra do outro, e descobrir
+na fatura é pior. Se a chave padrão for emprestada de algum projeto, deixe isso escrito
+num comentário ao lado dela no arquivo.
 
 ## O modelo não é fixo
 
