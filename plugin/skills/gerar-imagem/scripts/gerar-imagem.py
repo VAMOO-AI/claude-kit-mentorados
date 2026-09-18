@@ -61,6 +61,23 @@ def carregar_chave(env_file=None):
     )
 
 
+PADRAO_CASA = pathlib.Path("~/.codex/.env.tokens").expanduser()
+
+
+def _aviso(origem):
+    """Aviso só quando a chave sai de um .env de repositório.
+
+    ~/.codex/.env.tokens é o lugar declarado da chave padrão: avisar ali seria ruído.
+    Um .env de repo, não — material de um projeto gerado com a chave de outro cobra do
+    outro, e descobrir na fatura é pior.
+    """
+    if str(origem).startswith("$"):
+        return ""
+    if pathlib.Path(origem).expanduser() == PADRAO_CASA:
+        return ""
+    return "  ⚠️  chave de dentro de um repositório — o custo cai naquela conta"
+
+
 def pedir(caminho, chave, payload=None, timeout=300):
     dados = json.dumps(payload).encode() if payload else None
     req = urllib.request.Request(
@@ -105,8 +122,7 @@ def main():
     a = ap.parse_args()
 
     chave, origem = carregar_chave(a.env_file)
-    fora = not str(origem).startswith("$") and not str(pathlib.Path(origem).expanduser()).startswith(os.getcwd())
-    print(f"chave: {origem}" + ("  ⚠️  fora do diretório atual — o custo cai nessa conta" if fora else ""))
+    print(f"chave: {origem}{_aviso(origem)}")
 
     if a.listar_modelos:
         ids = sorted(m["id"] for m in pedir("models", chave, timeout=60)["data"])
