@@ -5,7 +5,9 @@
     {
       "title": "Comece por aqui",
       "description": "Termina a instalação: escreve o CLAUDE.md global, liga a barra de status e mescla as preferências — as partes que um plugin não instala sozinho.",
-      "skills": ["setup"]
+      "skills": [
+        "setup"
+      ]
     },
     {
       "title": "Como o Claude trabalha",
@@ -25,7 +27,12 @@
     {
       "title": "Segurança e produção",
       "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares e guard-rails de agente de IA que fala com pessoa real.",
-      "skills": ["secscan", "auditoria-seguranca", "baseline", "guardrails-ia"]
+      "skills": [
+        "secscan",
+        "auditoria-seguranca",
+        "baseline",
+        "guardrails-ia"
+      ]
     },
     {
       "title": "Contexto e custo",
@@ -41,7 +48,11 @@
     {
       "title": "Construir coisas específicas",
       "description": "Receitas que vão do zero ao que está no ar, com a verificação de que subiu de verdade.",
-      "skills": ["bot-discord", "diretor-imagem"]
+      "skills": [
+        "bot-discord",
+        "diretor-imagem",
+        "gerar-imagem"
+      ]
     }
   ]
 }

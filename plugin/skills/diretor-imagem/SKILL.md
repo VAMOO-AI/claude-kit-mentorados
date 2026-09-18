@@ -33,6 +33,9 @@ Ative esta skill **toda vez** que o usuário:
 Não ative para análise puramente teórica de IA generativa, edição manual em
 software (Photoshop/Premiere), ou quando a saída esperada não é texto de prompt.
 
+Esta skill escreve o prompt. Para **executar** a geração (API, chave, JPEG pronto,
+publicação dentro de artefato), a skill é `gerar-imagem`.
+
 ---
 
 ## Workflow obrigatório (siga sempre nesta ordem)
