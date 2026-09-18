@@ -13,6 +13,26 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.33.0] — 2026-09-18
+
+### Adicionado
+
+- **Skill `gerar-imagem`: da direção de arte ao arquivo publicado.** A `diretor-imagem`
+  escreve o prompt e para aí; faltava quem rodasse. O Codex CLI não gera imagem (o
+  `-i/--image` dele só ANEXA uma ao prompt) e o login por conta ChatGPT não dá acesso
+  programático, então o caminho é a API de imagens — `scripts/gerar-imagem.py` chama,
+  converte para JPEG de web e devolve o caminho. Três coisas que a skill carrega porque
+  custaram sessão:
+  - **A escada da chave, com o nome do arquivo impresso.** `$OPENAI_API_KEY` →
+    `~/.codex/.env.tokens` → `.env`/`.env.local` do diretório atual. Chave vinda de fora
+    do diretório atual sai com `⚠️ o custo cai nessa conta`: gerar material da casa com a
+    chave de um repo de cliente cobra do cliente, e descobrir isso na fatura é pior.
+  - **O modelo não é literal.** `--listar-modelos` faz `GET /v1/models` e filtra os de
+    imagem. Fixar o nome do modelo numa skill envelhece no próximo lançamento.
+  - **Publicar em artefato é `files`, não a capability `assets`** — caminho relativo, e o
+    HTML referencia `src="foto.jpg"`. Host externo de imagem é bloqueado pela CSP do
+    artefato; é por isso que a foto nasce e viaja junto com a página.
+
 ## [0.32.4] — 2026-09-17
 
 ### Corrigido
