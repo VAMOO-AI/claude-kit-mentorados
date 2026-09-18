@@ -13,6 +13,16 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.33.1] — 2026-09-18
+
+### Corrigido
+
+- **O aviso de custo da `gerar-imagem` disparava em toda execução.** `~/.codex/.env.tokens`
+  é o lugar declarado da chave padrão e fica fora do diretório de trabalho por definição,
+  então a regra anterior ("chave de fora do cwd") alertava sempre — e aviso que aparece
+  sempre ninguém lê. Agora ele fica para o caso que importa: chave lida do `.env` de um
+  repositório, onde o custo cai na conta daquele projeto sem ninguém perceber até a fatura.
+
 ## [0.33.0] — 2026-09-18
 
 ### Adicionado
