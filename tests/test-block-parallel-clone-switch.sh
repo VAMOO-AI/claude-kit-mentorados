@@ -96,6 +96,13 @@ check block "here-string não é heredoc" \
   "grep -q x <<<\"git checkout\"${NL}git checkout main"                                     "$CLONE"
 check block "PARALLEL_OK=1 citado no heredoc não é a escotilha" \
   "cat > doc.md <<EOF${NL}rode PARALLEL_OK=1 git checkout main${NL}EOF${NL}git checkout main" "$CLONE"
+# 18/09/2026: o anchor aceitava `|` solto, então o `\|` de uma alternação de grep fazia o
+# PADRÃO de busca passar por comando. Tirar `|` da classe abriria buraco pior — `||` é
+# operador de verdade. E o prefixo `rtk` (que reescreve o comando na máquina do kit) escapava
+# o guard aqui: falha ABERTA que a cópia do claude-config-team já cobria.
+check block "|| antes do git ainda bloqueia" \
+  'false || git checkout main'                                                        "$CLONE"
+check block "prefixo rtk não escapa o guard"          'rtk git checkout main'        "$CLONE"
 
 echo
 echo "== tem que deixar passar =="
@@ -108,6 +115,10 @@ check pass "'git checkout' dentro de string não é checkout" 'echo "rode git ch
 check pass "worktree linkado tem git-dir próprio"     'git checkout -b feat/y'       "$CLONE/.wt"
 check pass "PARALLEL_OK=1 (override consciente)"      'PARALLEL_OK=1 git checkout main' "$CLONE"
 check pass "sem outra sessão ativa (marker é o meu)"  'git checkout main'            "$CLONE" "$SO_EU"
+check pass "padrão de grep com \\| é argumento, não comando (18/09)" \
+  '/usr/bin/grep -n "gh pr\|git checkout -b\|git commit" publicar.sh'                 "$CLONE"
+check pass "alternação ERE com pipe simples dentro de aspas" \
+  'grep -E "git switch|git checkout main" doc.md'                                     "$CLONE"
 check pass "comando sem git nem checkout"             'ls -la src/'                  "$CLONE"
 
 echo
