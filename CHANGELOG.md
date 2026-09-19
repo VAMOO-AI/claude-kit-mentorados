@@ -13,6 +13,19 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.33.2] — 2026-09-19
+
+### Corrigido
+
+- **O guard de sessão paralela bloqueava um `grep` cujo PADRÃO continha `git checkout`.**
+  O anchor do `git_cmd` aceitava `|` solto, então o `\|` de uma alternação de grep entrava
+  nele e o argumento passava por comando — um `grep -n "gh pr\|git push\|git checkout -b"`
+  foi recusado como se fosse checkout no clone principal. O anchor agora aceita `||`
+  (operador de verdade: `cmd || git checkout` continua bloqueando) e recusa o pipe solto.
+- **`rtk git checkout` escapava o mesmo guard nesta cópia.** O prefixo que o RTK insere
+  não estava no regex — falha ABERTA que o `claude-config-team` já cobria e a suíte daqui
+  não exercitava. Os 3 casos entraram em `tests/test-block-parallel-clone-switch.sh`.
+
 ## [0.33.1] — 2026-09-18
 
 ### Corrigido

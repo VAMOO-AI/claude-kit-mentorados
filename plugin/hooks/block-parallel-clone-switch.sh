@@ -49,7 +49,11 @@ c_cmd=$(printf '%s\n' "$c" | awk '
 case "$c_cmd" in *PARALLEL_OK=1*) exit 0 ;; esac
 
 flat=$(printf '%s' "$c_cmd" | tr '\n' ';')
-git_cmd='(^|[;&|(])[[:space:]]*git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+'
+# `|` solto NÃO entra no anchor: o `\|` de uma alternação de grep fazia o PADRÃO de busca
+# passar por comando (18/09/2026, bloqueou um `grep -n "git push\|git checkout -b"`). `||` é
+# operador de verdade e continua no anchor — `cmd || git checkout` tem que bloquear.
+# `rtk git checkout` executa o mesmo checkout — o prefixo não pode escapar o guard.
+git_cmd='(^|[;&(]|\|\|)[[:space:]]*(rtk[[:space:]]+)?git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+'
 m=0
 printf '%s' "$flat" | grep -qE "${git_cmd}(checkout|switch)([[:space:]]|$)" && m=1
 printf '%s' "$flat" | grep -qE "${git_cmd}reset[[:space:]]+--hard" && m=1
