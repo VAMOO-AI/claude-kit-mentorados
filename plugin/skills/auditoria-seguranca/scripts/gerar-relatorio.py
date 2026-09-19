@@ -11,6 +11,13 @@ maquina de quem gerou -- vazamento gratuito num PDF que vai pro cliente.
 
   python3 gerar-relatorio.py findings.json --out docs/security-audit/relatorio.pdf
   python3 gerar-relatorio.py findings.json --out ... --html-only   # so o HTML
+  python3 gerar-relatorio.py findings.json --verificar --raiz .    # confere contra o repo
+
+O --verificar cobra o que o schema promete em prosa e ninguem confere sozinho:
+arquivo existe, linhas cabem nele, trecho foi copiado (nao reescrito de memoria),
+corroborado tem fonte, falso positivo tem motivo, lead a validar tem bloqueio e
+plano, issue cita achado que existe. Sem --raiz ele confere so' o JSON e avisa
+que o codigo NAO foi conferido.
 """
 
 import argparse
@@ -54,14 +61,35 @@ CONF_BASE = {"padrao": 0.45, "lido": 0.70, "corroborado": 0.90}
 CONF_TETO = {"padrao": 0.60, "lido": 0.85, "corroborado": 1.00}
 CONF_PISO = 0.10
 
-STATUS_NAO_ACIONAVEL = {"corrigido", "falso_positivo", "risco_aceito", "aceito_por_design"}
+STATUS_NAO_ACIONAVEL = {"corrigido", "falso_positivo", "risco_aceito", "aceito_por_design",
+                        "a_validar"}
 STATUS_ROTULO = {
     "aberto": "Aberto",
     "corrigido": "Corrigido",
     "falso_positivo": "Falso positivo",
     "risco_aceito": "Risco aceito",
     "aceito_por_design": "Aceito por design",
+    "a_validar": "A validar",
 }
+# Tirar um achado do veredito e' decisao, e decisao sem justificativa escrita e'
+# a mesma discussao voltando na auditoria seguinte.
+STATUS_COM_MOTIVO = {"falso_positivo", "risco_aceito", "aceito_por_design"}
+
+# 'a_validar' e' hipotese bloqueada por fato que o codigo nao mostra (header do
+# proxy, config do provedor, policy do deploy). Nao recebe severidade no calculo:
+# a 'severidade' declarada e' potencial, e so' serve para impedir que uma critica
+# pendente saia LIBERADO.
+CONDICAO_TIPO = {
+    "autenticacao": "Nível de autenticação",
+    "papel": "Papel ou permissão",
+    "interacao": "Interação do usuário",
+    "configuracao": "Configuração do sistema",
+    "rede": "Rota ou rede",
+    "dependencia": "Dependência externa",
+    "estado": "Estado do dado",
+    "tempo": "Janela de tempo",
+}
+CAMINHO_TIPO = {"entrada": "Entrada", "propagacao": "Propagação", "sink": "Sink"}
 
 VEREDITO = {
     "BLOQUEADO": ("Bloqueado", "#B91C1C"),
@@ -197,6 +225,13 @@ def calcular_veredito(achados):
     """
     gate, motivo = "LIBERADO", "Nenhum achado acionável acima do limiar de política."
     for a in achados:
+        if status_achado(a) == "a_validar":
+            # Hipotese, nao achado: nao bloqueia. Mas critica potencial pendente
+            # nunca deixa o veredito sair LIBERADO -- o bloqueio e' para resolver.
+            if a.get("severidade") == "critica" and gate == "LIBERADO":
+                gate, motivo = "REVISAR", (f"{a.get('id', '?')}: crítica potencial a validar — "
+                                           f"resolva o bloqueio antes de liberar.")
+            continue
         if not acionavel(a):
             continue
         sev = a.get("severidade", "informativa")
@@ -352,10 +387,75 @@ def bloco_codigo(trecho):
     return f'<pre class="codigo">{e(trecho)}</pre>'
 
 
+def bloco_caminho(caminho):
+    """Entrada -> propagacao -> sink, cada passo com arquivo:linha.
+
+    Um achado que nao comeca numa entrada de menor confianca e nao termina no
+    sink e' um trecho suspeito, nao um caminho explorave -- e e' o caminho que
+    quem corrige precisa refazer."""
+    itens = []
+    for passo in caminho or []:
+        tipo = CAMINHO_TIPO.get(str(passo.get("tipo", "")).lower(), passo.get("tipo", "?"))
+        local = e(passo.get("arquivo", ""))
+        if passo.get("linha"):
+            local += f'<span style="white-space:nowrap">:{e(passo["linha"])}</span>'
+        itens.append(f'<li><b>{e(tipo)}</b> <code class="arq">{local}</code>'
+                     f' — {e(passo.get("descricao", ""))}</li>')
+    if not itens:
+        return ""
+    return '<div class="campo"><b>Caminho:</b><ol class="caminho">' + "".join(itens) + "</ol></div>"
+
+
+def condicoes_html(cond):
+    """Aceita texto livre (formato antigo) ou lista de {tipo, descricao}."""
+    if not cond:
+        return ""
+    if isinstance(cond, str):
+        return e(cond)
+    partes = []
+    for c in cond:
+        if isinstance(c, str):
+            partes.append(e(c))
+            continue
+        tipo = CONDICAO_TIPO.get(str(c.get("tipo", "")).lower(), c.get("tipo", ""))
+        partes.append((f"<b>{e(tipo)}:</b> " if tipo else "") + e(c.get("descricao", "")))
+    return "; ".join(partes)
+
+
+def bloco_a_validar(a):
+    plano = a.get("plano_validacao") or {}
+    p = ['<div class="achado">']
+    sev = a.get("severidade")
+    p.append(f'<div class="cab">{chip(sev) if sev else ""}'
+             f'<span class="id">{e(a.get("id", ""))}</span>'
+             f'<b>{e(a.get("titulo", ""))}</b><span class="selo">A validar</span></div>')
+    if sev:
+        p.append('<div class="campo" style="color:#64748B;font-size:9pt">Severidade '
+                 'potencial: só vale depois que o bloqueio for resolvido.</div>')
+    p.append(f'<div class="campo arq"><b>Local:</b> <code>{local_html(a)}</code></div>')
+    p.append(bloco_caminho(a.get("caminho")))
+    if a.get("trecho"):
+        texto, _ = trecho_redigido(a)
+        p.append(bloco_codigo(texto))
+    if a.get("por_que"):
+        p.append(f'<div class="campo"><b>Hipótese:</b> {e(a["por_que"])}</div>')
+    p.append(f'<div class="campo"><b>O que falta saber:</b> {e(a.get("bloqueio", ""))}</div>')
+    if plano.get("local"):
+        p.append(f'<div class="campo"><b>Como resolver localmente:</b> {e(plano["local"])}</div>')
+    if plano.get("dono"):
+        p.append(f'<div class="campo"><b>O que o dono do deploy confere:</b> {e(plano["dono"])}</div>')
+    p.append("</div>")
+    return "".join(p)
+
+
 def montar_html(d, redacoes=None):
     projeto = d.get("projeto", "projeto")
     titulo = f"Relatório de Auditoria de Segurança — {projeto}"
-    achados = d.get("achados", [])
+    todos = d.get("achados", [])
+    # Lead a validar nao e' achado: sai da rosca, das barras e da tabela, e ganha
+    # secao propria. Mistura-lo com os confirmados e' contar hipotese como falha.
+    a_validar = [a for a in todos if status_achado(a) == "a_validar"]
+    achados = [a for a in todos if status_achado(a) != "a_validar"]
     # lista de um elemento para servir de contador compartilhado com as issues
     redacoes = redacoes if redacoes is not None else [0]
     cats = {c["id"]: c.get("nome", c["id"]) for c in d.get("categorias", [])}
@@ -375,7 +475,7 @@ def montar_html(d, redacoes=None):
     achados_ord = sorted(achados, key=lambda a: (ordem.get(a.get("severidade"), 9),
                                                  a.get("categoria", ""), a.get("arquivo", "")))
 
-    gate, motivo_gate = calcular_veredito(achados_ord)
+    gate, motivo_gate = calcular_veredito(todos)
     suprimidos = sum(1 for a in achados if not acionavel(a))
     ferramentas = d.get("ferramentas", [])
     sem_medida = [f for f in ferramentas
@@ -449,6 +549,10 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
 .nota {{ background: #F8FAFC; border: 1px solid #E2E8F0; padding: 10px 13px; border-radius: 5px;
         font-size: 9.8pt; }}
 .prio {{ font-weight: 700; color: #0F172A; }}
+.caminho {{ margin: 4px 0 0; padding-left: 18px; font-size: 9.4pt; }}
+.caminho li {{ margin: 2px 0; }}
+.hard {{ border-left: 4px solid #64748B; background: #F8FAFC; padding: 9px 13px; margin: 8px 0;
+        border-radius: 0 4px 4px 0; }}
 </style></head><body>""")
 
     # ---- capa
@@ -468,6 +572,13 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         p.append(f"<dt>Stack detectada</dt><dd>{linhas}</dd>")
     if d.get("nota_metodologica"):
         p.append(f"<dt>Nota metodológica</dt><dd>{e(d['nota_metodologica'])}</dd>")
+    anterior = d.get("auditoria_anterior")
+    if anterior:
+        partes = [x for x in (anterior.get("data"), anterior.get("arquivo"), anterior.get("nota")) if x]
+        p.append(f"<dt>Auditoria anterior</dt><dd>{e(' · '.join(partes))}</dd>")
+    else:
+        p.append("<dt>Auditoria anterior</dt><dd>Nenhuma: esta é a primeira auditoria registrada "
+                 "no repositório. Uma rodada não esgota o alvo.</dd>")
     p.append("</dl></div>")
 
     # ---- resumo executivo
@@ -477,6 +588,8 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         p.append(f"<p>{e(d['resumo'])}</p>")
     p.append('<div class="painel"><div>' + donut(contagem) + "</div><div>" +
              (legenda(contagem) or '<p class="vazio">Nenhum achado registrado.</p>') +
+             (f'<p style="color:#64748B;font-size:9.5pt">+ {len(a_validar)} hipótese(s) a validar, '
+              f'sem severidade, fora da contagem.</p>' if a_validar else "") +
              "</div></div>")
     p.append("<h3>Achados por categoria</h3>")
     p.append(barras(por_categoria, cats))
@@ -532,6 +645,23 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         p.append(f'<div class="fraco evitar-quebra"><b>{e(f.get("titulo",""))}</b>'
                  f'<div>{e(f.get("descricao",""))}</div></div>')
 
+    # ---- hardening: camada B ausente com a camada A funcionando. Nao e' achado,
+    # nao pesa no veredito, mas some do relatorio se nao tiver lugar proprio.
+    hardening = d.get("hardening", [])
+    if hardening:
+        p.append("<h2>Notas de hardening</h2>")
+        p.append('<div class="nota">Melhorias de defesa em profundidade sem violação de fronteira '
+                 'alcançável hoje. Não entram no veredito nem viram issue de segurança.</div>')
+        for h in hardening:
+            if isinstance(h, str):
+                p.append(f'<div class="hard evitar-quebra">{e(h)}</div>')
+                continue
+            p.append(f'<div class="hard evitar-quebra"><b>{e(h.get("titulo",""))}</b>'
+                     f'<div>{e(h.get("descricao",""))}</div>'
+                     + (f'<div class="arq" style="color:#475569;font-size:9pt">'
+                        f'<code>{e(h.get("arquivo"))}</code></div>' if h.get("arquivo") else "")
+                     + "</div>")
+
     # ---- tabela de achados
     p.append('<h2 class="quebra">Achados</h2>')
     if not achados_ord:
@@ -569,16 +699,21 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
                 p.append('<p class="vazio">Nenhum achado nesta categoria.</p>')
             for a in do_cat:
                 p.append('<div class="achado">')
+                desde = (f'<span class="id">desde {e(a["desde"])}</span>'
+                         if a.get("desde") else "")
                 p.append(f'<div class="cab">{chip(a.get("severidade"))}'
                          f'{chip_evidencia(a)}'
                          f'<span class="id">{e(a.get("id",""))}</span>'
-                         f'<b>{e(a.get("titulo",""))}</b>{selo_status(a)}</div>')
+                         f'<b>{e(a.get("titulo",""))}</b>{selo_status(a)}{desde}</div>')
+                if status_achado(a) != "aberto" and a.get("motivo"):
+                    p.append(f'<div class="campo"><b>Motivo do status:</b> {e(a["motivo"])}</div>')
                 fonte = a.get("fonte")
                 p.append(f'<div class="campo"><b>Evidência:</b> '
                          f'{e(EVIDENCIA[nivel_evidencia(a)][0].lower())} · confiança '
                          f'<span class="conf">{num(confianca(a))}</span>'
                          + (f' · {e(fonte)}' if fonte else "") + '</div>')
                 p.append(f'<div class="campo arq"><b>Local:</b> <code>{local_html(a)}</code></div>')
+                p.append(bloco_caminho(a.get("caminho")))
                 texto, n_red = trecho_redigido(a)
                 redacoes[0] += n_red
                 p.append(bloco_codigo(texto))
@@ -590,10 +725,24 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
                 if a.get("impacto"):
                     p.append(f'<div class="campo"><b>Impacto:</b> {e(a["impacto"])}</div>')
                 if a.get("condicoes"):
-                    p.append(f'<div class="campo"><b>Condições de explorabilidade:</b> {e(a["condicoes"])}</div>')
+                    p.append(f'<div class="campo"><b>Condições de explorabilidade:</b> '
+                             f'{condicoes_html(a["condicoes"])}</div>')
                 if a.get("correcao"):
                     p.append(f'<div class="campo"><b>Correção sugerida:</b> {e(a["correcao"])}</div>')
                 p.append("</div>")
+
+    # ---- a validar
+    p.append('<h2 class="quebra">A validar</h2>')
+    if not a_validar:
+        p.append('<p class="vazio">Nenhuma hipótese ficou bloqueada por fato fora do código.</p>')
+    else:
+        p.append('<div class="nota">Hipóteses com caminho real no código cuja confirmação depende '
+                 'de um fato que o repositório não mostra (configuração do provedor, header do '
+                 'proxy, policy do deploy). Não têm severidade e não são falhas confirmadas: '
+                 'cada uma diz exatamente o que falta saber e como resolver. Nenhuma é '
+                 'instrução para testar contra produção.</div>')
+        for a in a_validar:
+            p.append(bloco_a_validar(a))
 
     # ---- recomendacoes
     p.append('<h2 class="quebra">Recomendações priorizadas</h2>')
@@ -615,7 +764,7 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     if not issues:
         p.append('<p class="vazio">Nenhuma issue gerada.</p>')
     for i, iss in enumerate(issues, 1):
-        corpo = montar_corpo_issue(iss, achados, redacoes)
+        corpo = montar_corpo_issue(iss, todos, redacoes)
         p.append(f'<div class="issue">--- ISSUE {i} ---\n{e(corpo)}\n--- FIM ISSUE {i} ---</div>')
 
     p.append("</body></html>")
@@ -661,6 +810,106 @@ def montar_corpo_issue(iss, achados, redacoes=None):
     return "\n".join(linhas)
 
 
+# --------------------------------------------------------------------------- verificacao
+
+def _normalizar(s):
+    return re.sub(r"\s+", " ", s).strip()
+
+
+_ANOTACAO = re.compile(r"\s+(//|#)[^\"']*$")   # anotacao do auditor no fim da linha
+
+
+def _intervalo(linhas):
+    m = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d+))?\s*", str(linhas))
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2) or m.group(1))
+
+
+def verificar_local(raiz, rotulo, arquivo, linhas, trecho):
+    """Arquivo existe, linhas cabem nele e cada linha do trecho esta' la'.
+
+    A comparacao ignora espacos e aceita anotacao do auditor no fim da linha
+    ("// sem organizationId"); o que ela nao aceita e' codigo reescrito de
+    memoria, que e' o que a issue devolvida como "nao reproduz" costuma ter.
+    """
+    if not arquivo:
+        return [f"{rotulo}: sem 'arquivo'"]
+    caminho = Path(raiz, arquivo)
+    if not caminho.is_file():
+        return [f"{rotulo}: arquivo não existe em {raiz}: {arquivo}"]
+    conteudo = caminho.read_text(encoding="utf-8", errors="replace").splitlines()
+    ini = fim = None
+    if linhas is not None and str(linhas).strip():
+        faixa = _intervalo(linhas)
+        if not faixa:
+            return [f"{rotulo}: 'linhas' {linhas!r} não é N nem N-M"]
+        ini, fim = faixa
+        if ini < 1 or ini > fim or fim > len(conteudo):
+            return [f"{rotulo}: linhas {linhas} fora de {arquivo} ({len(conteudo)} linhas)"]
+    if not trecho:
+        return []
+    alvo = " ".join(_normalizar(l) for l in (conteudo[ini - 1:fim] if ini else conteudo))
+    for linha in str(trecho).splitlines():
+        candidatos = {_normalizar(linha), _normalizar(_ANOTACAO.sub("", linha))}
+        candidatos.discard("")
+        if candidatos and not any(c in alvo for c in candidatos):
+            return [f"{rotulo}: linha do trecho não está em {arquivo}"
+                    f"{':' + str(linhas) if linhas else ''}: {linha.strip()[:70]!r}"]
+    return []
+
+
+def verificar(dados, raiz=None):
+    """Confere o que o schema promete em prosa. Devolve a lista de problemas.
+
+    Com raiz, confere tambem arquivo/linhas/trecho contra o codigo. Sem raiz,
+    devolve o aviso como primeiro item de 'avisos' -- o codigo NAO foi conferido
+    e o relatorio precisa saber disso.
+    """
+    erros, ids = [], {}
+    for a in dados.get("achados", []):
+        ident = a.get("id", "?")
+        if ident in ids:
+            erros.append(f"achado {ident}: id repetido")
+        ids[ident] = a
+        st = status_achado(a)
+        if nivel_evidencia(a) == "corroborado" and not str(a.get("fonte", "")).strip():
+            erros.append(f"achado {ident}: corroborado sem 'fonte' nomeada — segunda fonte que "
+                         f"não se nomeia é autodeclaração")
+        if st in STATUS_COM_MOTIVO and not str(a.get("motivo", "")).strip():
+            erros.append(f"achado {ident}: status {st} sem 'motivo'")
+        if st == "a_validar":
+            plano = a.get("plano_validacao") or {}
+            if not str(a.get("bloqueio", "")).strip():
+                erros.append(f"achado {ident}: a_validar sem 'bloqueio' (o fato exato que falta)")
+            if not (isinstance(plano, dict) and (plano.get("local") or plano.get("dono"))):
+                erros.append(f"achado {ident}: a_validar sem plano_validacao.local nem .dono")
+        caminho = a.get("caminho") or []
+        if caminho:
+            tipos = [str(x.get("tipo", "")).lower() for x in caminho]
+            if tipos[0] != "entrada":
+                erros.append(f"achado {ident}: caminho não começa em 'entrada'")
+            if tipos[-1] != "sink":
+                erros.append(f"achado {ident}: caminho não termina em 'sink'")
+            if any(t != "propagacao" for t in tipos[1:-1]):
+                erros.append(f"achado {ident}: passo intermediário do caminho não é 'propagacao'")
+        if raiz:
+            erros += verificar_local(raiz, f"achado {ident}", a.get("arquivo"), a.get("linhas"),
+                                     a.get("trecho"))
+            for i, passo in enumerate(caminho):
+                erros += verificar_local(raiz, f"achado {ident} caminho[{i}]",
+                                         passo.get("arquivo"), passo.get("linha"), None)
+    for iss in dados.get("issues", []):
+        for ref in iss.get("achados", []):
+            if ref not in ids:
+                erros.append(f"issue {iss.get('titulo', '?')!r}: cita achado inexistente {ref}")
+    for r in dados.get("recomendacoes", []):
+        for ref in r.get("achados", []):
+            if ref not in ids:
+                erros.append(f"recomendação {r.get('prioridade', '?')}: cita achado inexistente {ref}")
+    return erros
+
+
 # --------------------------------------------------------------------------- PDF
 
 def servir_e_imprimir(html_txt, saida_pdf, chrome):
@@ -695,9 +944,15 @@ def servir_e_imprimir(html_txt, saida_pdf, chrome):
 def main():
     ap = argparse.ArgumentParser(description="Gera o PDF da auditoria de seguranca.")
     ap.add_argument("findings", help="caminho do findings.json")
-    ap.add_argument("--out", required=True, help="caminho do PDF de saida")
+    ap.add_argument("--out", help="caminho do PDF de saida")
     ap.add_argument("--html-only", action="store_true", help="so escreve o HTML")
+    ap.add_argument("--verificar", action="store_true",
+                    help="confere referencias cruzadas e, com --raiz, arquivo/linhas/trecho "
+                         "contra o codigo; falha alto")
+    ap.add_argument("--raiz", help="raiz do repositorio auditado, para o --verificar")
     args = ap.parse_args()
+    if not args.out and not args.verificar:
+        ap.error("--out e' obrigatorio (ou rode so' com --verificar)")
 
     dados = json.loads(Path(args.findings).read_text(encoding="utf-8"))
     for campo in ("projeto", "data", "categorias"):
@@ -716,6 +971,28 @@ def main():
         if st is not None and str(st).strip().lower() not in STATUS_ROTULO:
             raise SystemExit(f"achado {ident}: status invalido {st!r} "
                              f"(use: {', '.join(STATUS_ROTULO)})")
+        # Sem isso a secao "A validar" sai vazia e o falso positivo vira opiniao.
+        st = status_achado(a)
+        if st == "a_validar" and not str(a.get("bloqueio", "")).strip():
+            raise SystemExit(f"achado {ident}: a_validar exige 'bloqueio' (o fato exato que falta)")
+        if st in STATUS_COM_MOTIVO and not str(a.get("motivo", "")).strip():
+            raise SystemExit(f"achado {ident}: status {st} exige 'motivo'")
+
+    if args.verificar:
+        raiz = Path(args.raiz).resolve() if args.raiz else None
+        if raiz and not raiz.is_dir():
+            raise SystemExit(f"--raiz nao e' um diretorio: {raiz}")
+        problemas = verificar(dados, raiz)
+        for x in problemas:
+            print(f"VERIFICAR: {x}", file=sys.stderr)
+        if problemas:
+            raise SystemExit(f"{len(problemas)} problema(s) no findings.json - corrija antes de gerar.")
+        if raiz:
+            print(f"Verificacao: ok - arquivo, linhas e trecho conferidos contra {raiz}.")
+        else:
+            print("Verificacao: referencias ok. Codigo NAO conferido (passe --raiz <repo>).")
+        if not args.out:
+            return
 
     out = Path(args.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -726,6 +1003,9 @@ def main():
 
     gate, motivo = calcular_veredito(dados.get("achados", []))
     print(f"Veredito: {gate} — {motivo}")
+    pendentes = sum(1 for a in dados.get("achados", []) if status_achado(a) == "a_validar")
+    if pendentes:
+        print(f"A validar: {pendentes} hipotese(s) bloqueada(s) por fato fora do codigo.")
     if redacoes[0]:
         print(f"Redacao: {redacoes[0]} segredo(s) mascarado(s) no relatorio.")
     sem_medida = [f.get("nome", "?") for f in dados.get("ferramentas", [])

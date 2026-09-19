@@ -113,13 +113,28 @@ grep -q 'REVISAR' "$TMP/naoconf.log" && ok "crítica não confirmada vai para RE
 grep -q 'LIBERADO' "$TMP/naoconf.log" && falha "crítica não confirmada saiu LIBERADO" \
   || ok "crítica não confirmada não é liberada"
 
-# 10. achado não acionável sai do cálculo, mas continua visível com selo
+# 10. achado não acionável sai do cálculo, mas continua visível com selo e motivo.
+#     (a hipótese a_validar F6 é crítica potencial: segura o veredito em REVISAR,
+#     nunca em LIBERADO — ver caso 17)
 gerar_variante 'for a in d["achados"]:
-    a["status"] = "risco_aceito"' aceito
-grep -q 'LIBERADO' "$TMP/aceito.log" && ok "risco aceito sai do cálculo do veredito" \
-  || falha "achado não acionável ainda pesa no veredito"
+    if a.get("status") != "a_validar":
+        a["status"], a["motivo"] = "risco_aceito", "Decisão do CTO em 02/09/2026: corrige no Q4."' aceito
+grep -q 'BLOQUEADO' "$TMP/aceito.log" && falha "achado não acionável ainda pesa no veredito" \
+  || ok "risco aceito sai do cálculo do veredito"
 grep -q 'Risco aceito' "$TMP/aceito.html" && ok "achado suprimido continua no relatório" \
   || falha "achado não acionável sumiu do relatório"
+grep -q 'Motivo do status' "$TMP/aceito.html" && ok "motivo do status aparece no achado" \
+  || falha "motivo do risco aceito não foi impresso"
+
+# 10b. tirar do veredito sem justificativa escrita é recusado: é assim que a mesma
+#      discussão volta na auditoria seguinte
+gerar_variante 'd["achados"][0]["status"] = "falso_positivo"' semmotivo
+if [ -s "$TMP/semmotivo.html" ]; then
+  falha "falso_positivo sem motivo foi aceito em silêncio"
+else
+  grep -q "exige 'motivo'" "$TMP/semmotivo.log" && ok "status sem motivo é recusado" \
+    || falha "recusa sem a mensagem do motivo"
+fi
 
 # 11. ferramenta que não rodou vira aviso de superfície não medida
 gerar_variante 'd["ferramentas"].append({"nome": "trivy", "estado": "nao_instalado"})' semtool
@@ -160,6 +175,125 @@ for par in 'evidencia:conferido' 'status:resolvido'; do
     ok "$campo inválido é recusado"
   fi
 done
+
+# 15. lead a_validar não é achado: fora da rosca (o exemplo tem 5 achados + F6 a
+#     validar, e a rosca continua em 5), com seção própria que diz o que falta saber
+grep -q '>5</text>' "$HTML" && ok "hipótese a validar não entra na rosca" \
+  || falha "a_validar foi contada como achado"
+grep -q '>A validar</h2>' "$HTML" && grep -q 'O que falta saber' "$HTML" \
+  && ok "seção A validar com o bloqueio" || falha "seção A validar ausente ou sem bloqueio"
+grep -q 'O que o dono do deploy confere' "$HTML" && ok "plano de validação do dono impresso" \
+  || falha "plano_validacao.dono sumiu"
+grep -q 'hipótese(s) a validar' "$HTML" && ok "resumo conta as hipóteses à parte" \
+  || falha "resumo não menciona hipóteses a validar"
+grep -q 'A validar: 1 hipotese' "$TMP/log.txt" && ok "stdout conta as hipóteses" \
+  || falha "stdout silencioso sobre hipóteses a validar"
+
+# 16. a_validar sem o fato exato que falta é recusado — "depende do deploy" sem
+#     dizer o quê é a hipótese virando lixo
+gerar_variante 'd["achados"][-1].pop("bloqueio")' sembloqueio
+if [ -s "$TMP/sembloqueio.html" ]; then
+  falha "a_validar sem bloqueio foi aceito"
+else
+  grep -q "exige 'bloqueio'" "$TMP/sembloqueio.log" && ok "a_validar sem bloqueio é recusado" \
+    || falha "recusa sem a mensagem do bloqueio"
+fi
+
+# 17. crítica potencial pendente nunca sai LIBERADO: o bloqueio é para resolver.
+#     Todos os outros achados aceitos com motivo; só a hipótese F6 (crítica) fica.
+gerar_variante 'for a in d["achados"]:
+    if a.get("status") != "a_validar":
+        a["status"], a["motivo"] = "corrigido", "PR #12 mergeado em 03/09/2026."' pendente
+grep -q 'REVISAR' "$TMP/pendente.log" && ok "crítica potencial a validar segura em REVISAR" \
+  || falha "crítica a validar não segurou o veredito"
+grep -q 'LIBERADO' "$TMP/pendente.log" && falha "crítica a validar saiu LIBERADO" \
+  || ok "crítica a validar não é liberada"
+# ...e uma hipótese de severidade menor não pesa nada
+gerar_variante 'for a in d["achados"]:
+    if a.get("status") != "a_validar":
+        a["status"], a["motivo"] = "corrigido", "PR #12."
+    else:
+        a["severidade"] = "media"' pendmedia
+grep -q 'LIBERADO' "$TMP/pendmedia.log" && ok "hipótese média a validar não pesa no veredito" \
+  || falha "hipótese média a validar mudou o veredito"
+
+# 18. notas de hardening têm seção própria e não entram na contagem
+grep -q 'Notas de hardening' "$HTML" && grep -q 'SameSite' "$HTML" \
+  && ok "hardening em seção própria" || falha "hardening sumiu do relatório"
+
+# 19. o caminho entrada → sink sai no achado, e a condição tipada também
+grep -q '<b>Entrada</b>' "$HTML" && grep -q '<b>Sink</b>' "$HTML" \
+  && ok "caminho entrada → sink impresso" || falha "caminho do achado não foi impresso"
+grep -q 'Nível de autenticação:' "$HTML" && ok "condição tipada com rótulo" \
+  || falha "condição tipada saiu sem rótulo"
+
+# 20. primeira auditoria diz que é a primeira; a seguinte cita a anterior
+grep -q 'primeira auditoria registrada' "$HTML" && ok "sem auditoria anterior: dito na capa" \
+  || falha "capa silenciosa sobre auditoria anterior"
+gerar_variante 'd["auditoria_anterior"] = {"data": "01/06/2026", "arquivo": "docs/security-audit/findings.json@abc123", "nota": "3 achados reverificados"}
+d["achados"][0]["desde"] = "01/06/2026"' anterior
+grep -q '3 achados reverificados' "$TMP/anterior.html" && grep -q 'desde 01/06/2026' "$TMP/anterior.html" \
+  && ok "auditoria anterior e 'desde' impressos" || falha "auditoria anterior não apareceu"
+
+# 21. --verificar: referências cruzadas e caminho, sem repo
+verificar() {  # $1=script python  $2=nome  $3=raiz opcional
+  python3 - "$SKILL/references/exemplo-findings.json" "$TMP/$2.json" <<PY
+import json, sys
+d = json.load(open(sys.argv[1]))
+$1
+json.dump(d, open(sys.argv[2], "w"))
+PY
+  python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/$2.json" --verificar ${3:+--raiz "$3"} \
+    > "$TMP/$2.log" 2>&1
+}
+verificar '' limpo
+grep -q 'NAO conferido' "$TMP/limpo.log" && ok "sem --raiz o código é declarado NÃO conferido" \
+  || falha "sem --raiz o gerador fingiu ter conferido o código"
+verificar 'd["issues"][0]["achados"] = ["F99"]' refquebrada
+grep -q 'achado inexistente F99' "$TMP/refquebrada.log" && ok "issue citando achado inexistente é recusada" \
+  || falha "referência quebrada passou"
+verificar 'd["achados"][1]["fonte"] = ""' semfonte
+grep -q 'corroborado sem' "$TMP/semfonte.log" && ok "corroborado sem fonte é recusado" \
+  || falha "corroborado sem fonte passou (autodeclaração)"
+verificar 'd["achados"][1]["caminho"][0]["tipo"] = "sink"' caminhoerrado
+grep -q "não começa em 'entrada'" "$TMP/caminhoerrado.log" && ok "caminho sem entrada é recusado" \
+  || falha "caminho que não começa na entrada passou"
+
+# 22. --verificar --raiz: o trecho tem que estar no arquivo, nas linhas ditas.
+#     Repo mínimo com o que os achados F1..F6 citam.
+REPO="$TMP/repo"; mkdir -p "$REPO/api/routes" "$REPO/api/plugins" "$REPO/api/mail"
+python3 - "$SKILL/references/exemplo-findings.json" "$REPO" <<'PY'
+import json, os, sys
+d = json.load(open(sys.argv[1])); raiz = sys.argv[2]
+arquivos, fins = {}, {}
+def alvo(arq, linha):
+    partes = str(linha).split("-")
+    fins[arq] = max(fins.get(arq, 0), int(partes[-1]))
+    return arquivos.setdefault(arq, {}), int(partes[0])
+for a in d["achados"]:
+    mapa, ini = alvo(a["arquivo"], a["linhas"])
+    for i, l in enumerate(a["trecho"].split("\n")):
+        mapa[ini + i] = l.replace("   // sem organizationId", "")
+    for p in a.get("caminho", []):
+        mapa, ini = alvo(p["arquivo"], p["linha"])
+        mapa.setdefault(ini, "// passo do caminho")
+for arq, mapa in arquivos.items():
+    n = max(max(mapa), fins[arq])
+    with open(os.path.join(raiz, arq), "w") as f:
+        f.write("\n".join(mapa.get(i, f"// linha {i}") for i in range(1, n + 1)) + "\n")
+PY
+verificar '' repook "$REPO"
+grep -q 'Verificacao: ok' "$TMP/repook.log" && ok "trecho copiado do arquivo passa no --raiz" \
+  || { falha "trecho fiel foi recusado"; cat "$TMP/repook.log"; }
+verificar 'd["achados"][0]["trecho"] = "const rows = await prisma.sale.findMany({ where: {} });"' reescrito "$REPO"
+grep -q 'linha do trecho não está em' "$TMP/reescrito.log" && ok "trecho reescrito de memória é recusado" \
+  || falha "trecho que não existe no arquivo passou"
+verificar 'd["achados"][0]["linhas"] = "9000-9010"' foradofim "$REPO"
+grep -q 'fora de' "$TMP/foradofim.log" && ok "linhas fora do arquivo são recusadas" \
+  || falha "linhas inexistentes passaram"
+verificar 'd["achados"][0]["arquivo"] = "api/routes/nao-existe.ts"' semarquivo "$REPO"
+grep -q 'arquivo não existe' "$TMP/semarquivo.log" && ok "arquivo inexistente é recusado" \
+  || falha "arquivo que não existe passou"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
