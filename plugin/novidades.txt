@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.34.0|Auditoria de segurança com hipótese a validar, juiz que tenta refutar cada achado grave, --verificar que confere o trecho contra o código e categoria A6 para agente de IA com ferramentas
 0.33.2|o guard de sessão paralela parou de barrar comando legítimo cujo texto de busca contém "git checkout", e passou a pegar o mesmo checkout quando ele vem com o prefixo rtk
 0.33.1|o aviso de custo da geração de imagem parou de gritar quando a chave já está no lugar certo
 0.33.0|o Claude agora gera as imagens da sua landing pela API e publica junto com a página

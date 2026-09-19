@@ -17,7 +17,8 @@
     {"id": "A2", "nome": "Permissão definida no navegador", "aplicavel": true},
     {"id": "A3", "nome": "IDOR", "aplicavel": true},
     {"id": "A4", "nome": "Chaves expostas", "aplicavel": true},
-    {"id": "A5", "nome": "Inputs sem tratamento (XSS)", "aplicavel": true}
+    {"id": "A5", "nome": "Inputs sem tratamento (XSS)", "aplicavel": true},
+    {"id": "A6", "nome": "Agente de IA com ferramentas", "aplicavel": false, "nota": "Nenhum LLM decide ação neste projeto: não há tool-calling, n8n com agente nem edge function chamando modelo."}
   ],
   "ferramentas": [
     {"nome": "leitura manual", "versao": "—", "estado": "executado", "escopo": "34 handlers, 12 componentes, 3 templates"},
@@ -40,6 +41,10 @@
     {"titulo": "O isolamento por organização depende de disciplina, não de mecanismo", "descricao": "Não há RLS nem middleware de tenant: cada query precisa lembrar do filtro. Duas já esqueceram. Sem uma barreira estrutural, o próximo endpoint tem a mesma chance de errar."},
     {"titulo": "Segredo de assinatura de JWT com default público", "descricao": "O docker-compose entrega um valor padrão que vira segredo real em qualquer deploy que não sobrescreva a variável, e não existe validação de startup que rejeite o default."}
   ],
+  "hardening": [
+    {"titulo": "Cookie de sessão sem SameSite explícito", "descricao": "O token vai no header Authorization, não no cookie: sem violação alcançável hoje. Declarar SameSite=Lax fecha a porta caso a sessão migre para cookie.", "arquivo": "api/plugins/session.ts:18"},
+    {"titulo": "Rate limit só no login", "descricao": "Os endpoints de convite e de reset de senha aceitam volume ilimitado; o login já tem limite. Não é achado porque não cruza fronteira de dado, mas é o primeiro lugar onde enumeração de e-mail ficaria barata."}
+  ],
   "achados": [
     {
       "id": "F1", "categoria": "A1", "severidade": "critica",
@@ -58,6 +63,11 @@
       "fonte": "leitura + requisição real: DELETE com token do tenant B apagou registro do tenant A em ambiente de teste",
       "titulo": "DELETE /contacts/:id não verifica posse",
       "arquivo": "api/routes/contacts.ts", "linhas": "142-149",
+      "caminho": [
+        {"tipo": "entrada", "arquivo": "api/routes/contacts.ts", "linha": "142", "descricao": "req.params.id chega de qualquer usuário autenticado"},
+        {"tipo": "propagacao", "arquivo": "api/plugins/auth.ts", "linha": "31", "descricao": "requireAuth só valida a assinatura do JWT; não carrega organização"},
+        {"tipo": "sink", "arquivo": "api/routes/contacts.ts", "linha": "143", "descricao": "prisma.contact.delete com o id cru no where"}
+      ],
       "trecho": "fastify.delete('/contacts/:id', { preHandler: requireAuth }, async (req) => {\n  await prisma.contact.delete({ where: { id: req.params.id } });\n  return { ok: true };\n});",
       "por_que": "requireAuth só prova que existe uma sessão. O ID vem do path e é usado direto no where: um usuário logado apaga o contato de qualquer organização iterando UUIDs conhecidos.",
       "impacto": "Destruição de dados de outros clientes, sem trilha que identifique o autor.",
@@ -85,6 +95,10 @@
       "trecho": "fastify.post('/users/invite', { preHandler: requireAuth }, async (req) => {\n  // o botão só aparece para admin no front (useRole)\n  return invite(req.body.email, req.body.role);\n});",
       "por_que": "O componente InviteButton esconde a UI com role === 'admin' (src/components/InviteButton.tsx:14), mas o handler exige apenas sessão. Um curl de um usuário comum convida a si mesmo como admin.",
       "impacto": "Escalação de privilégio para qualquer usuário autenticado.",
+      "condicoes": [
+        {"tipo": "autenticacao", "descricao": "conta válida de qualquer plano"},
+        {"tipo": "configuracao", "descricao": "convites habilitados no workspace (default: sim)"}
+      ],
       "correcao": "Adicionar requireRole('admin') no preHandler e testar 403 com token de usuário comum."
     },
     {
@@ -98,6 +112,21 @@
       "impacto": "HTML injetado no e-mail; em clientes que renderizam, vira phishing com a marca do produto.",
       "condicoes": "Depende do cliente de e-mail do destinatário; a maioria bloqueia script, não bloqueia link forjado.",
       "correcao": "Escapar as interpolações do template com um helper único e cobrir com teste."
+    },
+    {
+      "id": "F6", "categoria": "A2", "severidade": "critica",
+      "status": "a_validar",
+      "evidencia": "lido",
+      "fonte": "leitura de api/plugins/cors.ts e do Dockerfile; o proxy de produção não está no repositório",
+      "titulo": "CORS reflete qualquer Origin com credentials — se o proxy não sobrescrever",
+      "arquivo": "api/plugins/cors.ts", "linhas": "9-14",
+      "trecho": "fastify.register(cors, {\n  origin: (origin, cb) => cb(null, origin ?? true),\n  credentials: true,\n});",
+      "por_que": "O plugin devolve a Origin recebida com Access-Control-Allow-Credentials: true. Se essa resposta chega ao browser sem o proxy trocar o header, qualquer site lê a API com a sessão da vítima.",
+      "bloqueio": "O nginx de produção (fora do repositório) pode reescrever Access-Control-Allow-Origin. Sem ver a config do proxy não dá para afirmar nem descartar.",
+      "plano_validacao": {
+        "local": "Subir a API com docker-compose e fazer um fetch com credentials de uma origem dummy (http://localhost:9999): se a resposta refletir a origem, o código sozinho é vulnerável.",
+        "dono": "Abrir a config do nginx de produção e conferir se existe add_header Access-Control-Allow-Origin fixo; colar a linha na issue."
+      }
     }
   ],
   "recomendacoes": [

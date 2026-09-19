@@ -1,16 +1,16 @@
 ---
 name: auditoria-seguranca
 description: >-
-  Auditoria de segurança em 5 categorias (isolamento de inquilino, permissão
-  decidida no navegador, IDOR, chaves expostas, XSS) com entregável: PDF em
-  pt-BR dentro do repo auditado + issues de GitHub prontas para colar. Detecta a
-  stack antes, então serve repo que não é Supabase. Use em "auditoria de
-  segurança", "relatório de segurança", "auditoria em PDF", "achou IDOR?". Não é
-  o secscan (Markdown fora do repo): este é o pacote para outra pessoa ler e
-  agir.
+  Auditoria de segurança em 6 categorias (isolamento de inquilino, permissão
+  decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com
+  ferramentas) com entregável: PDF em pt-BR dentro do repo auditado + issues de
+  GitHub prontas para colar. Detecta a stack e relê a auditoria anterior. Use em
+  "auditoria de segurança", "relatório de segurança", "auditoria em PDF", "achou
+  IDOR?". NÃO é o secscan (Markdown fora do repo): este é o pacote para outra
+  pessoa ler e agir.
 ---
 
-# auditoria-seguranca — 5 categorias, PDF e issues
+# auditoria-seguranca — 6 categorias, PDF e issues
 
 Auditoria **estática e read-only sobre o código**, empacotada como entregável:
 um PDF em pt-BR e uma lista de issues que outra pessoa consegue executar sem ter
@@ -22,7 +22,7 @@ amostra), **registrar o que está correto** e **entregar num formato que sobrevi
 
 | Skill | Responde | Entrega |
 |---|---|---|
-| **`auditoria-seguranca`** (esta) | "Quais das 5 falhas clássicas este código tem, e o que faço com isso?" | PDF + issues, **dentro** do repo |
+| **`auditoria-seguranca`** (esta) | "Quais das 6 falhas clássicas este código tem, e o que faço com isso?" | PDF + issues, **dentro** do repo |
 | `secscan` | "Existe `service_role` em `src/`? Esse `eval` é explorável?" | Markdown + SARIF, **fora** do repo |
 | `baseline` | "A plataforma está apta a produção?" | contrato em `.context/docs/baseline.md` (ou o doc de contrato do seu projeto) |
 
@@ -72,6 +72,33 @@ arquivo aponta para a fase certa em cada seção. Copiar grep entre as duas skil
   `!CRON_SECRET` e não casava com `!MENTORIA_CRON_SECRET`. Antes de publicar
   qualquer contagem, abra alguns dos que o grep **liberou** — é o lado que
   ninguém confere.
+- **Achado precisa de fronteira cruzada e resultado concreto.** Nomeie quem é o
+  ator de menor confiança, o que ele manda, qual controle deveria barrar e o que
+  ele obtém do outro lado. Sem essa frase, não é achado. O que **não** é achado:
+  desvio de checklist sem vítima; camada B ausente com a camada A funcionando
+  (vai para `hardening[]`); crash que você promoveu a execução de código sem
+  demonstrar; efeito que só atinge o próprio ator; comportamento de proxy,
+  browser ou provedor que você **adivinhou** em vez de ler.
+- **Fato fora do código não é achado nem absolvição.** Header que o proxy
+  injeta, policy do provedor, config do deploy: se o repositório não mostra, não
+  assuma presença nem ausência. O achado vira `status: a_validar` com o
+  `bloqueio` exato (o fato que falta) e um `plano_validacao` que alguém consegue
+  executar — fixture local com tenant dummy, ou o que o dono do deploy abre e
+  confere. Sem severidade, seção própria no PDF, e uma crítica pendente nunca
+  deixa o veredito sair `LIBERADO`.
+- **Quem verifica não é quem achou.** Todo achado `alta` ou `critica` passa por
+  um revisor **fresco** (subagent `revisor`, read-only) com a instrução de
+  refutá-lo: reler cada `arquivo:linha`, procurar o controle que você não viu
+  (middleware, trigger, policy) e devolver `mantido` ou `refutado` com motivo.
+  Só o que sobrevive fica `lido`; o que cai vira `falso_positivo` **com
+  `motivo`, e fica no JSON** — é assim que a auditoria seguinte não repete a
+  discussão. Convicção de quem achou não conta como segunda leitura.
+- **Corroborar em produção: ler pode, escrever nunca.** Uma requisição anônima
+  ou com o próprio tenant que devolve dado alheio é a melhor evidência que
+  existe (foi assim que a MV com 904 linhas apareceu), e vale `corroborado` com
+  a requisição nomeada em `fonte`. `DELETE`, `UPDATE`, `INSERT`, disparo, fila:
+  nunca contra o ambiente do cliente — isso é fixture local com tenant dummy,
+  ou `a_validar`.
 - **O que está correto também é resultado.** Cada categoria produz pelo menos
   uma linha de "verificado e está certo, com evidência". Relatório só com
   achados não prova cobertura nenhuma.
@@ -122,6 +149,38 @@ projeto?** Descubra antes de procurar o furo — "não tem RLS" é achado só on
 RLS era o mecanismo escolhido. Onde o isolamento é filtro manual, o achado é a
 query que esqueceu o filtro; onde não existe mecanismo nenhum, o achado é
 **estrutural** e vale mais que qualquer linha individual.
+
+**Existe auditoria anterior?** Uma rodada acha metade do que rodadas repetidas
+acham (medição da Cloudflare no harness delas, e bate com a nossa experiência).
+Se `docs/security-audit/findings.json` já existe no repo, ele é insumo, não
+histórico:
+
+```bash
+git log -1 --format='%h %ad' --date=short -- docs/security-audit/findings.json
+python3 -c "import json;[print(a['id'],a.get('status','aberto'),a['arquivo'],a.get('linhas','')) for a in json.load(open('docs/security-audit/findings.json'))['achados']]"
+```
+
+Cada achado antigo recebe um destino **relendo o código atual**, não o texto
+antigo: `corrigido` (o fix está lá, cite a linha), `aberto` (carregue com
+`desde`), `falso_positivo` (mantenha com o `motivo` de quem refutou). Um
+`falso_positivo` antigo suprime só aquela alegação exata — se o código mudou,
+vira trabalho de novo. Preencha `auditoria_anterior` com a contagem, e a
+cobertura declara "N da auditoria anterior reverificados". Sem arquivo anterior,
+a capa diz que é a primeira: uma rodada não esgota o alvo.
+
+**As coisas óbvias, antes de qualquer categoria** (cinco minutos, e é onde o
+achado barato mora porque todo mundo supõe que outro conferiu):
+
+```bash
+grep -rnE "(TODO|FIXME|HACK|XXX).*(auth|permiss|valid|tenant|secur|token)" --include='*.ts' --include='*.tsx' --include='*.py' --include='*.sql' . | grep -v node_modules
+grep -rnE "(redirect|returnTo|return_url|next|callback|goto|continue)\b.*(req\.(query|body)|searchParams|params)" --include='*.ts' --include='*.tsx' . | grep -v node_modules   # open redirect
+git log --oneline -i --grep='revert' --grep='auth' --grep='rls' --grep='permiss' --all | head -20   # fix de segurança revertido
+ls e2e/ src/**/__tests__/ 2>/dev/null   # o que os testes NÃO testam é a lista de lugares sem rede
+```
+
+O `git log` é o que separa esta lista de um checklist: check de auth comentado,
+policy dropada "temporariamente" e segredo commitado-e-removido só aparecem no
+histórico, e o histórico é o único lugar onde ninguém procura.
 
 ## A1 — Banco sem tranca (isolamento de inquilino/dono)
 
@@ -180,6 +239,29 @@ Não conclua "está protegido" porque o ORM tem middleware de tenant configurado
 confirme que o middleware cobre `raw`/`$queryRaw`/`groupBy` — quase sempre não
 cobre.
 
+**O que a query com filtro certo ainda vaza** — quatro superfícies que não
+aparecem no grep de `where`, e cada uma é uma pergunta a responder por escrito
+na cobertura da A1:
+
+- **Oráculo de enumeração.** `count`, filtro, ordenação por campo oculto,
+  `404` versus `403`, unique constraint que revela que o e-mail existe, tempo
+  de resposta. O atacante não lê o registro; ele descobre que existe e o que
+  contém. Exige predicado confidencial concreto ("existe cliente com este CNPJ")
+  e distinção observável — variação genérica de resposta não é achado.
+- **Chave sem tenant.** Cache, índice de busca, nome de arquivo no storage,
+  chave de deduplicação, `upsert` por `slug`: dois tenants colidindo na mesma
+  chave lógica leem ou sobrescrevem um ao outro mesmo com a tabela de origem
+  correta.
+- **Soft-delete ignorado.** Busca, `join`, restore, job em background e link
+  direto que não aplicam o predicado de ciclo de vida devolvem o registro
+  "apagado" — e identificador de soft-deleted que pode ser re-registrado antes
+  de todas as referências sumirem.
+- **Autorização velha.** Membro removido do workspace, papel rebaixado,
+  consentimento retirado, segredo rotacionado: sessão, cache, subscription
+  realtime, job agendado e dado materializado continuam autorizando o que a
+  tabela de membros já negou. Ache onde a remoção invalida cada cópia — e onde
+  não invalida.
+
 ## A2 — Permissão definida no navegador
 
 Método: **cruzamento**, não varredura. Liste os gates de papel do frontend,
@@ -203,6 +285,23 @@ projeto for da casa, use o contrato de lá em vez de recomeçar o inventário.
 Autenticação não é autorização: `requireAuth` num endpoint de admin é achado,
 não proteção.
 
+**A permissão que mora na ordem dos passos.** O frontend também define a
+sequência (pagou → liberou; pediu código → validou → agiu), e o servidor
+precisa impô-la sozinho:
+
+- **Máquina de estado.** Dá para pular etapa chamando o endpoint do passo 3 sem
+  o passo 2? Voltar para um estado anterior? Repetir um fluxo concluído (replay
+  de webhook de pagamento, reenvio de convite aceito)? Se o passo 2 de 3 falha,
+  o passo 1 é desfeito?
+- **Check-then-act não atômico.** Ler o saldo/código/vaga e agir em duas
+  queries separadas é corrida: duas requisições concorrentes passam pelo mesmo
+  check. A troca código→ação precisa ser **uma** operação no banco (`UPDATE ...
+  WHERE codigo = $1 AND usado = false RETURNING`), nunca `SELECT` + `UPDATE`.
+  Lição de um segundo fator real: três gates que chegavam na mesma requisição
+  eram um gate só.
+- **Valor que o cliente nunca mandaria.** Quantidade negativa, zero, acima do
+  limite, string onde vai número. A UI constrange o usuário; a API não.
+
 ## A3 — IDOR
 
 **Percorra todos os handlers.** Enumere primeiro, audite depois, e reporte a
@@ -225,6 +324,25 @@ só: **o objeto é carregado cruzando o id com o dono/tenant do chamador?**
 - Id sequencial aumenta severidade (enumerável sem vazamento prévio); UUID
   reduz explorabilidade mas **não** conserta — UUID vaza em log, e-mail, URL
   compartilhada e export.
+
+**Id não é a única referência que vem do request: URL também.** Webhook, URL de
+callback, "importar de link", avatar por URL, integração que o usuário
+configura (n8n, Pipedrive, NotificaMe): o servidor **busca** um endereço que o
+usuário escolheu.
+
+```bash
+grep -rnE "(fetch|axios|got|request|urllib|http\.get)\((req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)" --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
+```
+
+Para cada um: existe allowlist de host ou bloqueio de rede interna
+(`10.`, `172.16-31.`, `192.168.`, `169.254.169.254`, `localhost`) **depois** de
+resolver o DNS e **depois** de seguir redirect? Sem isso é SSRF, e o alvo
+clássico é o metadata endpoint do provedor ou o Postgres interno. Reporte com o
+alvo interno concreto que o código alcança, não "poderia alcançar algo".
+
+Registre em `caminho[]` a trilha `entrada → propagacao → sink` de cada achado
+de A1 e A3: é a forma que quem corrige consegue refazer, e é o que o revisor
+fresco vai reler.
 
 ## A4 — Chaves expostas
 
@@ -274,18 +392,98 @@ grep -rnE '`[^`]*<(p|div|a|table|strong|h[1-6])[^`]*\$\{' --include='*.ts' --inc
 URL controlada pelo usuário em `href`/`src` é a variante que passa despercebida:
 `javascript:` continua executando, e a defesa é allowlist de protocolo.
 
+## A6 — Agente de IA com ferramentas
+
+`aplicavel` só quando um modelo de linguagem **decide uma ação**: agente de
+WhatsApp no n8n com tools, edge function que chama LLM e executa o que ele
+devolve, assistente com acesso a banco, MCP server. Chat que só responde texto
+não é A6. Sem essa superfície, escreva `aplicavel: false` com o motivo.
+
+A regra que ordena a categoria: **prompt de guard-rail não é fronteira de
+segurança.** "Você não deve apagar registros" no system prompt vale zero; o que
+conta é check determinístico no handler da tool. E prompt injection sozinha
+também não é achado — o achado é o controle de código que falta **depois** que
+o modelo foi convencido. A `guardrails-ia` cobre o comportamento do agente; aqui
+é o código.
+
+Quatro mapas antes de procurar: quem executa cada tool (identidade efetiva),
+o que cada tool consegue fazer, de onde vem cada texto que entra no contexto
+(mensagem do lead, documento recuperado, memória, resultado de outra tool) e
+para onde vai a saída do modelo.
+
+```bash
+# onde o modelo é chamado e onde a resposta dele vira ação
+grep -rnE "tools?\s*[:=]|function_call|tool_calls|\.invoke\(|runTool|executeTool|createAgent|AgentExecutor" --include='*.ts' --include='*.js' --include='*.py' --include='*.json' . | grep -v node_modules
+grep -rnE "service_role|SUPABASE_SERVICE_ROLE|createClient\([^)]*service" --include='*.ts' --include='*.js' . | grep -v node_modules   # com que identidade a tool roda
+```
+
+Para cada tool que **escreve, envia, agenda ou lê dado de outra pessoa**:
+
+- **Deputado confuso.** A tool roda com `service_role` ou credencial ampla e o
+  handler **não re-checa** se o solicitante (o lead, o usuário do chat) poderia
+  fazer aquela operação naquele recurso pelo produto normal. Credencial
+  compartilhada com escopo por usuário **imposto na query** não é achado.
+- **Ação sem vínculo com o pedido.** Conteúdo controlado pelo atacante (mensagem
+  do lead, e-mail ingerido, página recuperada) faz o agente executar uma ação
+  com a autoridade da vítima — envio, agendamento, mudança de cadastro — que
+  ela não pediu nem aprovou. Vale mesmo se a vítima **poderia** fazer aquilo:
+  autorização genérica não é intenção.
+- **Argumento da tool no sink.** O modelo monta o `where`, o caminho do arquivo,
+  a URL, o comando. Schema estruturado limita a forma, não autoriza nada:
+  siga cada campo da chamada decodificada até o sink como faria com
+  `req.body`.
+- **Memória e contexto entre tenants.** Histórico, embeddings, cache de prompt
+  e "memória do agente" com chave larga demais: uma conversa lê o que outro
+  tenant escreveu, ou uma observação de baixa confiança vira instrução durável
+  para outro usuário.
+- **Saída do modelo num sink de renderização.** Resposta em HTML, template de
+  WhatsApp, Markdown com link, comando: o mesmo encoding da A5, e o modelo é
+  uma fonte tão não confiável quanto o usuário.
+- **Loop sem teto.** Uma mensagem dispara N chamadas de tool, N envios, N
+  cobranças de API sem orçamento por requisição, idempotência ou cancelamento.
+  Prove por contagem no código; nunca esgotando o serviço.
+
+Comportamento do provedor, do renderizador do WhatsApp ou do modelo que o
+código não mostra → `a_validar`, com o que o dono confere.
+
 ## Fase 5 — classificar a evidência e fechar o veredito
 
-Antes de gerar o PDF, passe achado por achado e responda **duas** perguntas que
-não são a severidade:
+Antes de gerar o PDF, passe achado por achado e responda **quatro** perguntas
+que não são a severidade:
 
-1. **Como eu sei disto?** → `evidencia`. O grep casou e você não abriu o arquivo:
+1. **Qual é o caminho?** → `caminho[]` e `condicoes[]`. Entrada de menor
+   confiança, propagação, sink, cada passo com `arquivo:linha`; e o que precisa
+   ser verdade para explorar (nível de auth, papel, flag, config, estado do
+   dado), **tipado**. É o que quem corrige refaz e o que o revisor relê. Se o
+   primeiro passo não é uma entrada que um ator de menor confiança alcança, o
+   achado não tem ator — volte.
+2. **Como eu sei disto?** → `evidencia`. O grep casou e você não abriu o arquivo:
    `padrao`. Você abriu, leu o caminho inteiro e ele fecha: `lido`. Existe algo
-   fora da sua leitura confirmando — uma requisição real, outra ferramenta, o log
-   de produção: `corroborado`, com a fonte nomeada.
-2. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
-   do cálculo do veredito, mas continuam no relatório com selo: sumir com eles é
-   como a mesma discussão volta na auditoria seguinte.
+   fora da sua leitura confirmando — uma requisição real de leitura, outra
+   ferramenta, o log de produção: `corroborado`, com a fonte nomeada. Depende de
+   fato que o repositório não mostra: `status: a_validar`, com `bloqueio` e
+   `plano_validacao`.
+3. **Alguém tentou derrubar?** → o juiz. Para cada `alta` e `critica`, um
+   subagent `revisor` fresco recebe **só** o achado (id, título, arquivo:linha,
+   caminho, trecho, por_que) e a ordem de refutar: reler cada linha citada,
+   procurar o controle que o autor não viu (middleware, trigger, policy, gate
+   no caller), conferir que a entrada é alcançável pelo ator dito, e devolver
+   `mantido` ou `refutado` com motivo em uma frase. Refutado vira
+   `falso_positivo` com o `motivo` do juiz; mantido segue. O juiz não recebe
+   sua opinião, sua confiança nem os outros achados — isso é o que faz dele
+   uma segunda leitura. (O workflow `audit-multidim` já faz juiz por finding e
+   critic de cobertura; use-o quando forem mais de cinco achados graves.)
+4. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
+   do cálculo do veredito, mas continuam no relatório com selo e `motivo`:
+   sumir com eles é como a mesma discussão volta na auditoria seguinte.
+
+Depois, a severidade — pelas **âncoras** do `findings-schema.md`, não pela
+sensação: crítica é não autenticado com execução, banco inteiro ou qualquer
+conta; alta é controle explícito **derrotado por completo** (cross-tenant,
+bypass de auth, XSS armazenado que atinge outros); média é violação real com
+raio pequeno. **A severidade nunca passa do impacto demonstrado**: se o campo
+`impacto` não consegue dizer o dano concreto, a nota é menor do que parece. O
+que não cruza fronteira nenhuma vai para `hardening[]`, não para `baixa`.
 
 O **veredito** (`BLOQUEADO` / `REVISAR` / `LIBERADO`) sai daí sozinho — regra na
 tabela do `findings-schema.md`, calculada pelo gerador. Não escreva veredito à
@@ -293,12 +491,14 @@ mão e não negocie a nota para cima: se o cliente precisa de `LIBERADO`, o cami
 é corrigir o achado ou registrar `risco_aceito` com justificativa, não baixar a
 severidade.
 
-Duas assimetrias que a tabela codifica de propósito:
+Três assimetrias que a tabela codifica de propósito:
 
 - **Severidade alta que só bateu num grep vai para `REVISAR`, não bloqueia.** Dá
   para bloquear um deploy com uma leitura, não com um palpite.
 - **Crítica não confirmada nunca sai `LIBERADO`.** Confiança baixa numa crítica é
   motivo para ir confirmar, não para encerrar o assunto.
+- **Crítica `a_validar` segura em `REVISAR`.** Não bloqueia (não está provada),
+  não libera (o bloqueio é para resolver, não para esquecer).
 
 Quando o projeto tiver um gate de deploy, o `BLOQUEADO` daqui é insumo dele, não
 uma opinião paralela.
@@ -313,9 +513,16 @@ mkdir -p docs/security-audit
 cp ~/.claude/plugins/*/skills/auditoria-seguranca/scripts/gerar-relatorio.py docs/security-audit/ \
   || cp "$CLAUDE_PLUGIN_ROOT/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/
 # escreva docs/security-audit/findings.json (schema em references/findings-schema.md)
+python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json --verificar --raiz .
 python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json \
   --out docs/security-audit/relatorio-auditoria-seguranca.pdf
 ```
+
+O `--verificar` é a regra "trecho copiado, não reescrito de memória" virando
+código: arquivo existe, linhas cabem nele, cada linha do trecho está lá,
+`corroborado` tem `fonte`, `caminho` vai de entrada a sink, issue cita achado
+que existe. Ele **falha alto** — corrija o JSON, não o contorne. Rodou sem
+`--raiz`? A saída diz que o código não foi conferido, e isso não é "pronto".
 
 Sem dependência: stdlib + Chrome/Chromium já instalado (HTML → servidor HTTP
 efêmero → `--print-to-pdf`). O servidor não é firula: o rodapé nativo do Chrome
@@ -340,6 +547,10 @@ Cada achado acionável vira uma issue completa (`[Segurança] <falha>`, labels
 correção, critérios de aceite verificáveis). O gerador já emite tudo entre
 `--- ISSUE n ---` e `--- FIM ISSUE n ---` a partir do `findings.json`.
 
+Lead `a_validar` **não** vira issue de segurança: vira a pergunta ao dono do
+deploy, com o `plano_validacao.dono` como corpo. Nota de `hardening[]` vira
+issue comum, sem label `security`, se o time quiser — o gerador não a emite.
+
 Critério de aceite bom é executável: *"requisição com id de outro tenant devolve
 404"* vale; *"corrigir o IDOR"* não vale. E quando o achado for bug de
 comportamento, o critério inclui **o teste falhando no commit anterior ao fix** —
@@ -359,3 +570,9 @@ verde sozinho não prova regressão nenhuma.
 | Veredito `LIBERADO` num projeto com achado crítico | O crítico está com `status` não acionável. Confira se o `risco_aceito` foi decisão de alguém ou preguiça de confirmar |
 | Auditoria "limpa" numa categoria inteira | A ferramenta daquela superfície não rodou. Ela tem que estar em `ferramentas[]` com `nao_instalado`, e o aviso sai no PDF |
 | O PDF entregue contém a chave que o relatório denuncia | `redacao: false` usado em segredo vivo. A escotilha é só para default público já versionado |
+| Relatório cheio de `baixa` que ninguém vai corrigir | Desvio de checklist virou achado para não perder a nota. Sem fronteira cruzada é `hardening[]` |
+| Achado que o dono responde "o nginx já trata isso" | Você adivinhou o deploy. Era `a_validar` com o `bloqueio` "config do proxy não está no repo" e o plano do dono |
+| Segunda auditoria repete o falso positivo da primeira | O `falso_positivo` foi apagado do JSON em vez de ficar com `motivo`. Ele é memória, não lixo |
+| `alta` que o juiz derruba em dois minutos | Você leu a query sem ler o caller. O revisor fresco é para isso — rode-o antes do PDF, não depois da reunião |
+| `--verificar` recusa um trecho que "está igual" | Está reescrito: aspas, espaço, nome de variável. Copie do arquivo com `sed -n 'a,bp'` e cole |
+| Auditoria de agente de IA "limpa" | Você auditou o prompt. A6 é o handler da tool: com que identidade roda e o que re-checa |

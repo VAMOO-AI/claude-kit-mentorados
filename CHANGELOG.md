@@ -13,6 +13,42 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.34.0] — 2026-09-19
+
+### Adicionado
+
+- **`auditoria-seguranca`: o achado passou a precisar de fronteira, o fato externo ganhou
+  estado próprio e quem verifica deixou de ser quem achou.** Leitura do
+  [security-audit-skill](https://github.com/cloudflare/security-audit-skill) da Cloudflare:
+  importamos a disciplina epistêmica e deixamos a maquinaria (ledger de cobertura, orçamento
+  de agentes, sandbox) de fora — no tamanho de um projeto vira custo de contexto sem achado a
+  mais.
+  - **`status: a_validar`** — hipótese com caminho real no código cuja confirmação depende de
+    fato que o repo não mostra (header do proxy, config do provedor). Exige `bloqueio` e
+    `plano_validacao` (`local` com tenant dummy ou `dono` do deploy). Seção própria no PDF, sem
+    severidade; crítica potencial segura o veredito em `REVISAR`.
+  - **Juiz adversarial antes de `lido`** em `alta`/`critica`: um revisor fresco recebe só o
+    achado e a ordem de refutar. Refutado vira `falso_positivo` com `motivo` obrigatório e
+    fica no JSON — a auditoria seguinte não repete a discussão.
+  - **Âncoras de severidade** e a regra "a severidade nunca passa do impacto demonstrado".
+  - **Anti-padrões explícitos + `hardening[]`** fora do veredito, em vez de inflar `achados[]`
+    com `baixa`.
+  - **`caminho[]` entrada → propagação → sink e `condicoes[]` tipadas.**
+  - **`--verificar --raiz .` no gerador**: arquivo existe, linhas cabem, trecho copiado (não
+    reescrito), `corroborado` tem `fonte`, issue cita achado que existe. Falha alto.
+  - **Auditoria aditiva**: a Fase 0 relê o `findings.json` anterior; capa cita
+    `auditoria_anterior` ou diz que é a primeira.
+  - **A6 — Agente de IA com ferramentas** (`aplicavel` só com LLM decidindo ação): deputado
+    confuso, ação sem vínculo com o pedido, argumento da tool no sink, memória entre tenants,
+    saída do modelo em sink, loop sem teto. Prompt de guard-rail não é fronteira.
+  - **Sub-checks**: oráculo de enumeração, chave de cache sem tenant, soft-delete, autorização
+    velha (A1); máquina de estado e check-then-act (A2); SSRF por URL configurável (A3);
+    "coisas óbvias" e `git log` atrás de fix revertido (Fase 0).
+  - **Corroborar em produção: ler pode, escrever nunca.**
+
+  Doze casos novos em `tests/test-auditoria-relatorio.sh` (50 no total). Porte de
+  VAMOO-AI/claude-config-team#190.
+
 ## [0.33.2] — 2026-09-19
 
 ### Corrigido
