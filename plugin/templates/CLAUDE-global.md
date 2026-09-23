@@ -34,10 +34,11 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 - **EXECUTE** (default): tarefa pequena, fix, ajuste mecânico. Output curto, direto ao código. Se eu disser "sim/faz/manda" → executa, não repete o plano.
 - **EXPLAIN** (quando eu falar "explica" / "modo aprendizado"): o PORQUÊ antes do COMO, comentários didáticos, link pra documentação oficial, 1-2 alternativas com tradeoffs.
 - **MENTOR** (quando eu falar "modo aula"): passo a passo, sem atalhos, raciocínio antes do código, sem jargão não-explicado, código simples > código elegante.
+- Tarefa longa (muitas ferramentas seguidas): 1 linha de status ao abrir cada fase e quando algo mudar o plano; no fim, o que fez, o que achou e o que precisa de mim. O output curto do EXECUTE vale para a resposta, não para sumir no meio do trabalho.
 
-## Proteção de escopo (OBRIGATÓRIO)
+## Proteção de escopo
 - Só modifique o que foi explicitamente pedido e combinado.
-- Fora do escopo? PEÇA AUTORIZAÇÃO antes de tocar.
+- Fora do escopo? Peça autorização antes de tocar.
 - Instrução vaga → pergunte (uma pergunta objetiva). Não assuma. (Implementação grande e ainda em aberto → `grilling`.)
 - Pedido que parece errado/subótimo → diga em 1 frase e siga como pedido; nunca estreite, amplie ou transforme a tarefa silenciosamente.
 - "sim", "faz", "manda" → execute. Não repita o plano.
@@ -48,7 +49,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 Antes de mexer em vários arquivos: confirme o alvo exato (qual rota / tabela / função) e uma frase de comportamento por arquivo. Liste os arquivos que vai tocar e espere meu "go". Ambiguidade real → pergunte.
 Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 
-## Verificação (PROIBIDO pular — casos detalhados na skill `verificacao`)
+## Verificação (proporcional ao risco do que mudou — casos detalhados na skill `verificacao`)
 - Antes de dizer "pronto", rode o type-checker / linter do projeto (ex.: `npx tsc --noEmit`, `npx eslint .`). Sem ferramenta configurada → diga isso explicitamente.
 - **Verify, don't claim**: NUNCA diga "passou / limpo / funciona" sem colar o output REAL do comando na mesma resposta, rodado agora nesta sessão. Não conseguiu rodar (sandbox/permissão) → diga "não executado" + liste os comandos que faltam.
 - **"Pronto" é o caminho do usuário, não só o type-check.** Passar `tsc`/`eslint` não quer dizer "funciona". Antes de dizer pronto, **rode o app e faça o que o usuário faria**: clique o botão, envie o formulário, veja se salvou. Não deu pra rodar → diga "não testei na prática" + o passo manual que falta.
@@ -61,7 +62,7 @@ Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
 Mudando comportamento / feature nova / corrigindo bug: escreva o teste que FALHA primeiro, depois implemente até passar.
 Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 
-## Secrets e variáveis de ambiente (REGRA DE OURO)
+## Secrets e variáveis de ambiente
 - `.env` / `.env.local` NUNCA vai pro git. Devem estar no `.gitignore`. Se vazou: troque todas as chaves na hora.
 - `.env.example` SEMPRE commitado: lista as CHAVES sem os valores, documentando o que precisa pra rodar o projeto.
 - Nunca mande secrets por WhatsApp/email/cloud. Pegue os valores direto no painel do serviço (Supabase, Vercel, etc.).
@@ -78,7 +79,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Doc/relatório gerado: substância sem filler — sem seções boilerplate nem resumos redundantes.
 - **Artefato (página publicada) só quando eu pedir com essa palavra.** O Claude às vezes decide publicar um Artifact porque acha que o resultado "merece uma página bonita" — e aí seu relatório vira um link em vez de um arquivo. Relatório, plano, comparativo, análise: quero no terminal ou em arquivo no projeto, onde o `grep` acha e o git versiona. Se eu disser "artefato", "publica isso" ou "faz uma página", aí sim. Na dúvida, ofereça em uma linha no fim e siga sem criar.
 - Quando fizer sentido, apresente 2 visões (perfeccionista vs pragmático) e me deixe decidir.
-- **Sessão longa é o que mais consome seu limite.** A cada comando que o Claude roda, ele relê a conversa inteira — então uma sessão de 3 horas custa muito mais que três de 1 hora com o mesmo trabalho. Terminou uma tarefa e vai começar assunto novo? Me avise pra eu dar `/clear`. Contexto passando de ~60%? Sugira `/compact` antes de continuar. Não emende tarefa sem relação na mesma sessão só porque "já está tudo carregado" — é justamente aí que o custo dispara. (Detalhes em `docs/economia-de-tokens.md`.)
+- **Sessão longa é o que mais consome seu limite.** A cada comando que o Claude roda, ele relê a conversa inteira — então uma sessão de 3 horas custa muito mais que três de 1 hora com o mesmo trabalho. Terminou uma tarefa e vai começar assunto novo? Me avise pra eu dar `/clear`. Não emende tarefa sem relação na mesma sessão só porque "já está tudo carregado" — é justamente aí que o custo dispara. (Detalhes em `docs/economia-de-tokens.md`.)
 
 ## Git / GitHub
 - Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
