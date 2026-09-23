@@ -17,7 +17,7 @@ Rode os passos **na ordem**, sequencialmente. **Nunca pule um portão de verific
 Cole o output real do comando antes de qualquer afirmação de sucesso — nunca diga
 "passou", "limpo" ou "pronto" sem mostrar o output na mesma mensagem.
 
-## 0. Pré-voo (OBRIGATÓRIO)
+## 0. Pré-voo
 
 ```bash
 pwd                            # confirma a raiz do projeto
@@ -37,7 +37,7 @@ test -f tsconfig.json && echo "TEM_TS"
 test -f package.json && grep -E '"(lint|test|build)"' package.json || true
 ```
 
-## 1. Verificar (OBRIGATÓRIO — cole o output)
+## 1. Verificar (cole o output)
 
 Rode cada comando e cole o output real. Se algum falhar, **PARE e corrija a causa raiz** —
 não "deploye mesmo assim".
@@ -142,12 +142,44 @@ só confirma que o PR vai pro ambiente certo.
 Se o seu projeto exige um comando de deploy manual:
 
 - **Confirme `pwd` de novo antes de qualquer comando de deploy.** Diretório errado é destrutivo.
-- **Diff toca `supabase/migrations/` (ou qualquer DDL)?** Passe pela checklist "Migration que não derruba produção" da skill `baseline` (`references/02-banco.md`) antes de aplicar: NOT NULL só depois do backfill, índice em tabela viva com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que reprova num item não sobe inteira; vira duas ou três.
+- **O PR toca `supabase/migrations/` (ou qualquer DDL)?** Confira pela lista de arquivos do PR, não pelo `git diff` sem argumento, que a esta altura sai vazio porque tudo já foi commitado: `git diff --name-only origin/HEAD...HEAD` (três pontos: compara com o commit de onde a branch saiu da main, que é o que o PR leva; sem `origin/HEAD` no clone, use `origin/main...HEAD`). Se tocar, passe pela checklist "Migration que não derruba produção" da skill `baseline` (`references/02-banco.md`) antes de aplicar: NOT NULL só depois do backfill, índice em tabela viva com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que reprova num item não sobe inteira; vira duas ou três.
 - **Migração de banco contra produção é destrutiva** — pergunte ao usuário antes de aplicar.
 - Rode o comando de deploy do seu projeto só depois dos gates passarem.
 
 > Preencha aqui o comando de deploy do seu stack quando souber qual é. Enquanto não
 > houver, este passo é "deploy automático no merge — nada a rodar".
+
+### Deploy bloqueado na Vercel pelo author do commit
+
+Sintoma: o deploy aparece como **Blocked** no painel da Vercel, sem build, com uma
+mensagem do tipo *"Git author … must have access to the team …"*.
+
+Por quê: a Vercel só constrói commit cujo **author** ela reconhece como membro do
+team dono do projeto (no plano Hobby, como o dono da conta). Ela reconhece pelo
+e-mail gravado no commit, que vem do `user.email` do git: esse e-mail precisa estar
+verificado na conta do GitHub (ou GitLab/Bitbucket) ligada a uma conta da Vercel que
+está no team, ou cadastrado na própria conta da Vercel. Commit feito com outro e-mail
+(o do trabalho, o padrão da máquina, um que ninguém do team usa) é bloqueado mesmo
+com o código certo — o problema é só a identidade.
+
+Trocar o author e o committer para uma identidade que é membro do team é o conserto,
+e é permitido. Confira quem está no commit e troque de um destes dois jeitos:
+
+```bash
+git log -1 --format='%an <%ae>'   # author do último commit
+
+# só neste repositório: sem --global, o author dos seus outros projetos não muda
+git config user.name  "Nome"
+git config user.email "email-membro-do-team@exemplo.com"
+
+# ou só num commit, sem mexer na config
+git -c user.name="Nome" -c user.email="email-membro-do-team@exemplo.com" commit -m "..."
+```
+
+O commit bloqueado continua com o author antigo; a Vercel constrói o próximo. Faça
+o commit seguinte já com a identidade certa (sem mudança pendente,
+`git commit --allow-empty -m "chore: redeploy"`), confira com o mesmo
+`git log -1 --format='%an <%ae>'` que ele saiu com o e-mail do team e só então dê push.
 
 ## 6. Relatório final
 
