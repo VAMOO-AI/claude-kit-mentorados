@@ -521,8 +521,18 @@ python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json
 O `--verificar` é a regra "trecho copiado, não reescrito de memória" virando
 código: arquivo existe, linhas cabem nele, cada linha do trecho está lá,
 `corroborado` tem `fonte`, `caminho` vai de entrada a sink, issue cita achado
-que existe. Ele **falha alto** — corrija o JSON, não o contorne. Rodou sem
-`--raiz`? A saída diz que o código não foi conferido, e isso não é "pronto".
+que existe. Ele **falha alto** —
+corrija o JSON, não o contorne. Rodou sem `--raiz`? A saída diz que o código não
+foi conferido, e isso não é "pronto".
+
+O PDF imprime **"Rastreabilidade de compliance"** sozinho: cada achado acionável
+é etiquetado nos controles de OWASP 2025/API/LLM/ISO/NIST/SOC2/PCI que viola,
+herdando o default da sua categoria. É etiqueta sobre o achado já provado — não
+muda severidade nem veredito, e não substitui certificação. Declare
+`compliance` no achado quando o subtipo pede precisão (SSRF, chave de
+assinatura, deputado confuso) ou o dado alcançado é pessoal (`LGPD:Art.46`).
+Controle fora do formato da norma vigente aborta a geração mesmo sem
+`--verificar`. Mapa, formatos e justificativas em `references/compliance-map.md`.
 
 Sem dependência: stdlib + Chrome/Chromium já instalado (HTML → servidor HTTP
 efêmero → `--print-to-pdf`). O servidor não é firula: o rodapé nativo do Chrome

@@ -78,6 +78,7 @@
       "id": "F3", "categoria": "A4", "severidade": "alta",
       "evidencia": "lido", "confianca": 0.70,
       "fonte": "leitura do docker-compose.yml e do boot da aplicação",
+      "compliance": ["OWASP:A02:2025", "OWASP:A07:2025", "ISO27001:A.8.9", "PCI-DSS:2.2.2"],
       "titulo": "JWT_SECRET com default público no docker-compose",
       "arquivo": "docker-compose.yml", "linhas": "31",
       "trecho": "JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}",

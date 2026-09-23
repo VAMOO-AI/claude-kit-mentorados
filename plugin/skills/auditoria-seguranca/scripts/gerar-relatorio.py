@@ -91,6 +91,56 @@ CONDICAO_TIPO = {
 }
 CAMINHO_TIPO = {"entrada": "Entrada", "propagacao": "Propagação", "sink": "Sink"}
 
+# --------------------------------------------------------------------------- compliance
+# Rastreabilidade: cada achado aponta para quais controles de framework ele viola.
+# Etiqueta sobre o achado ja' provado -- nao muda severidade nem veredito. Mapa e
+# justificativa de cada controle em references/compliance-map.md. Controle que nao
+# casa com o formato da norma vigente aborta o gerador, com ou sem --verificar:
+# control ID inventado ou de versao aposentada nao vai para PDF de cliente.
+COMPLIANCE_FRAMEWORKS = {
+    "OWASP":     "OWASP Top 10:2025",
+    "OWASP-API": "OWASP API Security Top 10:2023",
+    "OWASP-LLM": "OWASP Top 10 for LLM Applications 2025",
+    "ISO27001":  "ISO/IEC 27001:2022 (Anexo A)",
+    "NIST-CSF":  "NIST CSF 2.0",
+    "SOC2":      "SOC 2 (Trust Services Criteria)",
+    "PCI-DSS":   "PCI DSS v4.0.1",
+    "LGPD":      "LGPD (Lei 13.709/2018)",
+}
+ORDEM_FRAMEWORK = list(COMPLIANCE_FRAMEWORKS.keys())
+# Formato de controle por framework, na versao vigente. Fecha o intervalo onde a
+# norma fecha (ISO para em A.8.34, CSF 2.0 tem 22 categorias, LGPD tem 65 artigos).
+COMPLIANCE_FORMATO = {
+    "OWASP":     re.compile(r"A(0[1-9]|10):2025"),
+    "OWASP-API": re.compile(r"API([1-9]|10):2023"),
+    "OWASP-LLM": re.compile(r"LLM(0[1-9]|10):2025"),
+    "ISO27001":  re.compile(r"A\.(5\.([1-9]|[12]\d|3[0-7])|6\.[1-8]|7\.([1-9]|1[0-4])"
+                            r"|8\.([1-9]|[12]\d|3[0-4]))"),
+    "NIST-CSF":  re.compile(r"(GV\.(OC|RM|RR|PO|OV|SC)|ID\.(AM|RA|IM)|PR\.(AA|AT|DS|PS|IR)"
+                            r"|DE\.(CM|AE)|RS\.(MA|AN|CO|MI)|RC\.(RP|CO))(-\d{2})?"),
+    "SOC2":      re.compile(r"CC(1\.[1-5]|2\.[1-3]|3\.[1-4]|4\.[12]|5\.[1-3]|6\.[1-8]"
+                            r"|7\.[1-5]|8\.1|9\.[12])|A1\.[1-3]|C1\.[12]|PI1\.[1-5]"
+                            r"|P[1-8]\.[1-7]"),
+    "PCI-DSS":   re.compile(r"([1-9]|1[0-2])(\.\d{1,2}){0,3}"),
+    "LGPD":      re.compile(r"Art\.([1-9]|[1-5]\d|6[0-5])"),
+}
+# Default por categoria: todo achado herda estes controles quando nao declara
+# 'compliance' proprio. Subtipos (SSRF, chave de assinatura, deputado confuso) e
+# dado pessoal (LGPD) entram por override no achado -- tabela no compliance-map.md.
+COMPLIANCE_CATEGORIA = {
+    "A1": ["OWASP:A01:2025", "OWASP-API:API1:2023", "ISO27001:A.8.3",
+           "NIST-CSF:PR.AA", "SOC2:CC6.1", "PCI-DSS:7.2"],
+    "A2": ["OWASP:A01:2025", "OWASP-API:API5:2023", "ISO27001:A.8.2",
+           "NIST-CSF:PR.AA", "SOC2:CC6.3", "PCI-DSS:7.2"],
+    "A3": ["OWASP:A01:2025", "OWASP-API:API1:2023", "ISO27001:A.8.3",
+           "NIST-CSF:PR.AA", "SOC2:CC6.1", "PCI-DSS:7.2"],
+    "A4": ["OWASP:A07:2025", "ISO27001:A.5.17", "NIST-CSF:PR.AA",
+           "SOC2:CC6.1", "PCI-DSS:8.6.2"],
+    "A5": ["OWASP:A05:2025", "ISO27001:A.8.28", "NIST-CSF:PR.PS", "PCI-DSS:6.2.4"],
+    "A6": ["OWASP-LLM:LLM01:2025", "OWASP-LLM:LLM06:2025", "OWASP:A01:2025",
+           "ISO27001:A.8.2", "NIST-CSF:PR.AA", "SOC2:CC6.3"],
+}
+
 VEREDITO = {
     "BLOQUEADO": ("Bloqueado", "#B91C1C"),
     "REVISAR":   ("Revisar",   "#D97706"),
@@ -208,6 +258,69 @@ def status_achado(a):
 
 def acionavel(a):
     return status_achado(a) not in STATUS_NAO_ACIONAVEL
+
+
+def framework_de(controle):
+    """Prefixo de framework de um control ID ('OWASP:A01:2025' -> 'OWASP')."""
+    return str(controle).split(":", 1)[0].strip()
+
+
+def erros_compliance(a):
+    """Problemas do campo 'compliance' de um achado: nao-lista, framework fora da
+    lista ou controle fora do formato da norma vigente. Lista vazia = ok."""
+    ident = a.get("id", "?")
+    comp = a.get("compliance")
+    if comp is None:
+        return []
+    if not isinstance(comp, list):
+        return [f"achado {ident}: 'compliance' deve ser lista de \"FRAMEWORK:CONTROLE\", "
+                f"veio {type(comp).__name__}"]
+    erros = []
+    for c in comp:
+        fw, _, ctrl = str(c).partition(":")
+        fw, ctrl = fw.strip(), ctrl.strip()
+        if fw not in COMPLIANCE_FRAMEWORKS:
+            erros.append(f"achado {ident}: controle {c!r} com framework desconhecido "
+                         f"— use {', '.join(COMPLIANCE_FRAMEWORKS)}")
+        elif not COMPLIANCE_FORMATO[fw].fullmatch(ctrl):
+            dica = (" — o OWASP Top 10 vigente e' o 2025; remapeie pelo compliance-map.md"
+                    if fw == "OWASP" and ctrl.endswith(":2021") else "")
+            erros.append(f"achado {ident}: controle {c!r} nao existe em "
+                         f"{COMPLIANCE_FRAMEWORKS[fw]}{dica}")
+    return erros
+
+
+def compliance_do_achado(a):
+    """Controles do achado: os declarados em 'compliance', senao o default da
+    categoria. Lista vazia quando nem um nem outro existe (categoria fora do mapa)."""
+    decl = a.get("compliance")
+    if isinstance(decl, list) and decl:
+        return [str(c).strip() for c in decl if str(c).strip()]
+    return list(COMPLIANCE_CATEGORIA.get(str(a.get("categoria", "")).strip().upper(), []))
+
+
+def cobertura_compliance(achados):
+    """Agrega controles -> ids de achado acionavel, agrupado por framework.
+
+    Devolve OrderedDict {framework: {controle: [ids]}} na ordem de ORDEM_FRAMEWORK,
+    controles ordenados. So conta achado acionavel: falso positivo e risco aceito
+    nao 'violam' controle."""
+    from collections import OrderedDict
+    bruto = {}
+    for a in achados:
+        if not acionavel(a):
+            continue
+        aid = a.get("id", "?")
+        for c in compliance_do_achado(a):
+            bruto.setdefault(c, [])
+            if aid not in bruto[c]:
+                bruto[c].append(aid)
+    por_fw = OrderedDict()
+    for fw in ORDEM_FRAMEWORK:
+        controles = {c: ids for c, ids in bruto.items() if framework_de(c) == fw}
+        if controles:
+            por_fw[fw] = OrderedDict(sorted(controles.items()))
+    return por_fw
 
 
 def calcular_veredito(achados):
@@ -744,6 +857,33 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
         for a in a_validar:
             p.append(bloco_a_validar(a))
 
+    # ---- rastreabilidade de compliance: etiqueta os achados provados nos
+    # controles de framework. Nao muda severidade nem veredito; so responde
+    # "qual controle isto viola". Achado a_validar/nao acionavel nao entra.
+    cobertura = cobertura_compliance(achados)
+    p.append('<h2 class="quebra">Rastreabilidade de compliance</h2>')
+    if not cobertura:
+        p.append('<p class="vazio">Nenhum achado acionável para mapear a controles '
+                 'de framework.</p>')
+    else:
+        p.append('<div class="nota">Cada achado confirmado é etiquetado nos controles '
+                 'que ele viola. Isto é rastreabilidade técnica sobre achados já provados '
+                 '— não sobe nem desce a severidade, e não substitui auditoria de '
+                 'certificação (ISO/SOC 2 exigem evidência de processo que esta análise '
+                 'estática não mede). Controle sem achado nesta lista não significa '
+                 'conformidade: significa que esta auditoria não encontrou violação ali.</div>')
+        p.append("<table><tr><th style='width:34%'>Framework</th><th>Controle</th>"
+                 "<th style='width:130px'>Achados</th></tr>")
+        for fw, controles in cobertura.items():
+            linhas_fw = list(controles.items())
+            for j, (ctrl, ids) in enumerate(linhas_fw):
+                nome_fw = (f"{e(COMPLIANCE_FRAMEWORKS[fw])}" if j == 0 else "")
+                ctrl_txt = ctrl.split(":", 1)[1] if ":" in ctrl else ctrl
+                p.append(f"<tr><td>{nome_fw}</td>"
+                         f"<td class='arq'>{e(ctrl_txt)}</td>"
+                         f"<td class='arq'>{e(', '.join(ids))}</td></tr>")
+        p.append("</table>")
+
     # ---- recomendacoes
     p.append('<h2 class="quebra">Recomendações priorizadas</h2>')
     recs = d.get("recomendacoes", [])
@@ -788,9 +928,16 @@ def montar_corpo_issue(iss, achados, redacoes=None):
     idx = {a.get("id"): a for a in achados}
     refs = [idx[i] for i in iss.get("achados", []) if i in idx]
     sev = iss.get("severidade") or (refs[0].get("severidade") if refs else "media")
+    ctrls = []
+    for a in refs:
+        for c in compliance_do_achado(a):
+            if c not in ctrls:
+                ctrls.append(c)
     linhas = [f"**Título:** [Segurança] {iss.get('titulo','')}",
-              f"**Labels:** `security`, `{sev}`", "", "## Problema", "",
-              iss.get("problema", ""), "", "## Evidência", ""]
+              f"**Labels:** `security`, `{sev}`"]
+    if ctrls:
+        linhas.append(f"**Compliance:** {', '.join('`' + c + '`' for c in ctrls)}")
+    linhas += ["", "## Problema", "", iss.get("problema", ""), "", "## Evidência", ""]
     for a in refs:
         local = a.get("arquivo", "")
         if a.get("linhas"):
@@ -884,6 +1031,7 @@ def verificar(dados, raiz=None):
                 erros.append(f"achado {ident}: a_validar sem 'bloqueio' (o fato exato que falta)")
             if not (isinstance(plano, dict) and (plano.get("local") or plano.get("dono"))):
                 erros.append(f"achado {ident}: a_validar sem plano_validacao.local nem .dono")
+        erros.extend(erros_compliance(a))
         caminho = a.get("caminho") or []
         if caminho:
             tipos = [str(x.get("tipo", "")).lower() for x in caminho]
@@ -977,6 +1125,11 @@ def main():
             raise SystemExit(f"achado {ident}: a_validar exige 'bloqueio' (o fato exato que falta)")
         if st in STATUS_COM_MOTIVO and not str(a.get("motivo", "")).strip():
             raise SystemExit(f"achado {ident}: status {st} exige 'motivo'")
+        # Sem isso o PDF sai com control ID inventado etiquetado num achado provado;
+        # o --verificar e' opcional, esta checagem nao pode ser.
+        comp_erros = erros_compliance(a)
+        if comp_erros:
+            raise SystemExit("\n".join(comp_erros))
 
     if args.verificar:
         raiz = Path(args.raiz).resolve() if args.raiz else None
