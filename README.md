@@ -34,7 +34,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 |---|---|---|
 | `plugin/skills/` | plugin | **22 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
-| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; roda lint a cada edição; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/agents.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
@@ -173,7 +173,7 @@ npx skills add VAMOO-AI/claude-kit-mentorados -g        # instala global
 ```
 
 **Isto não substitui a instalação acima.** Esse caminho entrega **só as skills** — ficam de
-fora os hooks (o guard-rail que bloqueia commit na `main`, o lint a cada edição, os avisos de
+fora os hooks (o guard-rail que bloqueia commit na `main`, o lint dos arquivos editados no fim do turno, os avisos de
 branch e de sessão), o `CLAUDE.md` global, a barra de status, as permissões e o MCP. É a via
 para quem quer as skills **em outro agente**, ou quer levar uma skill isolada; para ter o kit
 inteiro, use o `/plugin install` + `/kit-vamoo:setup`.

@@ -121,8 +121,10 @@ test-check-careful.sh|test-check-careful.sh
 test-dotcontext-session.sh|test-dotcontext-session.sh
 test-git-sync-cleanup.sh|test-git-sync-cleanup.sh
 test-git-sync-conta.sh|test-git-sync-conta.sh
+test-git-sync-mural.sh|test-git-sync-mural.sh
 test-memoria-indice.sh|test-memoria-indice.sh
 test-memoria-link.sh|test-memoria-link.sh
+test-lint-modificados.sh|test-lint-modificados.sh
 test-merge-settings.sh|test-merge-settings.sh
 test-notify-stop-cache.sh|test-notify-stop-cache.sh
 test-path-rules.sh|test-path-rules.sh
@@ -132,6 +134,7 @@ test-pre-prompt.sh|test-pre-prompt.sh
 test-session-size-guard.sh|test-session-size-guard.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh
 test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
+test-skill-spec.sh|test-skill-spec.sh
 test-skills-projeto.sh|test-skills-projeto-scan.sh,test-warn-skills-projeto.sh
 test-warn-branch-behind.sh|test-warn-branch-behind.sh
 test-worktree-gc.sh|test-worktree-gc.sh
