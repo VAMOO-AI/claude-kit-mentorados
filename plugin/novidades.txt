@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.36.1|git-sync não manda mais pushar branch que já foi mergeada por squash, e ganhou --voltar-main para devolver o clone à main no fim do dia
 0.36.0|lint no fim do turno só no que você editou, estado do repo sobrevive ao compact, worktree nasce com o .env.local, git-sync lê o mural da equipe e a barra mostra t/s e troca de modelo|setup
 0.35.1|o git-sync parou de mandar você trocar para a conta do gh que já está ativa quando a primeira consulta falha por instabilidade de rede
 0.35.0|o aviso de sessão longa agora aparece para você, o kit cede ao kit do time quando os dois estão na máquina e o CLAUDE.md global ficou mais claro para o Opus 5.5|setup
