@@ -25,6 +25,12 @@ Sempre com `--dry-run` primeiro, e mostre a saída para a pessoa:
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh" --dry-run
 ```
 
+**Se a saída disser "Nada feito", pare aqui.** O `~/.claude` desta máquina é do kit
+do time (tem o `.team-manifest`), e quem manda nele é o instalador de lá. Não siga
+para os passos 2 e 3 e não edite o `~/.claude/CLAUDE.md`, que é o do time. Explique
+isso à pessoa. Não contorne com `--force`, a não ser que ela peça explicitamente:
+ele troca o `agents.md` e a barra de status do time pelos daqui.
+
 Confirmado, rode de verdade:
 
 ```bash
