@@ -40,9 +40,12 @@ num comentário ao lado dela no arquivo.
 
 ## O modelo não é fixo
 
-`--listar-modelos` faz `GET /v1/models` e filtra os de imagem. Em 18/09/2026 a conta
-via `gpt-image-1`, `1.5`, `2`, `2.5-flare` e `2.5-sunburst` (default do script).
-Nunca afirme de memória qual é o mais novo — uma chamada resolve.
+O padrão do script, `gpt-image-2.5-sunburst`, apareceu na conta do autor do kit em
+18/09/2026 — a lista de modelos muda de uma conta para outra. Antes da primeira
+geração, rode `--listar-modelos` (faz `GET /v1/models` e filtra os de imagem). Se o
+padrão não estiver na lista, escolha um que esteja e passe `--model <id>`: modelo que
+a conta não tem volta como erro da API, e o script para ali. Nunca afirme de memória
+qual é o mais novo — uma chamada resolve.
 
 ## O que evita retrabalho
 
@@ -54,8 +57,10 @@ Nunca afirme de memória qual é o mais novo — uma chamada resolve.
   máquina fictícia é lida como ficha técnica errada.
 - **Crop de foto existente é grátis — cheque o foco antes.** Recorte de fundo com
   bokeh não vira foto de produto e custa uma geração.
-- `ffmpeg` desta máquina **não tem encoder webp**: o script vai direto a JPEG `-q:v 4`
-  em ~1400px, que dá 90–190KB por imagem.
+- O script converte para JPEG `-q:v 4` com ~1400px de largura (90–190KB por imagem):
+  webp depende de como o ffmpeg foi compilado, JPEG funciona em qualquer um. Sem
+  ffmpeg, ele salva o PNG original, sem redimensionar e com a extensão trocada
+  (`hero.jpg` vira `hero.png`) — publique pelo nome que saiu.
 
 ## Custo
 
