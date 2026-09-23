@@ -13,7 +13,7 @@
 #
 #   bash kit-setup.sh              # instala
 #   bash kit-setup.sh --dry-run    # mostra o que faria, não toca em nada
-#   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir
+#   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir e roda até por cima do kit do time
 #
 # Tudo que o script toca ganha cópia em ~/.claude/backup-kit-<data>/ antes; ficam
 # os 3 backups mais recentes. O que você tem em ~/.claude e não quer ver removido
@@ -50,6 +50,14 @@ ok()   { printf '\033[1;32m✓\033[0m %s\n' "$1"; }
 warn() { printf '\033[1;33m!\033[0m %s\n' "$1"; }
 
 run() { if [ "$DRY" -eq 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
+
+# Máquina com o kit do time: o update.sh de lá grava o .team-manifest, e este script
+# nunca grava. Rodar por cima trocaria o agents.md e a barra de status do time pelos
+# daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
+if [ -f "$CLAUDE_DIR/.team-manifest" ] && [ "$FORCE" -eq 0 ]; then
+  warn "~/.claude é do kit do time: o setup dos mentorados sobrescreveria agents.md, statusline e settings. Nada feito."
+  exit 0
+fi
 
 backup() {
   local alvo="$1"

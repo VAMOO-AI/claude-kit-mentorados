@@ -10,7 +10,8 @@
 #
 # O que precisa continuar valendo: fantasma sem .keep-local sai (com backup); com
 # .keep-local fica; o glob funciona; o .keep-local NÃO impede o kit de instalar o
-# que é dele; e 5 execuções deixam exatamente 3 backups — os 3 mais novos.
+# que é dele; 5 execuções deixam exatamente 3 backups — os 3 mais novos; e num
+# ~/.claude do kit do time (com .team-manifest) o setup não toca em nada sem --force.
 #
 # Uso: bash tests/test-kit-setup-keep-local.sh [caminho-do-kit-setup.sh]
 set -uo pipefail
@@ -115,6 +116,26 @@ check "backups antigos plantados são os que saem"       "$([ ! -e "$H5/.claude/
 check "continua com 3"                                  "$([ "$(n_backups "$H5")" = 3 ] && echo ok || echo fail)"
 check "o backup desta execução é um dos 3"              "$(/bin/ls -d "$H5"/.claude/backup-kit-*/ | sort | tail -n 1 | grep -q "$(date +%Y%m%d)" && echo ok || echo fail)"
 check "instalação segue íntegra (CLAUDE.md e settings)" "$([ -f "$H5/.claude/CLAUDE.md" ] && python3 -m json.tool "$H5/.claude/settings.json" >/dev/null 2>&1 && echo ok || echo fail)"
+
+echo "== ~/.claude do kit do time (.team-manifest): sai 0 sem tocar em nada =="
+# O setup já rodou uma vez por cima do kit do time: trocou o agents.md e a barra de
+# status de lá pelos daqui, mexeu no settings e deixou um backup-kit-* no ~/.claude
+# do time. Quem grava o .team-manifest é o update.sh do time; este kit nunca grava.
+H6="$TMP/h6"; mkdir -p "$H6/.claude/skills/vamoo-verificacao" "$H6/.claude/scripts"
+for f in CLAUDE.md agents.md statusline-command.sh skills/vamoo-verificacao/SKILL.md; do
+  echo "do time" > "$H6/.claude/$f"
+done
+echo '{"permissions":{"allow":["Bash(bun test:*)"]}}' > "$H6/.claude/settings.json"
+echo "skill/vamoo-verificacao" > "$H6/.claude/.team-manifest"
+retrato() { find "$1" -print | LC_ALL=C sort; find "$1" -type f -exec cksum {} + | LC_ALL=C sort; }
+antes="$(retrato "$H6")"
+HOME="$H6" bash "$SETUP" >"$TMP/saida6" 2>&1; codigo=$?
+check "sai com exit 0"                                  "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
+check "nenhum arquivo criado, apagado ou alterado"      "$([ "$(retrato "$H6")" = "$antes" ] && echo ok || echo fail)"
+check "nenhum backup-kit-* criado"                      "$([ "$(n_backups "$H6")" = 0 ] && echo ok || echo fail)"
+check "a saída diz que o ~/.claude é do kit do time"    "$(grep -q 'kit do time' "$TMP/saida6" && echo ok || echo fail)"
+HOME="$H6" bash "$SETUP" --force >/dev/null 2>&1; codigo=$?
+check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/agents.md")" != "do time" ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

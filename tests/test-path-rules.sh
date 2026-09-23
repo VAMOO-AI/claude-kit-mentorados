@@ -55,6 +55,16 @@ check ".env traz a regra de rotação"        "$(tem 'rotacione')"
 roda s3 /Users/x/PROJ/package.json
 check "package.json lembra do audit"        "$(tem 'audit')"
 
+# --- settings.json: a regra não pode mentir sobre o kit ---------------------
+# Até 0.34.0 ela dizia que o arquivo "é sobrescrito" quando o kit atualiza e mandava
+# hook para o settings.local.json. No plugin, o /kit-vamoo:setup mescla. E o glob casa
+# também com o .claude/settings.json de projeto, que vai para o git.
+roda s8 /Users/x/.claude/settings.json
+check "settings.json global: o setup mescla"         "$(tem 'mescla')"
+check "settings.json global: não diz 'é sobrescrito'" "$(printf '%s' "$saida" | grep -q 'é sobrescrito' && echo fail || echo ok)"
+roda s9 /Users/x/PROJ/.claude/settings.json
+check "settings.json de projeto: o pessoal vai no settings.local.json do projeto" "$(tem 'settings.local.json do projeto')"
+
 # --- caminho que não chega absoluto ainda casa ------------------------------
 # Regra que some calada é pior que regra que não existe: ninguém percebe a falta.
 roda c1 '~/PROJ/supabase/migrations/001.sql'
