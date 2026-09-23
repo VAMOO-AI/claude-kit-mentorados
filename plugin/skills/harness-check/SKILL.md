@@ -127,10 +127,38 @@ Em ordem de impacto medido, não de esforço:
 
 ## Fechamento
 
-Entregue uma tabela `PROBLEMA | GANHO ESTIMADO POR SESSÃO | RISCO`, ordenada por
-ganho, com o rótulo MEDIDO/ESTIMADO em cada número — e **não aplique nada sem o
+Entregue uma tabela `PROBLEMA | SINAL | GANHO ESTIMADO POR SESSÃO | RISCO`, ordenada
+por ganho, com o rótulo MEDIDO/ESTIMADO em cada número — e **não aplique nada sem o
 usuário aprovar item a item**. Desligar MCP, cortar regra do CLAUDE.md e trocar
 modelo mudam o comportamento do harness dele, não só o custo.
 
 Se o ganho total ficar abaixo de ~5% da fatura, diga isso na cara: o dinheiro
 está no passo 4, e mexer no resto é fazer faxina achando que é economia.
+
+### O que entra na tabela
+
+Uma auditoria que devolve trinta recomendações não é mais completa: é mais fácil de
+ignorar. E ignorada ela custa o dobro, porque gastou contexto e não mudou nada.
+
+- **Só entra o que muda a conta de forma perceptível.** Ordene pelo impacto medido,
+  não pelo que é mais fácil de escrever; no empate, suba o que o usuário aplica hoje.
+  Não existe um número fixo de linhas: quem decide é o impacto.
+- **Passo medido e limpo não vira linha.** Nada de `MCP | nada a relatar`. Linha vazia
+  que se repete ensina a pular a tabela inteira.
+- **Passo que você não conseguiu medir vira linha, com `INDISPONÍVEL`.** O caso comum é
+  o `/context` do passo 1, que o usuário não colou. Sem essa linha o silêncio parece
+  aprovação: "não achei nada" e "não medi" são coisas diferentes, e só a segunda pede
+  uma ação dele.
+- **A coluna SINAL diz de onde saiu a recomendação.** Não "desligue o MCP `foo`", e sim
+  "`foo`: 38 tools anunciadas no `medir-sessao.py` (MEDIDO), escopo user no
+  `claude mcp get foo`, e você disse que não usou este mês". Não "enxugue o CLAUDE.md",
+  e sim "`CLAUDE.md` com 8,4K chars, ~2,1K tokens (ESTIMADO), contra 52,7K de preload no
+  `/context` (MEDIDO)". Sem o sinal a recomendação parece palpite, e o usuário não tem
+  como conferir.
+- **Recomendação sem comando ou arquivo que a sustente não entra.** Só valem as fontes
+  desta skill: `/context`, `medir-sessao.py`, `ccusage`, `claude mcp list/get` e o
+  arquivo que você abriu. Esta skill não conta chamadas por MCP; "você não usa" é o
+  usuário quem responde, não um número que você inventa.
+- **Feche dizendo o que ficou de fora**, numa linha: *"deixei de fora N achados menores
+  (MCP e skills) — peça se quiser a lista"*. Ele decide se quer mais; você não decide
+  por ele despejando tudo.

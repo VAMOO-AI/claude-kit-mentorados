@@ -13,6 +13,31 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.37.0] — 2026-09-23
+
+### Adicionado
+
+- `auditoria-seguranca`: **rastreabilidade de compliance** nos achados. O PDF ganha a
+  seção "Rastreabilidade de compliance" e cada issue ganha a linha `**Compliance:**`,
+  com os controles que o achado provado viola em OWASP Top 10:2025, OWASP API 2023,
+  OWASP LLM 2025, ISO/IEC 27001:2022, NIST CSF 2.0, SOC 2, PCI DSS v4.0.1 e LGPD. Cada
+  categoria tem um default; o campo `compliance` no achado sobrescreve para subtipos
+  (SSRF, chave de assinatura, deputado confuso) e para dado pessoal (`LGPD:Art.46`).
+  O mapa (`references/compliance-map.md`) foi escrito do zero, com a justificativa de
+  cada controle. Não muda severidade nem veredito (#112).
+- `harness-check`: régua editorial na tabela de fechamento, portada do kit do time.
+  Nova coluna `SINAL` (de onde saiu a recomendação), passo limpo não vira linha, passo
+  não medido sai `INDISPONÍVEL` e a última linha diz o que ficou de fora. Sem teto
+  numérico por categoria: quem decide é o impacto.
+
+### Segurança
+
+- `auditoria-seguranca`: controle de compliance inválido **aborta a geração com ou sem
+  `--verificar`**. Vale para framework fora da lista, ID fora do formato da norma
+  vigente (`OWASP:A03:2021` é recusado: no Top 10:2025, A03 é cadeia de suprimentos) e
+  `compliance` que não é lista. Antes, só o `--verificar` barrava, e o PDF de cliente
+  podia sair com control ID inventado. Espelho de claude-config-team#201.
+
 ## [0.36.1] — 2026-09-23
 
 ### Corrigido

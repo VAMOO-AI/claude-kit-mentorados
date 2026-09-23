@@ -22,7 +22,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.36.1"
+KIT_VERSION="0.37.0"
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKETPLACE="vamoo-ai"
 PLUGIN="kit-vamoo"

@@ -295,6 +295,60 @@ verificar 'd["achados"][0]["arquivo"] = "api/routes/nao-existe.ts"' semarquivo "
 grep -q 'arquivo não existe' "$TMP/semarquivo.log" && ok "arquivo inexistente é recusado" \
   || falha "arquivo que não existe passou"
 
+# 23. rastreabilidade de compliance: seção no PDF e linha na issue. A issue 1 (F1,
+#     A1, sem 'compliance') herda o default da categoria; a issue 3 (F3) usa o
+#     override declarado. Os dois juntos provam herança e override.
+grep -qF 'Rastreabilidade de compliance</h2>' "$HTML" && ok "seção de compliance no relatório" \
+  || falha "seção Rastreabilidade de compliance ausente"
+grep -qF "<td class='arq'>A.8.3</td>" "$HTML" && ok "controle default da categoria na tabela" \
+  || falha "tabela de compliance sem o default da A1"
+grep -qF '**Compliance:** `OWASP:A01:2025`, `OWASP-API:API1:2023`' "$HTML" \
+  && ok "issue herda o compliance default da categoria" \
+  || falha "issue sem a linha Compliance: do default da categoria"
+# linha inteira, ancorada no fim: override somado ao default da A4 também traria A.8.9
+grep -qE '\*\*Compliance:\*\* `OWASP:A02:2025`, `OWASP:A07:2025`, `ISO27001:A\.8\.9`, `PCI-DSS:2\.2\.2`$' "$HTML" \
+  && ok "override de compliance substitui o default da categoria na issue" \
+  || falha "override de compliance não substituiu o default da categoria na issue"
+
+# 24. framework fora da lista aborta SEMPRE, não só no --verificar: sem isso o PDF
+#     de cliente saía com control ID inventado etiquetado num achado provado
+gerar_variante 'd["achados"][2]["compliance"] = ["HIPAA:164.312"]' fwdesconhecido
+st=$?
+if [ "$st" -ne 0 ] && [ ! -e "$TMP/fwdesconhecido.html" ] \
+   && grep -q 'framework desconhecido' "$TMP/fwdesconhecido.log"; then
+  ok "framework de compliance desconhecido aborta sem --verificar"
+else
+  falha "framework de compliance desconhecido passou sem --verificar (exit $st)"
+fi
+verificar 'd["achados"][2]["compliance"] = ["HIPAA:164.312"]' fwdesconhecidov
+[ $? -ne 0 ] && grep -q 'framework desconhecido' "$TMP/fwdesconhecidov.log" \
+  && ok "framework desconhecido aborta também com --verificar" \
+  || falha "framework desconhecido passou no --verificar"
+gerar_variante 'd["achados"][2]["compliance"] = "OWASP:A02:2025"' naolista
+[ $? -ne 0 ] && grep -q 'deve ser lista' "$TMP/naolista.log" \
+  && ok "compliance que não é lista aborta" \
+  || falha "compliance em string passou calado"
+
+# 25. prefixo certo, ID fora da norma vigente: OWASP 2021 foi substituído pelo
+#     2025 (A03 hoje é supply chain, não injeção) e ISO 27001:2022 para em A.8.34
+gerar_variante 'd["achados"][2]["compliance"] = ["OWASP:A03:2021"]' owasp2021
+[ $? -ne 0 ] && grep -q 'OWASP:A03:2021' "$TMP/owasp2021.log" \
+  && ok "control ID do OWASP 2021 é recusado" \
+  || falha "control ID do OWASP 2021 passou"
+gerar_variante 'd["achados"][2]["compliance"] = ["ISO27001:A.8.35"]' isoinexistente
+[ $? -ne 0 ] && grep -q 'A.8.35' "$TMP/isoinexistente.log" \
+  && ok "controle ISO 27001 inexistente é recusado" \
+  || falha "controle ISO 27001 inexistente passou"
+
+# 26. LGPD entra por override quando o dado alcançado é pessoal
+gerar_variante 'd["achados"][1]["compliance"] = ["OWASP:A01:2025", "LGPD:Art.46"]' lgpd
+if [ $? -eq 0 ] && grep -qF 'Lei 13.709/2018' "$TMP/lgpd.html" \
+   && grep -qF "<td class='arq'>Art.46</td>" "$TMP/lgpd.html"; then
+  ok "override com LGPD:Art.46 sai na rastreabilidade"
+else
+  falha "override com LGPD não saiu no relatório"; cat "$TMP/lgpd.log"
+fi
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
 exit $((falhas > 0))

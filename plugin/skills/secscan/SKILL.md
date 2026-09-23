@@ -326,8 +326,9 @@ Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de auto
 
 Existe uma régua anti-inflação que vale para quase todo relatório de agente: **no máximo
 1–2 recomendações por categoria, categoria sem achado não vira seção, e a última linha diz
-o que ficou de fora.** Ela é boa — a `harness-check` do kit do time roda com ela — e
-**não** se aplica inteira aqui. A diferença não é de gosto: é do que a saída **é**. Relatório
+o que ficou de fora.** Ela é boa — nasceu na `harness-check` do kit do time, que depois
+trocou o teto numérico por critério de impacto (a daqui foi portada já assim) — e **não**
+se aplica inteira aqui. A diferença não é de gosto: é do que a saída **é**. Relatório
 de melhoria é conselho, vive no chat e é descartável; trinta recomendações viram zero
 porque ninguém aplica trinta. Relatório de segurança é **artefato de handoff** — o arquivo
 que outro agente lê antes de corrigir — e achado que não está escrito nele some quando a

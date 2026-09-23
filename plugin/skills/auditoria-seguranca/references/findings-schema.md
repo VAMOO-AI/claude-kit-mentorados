@@ -172,6 +172,18 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
   `{ "tipo", "descricao" }` com `tipo` em `autenticacao` · `papel` · `interacao`
   · `configuracao` · `rede` · `dependencia` · `estado` · `tempo`. É o campo que
   evita a issue devolvida como "não reproduz".
+- **`compliance`** (opcional): lista de `"FRAMEWORK:CONTROLE"` para etiquetar o
+  achado nos controles de compliance (`["OWASP:A01:2025", "OWASP-API:API7:2023"]`).
+  Omitido, o achado herda o **default da categoria** — não precisa declarar para
+  o PDF imprimir a seção "Rastreabilidade de compliance". Declare quando o
+  subtipo pede precisão (SSRF, chave de assinatura, deputado confuso) ou quando o
+  dado alcançado é pessoal (`LGPD:Art.46`). O campo **substitui** o default, não
+  soma. Frameworks aceitos: `OWASP` (Top 10:2025) · `OWASP-API` · `OWASP-LLM` ·
+  `ISO27001` · `NIST-CSF` · `SOC2` · `PCI-DSS` · `LGPD`. Prefixo fora da lista,
+  controle fora do formato da norma vigente (ex.: `OWASP:A03:2021`) ou valor que
+  não é lista **abortam** o gerador, com ou sem `--verificar`. Mapa, formatos e
+  justificativa de cada controle em `references/compliance-map.md`. É
+  rastreabilidade sobre o achado provado: não altera severidade nem veredito.
 - **`desde`**: data da auditoria em que o achado apareceu pela primeira vez,
   quando ele foi carregado de um `findings.json` anterior.
 - **`hardening[]`**: melhoria de defesa em profundidade **sem violação de
