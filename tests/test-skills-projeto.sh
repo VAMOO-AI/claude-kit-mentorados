@@ -109,6 +109,28 @@ echo "== teto configurável (é orçamento, não lei da física) =="
 saida="$(TETO_SKILLS=20 TETO_CHARS=99999 TETO_UMA=99999 bash "$SCAN" "$MUITAS")"; codigo=$?
 check "com teto maior, o mesmo projeto passa" "$([ $codigo -eq 0 ] && echo ok || echo fail)"
 
+echo "== sessão aberta em ~: o .claude/skills do projeto é o catálogo global =="
+# Em ~ o `.claude/skills` do "projeto" é o próprio ~/.claude/skills. Sem tratar como
+# vazio, as skills pessoais viravam "skills deste projeto" acima do teto em toda sessão
+# aberta ali, e o hook repetia o aviso a cada skill nova instalada.
+HG="$TMP/home-global"
+i=1; while [ "$i" -le 9 ]; do
+  skill "$HG" "global-$i" "global-$i" "Skill pessoal que o scan confundia com skill de projeto, caso $i." 10
+  i=$((i+1))
+done
+roda_hg() { HOME="$HG" bash "$SCAN" "$@"; }
+saida="$(roda_hg "$HG")"; codigo=$?
+check "scan sai 0 em ~"                     "$([ $codigo -eq 0 ] && echo ok || echo fail)"
+check "não mede o catálogo global como projeto" "$(printf '%s' "$saida" | grep -q 'TODA request\|tokens por request' && echo fail || echo ok)"
+check "diz que é o catálogo global"         "$(printf '%s' "$saida" | grep -q 'catálogo global' && echo ok || echo fail)"
+check "--resumo cala em ~"                  "$([ -z "$(roda_hg "$HG" --resumo)" ] && echo ok || echo fail)"
+saida="$(printf '{"session_id":"s1","hook_event_name":"SessionStart","cwd":"%s"}' "$HG" | HOME="$HG" bash "$HOOK" 2>/dev/null)"
+check "hook cala em sessão aberta em ~"     "$([ -z "$saida" ] && echo ok || echo fail)"
+L="$TMP/link"; mkdir -p "$L/.claude"; ln -s "$HG/.claude/skills" "$L/.claude/skills"
+check "symlink para o global também cala"   "$([ -z "$(roda_hg "$L" --resumo)" ] && echo ok || echo fail)"
+r_hg="$(roda_hg "$MUITAS" --resumo)"   # sai 1: o projeto passa do teto
+check "projeto de verdade segue medido"     "$(printf '%s' "$r_hg" | grep -q 'TODA request' && echo ok || echo fail)"
+
 echo "== o hook fala uma vez por mudança, não uma por sessão =="
 rm -rf "$FAKE_HOME"; mkdir -p "$FAKE_HOME"
 s1="$(roda_hook "$MUITAS")"

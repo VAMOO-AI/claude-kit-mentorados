@@ -35,6 +35,15 @@ TETO_UMA="${TETO_UMA:-500}"
 
 SK="$DIR/.claude/skills"
 [ -d "$SK" ] || exit 0
+# Sessão aberta em ~ (ou projeto com symlink para lá): o `.claude/skills` do "projeto" É
+# o catálogo pessoal, e o scan contava as skills globais como se fossem deste projeto — no
+# kit do time, as 37 globais em toda sessão aberta em ~ (22/09/2026). Compara o caminho
+# físico dos dois lados.
+GLOBAL="$(cd "$HOME/.claude/skills" 2>/dev/null && pwd -P)"
+if [ -n "$GLOBAL" ] && [ "$(cd "$SK" && pwd -P)" = "$GLOBAL" ]; then
+  [ "$RESUMO" -eq 1 ] || echo "$SK é o catálogo global (~/.claude/skills), não skill de projeto — nada a medir aqui."
+  exit 0
+fi
 
 descricao() { # description do frontmatter numa linha só (aceita >- e | dobrados)
   awk '
