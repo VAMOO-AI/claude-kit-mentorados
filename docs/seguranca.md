@@ -61,9 +61,9 @@ Por que é seguro de usar:
 ## Está pronto pra produção? A skill `baseline`
 
 `secscan` responde *"tem vulnerabilidade no meu código?"*. A skill **`baseline`** responde
-uma pergunta diferente: *"este app está apto a ir pro ar?"* — e cobre sete frentes: bundle
-e secrets, RLS, login e permissão, limites de uso, carga e cache, observabilidade, e
-gestão de segredos.
+uma pergunta diferente: *"este app está apto a ir pro ar?"* — e cobre oito frentes: bundle
+e secrets, RLS, login e permissão, limites de uso, carga e cache, observabilidade,
+gestão de segredos e perímetro (o que fica exposto na borda: hosts, headers, painel interno).
 
 Ela funciona em dois modos: **construir** (app novo já nasce certo) e **auditar** (app que
 já está no ar). Peça *"roda o baseline"* ou *"esse app está pronto pra prod?"*.

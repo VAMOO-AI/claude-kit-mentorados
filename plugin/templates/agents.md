@@ -31,7 +31,7 @@
 - Reporte só o que foi pedido. Notou um problema fora do escopo? Mencione, mas não mexa.
 
 ## Segurança ao editar
-- Antes de editar: leia o arquivo. Depois de editar: leia de novo.
+- Antes de editar: leia o arquivo. Depois de editar: confira pelo `git diff` (o Claude Code avisa se a edição falhou; reler o arquivo inteiro só gasta contexto).
 - No máximo 3 edições no mesmo arquivo sem reler.
 - Rename: grep separado por chamadas, tipos, strings, imports e testes/mocks.
 - Nunca delete arquivo sem checar quem referencia.

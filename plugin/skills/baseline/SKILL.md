@@ -14,7 +14,7 @@ description: >-
 # baseline — Ambiente e Segurança
 
 > Origem: escrito a partir da auditoria de um app real em produção (React + Vite
-> + Supabase + Vercel). Quatro dos sete pilares aqui — sourcemap, rate limit de
+> + Supabase + Vercel). Quatro dos oito pilares aqui — sourcemap, rate limit de
 > endpoint próprio, cache headers e error tracking — costumam só ser lembrados
 > depois do primeiro incidente. Esta skill existe para inverter essa ordem.
 
