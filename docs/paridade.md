@@ -113,14 +113,8 @@ pronto: a mesma família de relatório que mente.
 | `skills-projeto-scan.sh` em `~` | 0.36.0 (23/09) | porte de 29be35a; aqui fica calado em `--resumo` e explica numa linha sem ele |
 | `medir-sessao.py` | 0.36.0 (23/09) | em `plugin/scripts/`. Respeita `CLAUDE_CONFIG_DIR`, mostra `?` quando o transcript não registra tools (lá `0`), o `--cwd` também filtra o `--comparar` (issue aberta lá) |
 | `scripts/skill-spec-check.sh` + `tests/test-skill-spec.sh` | 0.36.0 (23/09) | só CI, não vai para o aluno; alvo `plugin/skills` |
-
-**Divergência aberta, registrada aqui para não virar porte esquecido:** a régua editorial
-que originou a da `secscan` nasceu na `harness-check` do time (0.32.0) e **não existe na
-`harness-check` daqui**. Não é decisão — é porte não feito. Lá a saída da `harness-check`
-é conselho descartável e o cap se aplica inteiro (inclusive "categoria vazia não vira
-seção", que a `secscan` recusa); a skill daqui tem o mesmo formato de saída, então a régua
-provavelmente cabe igual. Quem for portar decide isso lendo, não por analogia com esta
-linha.
+| Régua editorial de saída da `harness-check` | 0.37.0 (23/09) — origem `72e31f4` (0.32.0 do time), portada já na forma do `5684ad4` | sem teto numérico, só o critério de impacto (o 5.5 lê número como regra). Aqui a saída é uma tabela única, não seções: "categoria vazia" virou "passo limpo não vira linha, e passo não medido sai `INDISPONÍVEL`". A coluna `SINAL` usa só as fontes do kit (`/context`, `medir-sessao.py`, `ccusage`, `claude mcp get`), que não conta chamadas por MCP. Ficaram fora: `context: fork` e os números da casa. |
+| Rastreabilidade de compliance na `auditoria-seguranca` (`compliance-map.md`, `erros_compliance`) | 0.37.0 (23/09) — aborto sempre também no time (#203, 0.45.1) | **o mapa diverge de propósito:** o daqui foi escrito do zero, sem derivar de projeto de terceiro nem carregar licença, contra as normas vigentes (OWASP Top 10:2025 — SSRF em A01, injeção em A05, credencial fixa em A07), com a justificativa de cada controle, formato validado por norma e LGPD como override quando o dado alcançado é pessoal. O do time ainda usa IDs 2021 e a taxonomia derivada (issue aberta lá). O comportamento é o mesmo nos dois: controle inválido aborta a geração com ou sem `--verificar`. |
 
 ## Como usar
 
