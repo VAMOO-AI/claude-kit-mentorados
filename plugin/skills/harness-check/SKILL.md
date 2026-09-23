@@ -90,8 +90,9 @@ que o modelo lê toda vez.
 Em ordem de impacto medido, não de esforço:
 
 1. **Sessão-maratona.** É o item número um, com folga. `/clear` ao trocar de
-   assunto e `/compact` por volta de 60% do contexto — o auto-compact só age
-   tarde, e aí custa 100–200K tokens de uma vez.
+   assunto e `/compact` por volta de 150K de contexto (o `ctx:` amarelo da
+   barra) — em janela de 1M o auto-compact só age perto do teto, e aí custa
+   100–200K tokens de uma vez.
 2. **Modelo caro como padrão.** Reserve o tier de cima pro problema difícil, não
    pra ajuste de CSS. Confira também em `ccusage daily` se aparece modelo que
    você não escolheu (subagente e barra de status explicam quase tudo).
@@ -99,6 +100,11 @@ Em ordem de impacto medido, não de esforço:
 4. **Screenshot.** Imagem fica na conversa e é relida em toda mensagem seguinte.
    Peça texto (`read_page`, `get_page_text`) quando o pixel não for a evidência,
    e mande QA visual repetitivo pra um subagente.
+5. **Esforço alto fixo.** `effortLevel` alto no `settings.json` faz toda
+   resposta pensar mais — no Opus 5.5, mais que no Opus 5 no mesmo nível.
+   Padrão no dia a dia; alto só na tarefa que pede, escolhido antes da primeira
+   mensagem da sessão: trocar `/effort` no meio faz a próxima mensagem reler a
+   conversa inteira sem cache.
 
 ## Fechamento
 
