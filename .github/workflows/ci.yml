@@ -188,6 +188,12 @@ jobs:
         # máquina que ninguém revisou.
         run: bash tests/test-pressure-isolamento.sh
 
+      - name: O roteiro humano devolve resposta de gente, não a linha seguinte do roteiro
+        # O primeiro bug do hitl-loop (no kit do time): com o roteiro entrando por stdin, o
+        # `read` da resposta colhia a próxima diretiva e imprimia `TOCOU=captura ERRO Cole o
+        # erro` — plausível o bastante para o agente registrar como evidência.
+        run: bash tests/test-hitl-loop.sh
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.

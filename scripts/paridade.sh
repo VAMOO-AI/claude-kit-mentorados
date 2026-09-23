@@ -122,6 +122,7 @@ test-dotcontext-session.sh|test-dotcontext-session.sh
 test-git-sync-cleanup.sh|test-git-sync-cleanup.sh
 test-git-sync-conta.sh|test-git-sync-conta.sh
 test-git-sync-mural.sh|test-git-sync-mural.sh
+test-hitl-loop.sh|test-hitl-loop.sh
 test-memoria-indice.sh|test-memoria-indice.sh
 test-memoria-link.sh|test-memoria-link.sh
 test-lint-modificados.sh|test-lint-modificados.sh
