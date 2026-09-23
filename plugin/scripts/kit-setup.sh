@@ -55,7 +55,7 @@ run() { if [ "$DRY" -eq 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
 # nunca grava. Rodar por cima trocaria o agents.md e a barra de status do time pelos
 # daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
 if [ -f "$CLAUDE_DIR/.team-manifest" ] && [ "$FORCE" -eq 0 ]; then
-  warn "~/.claude é do kit do time: o setup dos mentorados sobrescreveria agents.md, statusline e settings. Nada feito."
+  warn "~/.claude é do kit do time: o setup dos mentorados sobrescreveria agents.md e statusline e mexeria no settings. Nada feito."
   exit 0
 fi
 

@@ -134,6 +134,9 @@ check "sai com exit 0"                                  "$([ "$codigo" -eq 0 ] &
 check "nenhum arquivo criado, apagado ou alterado"      "$([ "$(retrato "$H6")" = "$antes" ] && echo ok || echo fail)"
 check "nenhum backup-kit-* criado"                      "$([ "$(n_backups "$H6")" = 0 ] && echo ok || echo fail)"
 check "a saída diz que o ~/.claude é do kit do time"    "$(grep -q 'kit do time' "$TMP/saida6" && echo ok || echo fail)"
+# A skill setup para quando lê "Nada feito": trocar essa frase solta a skill de novo
+# por cima do CLAUDE.md do time.
+check "a saída diz 'Nada feito', o sinal de parada da skill" "$(grep -q 'Nada feito' "$TMP/saida6" && echo ok || echo fail)"
 HOME="$H6" bash "$SETUP" --force >/dev/null 2>&1; codigo=$?
 check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/agents.md")" != "do time" ] && echo ok || echo fail)"
 
