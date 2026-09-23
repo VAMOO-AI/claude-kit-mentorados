@@ -38,7 +38,7 @@ publicação dentro de artefato), a skill é `gerar-imagem`.
 
 ---
 
-## Workflow obrigatório (siga sempre nesta ordem)
+## Workflow
 
 ### Passo 1 — O usuário forneceu uma imagem de referência?
 
@@ -56,16 +56,17 @@ Olhe a imagem e identifique:
 | **Mood atual** | Sereno, tenso, melancólico, energético, contemplativo |
 | **Limitações** | A foto tem ruído? Falta DOF? Iluminação chapada? Background poluído? |
 
-Em seguida, **proponha 2-3 direções** que cabem para aquela imagem específica:
+Em seguida: se o pedido já diz o que muda (o que se move, duração), gere direto
+e ofereça 1-2 variações no fim. Se a direção está aberta ("faz um vídeo dessa
+foto"), proponha 2-3 caminhos que cabem nesta imagem e espere a escolha — ou
+decida, se ele mandar:
 
 > "Vi a foto. Para ela vejo 3 caminhos fortes:
-> A) **Push-in cinematográfico lento (8s)** — valoriza o olhar do sujeito, mood contemplativo
-> B) **Orbit 90° à direita revelando profundidade do ambiente** — usa o background bonito que está sub-aproveitado
-> C) **Pull-back revelando contexto** — bom se quiser surpreender com o que está ao redor
+> A) **Câmera fixa, vida no sujeito (8s)** — micro-expressão e cabelo com a brisa; o caminho mais seguro no Kling
+> B) **Rack focus do rosto para o fundo** — usa o background sub-aproveitado sem mover a câmera
+> C) **Optical zoom in de 2–3%** — sensação de aproximação sem walking shot
 >
 > Qual ressoa mais? Ou quer que eu chute a melhor?"
-
-Só gere o prompt **depois** que ele escolher (ou se ele mandar você decidir).
 
 **Se NÃO houver imagem** — vá direto para o Passo 2.
 
@@ -79,7 +80,7 @@ frase:
 
 Use o [glossário de tradução](#glossário-linguagem-natural--vocabulário-técnico)
 abaixo. Nunca use a palavra crua do usuário se houver termo técnico melhor.
-Exemplo: ele diz "se afastando" → você escreve `slow dolly out, perspective expansion, 12% pull over duration`.
+Exemplo: ele diz "se afastando" → você escreve `slow dolly out, perspective expansion, 3-4% pull over duration`.
 
 ### Passo 4 — Monte o prompt seguindo a anatomia adequada
 
@@ -100,6 +101,11 @@ para a linguagem que os modelos de IA entendem com precisão.
 ### Movimentos de câmera (vídeo)
 
 **Movimentos físicos da câmera — perspectiva muda:**
+
+> No Kling, todo movimento desta tabela tende a sair como câmera andando, e
+> Steadicam, gimbal e "floating" (tabela de estabilização, mais abaixo) também
+> — a hierarquia do que usar no lugar está no Princípio 10. A coluna "Quando
+> usar" vale para geradores sem esse defeito.
 
 | Usuário diz | Comando técnico (use no prompt) | Quando usar |
 |---|---|---|
@@ -137,7 +143,7 @@ para a linguagem que os modelos de IA entendem com precisão.
 | "drone profissional" | `gimbal-stabilized drone, smooth 3-axis stabilization, cinematic float` |
 | "câmera lenta" | `slow motion, ramped to [25%/50%] of natural speed, 120fps capture conformed to 24fps` |
 | "ficar parada" | `locked-off camera, tripod-mounted, zero movement` |
-| "movimento bem sutil" | `ultra-slow, only [5-10]% movement over full duration, deliberate pace` |
+| "movimento bem sutil" | `ultra-slow, only [2-4]% movement over full duration, deliberate pace` |
 | "rápido, dinâmico" | `swift movement, [N]% over [time], purposeful pacing` |
 
 ### Iluminação — vocabulário cinematográfico
@@ -265,13 +271,17 @@ Termos críticos (`mandatory`, `cinematic`, `8K`, `preserve`, `photoreal`)
 devem aparecer 2-3 vezes em pontos distintos do prompt. Modelos pesam tokens
 repetidos.
 
-### 8. Cabelo é o teste do realismo (especialmente em mulheres)
+### 8. Cabelo solto é o teste do realismo
 
 Cabelo é onde IA generativa mais entrega o "tell" — fica com cara de capacete,
-peruca, ou textura pintada. Sempre que houver pessoa com cabelo visível
-(prioridade máxima em mulheres com cabelo solto), comande explicitamente:
+peruca, ou textura pintada. Sempre que houver cabelo solto visível, comande
+explicitamente:
 
 **Para imagens (estático):**
+
+Em imagem, condense em uma frase:
+`strand-level hair realism, flyaways and baby hairs at the hairline, natural strand color variation, no helmet or wig look`.
+O bloco longo abaixo é para quando o orçamento de palavras permite (Princípio 11).
 
 > `Hair MUST be rendered with strand-level realism: individual flyaway
 > strands visible, fine baby hairs at the hairline and temples, natural
@@ -291,7 +301,7 @@ peruca, ou textura pintada. Sempre que houver pessoa com cabelo visível
 > NOT statue-frozen. Even in still scenes indoors, breathing and body
 > heat create micro air currents — hair always lives.`
 
-**Negative instructions específicos pra cabelo (sempre incluir):**
+**Negative instructions específicos pra cabelo** (vídeo: sempre; imagem: 1-2 dos de maior risco, dentro dos 4-6):
 - No helmet hair
 - No wig appearance
 - No painted hair texture
@@ -307,9 +317,10 @@ peruca, ou textura pintada. Sempre que houver pessoa com cabelo visível
 - **Crespo/4C:** `natural coil density, organic volume, individual coil definition, no flattening`
 - **Curto/raspado:** `individual short strand definition at scalp, realistic density, micro-shadow at scalp`
 
-Quando você ler o briefing e o sujeito for mulher (ou qualquer pessoa com
-cabelo solto visível), esses comandos são **obrigatórios** no prompt — não
-deixe pro modelo deduzir.
+Quando houver cabelo solto visível — de qualquer pessoa, na referência ou no
+briefing —, esses comandos são obrigatórios no prompt; não deixe pro modelo
+deduzir. Cabelo preso, curto ou coberto: use só a linha do tipo de cabelo e
+preserve o penteado da referência — comando de fio solto ali muda o penteado.
 
 ### 9. Respiração e movimentos fisiológicos sutis NÃO funcionam no Kling
 
@@ -479,8 +490,9 @@ NEGATIVE: [lista cirúrgica de 4-6 itens críticos].
 #### Regra prática ao gerar:
 
 - Se o briefing é **imagem** → versão lean (80-180 palavras), prosa densa
-- Se o briefing é **vídeo** → versão detalhada (800-1800 palavras), beat-
-  by-beat, física emphatic
+- Se o briefing é **vídeo** → beat-by-beat, ~800-1500 palavras na estrutura
+  âncora (cena complexa, Princípio 13); até ~2500 com descrição completa (cena
+  simples). Abaixo de ~600 perde timing e física (teste A/B acima)
 - **Nunca** entregue versão longa pra nano banana — ele ignora 60% do prompt
 - **Nunca** entregue versão lean pra Kling em cena complexa — perde controle
   de timing e física
@@ -587,16 +599,11 @@ totalmente diferente (mulher diferente, ângulo diferente, elementos
 diferentes). Sintoma de que o modelo tratou o prompt como **text-to-video**
 em vez de image-to-video.
 
-**Por que aconteceu:**
-
-Os prompts que estávamos escrevendo abriam com um bloco
-"Starting from the reference image: [descrição visual exaustiva da cena
-inteira]" — em cenas simples (mulher no quarto, família na varanda) isso
-funciona porque a descrição confirma a referência. Mas em cenas
-**visualmente complexas** (através de vidro com reflexos, layered
-geometry, múltiplos itens preserváveis), a descrição textual longa
-**compete com a imagem de referência** e o Kling pode "desligar" a
-referência visual e gerar do zero a partir do texto.
+Abrir com "Starting from the reference image: [descrição exaustiva]" funciona
+em cena simples — a descrição confirma a referência. Em cena visualmente
+complexa (vidro com reflexo, geometria em camadas, muitos itens a preservar),
+a descrição longa compete com a imagem e o Kling pode descartar a referência
+e gerar do zero.
 
 **Sinais de risco que aumentam a chance desse bug:**
 
@@ -606,13 +613,13 @@ referência visual e gerar do zero a partir do texto.
 - **Geometria layered complexa** (foreground+midground+background com vários objetos cada)
 - **Sujeito secundário** ou em pose incomum
 
-**Regra nova: para image-to-video, NÃO redescreva a cena.**
+**Image-to-video em cena complexa: não redescreva a cena.**
 
 A imagem de referência **já entrega** a composição, identidade, ambiente,
 iluminação, props, geometria. O trabalho do prompt é dizer o que
 **MUDA** ao longo da duração, não recriar o que já está visível.
 
-#### Estrutura nova recomendada (image-to-video):
+#### Estrutura âncora (image-to-video, cena complexa):
 
 ```
 [1. ANCHOR — 1 frase curta]
@@ -645,22 +652,20 @@ Brief continuity statement.
 porque a redescrição visual sai. Detalhe vai pra motion, hair, preservation
 risks, e negatives — onde paga.
 
-**Quando a cena é simples** (sujeito único centralizado, ambiente claro,
-poucos elementos preserváveis), o template antigo (com descrição visual
-completa) ainda funciona. **Quando a cena é complexa** (através de vidro,
-reflexos, múltiplos itens), use o template novo enxuto que confia na
-referência.
+Cena simples (sujeito único, ambiente claro, poucos itens a preservar): a
+anatomia com descrição completa funciona. Cena complexa: use a estrutura
+âncora.
 
 **Heurística pra decidir:**
 
 | Cena | Template |
 |---|---|
-| Retrato/pessoa única em ambiente claro | Antigo (descrição completa OK) |
-| Casal/família em ambiente claro | Antigo (descrição completa OK) |
-| Pessoa através de vidro/voile/espelho | Novo (lean, confia na referência) |
-| Cena com >5 itens nomeados pra preservar | Novo (lean) |
-| Reflexos importantes na composição | Novo (lean) |
-| Ambiente sem pessoas (arquitetura, água) | Antigo OK, mas descrição mais focada |
+| Retrato/pessoa única em ambiente claro | Descrição completa |
+| Casal/família em ambiente claro | Descrição completa |
+| Pessoa através de vidro/voile/espelho | Âncora (confia na referência) |
+| Cena com >5 itens nomeados pra preservar | Âncora |
+| Reflexos importantes na composição | Âncora |
+| Ambiente sem pessoas (arquitetura, água) | Descrição completa, mais focada |
 
 ### 14. Efeitos visuais espalham — comande por exclusão
 
@@ -829,11 +834,14 @@ desses elementos.
 
 ## Anatomia do prompt — Imagem
 
+Checklist das camadas; o texto final de imagem segue o template enxuto do
+Princípio 11 (80-180 palavras) — cada bloco vira uma ou duas frases.
+
 ```
 [1. SUBJECT & ACTION]
 [Quem/o quê + ação/pose, 1-2 frases. Específico e visualmente concreto.]
 
-[2. ENVIRONMENT — detalhamento extremo]
+[2. ENVIRONMENT]
 Setting: [tipo de espaço]. Foreground: [elementos próximos, escala, material].
 Midground: [elemento central, posição, condição]. Background: [contexto distante,
 atmospheric perspective]. Surfaces: [materiais visíveis com textura específica].
@@ -883,13 +891,16 @@ NEGATIVE INSTRUCTIONS: [tailored list — see library below].
 
 ```
 [1. STARTING FRAME]
-Starting from the reference image: [1-2 frases descrevendo o frame inicial,
-incluindo composição, iluminação e mood já presentes].
+Cena simples (pessoa única ou sem pessoas, ambiente claro): "Starting from the
+reference image: [1-2 frases do frame inicial — composição, iluminação e mood
+já presentes]". Cena complexa (vidro, reflexo, >5 itens a preservar): só a
+âncora do Princípio 13 — "Animate the reference image as a [N]-second
+cinematic video, preserving every visible element with absolute fidelity."
 
 [2. SUBJECT MOTION]
-[O que o sujeito faz: gesto, micro-expressão, movimento de cabeça, respiração.
-Específico em ângulo e velocidade. Ex.: "subject slowly turns head 12° to the
-right over 3 seconds, maintaining eye contact, micro-blink at second 4"].
+[Micro-ações concretas — gesto, micro-expressão, olhar, cabeça — com ângulo e
+segundo. Ex.: "subject slowly turns head 12° to the right over 3 seconds,
+micro-blink at second 4". Respiração visível não entra (Princípio 9).]
 
 [3. ENVIRONMENTAL MOTION — physical plausibility é OBRIGATÓRIA]
 [O que se move no ambiente: folhas, cabelo, tecido, partículas, reflexos,
@@ -922,11 +933,10 @@ or refraction shift, NOT glass-frozen."
 Sempre estabeleça a fonte (breeze, draft, convection) E reforce que a
 resposta é mandatória.
 
-[4. CAMERA MOVEMENT — use vocabulário técnico]
-Camera: [comando técnico do glossário]. Speed: [ultra-slow / deliberate /
-swift]. Movement amount: [N]% over duration. Stabilization: [Steadicam /
-gimbal / handheld micro / locked-off]. Lens behavior: [zoom or no zoom,
-focus changes if any].
+[4. CAMERA — no Kling o default é locked-off (Princípio 10)]
+Locked-off statement (Nível 1). Se o briefing pede sensação de movimento: rack
+focus ou optical zoom de 2-3% (Níveis 2-3). Movimento físico só para reveal,
+com 2-4% e os negativos de walking shot (Nível 4).
 
 [5. PRESERVATION — anti-morph commands]
 Preserve facial identity, body proportions, clothing details, background
@@ -963,7 +973,7 @@ bloco de preservation — não há referência.
 - **Câmera default:** Sony A1 + 85mm f1.4 @ f1.6, ISO 100, 1/200
 - **Iluminação default:** Rembrandt ou loop, motivated key, soft fill 2:1 ratio
 - **Texture:** real skin com poros, asymmetry, no plastic
-- **Cabelo (obrigatório quando visível):** strand-level realism, individual
+- **Cabelo solto (obrigatório quando visível):** strand-level realism, individual
   flyaways, baby hairs no hairline, color variation strand-to-strand, no
   helmet, no wig — ver Princípio 8 para template completo. Em vídeo, cabelo
   solto sempre se move continuamente
@@ -1019,10 +1029,11 @@ bloco de preservation — não há referência.
 
 ## Biblioteca de negative prompts
 
-Combine cirurgicamente. **Nunca jogue todos** — cada prompt seleciona o que faz
-sentido para o caso.
+Combine cirurgicamente, dentro do orçamento: **imagem leva 4-6 negativos no
+total** (os de maior risco para aquela cena); vídeo leva 15-30. Em imagem,
+nenhuma lista abaixo entra inteira.
 
-**Universais (sempre incluir):**
+**Universais (candidatos em qualquer cena):**
 - No fake glow
 - No over-smoothing
 - No flat lighting
@@ -1099,13 +1110,16 @@ sentido para o caso.
 
 ---
 
-## Exemplos completos
+## Exemplos
 
-### Exemplo 1 — Imagem from scratch (interior do Domus)
+> Os exemplos de vídeo (2 e 3) estão abreviados para caber aqui; em uso real,
+> expanda beat-by-beat até a faixa do Princípio 11 — não copie o tamanho deles.
+
+### Exemplo 1 — Imagem from scratch (interior de um empreendimento residencial)
 
 **Input do usuário:**
-> Quero um prompt pra gerar uma sala de estar do Domus, ampla, luz natural,
-> bem editorial, estilo AD Magazine.
+> Quero um prompt pra gerar uma sala de estar de um empreendimento
+> residencial, ampla, luz natural, bem editorial, estilo AD Magazine.
 
 **Tradução interna:**
 - Caso: imobiliário interior → Hasselblad + 24mm tilt-shift
@@ -1115,47 +1129,18 @@ sentido para o caso.
 **Output:**
 
 ```text
-A spacious 120m² living room of a premium residential apartment, open layout
-with floor-to-ceiling windows on the left wall pouring natural midday light.
-Foreground: polished retified porcelain flooring with subtle reflection of
-the room above. Midground: a low-profile off-white linen sofa anchoring the
-composition, walnut coffee table with single ceramic vessel, organic floor
-plant (large fiddle-leaf fig). Background: clean wall with a single large
-abstract artwork in muted earth tones, partially visible adjacent room
-through wide doorway suggesting depth. Surfaces: matte porcelain (cool grey
-tone), warm walnut grain, raw linen, plaster wall finish. Atmosphere: clean
-air, faint warm glow from natural light, no haze, midday clarity. High
-ceiling approximately 3.2m. Empty of clutter — restrained editorial vibe.
-
-The image must be captured as if shot on a Hasselblad H6D, with a 24mm
-tilt-shift lens, at f8, ISO 200, 1/60 shutter on tripod, deep focus across
-the entire room with hyperfocal distance set to maintain sharpness from
-foreground porcelain to background artwork, perfectly vertical lines, editorial
-neutral color profile. This Hasselblad H6D + 24mm tilt-shift setup is
-mandatory. The final image must look like premium architectural digest
-photography.
-
-Lighting: motivated natural daylight, 5600K, pouring from camera-left floor-
-to-ceiling windows as primary key (soft directional). Bounce fill from camera-
-right via off-camera white card simulating wall reflection (4500K warm
-balance). No artificial sources visible. Smooth tonal gradations, expanded
-dynamic range from sun-lit floor highlights to shadowed ceiling corners,
-micro-contrast boost on material textures, zero harsh shadows on walls,
-zero blown highlights. Atmospheric clarity — no haze.
-
-Color grade: editorial neutral with cinematic contrast curve, true material
-colors, natural saturation, authentic walnut grain rendered with honest
-texture, porcelain rendered with realistic surface micro-reflection, subtle
-natural film grain at fine level. AD Magazine aesthetic — refined restraint.
-
-Render in 8K resolution, 10-bit color depth, REC.2020 wide gamut, cinematic
-editorial style, premium clarity, landscape crop 3:2.
-
-NEGATIVE INSTRUCTIONS: No warped perspective. No fish-eye distortion. No
-inflated rooms. No surreal furniture proportions. No fantasy decor. No
-clutter. No tilted verticals. No crooked horizons. No HDR halos. No fake
-glow. No oversaturated colors. No over-smoothing of materials. No artificial
-lighting that contradicts natural source motivation.
+A spacious premium apartment living room, floor-to-ceiling windows on the
+left pouring soft midday light across polished porcelain floors; low
+off-white linen sofa, walnut coffee table with a single ceramic vessel, a
+large fiddle-leaf fig, one muted abstract artwork on a plaster wall. Shot on
+a Hasselblad H6D with a 24mm tilt-shift lens at f8, ISO 200, 1/60 on tripod,
+deep focus, perfectly vertical lines — this Hasselblad + 24mm tilt-shift
+setup is mandatory. Motivated natural daylight 5600K as soft key from
+camera-left, gentle bounce fill from the right, smooth gradations, no harsh
+shadows. Editorial neutral grade, honest walnut and porcelain texture,
+subtle film grain, AD Magazine restraint. 8K, landscape 3:2.
+NEGATIVE: warped perspective, tilted verticals, inflated room proportions,
+clutter, HDR halos, fake glow.
 ```
 
 > Quer testar uma versão golden hour (luz mais quente, sombras longas) ou
@@ -1164,34 +1149,22 @@ lighting that contradicts natural source motivation.
 ### Exemplo 2 — Vídeo Kling com imagem fornecida
 
 **Input do usuário:**
-> [cola foto de fachada do Domus ao golden hour] Quero um vídeo de 5 segundos
-> pra esse, com a câmera se afastando devagar.
+> [cola foto da fachada de um empreendimento residencial ao golden hour]
+> Quero um vídeo de 5 segundos pra esse, com a câmera se afastando devagar.
 
 **Análise visual (interna):**
 - Sujeito: fachada residencial premium, ângulo low front-quarter
 - Iluminação atual: golden hour direcional camera-left
 - Mood: sereno, aspiracional
-- Ambiente: contexto urbano calmo, vegetação à frente
+- Ambiente: contexto urbano calmo, canteiro baixo à frente e copas de árvore
+  nas bordas do quadro
 
 **Tradução de "se afastando devagar":**
-- "se afastando" → dolly out (perspectiva muda) — melhor que zoom out neste
-  caso porque revela contexto
-- "devagar" → ultra-slow, ~10% movement over 5s
-
-**Sugestão antes de gerar:**
-
-> Vi a foto. Pra ela vejo dois caminhos no "se afastando":
->
-> A) **Pull-back puro** (dolly out): câmera recua ~8% revelando mais
-> contexto urbano e vegetação ao redor — clássico, valoriza o entorno
->
-> B) **Pull-back + sutil tilt-up**: enquanto recua, inclina levemente pra
-> cima ganhando o céu golden hour — mais cinematográfico, dá ar de
-> "descoberta"
->
-> Qual prefere?
-
-**Após o usuário escolher B:**
+- "se afastando" → pull-back (dolly out), 3-4% no Kling (Princípio 10) —
+  acima disso sai como câmera andando
+- "devagar" → os 3-4% distribuídos nos 5 segundos, pacing deliberate
+- o pedido já diz o que muda e a duração → gera direto e oferece, no fim, a
+  alternativa sem movimento físico
 
 **Output:**
 
@@ -1205,20 +1178,18 @@ urban context.
 Subject motion: the building remains completely static and geometrically
 locked — zero deformation of facade, windows, balconies, or brand identity.
 
-Environmental motion: extremely subtle organic life only — leaves on
-foreground landscaping respond to gentle 5km/h breeze (3% motion
-amplitude), atmospheric particles catching golden light drift slowly across
-midground air, distant tree foliage at edges shows whisper-light movement,
-window glass reflections shift imperceptibly as light angle subtly evolves.
+Environmental motion: the ONLY vegetation in this scene is the low
+ornamental planting in the foreground bed and the tree foliage at the frame
+edges; no other vegetation exists anywhere, and the facade, balconies and
+paving stay free of plants. That foliage MUST visibly respond to a gentle
+5 km/h breeze throughout the full duration — continuous, organic, NOT
+static. Atmospheric particles catching golden light drift slowly across the
+midground air.
 
-Camera movement: smooth combined motion — slow dolly out (pull back) at
-8% over 5 seconds revealing additional urban context and landscaping breadth,
-simultaneously executing a subtle tilt-up of 4° revealing a sliver of
-golden-hour sky at the top of frame as the camera recedes. Stabilization:
-gimbal-stabilized smooth glide, zero jitter, locked horizon throughout.
-Lens: fixed focal length, no zoom whatsoever, perspective expansion driven
-purely by physical camera retreat. Pacing: deliberate, contemplative,
-cinematic.
+Camera movement: slow pull-back of 3-4% over 5 seconds revealing a little
+more of the urban context. Motion-control rig, mechanical stabilization,
+absolute zero shake, locked horizon. Lens: fixed focal length, no zoom.
+Pacing: deliberate, contemplative.
 
 Preservation: maintain exact facade geometry, window grid alignment, balcony
 placement, brand identity, all architectural proportions, original golden
@@ -1239,11 +1210,15 @@ NEGATIVE INSTRUCTIONS: No facade morphing. No window grid drift. No invented
 architectural details. No warping. No frame jitter. No flickering. No
 sudden zooms. No camera shake. No exposure pulsing. No HDR halos. No
 unnatural physics on landscaping. No texture swimming. No artificial
-buoyancy. No identity drift between frames.
+buoyancy. No identity drift between frames. No operator breath in the
+camera. No drift in the horizon line. No handheld feel. No floating motion.
+No walking-shot feel. No footstep-like camera jitter. No simulated
+cameraperson movement. No invented vegetation. No foliage growing on
+architectural surfaces.
 ```
 
-> Quer testar variação com orbit lateral (revela perfil lateral do prédio)
-> ou com aproximação invés de pull-back (foco em um detalhe específico)?
+> Quer testar uma versão com a câmera fixa e optical zoom out de 2–3%? Dá a
+> mesma sensação de abrir o plano, sem risco de walking shot.
 
 ### Exemplo 3 — Retrato com tradução de movimento
 
@@ -1252,8 +1227,12 @@ buoyancy. No identity drift between frames.
 > a câmera vai chegando perto bem devagar e ela dá um sorriso sutil no final.
 
 **Tradução interna:**
-- "chegando perto bem devagar" → ultra-slow push in (dolly in), 10% over 8s
-- "sorriso sutil no final" → micro-expression at the 6.5s mark
+- "chegando perto bem devagar" → no Kling, aproximação é optical zoom in de
+  2-3% com o corpo da câmera locked-off (Princípio 10); dolly in com Steadicam
+  sai como walking shot
+- "sorriso sutil no final" → micro-expressão aos 6,5s
+- a foto mostra cabelo solto perto da orelha → movimento de fios obrigatório
+  (Princípios 8 e 16)
 
 **Output:**
 
@@ -1265,24 +1244,23 @@ of field already established with subject in focus and background
 gracefully defocused.
 
 Subject motion: subject begins with current neutral expression. Around
-second 6.5, a subtle, micro-expression smile begins to bloom — not a wide
-smile, but a soft, authentic warmth at the corners of the mouth and eyes
-(Duchenne marker present), reaching gentle peak at second 7.5 and holding.
-Eyes maintain steady contact with camera throughout, with one natural
-micro-blink around second 3. Subject's chest rises and falls with natural
-breathing rhythm. No head turn, no shoulder shift.
+second 6.5, a subtle, micro-expression smile begins to bloom — soft,
+authentic warmth at the corners of the mouth and eyes (Duchenne marker
+present), reaching gentle peak at second 7.5 and holding. One natural
+micro-blink around second 3. She is in calm stillness — breathing
+imperceptibly, no visible chest or shoulder motion. No head turn, no
+shoulder shift.
 
-Environmental motion: imperceptible — only natural ambient: a single hair
-strand near the ear responds to room air with whisper movement, fabric
-folds settle naturally with breathing, background bokeh remains dimensional.
+Environmental motion: loose hair strands near the ear MUST show continuous,
+gentle strand-level response to room air throughout the full duration —
+individual strands move independently, NOT a single solid mass, NOT frozen.
+Background bokeh remains dimensional.
 
-Camera movement: ultra-slow dolly in (push in), 10% movement over full 8
-seconds, perspective compression as camera physically approaches subject.
-Stabilization: Steadicam smooth glide, zero jitter, organic floating
-quality. Lens: fixed 85mm focal length, no zoom whatsoever — perspective
-change driven purely by physical camera approach. Focus tracks subject
-forward, maintaining razor-thin focus on the eyes throughout the push.
-Pacing: contemplative, intimate, deliberate.
+Camera movement: camera body is absolutely locked-off, tripod-mounted,
+mechanically immovable. The only motion is an extremely subtle optical zoom
+in of 2-3% over the full 8 seconds, executed on the lens barrel — pure lens
+compression, NOT dolly, NOT physical camera translation. 85mm lens; focus
+stays razor-thin on the eyes. Pacing: contemplative, intimate.
 
 Preservation: preserve facial identity with absolute fidelity — facial
 geometry, proportions, asymmetries, distinguishing features all locked.
@@ -1292,9 +1270,9 @@ shift. No background warping. Photoreal physics throughout.
 
 Lighting continuity: maintain exact lighting direction, color temperature,
 and contrast from reference frame. Soft directional from window-side, warm
-highlights, cool shadow tones, natural shadow falloff. As camera approaches,
-specular highlights in the eyes naturally shift in size with the
-geometric change but lighting character remains identical.
+highlights, cool shadow tones, natural shadow falloff. As the optical zoom
+slowly tightens the frame, catchlights in the eyes stay consistent and
+lighting character remains identical.
 
 Color grade: editorial neutral with cinematic contrast curve, real skin
 texture preserved (visible pores, micro-imperfections, natural asymmetry),
@@ -1308,11 +1286,14 @@ NEGATIVE INSTRUCTIONS: No face morphing. No identity drift. No plastic
 skin. No over-smoothing. No symmetric features. No doll-like eyes. No
 over-rendered teeth. No uncanny valley. No melted features. No background
 warping. No frame jitter. No flickering. No sudden zooms. No camera shake.
-No exposure pulsing. No texture swimming. No fake glow.
+No exposure pulsing. No texture swimming. No fake glow. No visible breathing
+motion. No operator breath in the camera. No drift in the horizon line. No
+handheld feel. No floating motion. No walking-shot feel. No footstep-like
+camera jitter. No simulated cameraperson movement. No statue-frozen hair.
 ```
 
-> Quer testar uma variação com orbit lateral sutil ao invés de push-in puro,
-> ou um pull-back revelando o ambiente ao redor dela?
+> Quer testar com rack focus do rosto para um detalhe do ambiente, ou com a
+> câmera totalmente fixa, sem o zoom?
 
 ---
 
@@ -1332,12 +1313,13 @@ No exposure pulsing. No texture swimming. No fake glow.
 
 ## Apêndice: prompt de referência que originou esta skill
 
-O Rodrigo trouxe o prompt abaixo como referência de qualidade. Ele NÃO é um
+Um mentorado trouxe o prompt abaixo como referência de qualidade. Ele NÃO é um
 template fixo — é um exemplo que demonstra a aplicação dos princípios desta
 skill (especificidade de câmera Sony A1 + 85mm f1.4, preservation total,
 linguagem cinematográfica de iluminação, real skin texture, output specs
 explícitas, negative instructions estruturadas). Use-o como inspiração de
-nível de detalhamento e fluência técnica, não copie literalmente.
+nível de detalhamento e fluência técnica, não copie literalmente — o tamanho
+do texto final segue o Princípio 11.
 
 ```text
 Enhance the portrait while strictly preserving the subject's identity with
@@ -1379,6 +1361,3 @@ over-smooth skin.
 4. Texture realism (real skin, film grain, no plastic)
 5. Output specs claros
 6. Negative instructions cirúrgicas
-
-A skill `diretor-imagem` v2 atualiza o framework para 8K e expande para vídeo
-Kling, mantendo a mesma filosofia.
