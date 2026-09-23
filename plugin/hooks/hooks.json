@@ -35,8 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\"",
-            "async": true
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\" anota"
           }
         ]
       },
@@ -108,6 +107,15 @@
             "type": "command",
             "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-stop.sh\"",
             "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\"",
+            "timeout": 60
           }
         ]
       }
