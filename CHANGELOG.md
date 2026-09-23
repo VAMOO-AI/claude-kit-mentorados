@@ -13,6 +13,17 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.35.1] — 2026-09-23
+
+### Corrigido
+
+- **O `git-sync` mandava trocar para a conta do `gh` que já estava ativa.** Uma falha passageira
+  no primeiro `gh repo view` (rede, timeout) caía no retry por contas, que começa em ordem
+  alfabética: a própria ativa passava e a nota dizia "a ativa não enxerga este repositório;
+  gh auth switch -u <a ativa>". Agora o script sabe qual é a ativa e, quando é ela que passa,
+  diz que foi instabilidade, sem sugerir troca. Caso novo em `tests/test-git-sync-conta.sh`.
+  Porte de VAMOO-AI/claude-config-team#196.
+
 ## [0.35.0] — 2026-09-22
 
 ### Depois de atualizar

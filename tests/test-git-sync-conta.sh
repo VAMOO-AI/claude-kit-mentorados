@@ -53,12 +53,18 @@ cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 tok="${GH_TOKEN:-${FAKE_GH_ACTIVE:-tok-pessoal}}"
 sees() { [ -z "${FAKE_GH_NONE:-}" ] && [ "$tok" = "tok-cliente" ]; }
+# FAKE_GH_FALHA_1A=<arquivo>: a 1ª consulta do processo falha como instabilidade (a
+# conta enxerga, a rede não respondeu); as seguintes seguem a regra normal.
+if [ -n "${FAKE_GH_FALHA_1A:-}" ] && [ ! -e "$FAKE_GH_FALHA_1A" ] && [[ "$*" == "repo view"* ]]; then
+  : > "$FAKE_GH_FALHA_1A"; echo "Post \"https://api.github.com/graphql\": net/http: TLS handshake timeout" >&2; exit 1
+fi
 nao_ve() { echo "GraphQL: Could not resolve to a Repository with the name 'cliente/app'. (repository)" >&2; exit 1; }
 case "$*" in
   "auth status"*)
+    ap=true; ac=false; [ "${FAKE_GH_ACTIVE:-tok-pessoal}" = tok-cliente ] && { ap=false; ac=true; }
     printf '%s\n' "github.com" \
-      "  ✓ Logged in to github.com account pessoal (keyring)" "  - Active account: true" \
-      "  ✓ Logged in to github.com account cliente (keyring)" "  - Active account: false"
+      "  ✓ Logged in to github.com account pessoal (keyring)" "  - Active account: $ap" \
+      "  ✓ Logged in to github.com account cliente (keyring)" "  - Active account: $ac"
     exit 0 ;;
   "auth token -u pessoal") echo tok-pessoal; exit 0 ;;
   "auth token -u cliente") echo tok-cliente; exit 0 ;;
@@ -92,6 +98,16 @@ echo "== conta ativa enxerga o repo: caminho rápido, sem nota =="
 OUT="$(FAKE_GH_ACTIVE=tok-cliente run)"
 refute 'conta gh:'                                                "sem nota de conta"               "$OUT"
 check '#?7  feat: coisa'                                          "lista o PR"                      "$OUT"
+
+echo "== ativa enxerga, mas a 1ª consulta falhou por instabilidade: não manda trocar de conta =="
+# 23/09/2026: a nota disse "a ativa não enxerga; gh auth switch -u ruannmiranda1" com
+# ruannmiranda1 JÁ ativa. O retry pelas contas começa em ordem alfabética, a própria ativa
+# passou, e a nota atribuiu a uma conta errada o que era rede.
+OUT="$(FAKE_GH_ACTIVE=tok-cliente FAKE_GH_FALHA_1A="$TMP/falhou-1a" run)"; rm -f "$TMP/falhou-1a"
+refute 'a ativa não enxerga'                                      "não culpa a conta ativa"         "$OUT"
+refute 'gh auth switch'                                           "não sugere trocar de conta"      "$OUT"
+check 'instabilidade'                                             "diz que foi instabilidade"       "$OUT"
+check '#?7  feat: coisa'                                          "lista o PR pela ativa"           "$OUT"
 
 echo "== nenhuma conta enxerga: diz isso, não 'repo inexistente' =="
 OUT="$(FAKE_GH_NONE=1 run)"

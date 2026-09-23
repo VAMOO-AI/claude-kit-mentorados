@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.35.1|o git-sync parou de mandar você trocar para a conta do gh que já está ativa quando a primeira consulta falha por instabilidade de rede
 0.35.0|o aviso de sessão longa agora aparece para você, o kit cede ao kit do time quando os dois estão na máquina e o CLAUDE.md global ficou mais claro para o Opus 5.5|setup
 0.34.0|Auditoria de segurança com hipótese a validar, juiz que tenta refutar cada achado grave, --verificar que confere o trecho contra o código e categoria A6 para agente de IA com ferramentas
 0.33.2|o guard de sessão paralela parou de barrar comando legítimo cujo texto de busca contém "git checkout", e passou a pegar o mesmo checkout quando ele vem com o prefixo rtk
