@@ -80,8 +80,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-push.txt --saida 
 Regras que fazem o roteiro valer alguma coisa:
 
 - **Você não roda o script no seu Bash.** Ele precisa de alguém digitando; sem
-  terminal ele falha fechado, mas com "CHEGOU ficou sem resposta", que parece
-  resultado e não é. Quem roda é a pessoa.
+  terminal ele para com "sem terminal interativo" (exit 2) antes da primeira
+  pergunta. Quem roda é a pessoa.
 - **Entregue o comando pronto para colar**, com caminhos absolutos: o
   `${CLAUDE_PLUGIN_ROOT}` já vem preenchido quando esta skill carrega, mas o
   terminal da pessoa não conhece essa variável. Roteiro e `--saida` também em

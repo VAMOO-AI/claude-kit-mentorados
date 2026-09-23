@@ -57,7 +57,9 @@ done
 ENTRADA="/dev/tty"
 if [ -n "${HITL_TESTE:-}" ]; then
   ENTRADA="/dev/stdin"
-elif [ ! -t 0 ] && [ ! -r /dev/tty ]; then
+# `-r /dev/tty` não serve de teste: o arquivo é rw para todo mundo mesmo sem terminal
+# controlador. Só abrir de verdade prova que tem alguém do outro lado.
+elif ! (exec </dev/tty) 2>/dev/null; then
   echo "FALHA: sem terminal interativo — este script precisa de alguém para responder."
   exit 2
 fi

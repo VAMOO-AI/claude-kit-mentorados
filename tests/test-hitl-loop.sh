@@ -118,6 +118,18 @@ TypeError: play() failed
 check "sai 0"                                 "$([ "$rc" = 0 ] && echo ok || echo fail)"
 check "o arquivo tem as duas variáveis"       "$([ -f "$TMP/capturado.txt" ] && grep -qx 'TOCOU=n' "$TMP/capturado.txt" && grep -q '^ERRO=TypeError' "$TMP/capturado.txt" && echo ok || echo fail)"
 
+# Só dá para provar onde não há terminal (CI, Bash do agente). Num terminal de verdade
+# o script ficaria esperando resposta, então o caso é pulado.
+if ! (exec </dev/tty) 2>/dev/null; then
+  echo "== sem terminal para antes de perguntar, não colhe resposta vazia =="
+  printf 'captura CHEGOU A notificação chegou? (s/n)\n' > "$TMP/sem-tty.txt"
+  "${BASH:-bash}" "$HITL" "$TMP/sem-tty.txt" < /dev/null > "$TMP/saida.txt" 2>&1
+  rc=$?
+  check "sai 2"                                 "$([ "$rc" = 2 ] && echo ok || echo fail)"
+  check "e diz que falta terminal"              "$(grep -q 'sem terminal interativo' "$TMP/saida.txt" && echo ok || echo fail)"
+  check "sem chegar à pergunta"                 "$(grep -q 'CHEGOU' "$TMP/saida.txt" && echo fail || echo ok)"
+fi
+
 echo "== -h mostra o uso sem vazar código =="
 "${BASH:-bash}" "$HITL" -h > "$TMP/help.txt" 2>&1
 check "o help traz o uso"                     "$(grep -q 'Uso' "$TMP/help.txt" && echo ok || echo fail)"
