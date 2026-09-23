@@ -12,13 +12,23 @@
 #
 # Regras em hooks/path-rules.conf (ao lado deste arquivo), uma por linha, "glob | texto". Nada bloqueia: o hook
 # só acrescenta contexto (additionalContext), nunca nega a ferramenta.
-command -v jq >/dev/null 2>&1 || exit 0
+#
+# Quem lê o payload é o node, pelo scripts/hookjson.js, como nos outros hooks do plugin.
+# Até 0.34.0 era o jq, que não é pré-requisito do kit: sem ele o hook saía calado e a
+# regra não chegava.
+H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
+[ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
+command -v node >/dev/null 2>&1 || exit 0
+[ -f "$H" ] || exit 0
 
 CONF="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}/hooks/path-rules.conf"
 [ -f "$CONF" ] || exit 0
 
-entrada=$(cat)
-caminho=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' <<<"$entrada" 2>/dev/null)
+# Um node só para os quatro campos, um por linha. O último sai cru e poderia ter quebra
+# de linha, mas caminho de arquivo não tem.
+info="$(node "$H" session_id cwd tool_input.file_path tool_input.notebook_path)"
+{ IFS= read -r sessao; IFS= read -r cwd; IFS= read -r caminho; IFS= read -r notebook; } <<<"$info"
+[ -n "$caminho" ] || caminho="$notebook"
 [ -n "$caminho" ] || exit 0
 
 # O glob do .conf é casado contra caminho absoluto. Caminho relativo ("supabase/
@@ -26,7 +36,6 @@ caminho=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' <<
 # a versão silenciosa do buraco que os guards de commit tinham ao ler o path cru.
 # O "~" e o "/./" casam por acaso hoje (o "*" cobre os dois), mas só enquanto todo
 # padrão começar com "*/": normalizar aqui é o que segura um padrão absoluto.
-cwd=$(jq -r '.cwd // empty' <<<"$entrada" 2>/dev/null)
 case "$caminho" in
   '~')   caminho="$HOME" ;;
   '~/'*) caminho="$HOME/${caminho#'~/'}" ;;
@@ -37,7 +46,6 @@ while case "$caminho" in */./*) true ;; *) false ;; esac; do
   caminho="${caminho%%/./*}/${caminho#*/./}"
 done
 
-sessao=$(jq -r '.session_id // empty' <<<"$entrada" 2>/dev/null)
 [ -n "$sessao" ] || sessao="sem-sessao"
 
 ESTADO="$HOME/.claude/state/path-rules"
@@ -50,8 +58,10 @@ while IFS= read -r linha || [ -n "$linha" ]; do
   case "$linha" in ''|'#'*) continue ;; esac
   case "$linha" in *'|'*) ;; *) continue ;; esac
 
-  padrao=$(printf '%s' "${linha%%|*}" | sed 's/[[:space:]]*$//; s/^[[:space:]]*//')
-  texto=$(printf '%s' "${linha#*|}"   | sed 's/^[[:space:]]*//')
+  # Apara os espaços sem abrir processo: com o node lendo o payload, dois sed por linha
+  # do conf levavam o hook de ~40 para ~65 ms em todo Read/Edit/Write.
+  padrao="${linha%%|*}"; padrao="${padrao#"${padrao%%[![:space:]]*}"}"; padrao="${padrao%"${padrao##*[![:space:]]}"}"
+  texto="${linha#*|}";   texto="${texto#"${texto%%[![:space:]]*}"}"
   [ -n "$padrao" ] && [ -n "$texto" ] || continue
 
   # shellcheck disable=SC2254  # o padrão é glob de propósito
@@ -64,6 +74,9 @@ done < "$CONF"
 
 [ -n "$regras" ] || exit 0
 
-jq -n --arg ctx "Regra deste caminho ($caminho):"$'\n'"$regras" \
-  '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$ctx}}'
+# JSON.stringify escapa as aspas e as quebras de linha do texto das regras.
+printf '%s' "Regra deste caminho ($caminho):"$'\n'"$regras" | node -e '
+  let s = "";
+  process.stdin.on("data", (d) => { s += d; }).on("end", () => process.stdout.write(JSON.stringify(
+    { hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: s } })));'
 exit 0
