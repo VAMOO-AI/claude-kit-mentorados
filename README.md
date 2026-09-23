@@ -180,8 +180,12 @@ inteiro, use o `/plugin install` + `/kit-vamoo:setup`.
 
 Antes de instalar skill de terceiro por esse caminho — inclusive as nossas — vale a régua de
 procedência da skill `find-skills`: `SKILL.md` é execução de código, não documentação; leia
-antes. A CLI do skills.sh tem telemetria própria, e o kit não a desliga. Para desligar, ponha
-`DO_NOT_TRACK=1` na frente do comando: `DO_NOT_TRACK=1 npx skills add …`.
+antes. A CLI do skills.sh tem telemetria própria, e o kit não a desliga. Para desligar só
+naquela chamada, ponha `DO_NOT_TRACK=1` na frente do comando: `DO_NOT_TRACK=1 npx skills add …`.
+Dá para deixar fixo pondo `DO_NOT_TRACK=1` e `DISABLE_TELEMETRY=1` no `env` do seu
+`~/.claude/settings.json`, mas saiba o custo: as duas também desligam a avaliação de feature
+flags do Claude Code, e com ela o **Remote Control** (a sessão para de aparecer no celular, sem
+erro nenhum na tela). O `claude doctor` acusa a causa. Por isso o kit não as liga por você.
 
 ### Confira se deu certo
 
