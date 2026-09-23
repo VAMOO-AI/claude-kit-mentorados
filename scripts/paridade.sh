@@ -121,7 +121,9 @@ test-check-careful.sh|test-check-careful.sh
 test-dotcontext-session.sh|test-dotcontext-session.sh
 test-git-sync-cleanup.sh|test-git-sync-cleanup.sh
 test-git-sync-conta.sh|test-git-sync-conta.sh
+test-git-sync-aviso-push.sh|test-git-sync-aviso-push.sh
 test-git-sync-mural.sh|test-git-sync-mural.sh
+test-git-sync-voltar-main.sh|test-git-sync-voltar-main.sh
 test-hitl-loop.sh|test-hitl-loop.sh
 test-memoria-indice.sh|test-memoria-indice.sh
 test-memoria-link.sh|test-memoria-link.sh

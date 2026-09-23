@@ -13,6 +13,25 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.36.1] — 2026-09-23
+
+### Corrigido
+
+- `git-sync`: o aviso "NUNCA foi ao GitHub — publique" deixa de confundir branch mergeada
+  por squash (o GitHub apaga a remota e deixa o mesmo estado) com trabalho que não subiu.
+  Antes de mandar `git push -u`, ele consulta o `gh`: PR mergeado com a mesma head vira
+  "é sobra, não pushe de volta"; sem `gh` que enxergue o repo, ele não afirma nada e pede
+  para conferir o PR. A resolução de conta do `gh` roda antes, para a consulta não sair
+  pela conta errada. Espelho de claude-config-team#177 (#119).
+
+### Adicionado
+
+- `git-sync --voltar-main` (opt-in): no fim, devolve o clone à branch default só com
+  fast-forward. Aborta e explica com alteração pendente, detached HEAD, merge/rebase em
+  andamento, worktree travado ou default divergente; commit local à frente é preservado.
+  Não é o padrão, porque trocar a branch no fim de um comando de leitura surpreende.
+  Espelho de claude-config-team#179 (#119).
+
 ## [0.36.0] — 2026-09-23
 
 ### Depois de atualizar

@@ -76,6 +76,12 @@ jobs:
       - name: O git-sync lê o mural da equipe e não inventa aviso sem mural
         run: bash tests/test-git-sync-mural.sh
 
+      - name: O git-sync não manda pushar branch que já foi mergeada por squash
+        run: bash tests/test-git-sync-aviso-push.sh
+
+      - name: O --voltar-main do git-sync só troca de branch quando é seguro
+        run: bash tests/test-git-sync-voltar-main.sh
+
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 

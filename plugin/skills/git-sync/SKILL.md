@@ -10,6 +10,7 @@ description: >-
 ---
 
 > Derivada de `claude-config-team/skills/git-sync`. Ao divergir de propósito, diga aqui o quê e por quê.
+> Divergência: o aviso “NUNCA foi ao GitHub” sai da varredura de **todas** as branches locais (no time, só dos checkouts), e a resolução de conta do `gh` roda antes dela, para a prova de PR mergeado não sair pela conta que não enxerga o repo.
 
 # /git-sync — Atualizar local com o GitHub
 
@@ -25,6 +26,10 @@ Responda em **PT-BR**, direto. Cole output real dos comandos.
 - Source Control da IDE mostra behind / worktree desatualizado.
 - Início de feature (antes de branch nova): garantir `main` fresca.
 - Fim de sessão: ver o que sobrou sujo (sem apagar sozinho).
+- Fim de sessão, se você quer o clone principal de volta em `main`: acrescente
+  `--voltar-main`. Não é o padrão de propósito — trocar a branch de um checkout no fim de
+  um comando de leitura surpreende, e com duas sessões no mesmo clone a última a rodar
+  decidiria em que branch a outra está (issue claude-config-team#175).
 - **Repo compartilhado — SEMPRE ao abrir e ao fechar a sessão** (ver “Modo time”).
 
 ## Modo time (2+ pessoas no mesmo repo)
@@ -92,6 +97,12 @@ Leia nesta ordem e não comece a codar antes de zerar:
 
 **Ao fechar:** rode de novo. Nenhum aviso de *“commit(s) sem push”* / *“NUNCA foi ao
 GitHub”* pode sobrar — trabalho que não subiu não existe para o outro.
+
+Branch sem upstream e sem `origin/<branch>` é também o que o squash merge deixa (o GitHub
+apaga a remota). Por isso o aviso consulta o `gh` antes de mandar `git push -u`: com PR
+mergeado cuja head bate com o tip, ele diz que os commits **já estão na default** e que é
+sobra — **não pushe de volta** (recriaria a remota e abriria PR vazio). Sem `gh` que
+enxergue o repo, ele não afirma nada e pede para conferir o PR antes de pushar.
 
 ### Regras de convivência (as duas pessoas seguem)
 
@@ -174,6 +185,7 @@ Flags:
 | `--no-pr` | pula `gh pr list` |
 | `--team` | força modo time (quem mudou o quê, PR com autor/mergeable, branches ativas, risco de conflito) |
 | `--no-team` | desliga o modo time mesmo em repo multi-autor |
+| `--voltar-main` | **opt-in.** No fim, devolve o checkout deste clone à branch default (ff-only). Aborta e explica em: working tree suja, detached HEAD, merge/rebase/cherry-pick/bisect em andamento, worktree locked, default divergente da remota. Commit local à frente é preservado e vira aviso de push pendente — nunca reset. Em `--status-only` não toca em HEAD. |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
 | `--cleanup-dry-run` | lista branches `gone`, branches com **PR mergeado e head == tip** (remoto vivo ou sem upstream — as que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga) |
 | `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) e depois as branches `gone`: `-d` primeiro, e `-D` **só quando o `gh` confirma um PR mergeado com aquela head** (squash merge quebra a ancestralidade — sem isso o cleanup skipa 100% das branches). Branch sem PR encontrado, ou `gh` indisponível, é sempre preservada. Fora do `[gone]` (remoto vivo ou nunca pushada) a prova é dupla: PR mergeado **e** head do PR igual ao tip — commit depois do merge preserva a branch; e só o local sai: o remoto sobrevivente fica com o comando `git push origin --delete <b>` impresso para você decidir |
