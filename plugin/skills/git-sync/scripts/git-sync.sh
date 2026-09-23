@@ -401,13 +401,21 @@ hr
 GH_CONTA_NOTA=""
 if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/dev/null 2>&1 \
    && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
-  _contas="$(gh auth status 2>&1 | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
+  _status="$(gh auth status 2>&1 || true)"
+  _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
+  _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
   for _c in $_contas; do
     _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
     [[ -n "$_t" ]] || continue
     if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
-      export GH_TOKEN="$_t"
-      GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+      # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
+      # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
+      if [[ "$_c" == "$_ativa" ]]; then
+        GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
+      else
+        export GH_TOKEN="$_t"
+        GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+      fi
       break
     fi
   done
@@ -415,7 +423,7 @@ if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/de
     _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
     GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
   fi
-  unset _contas _c _t _slug
+  unset _status _contas _ativa _c _t _slug
 fi
 
 if [[ "$NO_PR" -eq 0 ]]; then
