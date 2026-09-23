@@ -45,6 +45,21 @@ memória 0,9K). Os outros 90% eram system prompt, schemas de ferramenta e MCP �
 INDISPONÍVEL sem o `/context`. Enxugar o CLAUDE.md ali economizaria ~2% do
 preload, ou seja, nada — e é exatamente o corte que todo mundo tenta primeiro.
 
+O total do preload você mede sem pedir nada, direto do transcript:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" --ultimas 3
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" --comparar --cwd "$PWD"   # app × terminal
+```
+
+Por sessão: superfície (app desktop, terminal, SDK), versão, diretório,
+`nascimento` = tokens do primeiro request (MEDIDO) e ferramentas MCP por servidor
+(MEDIDO quando o transcript registra a lista; `?` quando não registra — aí só o
+`/context` responde). Não substitui o `/context`, que quebra o preload por fatia;
+responde "quanto custa abrir uma sessão aqui" e "é o app ou o terminal que nasce
+caro". Numa medição de 23/09/2026 (conta do autor, mesmo diretório), o app nascia
+com ~74K tokens e 340 tools de 26 servidores, e o terminal com ~41K.
+
 ## Passo 2 — o gasto durante o uso
 
 ```bash
@@ -77,7 +92,11 @@ Não usou → desligue e reative quando precisar. Dois avisos:
   estar configurado só num projeto e nem carregar aqui — não há o que remover.
 - **Conector do claude.ai não sai por `claude mcp remove`** (esse comando só
   enxerga os locais). Pra desligar todos no CLI e manter no
-  site: `"disableClaudeAiConnectors": true` no `settings.json`.
+  site: `"disableClaudeAiConnectors": true` no `settings.json`. No **app desktop**
+  essa opção não vale: os conectores da conta chegam por outro caminho. Se o
+  `medir-sessao.py --comparar` mostra o app muito acima do terminal, o corte é
+  desconectar o que você não usa nas configurações da conta no claude.ai
+  (Conectores), ou trabalhar pelo terminal.
 
 Skill que você só chama na mão também pesa (a *descrição* de cada skill entra no
 preload). Duas saídas: `disable-model-invocation: true` no frontmatter da skill,
