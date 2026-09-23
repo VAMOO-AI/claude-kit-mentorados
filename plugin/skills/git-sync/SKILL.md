@@ -37,24 +37,58 @@ modo time preenche isso.
 autores distintos em `origin/<default>` nos últimos 30 dias. Force com `--team`
 (ex.: repo novo, colega ainda sem commit na default) ou desligue com `--no-team`.
 
+### O mural: o que o git nunca vai saber
+
+O relatório enxerga branch, PR e divergência. Não enxerga "não mexa nesse
+arquivo ainda", "esse PR morreu" nem "mudei o formato desse arquivo, seu merge
+vai doer". Isso mora num arquivo do repo, e o script o imprime na seção
+`### mural da equipe`, contando como aviso:
+
+```text
+.context/docs/avisos-da-equipe.md   (preferido)
+.context/avisos-da-equipe.md
+AVISOS.md                            (raiz)
+```
+
+Só o trecho sob `## Ativos` sai no relatório — o que está sob `## Resolvidos`
+fica no arquivo como histórico e não polui a sessão. Sem `## Ativos`, o arquivo
+inteiro é o mural. Mural vazio não vira aviso; repo sem mural não ganha seção.
+
+Um mural mínimo:
+
+```markdown
+# Avisos da equipe
+
+## Ativos
+
+### 17/09 — Ana — não mexa em src/lib/auth.ts até o PR #42 entrar
+
+## Resolvidos
+```
+
+Quem resolve um aviso apaga a entrada (ou move para `## Resolvidos`) no mesmo PR
+em que resolve. Aviso sem data e sem dono não conta.
+
 ### Protocolo de sessão (é isso que você roda)
 
 **Ao abrir — antes de escrever qualquer linha:**
 
 ```bash
-S="${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"        # plugin: o Claude Code preenche ao carregar a skill
-[ -f "$S" ] || S="$HOME/.claude/skills/git-sync/scripts/git-sync.sh"  # instalação antiga pelo install.sh
-bash "$S"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"
 ```
+
+(Instalação antiga pelo `install.sh`: `bash ~/.claude/skills/git-sync/scripts/git-sync.sh`.
+Por que caminho literal e não `bash "$S"`: ver "Preferência: script helper".)
 
 Leia nesta ordem e não comece a codar antes de zerar:
 
-1. `### avisos (ação sua)` — cada `!` é bloqueante até você decidir o que fazer.
-2. `--- risco de conflito ---` — se listar arquivo, sincronize com a default **antes**
+1. `### mural da equipe` — o que a outra pessoa deixou escrito para você.
+2. `### avisos (ação sua)` — cada `!` é bloqueante até você decidir o que fazer.
+3. `--- risco de conflito ---` — se listar arquivo, sincronize com a default **antes**
    de tocar nele. É o único jeito de não descobrir o conflito na hora do PR.
-3. `--- novidades em origin/<default> ---` e `### PRs abertos` — o que o colega fez
+4. `--- novidades em origin/<default> ---` e `### PRs abertos` — o que o colega fez
    e o que está em revisão. Se há PR aberto tocando sua área, fale com ele antes.
-4. `--- branches remotas ativas ---` — antes de criar `feat/x`, veja se já existe.
+5. `--- branches remotas ativas ---` — antes de criar `feat/x`, veja se já existe.
 
 **Ao fechar:** rode de novo. Nenhum aviso de *“commit(s) sem push”* / *“NUNCA foi ao
 GitHub”* pode sobrar — trabalho que não subiu não existe para o outro.
@@ -66,7 +100,7 @@ GitHub”* pode sobrar — trabalho que não subiu não existe para o outro.
 | Vai começar tarefa nova | `git-sync` primeiro, **sempre**, e só então crie a branch |
 | Branch nova | `feat/<escopo>-<seu-nome>` — nomes distintos evitam a colisão silenciosa |
 | Aviso “DIVERGED … MESMA branch” | os dois commitaram no mesmo lugar: `git pull --rebase` com working tree limpa. **Nunca** `push --force` |
-| Aviso “N atrás de origin/main” | atualize antes de continuar (`git merge origin/main`); quanto mais esperar, pior o conflito |
+| Aviso “N atrás de origin/main” | se o `risco de conflito` lista arquivo seu, `git merge origin/main` antes de continuar; sem sobreposição, siga — atualizar só por higiene vira esteira. O risco é calculado para o checkout de onde o script roda, no modo time; para outro worktree, rode com `--cwd <worktree> --team` |
 | Aviso “existe origin/\<branch\>” | o outro já criou essa branch: `git branch --set-upstream-to=origin/<branch>` ou renomeie a sua |
 | Terminou um pedaço | commit + **push no mesmo dia**; branch parada local é conflito acumulando |
 | Vai mexer em arquivo listado em “risco de conflito” | sincronize primeiro; se o outro tem PR aberto nele, espere o merge |
@@ -107,19 +141,28 @@ por você tem precedência e desliga a busca.
 6. **Untracked sozinho** não bloqueia ff-only (git permite), mas **reporta** no final e **não** oferece commitar.
 7. Clone principal em `main` com outra sessão ativa: respeitar a skill `worktrees` / hook — só atualizar com ff-only se clean o bastante; se o hook bloquear, reportar.
 8. Preferir o script helper (abaixo). Se falhar, rodar os passos manuais equivalentes.
-9. **Repo de time**: se `### avisos` vier não-vazio, mostre os avisos **antes** de qualquer outra coisa e trate como bloqueio até o usuário decidir. Não comece a implementar por cima de branch atrás/divergida — o conflito só cresce. `git pull --rebase` para resolver divergência é sugestão ao usuário, **nunca** execução automática (regra 1).
+9. **Repo de time**: se `### avisos` vier não-vazio, mostre os avisos **antes** de qualquer outra coisa e trate como bloqueio até o usuário decidir. Não comece a implementar por cima de branch divergida, nem de branch atrás cujo `risco de conflito` lista arquivo seu — o conflito só cresce. Atrás sem sobreposição não bloqueia (regras de convivência, acima). `git pull --rebase` para resolver divergência é sugestão ao usuário, **nunca** execução automática (regra 1).
 
 ## Preferência: script helper
 
-O script vem junto com a skill, dentro do plugin — o Claude Code preenche
-`${CLAUDE_PLUGIN_ROOT}` ao carregar a skill. As outras duas linhas cobrem a
-instalação antiga pelo `install.sh` e outro agente apontando por symlink:
+O script vem junto com a skill, dentro do plugin. Chame pelo caminho, com as flags
+depois dele:
 
 ```bash
-S="${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"
-[ -f "$S" ] || S="$HOME/.claude/skills/git-sync/scripts/git-sync.sh"
-[ -f "$S" ] || S="$HOME/.agents/skills/git-sync/scripts/git-sync.sh"
-bash "$S"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"
+```
+
+O Claude Code preenche `${CLAUDE_PLUGIN_ROOT}` no texto ao carregar a skill, então o
+comando que roda já é o caminho escrito por extenso. Não guarde o caminho numa variável
+(`S=...; bash "$S"`): dentro de worktree isolado, o guard do Claude Code recusa script
+chamado por variável (*"too complex to verify that it stays inside the worktree"*) e
+aceita o caminho literal. Fora de worktree as duas formas rodam.
+
+Se esse caminho não existir, use o da instalação que você tem, também por extenso:
+
+```bash
+bash ~/.claude/skills/git-sync/scripts/git-sync.sh    # instalação antiga pelo install.sh
+bash ~/.agents/skills/git-sync/scripts/git-sync.sh    # outro agente apontando por symlink
 ```
 
 Flags:
@@ -137,23 +180,26 @@ Flags:
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
-Exemplos (`S` resolvido como acima):
+Exemplos:
 
 ```bash
 # Sync completo (padrão)
-bash "$S"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh"
 
 # Só ver o estado
-bash "$S" --status-only
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --status-only
 
 # Abrindo sessão num repo compartilhado (força o modo time)
-bash "$S" --team
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --team
+
+# Risco de conflito de outro worktree
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --cwd <worktree> --team
 
 # Incluir dry-run de lixo
-bash "$S" --cleanup-dry-run
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --cleanup-dry-run
 
 # Usuário disse "pode limpar o que for dry-run seguro"
-bash "$S" --cleanup-apply
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --cleanup-apply
 ```
 
 Se o script não existir ou falhar no shebang, execute a **sequência manual** abaixo.
@@ -197,17 +243,17 @@ git worktree list --porcelain
 git worktree list
 ```
 
-Para **cada** worktree path:
+Para **cada** worktree path, com `git -C <path>` em vez de `cd <path>` — de dentro de
+worktree isolado, o guard do Claude Code recusa `cd` para outro checkout:
 
 ```bash
-cd <path>
-git status -sb
-git rev-parse --abbrev-ref HEAD
-git rev-parse HEAD
+git -C <path> status -sb
+git -C <path> rev-parse --abbrev-ref HEAD
+git -C <path> rev-parse HEAD
 # ahead/behind vs origin/DEFAULT (e vs upstream se houver):
-git rev-list --left-right --count "HEAD...origin/$DEFAULT" 2>/dev/null
+git -C <path> rev-list --left-right --count "HEAD...origin/$DEFAULT" 2>/dev/null
 # dirty?
-git status --porcelain
+git -C <path> status --porcelain
 ```
 
 Classificar cada checkout (alvo = `@{u}` se existir, senão `origin/$DEFAULT`):
@@ -234,7 +280,7 @@ No clone principal (se em `$DEFAULT` e elegível):
 git merge --ff-only "origin/$DEFAULT"
 ```
 
-Em cada worktree elegível (mesmo critério). Preferir `merge --ff-only` no ref remoto em vez de trocar de branch.
+Em cada worktree elegível (mesmo critério): `git -C <path> merge --ff-only <alvo>`. Preferir `merge --ff-only` no ref remoto em vez de trocar de branch.
 
 ### 4. PRs abertos (opcional — default ON)
 

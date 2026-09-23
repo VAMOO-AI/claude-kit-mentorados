@@ -282,8 +282,15 @@ for wt in "${WT_PATHS[@]}"; do
   # --- avisos acionáveis (o que a IDE não mostra) ---
   if [[ "$branch" != "HEAD" ]]; then
     # 1) feature branch ficou para trás da default → conflito futuro no PR
+    # O 'risco de conflito' só sai no modo time e só para o checkout de onde o script
+    # roda; para os outros, o aviso diz como ver o risco daquela branch.
     if [[ "$branch" != "$DEFAULT_BRANCH" && "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
-      WARNINGS+=("$branch ($wt): $d_behind commit(s) atrás de $ORIGIN_DEFAULT — atualize ANTES de continuar: git -C '$wt' merge $ORIGIN_DEFAULT (ou rebase, se a branch ainda não foi publicada)")
+      if [[ "$TEAM" -eq 1 && "$wt" == "$ROOT" ]]; then
+        _risco="o 'risco de conflito' abaixo"
+      else
+        _risco="o 'risco de conflito' desta branch (--cwd '$wt' --team)"
+      fi
+      WARNINGS+=("$branch ($wt): $d_behind commit(s) atrás de $ORIGIN_DEFAULT — atualize se $_risco listar arquivo seu: git -C '$wt' merge $ORIGIN_DEFAULT; sem sobreposição, siga.")
     fi
     # 2) commits locais que o colega não enxerga
     if [[ -n "$upstream" && "$u_ahead" != "?" && "${u_ahead:-0}" -gt 0 && "${u_behind:-0}" -eq 0 ]]; then
@@ -366,6 +373,43 @@ while IFS='|' read -r lb lup ltrack; do
     WARNINGS+=("branch '$lb' (não checkoutada) está $lb_b atrás de $lup — atualize ao entrar nela")
   fi
 done < <(git for-each-ref --format='%(refname:short)|%(upstream:short)|%(upstream:track)' refs/heads)
+
+# Mural da equipe: o que uma pessoa precisa dizer para a outra e que nenhum comando
+# de git sabe ("não mexa nesse arquivo ainda", "esse PR morreu"). Se o repo tem o
+# mural, as entradas ativas entram aqui e um aviso aponta para ele; senão a seção some.
+MURAL=""
+for _m in .context/docs/avisos-da-equipe.md .context/avisos-da-equipe.md AVISOS.md; do
+  if [[ -f "$ROOT/$_m" ]]; then MURAL="$_m"; break; fi
+done
+MURAL_LINHAS=()
+if [[ -n "$MURAL" ]]; then
+  # Só o trecho entre '## Ativos' e o próximo '## '. Sem '## Ativos' o arquivo inteiro
+  # é o mural — repo que ainda não adotou a seção não fica mudo.
+  if grep -q '^## Ativos' "$ROOT/$MURAL"; then
+    _corpo="$(awk '/^## Ativos/{f=1;next} f&&/^## /{exit} f' "$ROOT/$MURAL")"
+  else
+    _corpo="$(cat "$ROOT/$MURAL")"
+  fi
+  # Só espaço em branco não é conteúdo: mural vazio não vira aviso.
+  if [[ -n "$(printf '%s' "$_corpo" | tr -d '[:space:]')" ]]; then
+    while IFS= read -r _l; do MURAL_LINHAS+=("$_l"); done <<< "$_corpo"
+    WARNINGS+=("mural da equipe em $MURAL tem aviso ativo — leia antes de codar (seção '### mural da equipe').")
+  fi
+fi
+
+if [[ ${#MURAL_LINHAS[@]} -gt 0 ]]; then
+  echo "### mural da equipe ($MURAL)"
+  _n=0
+  for _l in "${MURAL_LINHAS[@]}"; do
+    _n=$((_n + 1))
+    if [[ $_n -gt 80 ]]; then
+      echo "  ... (cortado em 80 linhas — leia $MURAL inteiro)"
+      break
+    fi
+    echo "  $_l"
+  done
+  hr
+fi
 
 echo "### avisos (ação sua)"
 if [[ ${#WARNINGS[@]} -eq 0 ]]; then
