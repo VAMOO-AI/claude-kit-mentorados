@@ -7,6 +7,11 @@
 # sem nada indicar. O block-parallel-clone-switch impede a troca partindo daqui; este
 # avisa quando a troca veio de fora.
 #
+# O marcador é por sessão E pela raiz do repositório. Clone e worktree têm raízes
+# diferentes, então a própria sessão entrar ou sair de um worktree não parece troca de
+# branch. Com marcador só por sessão, era daí que vinham 77% dos avisos (medido no time em
+# 22/09/2026).
+#
 # Só avisa — nunca bloqueia, nunca troca de branch. Lê o JSON do hook via node (sem
 # depender de jq). Falha-aberta: qualquer erro sai 0 e o prompt segue.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
@@ -19,15 +24,20 @@ cwd="$(printf '%s\n' "$info" | sed '1d')"
 [ -z "$sid" ] && exit 0
 [ -z "$cwd" ] && cwd="$PWD"
 
+raiz=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+[ -z "$raiz" ] && exit 0
 branch=$(git -C "$cwd" branch --show-current 2>/dev/null)
 [ -z "$branch" ] && exit 0
 
 dir="$HOME/.claude/.cache/branch-guard"
 mkdir -p "$dir" 2>/dev/null || exit 0
-# Um arquivo por sessão, para sempre, viraria centenas. Sessão de uma semana atrás não
-# volta a mandar prompt; um `find` numa pasta pequena custa menos que o node acima.
+# Um arquivo por sessão e repositório, para sempre, viraria centenas. Sessão de uma semana
+# atrás não volta a mandar prompt; um `find` numa pasta pequena custa menos que o node acima.
 find "$dir" -type f -mtime +7 -delete 2>/dev/null
-marker="$dir/$sid"
+# cksum, não shasum: é POSIX (está em todo Mac e Linux) e o shasum do Mac é um script
+# Perl, ~20 ms a mais em todo prompt.
+h=$(printf '%s' "$raiz" | cksum 2>/dev/null)
+marker="$dir/$sid-${h%%[[:space:]]*}"
 
 anterior=$(cat "$marker" 2>/dev/null)
 printf '%s' "$branch" > "$marker" 2>/dev/null
