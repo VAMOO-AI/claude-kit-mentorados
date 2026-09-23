@@ -146,6 +146,18 @@ if grep -qF '$D/clone' "$ERR-cru"; then printf '  ok    %s\n' "mostra o path que
 else printf '  FALHA %s\n' "mostra o path que o comando pedia"; falhas=$((falhas+1)); fi
 if grep -qF 'HOTFIX_MAIN=1' "$ERR-cru"; then printf '  ok    %s\n' "ensina a escotilha para fixture descartável"
 else printf '  FALHA %s\n' "ensina a escotilha para fixture descartável"; falhas=$((falhas+1)); fi
+# expand_shell_path "expandia" D=$(mktemp -d) em `$(mktemp/clone` — path que ninguém pediu.
+if grep -qF '$(mktemp/clone' "$ERR-cru"; then
+  printf '  FALHA %s (veio: %s)\n' "não inventa path a partir de \$(…)" "$(cat "$ERR-cru")"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "não inventa path a partir de \$(…)"; fi
+# alvo que RESOLVE mantém a mensagem antiga, sem a ressalva
+jq -nc --arg c "git -C $MAIN commit -m x" --arg d "$FEAT" '{cwd:$d, tool_input:{command:$c}}' \
+  | bash "$HOOK" >/dev/null 2>"$ERR-ok"
+if grep -qF 'NÃO resolvi como repo' "$ERR-ok"; then
+  printf '  FALHA %s\n' "alvo resolvido não ganha a ressalva"; falhas=$((falhas+1))
+elif grep -qF "cairia na branch 'main' (repo: $MAIN)" "$ERR-ok"; then
+  printf '  ok    %s\n' "alvo resolvido não ganha a ressalva"
+else printf '  FALHA %s (veio: %s)\n' "alvo resolvido afirma a branch do alvo" "$(cat "$ERR-ok")"; falhas=$((falhas+1)); fi
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

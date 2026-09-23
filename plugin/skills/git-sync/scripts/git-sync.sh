@@ -13,6 +13,7 @@ DEFAULT_BRANCH=""
 CWD=""
 TEAM=-1          # -1 auto | 0 off | 1 on
 TEAM_SINCE_DAYS=14
+VOLTAR_MAIN=0      # --voltar-main: devolve o checkout à default no fim (opt-in)
 
 usage() {
   cat <<'EOF'
@@ -26,6 +27,9 @@ Usage: git-sync.sh [options]
   --no-team           force team mode off (default is auto-detect: >=2 authors
                       in origin/<default> over the last 30 days)
   --since DAYS        activity window for team mode (default 14)
+  --voltar-main       no fim, devolve o checkout deste clone à branch default
+                      (ff-only; aborta em dirty, detached, rebase/merge em
+                      andamento, worktree locked ou default divergente)
   --cleanup-dry-run   list gone branches / removable worktree candidates
   --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged
                       confirmado no gh) + remove worktrees clean e mergeados
@@ -42,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --no-pr) NO_PR=1; shift ;;
     --team) TEAM=1; shift ;;
     --no-team) TEAM=0; shift ;;
+    --voltar-main) VOLTAR_MAIN=1; shift ;;
     --since) TEAM_SINCE_DAYS="${2:-14}"; shift 2 ;;
     --cleanup-dry-run) CLEANUP_DRY=1; shift ;;
     --cleanup-apply) CLEANUP_APPLY=1; CLEANUP_DRY=1; shift ;;
@@ -80,7 +85,9 @@ echo "time:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 hr
 
 echo "### fetch --prune origin"
+FETCH_OK=1
 if ! git fetch --prune origin 2>&1; then
+  FETCH_OK=0
   echo "WARN: fetch failed — continuing with last-known remote refs"
 fi
 hr
@@ -342,9 +349,71 @@ else
 fi
 hr
 
+# Máquina com 2+ contas no keyring do gh (pessoal + trabalho/cliente): a conta ativa
+# responde "Could not resolve to a Repository" para o repo da outra, e isso lê como
+# repositório inexistente, não como conta errada — o relatório saía cego para PR sem
+# dizer o motivo. Testa as demais contas já logadas e usa a que enxerga. O token vale
+# só neste processo: não troca a conta ativa nem vai para o keyring. GH_TOKEN já
+# exportado pelo usuário tem precedência e desliga a busca.
+#
+# Roda ANTES da varredura de branches abaixo: o aviso "NUNCA foi ao GitHub" consulta PR
+# mergeado, e pela conta cega cairia no "sem gh" num repo onde a prova estava a um token
+# de distância. A nota só é impressa lá embaixo, na seção de PRs.
+GH_CONTA_NOTA=""
+if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/dev/null 2>&1 \
+   && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
+  _status="$(gh auth status 2>&1 || true)"
+  _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
+  _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
+  for _c in $_contas; do
+    _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
+    [[ -n "$_t" ]] || continue
+    if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
+      # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
+      # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
+      if [[ "$_c" == "$_ativa" ]]; then
+        GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
+      else
+        export GH_TOKEN="$_t"
+        GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+      fi
+      break
+    fi
+  done
+  if [[ -z "$GH_CONTA_NOTA" ]]; then
+    _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
+    GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
+  fi
+  unset _status _contas _ativa _c _t _slug
+fi
+
 # Varredura de TODAS as branches locais (inclusive as não checkoutadas em worktree).
 # Pega o caso clássico de time: os dois criam a mesma branch, ou alguém trabalha
 # dias numa branch que nunca foi ao GitHub.
+#
+# Só que "sem upstream e sem origin/<branch>" é exatamente o estado que o squash merge
+# deixa: o PR mergeia, o GitHub apaga a remota, e o clone fica sem rastro. Em 17/09/2026
+# o relatório mandou 'git push -u' numa branch que já era o PR #91 mergeado; seguir o
+# conselho recriaria a remota e abriria PR vazio. A prova é a mesma do --cleanup-apply
+# (PR mergeado cuja head bate com o tip), com consulta própria: o cache daquele decide
+# -D e não deve servir a um aviso. Só dispara nesse ramo, uma vez por branch.
+#
+# Devolve no stdout: "<numero-do-PR>" quando provado; "" quando o gh respondeu e não há
+# PR; "?" quando não há gh que enxergue o repo. Vazio e "?" são coisas diferentes — o
+# terceiro não autoriza afirmar nem que foi nem que não foi.
+pr_merged_desta_head() {   # <branch> <tip>
+  local b="$1" tip="$2" line n oid
+  command -v gh >/dev/null 2>&1 || { printf '?'; return; }
+  gh repo view --json name >/dev/null 2>&1 || { printf '?'; return; }
+  line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
+       --jq '.[0] | "\(.number // "") \(.headRefOid // "")"' 2>/dev/null || true)"
+  n="${line%% *}"; oid=""
+  [[ "$line" == *" "* ]] && oid="${line#* }"
+  # head vazia nunca prova nada (gh antigo, API sem o campo); tip diferente = continuou
+  # commitando depois do merge, e aí o trabalho novo de fato não subiu.
+  if [[ -n "$n" && -n "$oid" && "$oid" == "$tip" ]]; then printf '%s' "$n"; else printf ''; fi
+}
+
 CHECKED_OUT_BR="$(git worktree list --porcelain | awk '/^branch /{sub(/^branch refs\/heads\//,""); print}')"
 while IFS='|' read -r lb lup ltrack; do
   [[ -z "$lb" ]] && continue
@@ -355,7 +424,14 @@ while IFS='|' read -r lb lup ltrack; do
     else
       lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
-        WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s) e NUNCA foi ao GitHub — publique: git push -u origin $lb")
+        _pr="$(pr_merged_desta_head "$lb" "$(git rev-parse "refs/heads/$lb" 2>/dev/null || true)")"
+        if [[ -n "$_pr" && "$_pr" != "?" ]]; then
+          WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $ORIGIN_DEFAULT pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+        elif [[ "$_pr" == "?" ]]; then
+          WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s), sem upstream e sem origin/$lb. Sem gh que enxergue o repo não dá para saber se já mergeou — squash apaga a remota e deixa este mesmo estado. Confira o PR antes de pushar.")
+        else
+          WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s) e NUNCA foi ao GitHub (nenhum PR mergeado com esta head) — publique: git push -u origin $lb")
+        fi
       fi
     fi
     continue
@@ -411,6 +487,105 @@ if [[ ${#MURAL_LINHAS[@]} -gt 0 ]]; then
   hr
 fi
 
+# --- retorno à branch principal (opt-in: --voltar-main) ----------------------
+# Veio da linhagem de 10/09 que rodava fora do repo (issue claude-config-team#175). Lá
+# era comportamento PADRÃO, e é por isso que volta como flag: trocar a branch do
+# checkout de alguém no fim de um comando que a pessoa chamou para LER estado é ação que
+# ninguém pediu — e, com duas sessões no mesmo clone, a que roda por último decide em que
+# branch a outra está. Como opt-in, quem termina o dia e quer o clone de volta em main
+# pede; quem só quer o relatório não paga.
+#
+# Nenhuma guarda força nada: dirty, detached, operação git em andamento, worktree locked,
+# default divergente da remota e ff-only que falha ABORTAM o retorno e explicam o motivo.
+# Trabalho local à frente é preservado e vira aviso de push pendente, nunca reset.
+RETURN_ACTION="off"
+RETURN_BLOCK_REASON=""
+return_to_default() {
+  local current marker marker_path main_ahead main_behind detail old_sha new_sha
+  current="$(git -C "$ROOT" symbolic-ref --quiet --short HEAD || true)"
+  if [[ "$STATUS_ONLY" -eq 1 ]]; then
+    RETURN_ACTION="status-only"
+    echo "--status-only: checkout preservado em ${current:-detached HEAD}"
+    return 0
+  fi
+  if [[ "${FETCH_OK:-1}" -eq 0 ]]; then
+    RETURN_BLOCK_REASON="fetch falhou; não é possível confirmar $ORIGIN_DEFAULT"
+    return 1
+  fi
+  if [[ -z "$current" ]]; then
+    RETURN_BLOCK_REASON="detached HEAD em $ROOT — preservado"
+    return 1
+  fi
+  if is_dirty_tracked "$ROOT"; then
+    RETURN_BLOCK_REASON="alterações tracked pendentes em $ROOT ($current) — sem stash ou descarte automático"
+    return 1
+  fi
+  for marker in MERGE_HEAD rebase-merge rebase-apply CHERRY_PICK_HEAD REVERT_HEAD sequencer BISECT_START; do
+    # `--git-path` devolve caminho RELATIVO ao cwd (".git/MERGE_HEAD"), mesmo com -C: no
+    # kit do time a guarda testava no diretório da sessão e nunca disparava. Aqui o script
+    # já fez `cd "$ROOT"`, mas o caminho absoluto não depende disso. --path-format=absolute
+    # existe desde o git 2.31; onde não existir, o prefixo com o git-dir resolve.
+    marker_path="$(git -C "$ROOT" rev-parse --path-format=absolute --git-path "$marker" 2>/dev/null || true)"
+    [[ -z "$marker_path" ]] && marker_path="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)/$marker"
+    if [[ -e "$marker_path" ]]; then
+      RETURN_BLOCK_REASON="operação Git em andamento ($marker) em $ROOT"
+      return 1
+    fi
+  done
+  if [[ "$current" != "$DEFAULT_BRANCH" ]] && is_locked "$ROOT"; then
+    RETURN_BLOCK_REASON="worktree locked em $ROOT — não troco sua branch"
+    return 1
+  fi
+  if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$DEFAULT_BRANCH"; then
+    if ! read -r main_ahead main_behind <<<"$(git -C "$ROOT" rev-list --left-right --count "refs/heads/$DEFAULT_BRANCH...$ORIGIN_DEFAULT" 2>/dev/null)" \
+        || [[ -z "$main_ahead" || -z "$main_behind" ]]; then
+      RETURN_BLOCK_REASON="sem base de comparação entre $DEFAULT_BRANCH e $ORIGIN_DEFAULT"
+      return 1
+    fi
+    if [[ "$main_ahead" != "0" && "$main_behind" != "0" ]]; then
+      RETURN_BLOCK_REASON="$DEFAULT_BRANCH divergiu de $ORIGIN_DEFAULT (a$main_ahead/b$main_behind) — sem reset ou rebase automático"
+      return 1
+    fi
+  fi
+  if [[ "$current" != "$DEFAULT_BRANCH" ]]; then
+    if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$DEFAULT_BRANCH"; then
+      if ! detail="$(git -C "$ROOT" switch --no-overwrite-ignore "$DEFAULT_BRANCH" 2>&1)"; then
+        RETURN_BLOCK_REASON="troca de $current para $DEFAULT_BRANCH recusada: $detail"
+        return 1
+      fi
+    elif ! detail="$(git -C "$ROOT" switch --no-overwrite-ignore --create "$DEFAULT_BRANCH" --track "$ORIGIN_DEFAULT" 2>&1)"; then
+      RETURN_BLOCK_REASON="criação de $DEFAULT_BRANCH recusada: $detail"
+      return 1
+    fi
+    echo "$ROOT: $current → $DEFAULT_BRANCH"
+  fi
+  old_sha="$(git -C "$ROOT" rev-parse --short HEAD)"
+  if ! detail="$(git -C "$ROOT" -c merge.autoStash=false merge --ff-only --no-overwrite-ignore "$ORIGIN_DEFAULT" 2>&1)"; then
+    RETURN_BLOCK_REASON="checkout em $DEFAULT_BRANCH, mas ff-only de $ORIGIN_DEFAULT falhou: $detail"
+    return 1
+  fi
+  new_sha="$(git -C "$ROOT" rev-parse --short HEAD)"
+  if [[ "$old_sha" != "$new_sha" ]]; then
+    UPDATED+=("$ROOT ($DEFAULT_BRANCH): $old_sha → $new_sha (de $ORIGIN_DEFAULT)")
+  fi
+  read -r main_ahead main_behind <<<"$(counts_vs "$ROOT" "$ORIGIN_DEFAULT")"
+  if [[ "$current" != "$DEFAULT_BRANCH" && "$main_ahead" != "0" ]]; then
+    WARNINGS+=("$DEFAULT_BRANCH ($ROOT): $main_ahead commit(s) locais à frente de $ORIGIN_DEFAULT — preservados, push pendente.")
+  fi
+  RETURN_ACTION="ready"
+  echo "branch final: $DEFAULT_BRANCH ($new_sha), $(fmt_vs "$main_ahead" "$main_behind") vs $ORIGIN_DEFAULT"
+}
+
+if [[ "$VOLTAR_MAIN" -eq 1 ]]; then
+  echo "### retorno à branch principal"
+  if ! return_to_default; then
+    RETURN_ACTION="blocked"
+    WARNINGS+=("Retorno a $DEFAULT_BRANCH bloqueado: $RETURN_BLOCK_REASON")
+    echo "BLOQUEADO: $RETURN_BLOCK_REASON"
+  fi
+  hr
+fi
+
 echo "### avisos (ação sua)"
 if [[ ${#WARNINGS[@]} -eq 0 ]]; then
   echo "(nenhum — pode trabalhar)"
@@ -435,40 +610,6 @@ else
   printf '%s\n' "$STASH_LIST"
 fi
 hr
-
-# Máquina com 2+ contas no keyring do gh (pessoal + trabalho/cliente): a conta ativa
-# responde "Could not resolve to a Repository" para o repo da outra, e isso lê como
-# repositório inexistente, não como conta errada — o relatório saía cego para PR sem
-# dizer o motivo. Testa as demais contas já logadas e usa a que enxerga. O token vale
-# só neste processo: não troca a conta ativa nem vai para o keyring. GH_TOKEN já
-# exportado pelo usuário tem precedência e desliga a busca.
-GH_CONTA_NOTA=""
-if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/dev/null 2>&1 \
-   && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
-  _status="$(gh auth status 2>&1 || true)"
-  _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
-  _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
-  for _c in $_contas; do
-    _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
-    [[ -n "$_t" ]] || continue
-    if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
-      # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
-      # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
-      if [[ "$_c" == "$_ativa" ]]; then
-        GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
-      else
-        export GH_TOKEN="$_t"
-        GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
-      fi
-      break
-    fi
-  done
-  if [[ -z "$GH_CONTA_NOTA" ]]; then
-    _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
-    GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
-  fi
-  unset _status _contas _ativa _c _t _slug
-fi
 
 if [[ "$NO_PR" -eq 0 ]]; then
   echo "### PRs abertos (gh)"
@@ -798,6 +939,7 @@ fi
 echo "### summary"
 echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA"
 echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} avisos=${#WARNINGS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
+echo "voltar_main=$VOLTAR_MAIN retorno=$RETURN_ACTION"
 echo "status_only=$STATUS_ONLY team=$TEAM cleanup_dry=$CLEANUP_DRY cleanup_apply=$CLEANUP_APPLY"
 if [[ ${#WARNINGS[@]} -gt 0 ]]; then
   echo "ATENÇÃO: ${#WARNINGS[@]} aviso(s) em '### avisos (ação sua)' — resolva antes de começar a codar."
