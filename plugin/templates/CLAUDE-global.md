@@ -72,6 +72,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Causa raiz: se 2 tentativas superficiais não resolveram, vá fundo (quem chama → o que é chamado → os dados → o banco). "Estamos em círculos" → pare, releia tudo de cima, repense do zero.
 - Rename / refactor: faça um grep separado por chamadas, tipos, strings, imports e testes antes de apagar qualquer coisa. Nunca delete arquivo sem checar quem usa.
 - **Ler arquivo é sempre com caminho absoluto.** `cd pasta && grep ... src/x.ts` faz o Claude Code parar e te pedir autorização: depois do `cd` ele não sabe em que pasta a leitura cai e, como o kit protege seus segredos com regras `Read()` em `deny`, ele não arrisca. Isso acontece até no modo bypass. Use o caminho inteiro (`/Users/voce/projeto/src/x.ts`), `grep -r <padrão> /caminho/da/pasta` ou `git -C /caminho/do/repo ...`. O kit instala um hook que barra o padrão e já mostra o comando certo.
+- Testando no terminal do Claude um comando que vai rodar no CI ou num servidor e depende do **exit** do `grep` (`if grep -q ...`)? Rode com `/usr/bin/grep`: o `grep` direto no terminal do Claude é outro programa (ugrep) e, com `-v` sem imprimir nada (`-qv` ou `-v ... > /dev/null`), responde o contrário. Dentro de `bash -c` ou de um `.sh` não acontece.
 - Código apontado como referência: estude e copie o padrão exatamente.
 - Trabalhe com dados reais. Sem o erro/print real, peça — não invente o output.
 - Código humano, sem comentário robótico. Não over-engineer, não construa pra cenário imaginário.
