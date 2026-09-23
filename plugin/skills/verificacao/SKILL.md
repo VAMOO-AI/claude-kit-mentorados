@@ -53,6 +53,50 @@ QA em subagent devolve o veredito no formato de `references/qa-taxonomia.md`:
 severidade (crítico/alto/médio/baixo), categoria, passos e a contagem do que
 foi coberto. "Nenhum achado" sem contagem é relatório vazio.
 
+## O que só um humano consegue verificar → roteiro, não pedido no meio da prosa
+
+Tem verificação que o agente não fecha sozinho: "o áudio toca no celular", "a
+notificação chegou no aparelho", "o PDF sai certo na impressora", "o cliente
+consegue entrar com o login dele". É aqui que mais se declara pronto sem estar:
+"testei e funcionou" quando ninguém abriu o app no celular. Build verde e teste
+verde não dizem nada sobre o som que sai do alto-falante.
+
+Por isso, em feature com **mídia, push ou impressão**, o roteiro humano faz parte
+da definição de pronto, do mesmo jeito que `tsc` e lint. Não é pedir em prosa no
+meio da resposta ("dá uma olhada se tocou?") — a resposta volta três mensagens
+depois, solta, e não vira evidência de nada. O agente **escreve um roteiro** num
+arquivo, a pessoa roda no terminal dela, e as respostas voltam em `KEY=VALUE`:
+
+```bash
+# /tmp/roteiro-push.txt (escrito pelo agente)
+passo Abra o app no celular e entre com a conta de teste
+captura CHEGOU Dispare o lembrete pelo painel. A notificação chegou? (s/n)
+captura ERRO Se não chegou, cole o erro do console (ou 'nenhum')
+
+# o que a pessoa roda, num terminal dela
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-push.txt --saida /tmp/capturado.txt
+```
+
+Regras que fazem o roteiro valer alguma coisa:
+
+- **Você não roda o script no seu Bash.** Ele precisa de alguém digitando; sem
+  terminal ele falha fechado, mas com "CHEGOU ficou sem resposta", que parece
+  resultado e não é. Quem roda é a pessoa.
+- **Entregue o comando pronto para colar**, com caminhos absolutos: o
+  `${CLAUDE_PLUGIN_ROOT}` já vem preenchido quando esta skill carrega, mas o
+  terminal da pessoa não conhece essa variável. Roteiro e `--saida` também em
+  caminho absoluto.
+- **Uma pergunta por observação, com resposta objetiva** (s/n, o número, a
+  mensagem colada). "Deu certo?" não é observação.
+- **Enter vazio reprova** — o script sai 1 nomeando a variável sem resposta.
+  Silêncio não é "verificado".
+- **Exit 0 quer dizer "todas respondidas", não "passou".** `CHEGOU=n` com exit 0
+  é reprovação. Leia os valores antes de concluir qualquer coisa.
+- **A resposta é a evidência.** Leia o arquivo do `--saida` e cole o bloco
+  `--- capturado ---` no relatório, igual output de `tsc`. Vale também para o
+  degrau 3 (smoke real) da seção de efeito colateral externo abaixo: quem
+  confirma que chegou é quem recebeu.
+
 ## Pipe não mascara falha
 
 Nunca pipe `tsc`/`eslint` pra `head`/`tail` sem `set -o pipefail` (ou checar
