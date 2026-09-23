@@ -65,7 +65,7 @@ Ao terminar: faça merge/PR e limpe a worktree e a branch.
 ## 4. Hooks: automação que dispara sozinha
 
 Hooks rodam comandos automaticamente em eventos do Claude Code. O plugin do kit já traz
-alguns: depois de toda edição, roda `eslint --fix` + `tsc --noEmit` no arquivo; antes de
+alguns: anota cada arquivo editado e, no fim do turno, roda `eslint --fix` nos JS/TS da sessão; antes de
 todo comando, barra commit na `main` e pede confirmação no destrutivo; e na abertura da
 sessão injeta o resumo do `.context/` do projeto (dotcontext).
 
@@ -110,6 +110,24 @@ Além do `init the context`, em projetos grandes:
 
 Use o template em [`plugin/templates/ci.yml`](../plugin/templates/ci.yml): roda typecheck + lint + test
 em todo PR. Branch só entra na `main` com o verde. É a versão "time" do verify-don't-claim.
+
+> **Cuidado ao testar comando de CI no terminal do Claude.** O `grep` que roda direto no
+> terminal do Claude Code não é o do sistema: é um atalho para outro programa (ugrep), e
+> ele devolve o **exit code** ao contrário em `-v` quando nada é impresso:
+>
+> ```
+> $ printf 'docs/a.md\nsrc/x.ts\n' > /tmp/t
+> $ grep          -qvE '^docs/' /tmp/t ; echo $?   # terminal do Claude → 1
+> $ /usr/bin/grep -qvE '^docs/' /tmp/t ; echo $?   # grep do sistema    → 0
+> ```
+>
+> Isso importa quando o CI decide algo pelo exit, como "este PR mexe em código fora de
+> `docs/`?". Testado no terminal do Claude, um filtro correto diz que um PR com
+> `src/lib/drive.ts` não toca código — e você perde tempo "consertando" um regex que não
+> tinha defeito. O mesmo vale para `grep -v ... > /dev/null`. Sem `-q` e imprimindo na
+> tela, os dois concordam. Dentro de `bash -c '...'` ou de um script `.sh` o atalho não
+> vale e o grep já é o do sistema. Para testar comando de CI, container ou servidor que
+> depende do exit do `grep`, use `/usr/bin/grep`.
 
 ---
 

@@ -142,6 +142,49 @@ lockfile, e você é read-only aqui). Efeito colateral que vai no relatório: es
 impede gerar o lockfile, então um repo com dependência inventada deixa C5 cega também para
 as CVEs reais. Reporte os dois fatos juntos.
 
+### C5.2 — Subir versão é mudança de código (o PR de bump)
+
+A Fase 4 olha o que **está** instalado. Esta parte olha a mudança que **troca** o
+instalado: o PR mais fácil de aprovar sem ler, e o que meses depois vira "não mudei nada
+e quebrou". A pergunta da triagem é uma só: **o que passou a rodar aqui que ninguém
+escreveu?** Entra quando o escopo é uma branch/PR, ou quando o histórico recente mexeu
+nas dependências:
+
+```bash
+git diff --stat origin/main...HEAD -- package.json package-lock.json pnpm-lock.yaml bun.lock
+git log --oneline -5 -- package.json
+git ls-files package-lock.json pnpm-lock.yaml bun.lock   # vazio com lockfile no disco = lockfile fora do git
+```
+
+- **Um pacote por PR** (ou um grupo pequeno e relacionado). Bump em lote quebra o build e
+  esconde qual dos 14 pacotes quebrou, e o revert leva os 13 inocentes junto.
+- **O que decide é o changelog, não o número.** Semver é promessa do mantenedor, não
+  garantia: patch carrega mudança de comportamento com frequência. Em major, o PR diz
+  **o que quebra** — "subiu de 4 para 5" não é descrição.
+- **Testes verdes ANTES e DEPOIS**, com output colado. "Instalou" não é verificação. Se
+  quase nenhum teste passa pelo que a dependência faz, **essa lacuna é o achado**: o
+  teste vem antes do bump, senão o verde não prova nada.
+- **O lockfile é o que de fato sobe.** Revise o diff dele, não só o do `package.json`;
+  commite sempre; nunca edite à mão. Um bump direto arrasta dezenas de dependências
+  indiretas, e é ali que mora o pacote que ninguém escolheu. `^4.2.0` no `package.json`
+  aceita qualquer 4.x: sem lockfile no git, cada `npm install` pode montar outra árvore.
+  No CI, a instalação tem que ser a que respeita o lockfile (`npm ci`,
+  `pnpm install --frozen-lockfile`, `bun install --frozen-lockfile`); `npm install` no CI
+  resolve as faixas de novo e testa uma árvore que ninguém revisou.
+- **Dependência nova pede procedência**, não só versão: existe no registro (pacote
+  alucinado é a Fase 4), quem mantém, quando foi o último commit, licença, quanto pesa no
+  bundle. E a pergunta anterior a todas: **o que já está no projeto resolve isso?** Toda
+  dependência é passivo.
+- **`postinstall` é execução de código na sua máquina e no CI.** Em pacote novo ou em
+  major, olhe os scripts de instalação antes de rodar; `--ignore-scripts` na primeira
+  instalação é barato.
+
+Reporte como achado de **C5** quando a mudança de dependência não tiver changelog lido,
+testes verdes dos dois lados, lockfile revisado e commitado, ou quando o CI instalar com
+`npm install`. Não é detalhe: é a via de supply chain que a Fase 4 não vê, porque na hora
+do scan a versão nova já está instalada. No modo pedagógico, o caso contado passo a passo
+está em [`docs/seguranca.md`](https://github.com/VAMOO-AI/claude-kit-mentorados/blob/main/docs/seguranca.md#atualizar-dependência-também-é-mudança-de-código).
+
 ## Fase 5 — Heurísticas de "vibe-coding"
 
 Padrões que IA costuma gerar. Grep no projeto:

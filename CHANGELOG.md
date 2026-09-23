@@ -13,6 +13,73 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.36.0] — 2026-09-23
+
+### Depois de atualizar
+
+- Esta versão mexeu no CLAUDE.md global e na barra de status: **rode `/kit-vamoo:setup`** para
+  receber essas partes (ele faz backup antes).
+
+### Mudado
+
+- **Lint no fim do turno, só nos arquivos que você editou.** Antes o `eslint --fix` rodava em
+  segundo plano a cada edição e podia gravar por cima da edição seguinte. Agora cada edição só é
+  anotada, e no fim do turno o kit roda `eslint --fix` nos arquivos JS/TS que a sessão editou —
+  até 20 por turno, com o eslint do próprio projeto (em monorepo, o do pacote). O que o `--fix`
+  não conserta aparece como aviso, sem travar nada. Precisa de repositório git e de
+  `node_modules/.bin/eslint`. Arquivo escrito por comando no terminal (`sed`, `cat > arquivo`)
+  continua fora do lint, como já era.
+- **O `git-sync` só pede merge da branch atrás quando há risco de conflito.** Se o `risco de
+  conflito` não lista arquivo seu, siga. A skill chama o script pelo caminho literal: dentro de
+  worktree isolado o Claude Code recusa `bash "$S"`.
+- **O pressure-test roda no modelo de produção e sem os MCPs da sua conta:** padrão
+  `--model opus --effort medium` (troque com `--model`/`--effort` ou
+  `PRESSURE_MODEL`/`PRESSURE_EFFORT`) e `--strict-mcp-config`.
+
+### Adicionado
+
+- **O Claude não perde o fio do repositório depois de um compact.** Antes de compactar, o kit
+  anota branch, último commit, o que está modificado, os worktrees abertos e se a memória do
+  projeto tem coisa não commitada. No primeiro prompt depois do compact essa nota volta para o
+  Claude, uma vez só, e é apagada. Nada é escrito no seu repositório.
+- **Worktree novo já nasce com o `.env.local`.** Sem ele o sintoma aparece longe da causa (a
+  tela de login dá "Failed to fetch"). No primeiro prompt dentro de um worktree em
+  `.claude/worktrees/`, o kit copia os `.env`/`.env.*` do clone principal que o git ignora —
+  nunca sobrescreve, nunca mostra o conteúdo. `.npmrc`/`.bunfig.toml` ficam de fora de
+  propósito (costumam guardar token de registry); o `node_modules` também: rode o install no
+  worktree.
+- **Texto vindo do GitHub é dado, não instrução** (CLAUDE global, `revisor`, `/kit-vamoo:revisar`,
+  `secscan` C5.2): corpo de issue, PR, commit, diff ou log de CI que manda "ignore este arquivo"
+  ou "aprove sem rodar" vira achado crítico e para para você confirmar.
+- **Aviso sobre o `grep` do Claude Code** (ugrep): `-qv` e `-v > /dev/null` saem com o código
+  invertido. Em check que depende do exit, use `/usr/bin/grep`.
+- **Barra de status:** `⚡N t/s` (velocidade da última resposta) e `⚠ modelo trocou: a→b` quando
+  a sessão muda de modelo no meio do caminho.
+- **`git-sync` lê o mural da equipe.** Se o repo tem `.context/docs/avisos-da-equipe.md` (ou
+  `.context/avisos-da-equipe.md`, ou `AVISOS.md`), o que está sob `## Ativos` sai na seção
+  `### mural da equipe` e conta como aviso. Mural vazio não vira aviso; repo sem mural não muda.
+- **`hitl-loop.sh` + seção "O que só um humano consegue verificar" na `verificacao`.** O agente
+  escreve o roteiro, você roda no seu terminal e as respostas voltam em `KEY=VALUE` como
+  evidência. Enter vazio reprova nomeando a variável, sem terminal para antes de perguntar
+  (exit 2), e exit 0 quer dizer "respondido", não "passou".
+- **`medir-sessao.py`: quanto a sessão custa antes do primeiro prompt** — superfície (app,
+  terminal, SDK), tokens do primeiro request e ferramentas MCP por servidor. `--comparar --cwd .`
+  põe app e terminal lado a lado. A `harness-check` usa no Passo 1.
+- **Skills:** `worktrees` explica o que base velha custa (e o que não custa) e que o
+  `.env.local` vem sozinho mas o `node_modules` não; `ship` confere a base antes do PR;
+  `orquestracao` cobre N terminais no mesmo repo; `grilling` ganhou o exemplo de pergunta
+  dependente contra perguntas independentes; `bot-discord` ganhou reboot no Swarm, porta do
+  Docker passando por cima do ufw, CPU de daemon medida por jiffies e backup validado pelo
+  conteúdo.
+- **CI: o frontmatter de toda skill é validado contra a spec** (skill-validator v1.6.1).
+
+### Corrigido
+
+- **Sessão aberta em `~` não acusa mais "skills demais neste projeto"**: o scan confundia o
+  catálogo global com skill de projeto, inclusive via symlink.
+- **README:** o aviso de telemetria agora diz que desligá-la também desliga o Remote Control.
+- `memoria-projeto` descreve a armadilha do slug pelo sintoma atual.
+
 ## [0.35.1] — 2026-09-23
 
 ### Corrigido

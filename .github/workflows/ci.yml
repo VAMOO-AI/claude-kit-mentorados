@@ -73,11 +73,20 @@ jobs:
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 
+      - name: O git-sync lê o mural da equipe e não inventa aviso sem mural
+        run: bash tests/test-git-sync-mural.sh
+
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
       - name: O memoria-link não perde projeto sem transcript nem escreve README sem pedir
         run: bash tests/test-memoria-link.sh
+
+      - name: O estado do repo atravessa o compact e volta uma vez só, sem tocar no repo
+        run: bash tests/test-precompact.sh
+
+      - name: Worktree novo recebe o .env ignorado, sem sobrescrever nem vazar conteúdo
+        run: bash tests/test-worktree-seed-env.sh
 
       - name: O hook de regra por caminho injeta uma vez e nunca bloqueia
         run: bash tests/test-path-rules.sh
@@ -117,6 +126,9 @@ jobs:
         # contexto e corrida no dotcontext. KIT_VAMOO_HOOKS=1 religa para teste.
         run: bash tests/test-hooks-convidado.sh
 
+      - name: O lint roda no Stop, só no que a sessão anotou, e o eslint saiu do PostToolUse
+        run: bash tests/test-lint-modificados.sh
+
       - name: As cinco versões do kit dizem a mesma coisa
         # plugin.json, plugin/scripts/kit-setup.sh, install.sh, o topo do CHANGELOG e o
         # topo do plugin/novidades.txt (o aviso de novidades do SessionStart lê esse arquivo).
@@ -148,6 +160,20 @@ jobs:
       - name: O scan de skills do projeto reprova casca e o hook fala uma vez por mudança
         run: bash tests/test-skills-projeto.sh
 
+      - name: Go para o validador de spec de skill
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: O frontmatter de toda skill segue a spec (skill-validator v1.6.1)
+        run: |
+          go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@v1.6.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          SKILL_SPEC_STRICT=1 PATH="$(go env GOPATH)/bin:$PATH" bash scripts/skill-spec-check.sh plugin/skills
+
+      - name: O gate de spec reprova erro, tolera warning e não vira falso-verde
+        run: bash tests/test-skill-spec.sh
+
       - name: Nenhuma skill executa shell só de ser carregada
         # Exclamação + crase no corpo de um SKILL.md roda o comando no load e escapa
         # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
@@ -167,6 +193,12 @@ jobs:
         # CLAUDE.md da máquina — e aqui quem roda pode ser um mentorado com uma
         # máquina que ninguém revisou.
         run: bash tests/test-pressure-isolamento.sh
+
+      - name: O roteiro humano devolve resposta de gente, não a linha seguinte do roteiro
+        # O primeiro bug do hitl-loop (no kit do time): com o roteiro entrando por stdin, o
+        # `read` da resposta colhia a próxima diretiva e imprimia `TOCOU=captura ERRO Cole o
+        # erro` — plausível o bastante para o agente registrar como evidência.
+        run: bash tests/test-hitl-loop.sh
 
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que

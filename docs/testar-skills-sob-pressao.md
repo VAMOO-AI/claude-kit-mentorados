@@ -71,7 +71,7 @@ bash plugin/scripts/skill-pressure-test.sh --baseline tests/skills/verificacao/
 bash plugin/scripts/skill-pressure-test.sh --com-skill tests/skills/verificacao/
 
 # taxa: 3 execuções por cenário, modelo explícito
-bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 --model sonnet tests/skills/
+bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 --model sonnet --effort high tests/skills/
 ```
 
 Cada execução é uma chamada `claude -p` sem ferramentas de execução (só `Skill`
@@ -81,9 +81,12 @@ Os dois modos rodam **isolados da máquina**: `--baseline` com `--setting-source
 e `--com-skill` com `--setting-sources project,local`, sempre num cwd vazio. Sem
 isso o GREEN herdava settings, CLAUDE.md, skills e hooks de quem estivesse rodando,
 e um "ok" podia vir de outra skill global — não do texto em teste. Comparar RED com
-GREEN só quer dizer alguma coisa quando a única diferença entre os dois é a SKILL.md. O modelo padrão é o
-da sua sessão; `--model haiku` serve pra iterar barato no texto do cenário, mas
-a prova final é no modelo que você usa no dia a dia: trocou de modelo, rode de novo.
+GREEN só quer dizer alguma coisa quando a única diferença entre os dois é a SKILL.md. O padrão é o de produção:
+`--model opus --effort medium`; `--model`/`--effort` (ou `PRESSURE_MODEL`/`PRESSURE_EFFORT`)
+trocam. Se o seu dia a dia é outro modelo, rode nele — o resultado de um modelo não vale
+para outro. `--model haiku` serve pra iterar barato no texto do cenário, mas o veredito
+sai no modelo de produção. Os dois modos rodam com `--strict-mcp-config`: nenhum MCP da
+sua conta entra, então um "ok" não vem de ferramenta que o aluno não tem.
 
 O que está em teste é o **texto** da skill, não o gatilho: no modo com skill a
 SKILL.md entra direto no system prompt. Se a dúvida é "a skill dispara quando

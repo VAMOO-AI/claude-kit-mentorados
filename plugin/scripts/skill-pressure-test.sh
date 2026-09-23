@@ -20,7 +20,12 @@
 # Uso:
 #   bash plugin/scripts/skill-pressure-test.sh --baseline  tests/skills/verificacao/cenario-01-pronto-sem-rodar.md
 #   bash plugin/scripts/skill-pressure-test.sh --com-skill tests/skills/verificacao/cenario-01-pronto-sem-rodar.md
-#   bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 --model sonnet tests/skills/verificacao/
+#   bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 tests/skills/verificacao/
+#   bash plugin/scripts/skill-pressure-test.sh --com-skill --model sonnet --effort high <cenario>
+#
+# Modelo e effort são os de produção: `--model opus --effort medium` por padrão, e
+# PRESSURE_MODEL / PRESSURE_EFFORT trocam o padrão. Se o seu dia a dia é outro modelo,
+# rode nele: cenário que passa em outro modelo ou effort não prova nada sobre o seu.
 #
 # Saída: por cenário, a letra escolhida vs a esperada, e a justificativa do modelo
 # (é ela que vira a tabela de racionalizações da skill). Exit 1 se algum cenário
@@ -28,17 +33,18 @@
 # agente acerta SEM a skill, a skill não está provando nada com esse cenário.
 set -uo pipefail
 
-MODO=""; N=1; MODEL=""; ALVOS=()
+MODO=""; N=1; MODEL="${PRESSURE_MODEL:-opus}"; EFFORT="${PRESSURE_EFFORT:-medium}"; ALVOS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --baseline|--com-skill) MODO="$1"; shift ;;
     --n) N="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
-    -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --effort) EFFORT="$2"; shift 2 ;;
+    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) ALVOS+=("$1"); shift ;;
   esac
 done
-[ -n "$MODO" ] && [ "${#ALVOS[@]}" -gt 0 ] || { echo "uso: $0 --baseline|--com-skill [--n N] [--model m] <cenario.md|dir>..."; exit 2; }
+[ -n "$MODO" ] && [ "${#ALVOS[@]}" -gt 0 ] || { echo "uso: $0 --baseline|--com-skill [--n N] [--model m] [--effort e] <cenario.md|dir>..."; exit 2; }
 command -v claude >/dev/null || { echo "claude não está no PATH"; exit 2; }
 
 CENARIOS=()
@@ -66,6 +72,11 @@ corpo() { awk '/^---$/{c++; next} c>=2' "$1"; }
 # cwd vazio, `project,local` hoje não carrega nada; fica assim, e não como
 # `--setting-sources ""`, porque config commitada no repo do cenário é parte do
 # caso de teste, config da máquina não é.
+#
+# E sem MCP nos dois modos (`--strict-mcp-config`): o `--setting-sources` não tira os
+# conectores do claude.ai. No kit do time, em 22/09/2026, o init da sessão "isolada"
+# listava 12 deles, e um baseline pediu para autorizar o do Supabase, que o cenário
+# nem cita. Sem ele, RED e GREEN leem as ferramentas da conta de quem roda.
 SKILLS_DIR="$(cd "$(dirname "$0")/../skills" && pwd)"
 CWD=$(mktemp -d)
 FALHAS=0; TOTAL=0
@@ -76,8 +87,9 @@ for c in "${CENARIOS[@]}"; do
   for i in $(seq 1 "$N"); do
     TOTAL=$((TOTAL+1))
     # --tools é variádico e engole o que vier depois: fica por último, e o prompt vai por stdin.
-    ARGS=(-p --output-format text --max-turns 3)
-    [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
+    # --model e --effort vão sempre: o --setting-sources tira o model e o effortLevel do
+    # settings do usuário, e sem os dois o teste mediria o default do CLI isolado.
+    ARGS=(-p --output-format text --max-turns 3 --model "$MODEL" --effort "$EFFORT" --strict-mcp-config)
     if [ "$MODO" = "--baseline" ]; then
       ARGS+=(--setting-sources "" --tools "")
     else
@@ -95,9 +107,9 @@ rm -rf "$CWD"
 
 echo
 if [ "$MODO" = "--baseline" ]; then
-  echo "$TOTAL execução(ões) sem a skill. Onde 'ok' apareceu, o cenário não pressiona o suficiente — aperte antes de usar como prova."
+  echo "$TOTAL execução(ões) sem a skill ($MODEL, effort $EFFORT). Onde 'ok' apareceu, o cenário não pressiona o suficiente — aperte antes de usar como prova."
 else
-  echo "$TOTAL execução(ões) com a skill, $FALHAS errada(s)."
+  echo "$TOTAL execução(ões) com a skill ($MODEL, effort $EFFORT), $FALHAS errada(s)."
   [ "$FALHAS" -gt 0 ] && echo "Copie a justificativa verbatim pra tabela de racionalizações da skill e feche o buraco antes de rodar de novo."
 fi
 [ "$FALHAS" -eq 0 ]

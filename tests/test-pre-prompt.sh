@@ -7,6 +7,10 @@
 # os avisos concatenados na ordem, o exit ≠ 0 do primeiro que falha, e nada quando ninguém
 # fala. Cada caso passa pelo DISPATCHER, com os hooks reais ao lado dele.
 #
+# Hoje são seis: o precompact-devolve.sh abre a fila (lê o payload, é dele que sai o
+# session_id do snapshot) e o worktree-seed-env.sh fecha (recebe /dev/null, como o link de
+# memória — hook que não lê stdin não pode segurar o pipe do payload).
+#
 # Linha que começa com `@usuario ` (o aviso do session-size) é para a pessoa: sai num JSON,
 # no systemMessage, e o resto vai para o modelo no additionalContext do mesmo JSON. Sem
 # linha assim, a saída continua texto puro. Sem node, ou com a cadeia saindo ≠ 0, sai o
@@ -97,6 +101,16 @@ rc=$(roda s5 "$REPO" "$PESSOA")
 espera_rc 0 "$rc" "sai 0"
 igual "pra-pessoa" "$(json systemMessage)" "systemMessage é só a linha @usuario, sem o prefixo"
 igual "$(printf 'segundo\nterceiro')" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto, na ordem dos hooks"
+
+echo
+echo "== seis hooks: o devolve abre a fila com o payload, o seed-env fecha com /dev/null =="
+SEIS="$(árvore "$TMP/seis")"
+printf '%s\n' '#!/bin/bash' 'case "$(cat)" in *\"session_id\":\"s4\"*) echo devolve-leu-o-payload ;; *) echo devolve-sem-payload ;; esac' 'exit 0' > "$SEIS/precompact-devolve.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo meio' 'exit 0' > "$SEIS/branch-guard.sh"
+printf '%s\n' '#!/bin/bash' 'echo "seed-leu:[$(cat)]"' 'exit 0' > "$SEIS/worktree-seed-env.sh"
+rc=$(roda s4 "$REPO" "$SEIS")
+espera_rc 0 "$rc" "sai 0"
+igual "$(printf 'devolve-leu-o-payload\nmeio\nseed-leu:[]')" "$(cat "$TMP/out")" "devolve primeiro com o payload, seed-env por último com stdin vazio"
 
 echo
 echo "== sem linha @usuario, texto puro como antes, na ordem =="
