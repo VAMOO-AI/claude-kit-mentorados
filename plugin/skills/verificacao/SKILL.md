@@ -116,5 +116,7 @@ não dispare; um filtro está errado.
 ## Fechamento
 
 Converta o teste descartável em ao menos UM teste que fica no repo. Após fix:
-causa raiz + como prevenir a categoria do bug. Re-leia tudo que modificou antes
-de reportar.
+causa raiz + como prevenir a categoria do bug. Antes de reportar, leia o
+`git diff`: ele mostra de uma vez tudo o que mudou, inclusive o que entrou sem
+querer. Reabrir cada arquivo editado não acrescenta nada, porque o Edit já
+falha quando a troca não acontece.
