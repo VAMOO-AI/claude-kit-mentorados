@@ -90,6 +90,18 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/precompact-snapshot.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

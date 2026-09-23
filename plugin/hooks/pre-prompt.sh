@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # pre-prompt.sh — dispatcher do UserPromptSubmit: lê o payload UMA vez e o entrega, em
-# ordem, aos hooks que até a 0.25.0 eram quatro entries no hooks.json.
+# ordem, aos hooks que até a 0.25.0 eram quatro entries no hooks.json. Hoje são seis: os
+# quatro de antes, a devolução do estado gravado antes do compact (primeiro da fila) e o
+# seed de env do worktree novo (último).
 #
 # Mesma razão do pre-bash.sh: cada entry custa um processo de shell mais um `bash <hook>`
-# antes de o hook olhar o payload — quatro por prompt, em toda sessão.
+# antes de o hook olhar o payload — um por hook, a cada prompt, em toda sessão.
 #
-# Semântica preservada: o stdout de cada hook é texto que vira contexto do prompt — os
-# quatro são concatenados na ordem em que rodavam; o primeiro hook que sai com código ≠ 0
-# encerra a cadeia com o mesmo código, stdout e stderr; hook ausente é pulado. Hook que não
-# lê stdin (o link de memória do worktree) recebe /dev/null — um prompt maior que o buffer
-# do pipe travaria o `printf`.
+# Semântica preservada: o stdout de cada hook é texto que vira contexto do prompt — são
+# concatenados na ordem da lista; o primeiro hook que sai com código ≠ 0 encerra a cadeia
+# com o mesmo código, stdout e stderr; hook ausente é pulado. Hook que não lê stdin (o link
+# de memória e o seed de env do worktree) recebe /dev/null — um prompt maior que o buffer
+# do pipe travaria o `printf`. O precompact-devolve.sh lê: é do payload que sai o
+# session_id do snapshot.
 #
 # A exceção é a linha que começa com `@usuario `: é aviso para a pessoa, não contexto (hoje
 # só o session-size-guard usa). Com uma dessas, a saída vira um JSON só — elas no
@@ -46,12 +49,12 @@ emite() { # <código com que a cadeia vai sair>
 }
 
 saida=""
-for h in session-size-guard.sh repo-session.sh branch-guard.sh memoria-worktree-link.sh; do
+for h in precompact-devolve.sh session-size-guard.sh repo-session.sh branch-guard.sh memoria-worktree-link.sh worktree-seed-env.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
   case "$h" in
     repo-session.sh)          out=$(printf '%s' "$payload" | ( . "$f" touch )); rc=$? ;;
-    memoria-worktree-link.sh) out=$( ( . "$f" ) </dev/null ); rc=$? ;;
+    memoria-worktree-link.sh|worktree-seed-env.sh) out=$( ( . "$f" ) </dev/null ); rc=$? ;;
     *)                        out=$(printf '%s' "$payload" | ( . "$f" )); rc=$? ;;
   esac
   [ -n "$out" ] && saida="${saida:+$saida$nl}$out"
