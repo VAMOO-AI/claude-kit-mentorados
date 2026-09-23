@@ -47,7 +47,7 @@ if (process.env.CLAUDE_SL_REFRESH === '1') {
 let input = {};
 try { input = JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch {}
 
-const C = { cyan: '\x1b[36m', blue: '\x1b[34m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[90m', reset: '\x1b[0m' };
+const C = { cyan: '\x1b[36m', blue: '\x1b[34m', green: '\x1b[32m', yellow: '\x1b[33m', orange: '\x1b[38;5;208m', red: '\x1b[31m', bold: '\x1b[1m', dim: '\x1b[90m', reset: '\x1b[0m' };
 const cwd = (input.workspace && input.workspace.current_dir) || process.cwd();
 const currentDir = path.basename(cwd) || cwd;
 
@@ -154,4 +154,71 @@ try {
   }
 } catch { /* sem transcript, sem permissão: a barra não pode quebrar por isto */ }
 
-process.stdout.write(`${C.cyan}${currentDir}${C.reset}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}${sesSeg}`);
+// Tokens/s de saída da ÚLTIMA chamada de API. O transcript não guarda duração por request;
+// a conta é output_tokens ÷ (última linha da resposta − último evento `user` antes dela).
+// Inclui o TTFT e o processamento do prompt: é a velocidade que o olho vê, não a do servidor.
+// Cada resposta ocupa várias linhas com o mesmo message.id e o mesmo usage (uma por bloco), e
+// com ferramenta rodando durante o streaming os tool_result se intercalam com essas linhas —
+// por isso o fim é a ÚLTIMA linha do id, e o início é o `user` anterior à PRIMEIRA.
+// Lê só os últimos 256 KB: o transcript de sessão longa passa de 100 MB.
+let tpsSeg = '';
+try {
+  const tp = input.transcript_path;
+  if (tp) {
+    const fd = fs.openSync(tp, 'r');
+    let tail = '';
+    try {
+      const size = fs.fstatSync(fd).size;
+      const len = Math.min(size, 256 * 1024);
+      const buf = Buffer.allocUnsafe(len);
+      fs.readSync(fd, buf, 0, len, size - len);
+      tail = buf.toString('utf8');
+    } finally { fs.closeSync(fd); }
+    let ultimoUser = null, atual = null;
+    for (const linha of tail.split('\n')) {
+      if (!linha.startsWith('{"')) continue;
+      let e;
+      try { e = JSON.parse(linha); } catch { continue; }
+      if (e.isSidechain || !e.timestamp) continue;
+      if (e.type === 'user') { ultimoUser = e.timestamp; continue; }
+      const id = e.type === 'assistant' && e.message && e.message.id;
+      if (!id) continue;
+      const out = (e.message.usage && e.message.usage.output_tokens) || 0;
+      if (atual && atual.id === id) { atual.fim = e.timestamp; if (out) atual.out = out; }
+      else if (out > 0) atual = { id, out, inicio: ultimoUser, fim: e.timestamp };
+    }
+    if (atual && atual.inicio) {
+      const fim = Date.parse(atual.fim);
+      const ms = fim - Date.parse(atual.inicio);
+      // <0,5s é resposta curta demais pra medir; parado há 5 min, o número já é velho
+      if (ms > 500 && Date.now() - fim < 300_000) {
+        const tps = atual.out / (ms / 1000);
+        const col = tps >= 40 ? C.green : tps >= 20 ? C.yellow : C.orange;
+        tpsSeg = ` ${C.dim}·${C.reset} ${col}⚡${Math.round(tps)} t/s${C.reset}`;
+      }
+    }
+  }
+} catch { /* transcript ausente ou ilegível: o segmento some, a barra fica */ }
+
+// Troca de modelo no meio da sessão. Com switchModelsOnFlag, mensagem sinalizada pelos
+// safeguards troca o modelo (saindo do 5.5: claude-opus-4-8 em cyber, claude-opus-5 em bio)
+// e o model.id do payload muda sem ninguém notar — no time, 2 sessões seguiram 36 e 18
+// mensagens no 4.8. A barra não tem segmento de modelo (é uma linha só): aparece só o desvio.
+// Um /model também acende, e tudo bem: quem trocou vê e segue. O primeiro model.id fica no
+// tmpdir, como o cache do gh — some sozinho, e sessão retomada depois de reboot só perde o aviso.
+let modeloSeg = '';
+try {
+  const sid = String(input.session_id || '');
+  const id = String((input.model && input.model.id) || '');
+  if (id && /^[\w-]+$/.test(sid)) {
+    const marca = path.join(os.tmpdir(), `claude-sl-model-${sid}`);
+    let primeiro = '';
+    try { primeiro = fs.readFileSync(marca, 'utf8').trim(); } catch {}
+    if (!primeiro) { fs.writeFileSync(marca, id); primeiro = id; }
+    // "claude-opus-5-5[1m]" → "opus-5-5": o [1m] é a janela, não o modelo, e sozinho não é troca
+    const curto = (m) => m.replace(/\[1m\]$/i, '').replace(/-\d{8}$/, '').replace(/^claude-/, '');
+    if (curto(primeiro) !== curto(id)) modeloSeg = ` ${C.bold}${C.red}⚠ modelo trocou: ${curto(primeiro)}→${curto(id)}${C.reset}`;
+  }
+} catch {}
+
+process.stdout.write(`${C.cyan}${currentDir}${C.reset}${modeloSeg}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}${tpsSeg}${sesSeg}`);
