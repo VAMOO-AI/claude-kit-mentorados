@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **21 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **22 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; roda lint a cada edição; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -43,12 +43,12 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
-| `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao` e `worktrees`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
+| `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
 | `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
-> **Custo de contexto:** o plugin adiciona ~3,2k tokens a cada sessão (as
-> descrições das skills, que é como o Claude sabe quando usar cada uma). Skill
+> **Custo de contexto:** o plugin adiciona poucos milhares de tokens a cada sessão
+> (as descrições das skills, que é como o Claude sabe quando usar cada uma). Skill
 > que você não usa pode ser desligada em `/plugin`. A `find-skills` é só-slash:
 > só existe quando você a chama, então não entra nessa conta — é a mesma regra
 > que a skill `skills-projeto` ensina a aplicar nas skills do seu projeto.
@@ -59,7 +59,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 21. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 22. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -70,10 +70,10 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (o instalador já põe o ctx7) |
-| **auditoria-seguranca** | Auditoria em 5 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
+| **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (a skill instala o `ctx7` na primeira vez, se faltar) |
+| **auditoria-seguranca** | Auditoria em 6 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com ferramentas) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
 | **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
-| **baseline** | *"Este app está pronto pra produção?"* — 7 frentes: bundle e secrets, RLS, login e permissão, limites de uso, carga, observabilidade, segredos. Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
+| **baseline** | *"Este app está pronto pra produção?"* — 8 pilares: bundle, RLS, login e permissão, limites de uso, carga e cache, observabilidade, segredos e perímetro (o que fica exposto na internet). Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. Quando o índice passa de 8 KB, `memoria-indice.sh` o divide em dois níveis para não pesar toda request. | projeto em git |
@@ -105,6 +105,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~27k tokens quando dispara, então desligue em `/plugin` se não for usar. | conta no gerador |
+| **gerar-imagem** | Gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
 
 ---
 
@@ -138,7 +139,7 @@ valem no próximo start.
 > [`docs/migrar-do-install-antigo.md`](docs/migrar-do-install-antigo.md): tem um prompt
 > pronto pra colar no Claude, que faz o diagnóstico, a migração e a conferência.
 
-### Duas garantias, porque instalador que apaga config é traumático
+### Três garantias, porque instalador que apaga config é traumático
 
 - **Seu `CLAUDE.md` não é sobrescrito.** Se você já tem um, o modelo do kit fica
   em `~/.claude/CLAUDE.kit.md` pra comparar. Trocar pelo do kit é uma escolha
@@ -163,7 +164,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 21 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 22 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
@@ -179,8 +180,8 @@ inteiro, use o `/plugin install` + `/kit-vamoo:setup`.
 
 Antes de instalar skill de terceiro por esse caminho — inclusive as nossas — vale a régua de
 procedência da skill `find-skills`: `SKILL.md` é execução de código, não documentação; leia
-antes. A CLI do skills.sh tem telemetria própria, e o `settings.json` do kit já exporta
-`DISABLE_TELEMETRY=1` e `DO_NOT_TRACK=1` para a sessão.
+antes. A CLI do skills.sh tem telemetria própria, e o kit não a desliga. Para desligar, ponha
+`DO_NOT_TRACK=1` na frente do comando: `DO_NOT_TRACK=1 npx skills add …`.
 
 ### Confira se deu certo
 
@@ -301,7 +302,7 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 1. [`docs/observabilidade.md`](docs/observabilidade.md) — *"como você descobre que quebrou?"*. Se a resposta é "tento reproduzir", leia antes de colocar qualquer coisa no ar.
 2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `plugin/templates/playwright/`).
 3. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
-4. Skill **`baseline`** — *"está pronto pra produção?"* nas 7 frentes. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
+4. Skill **`baseline`** — *"está pronto pra produção?"* nos 8 pilares. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
 5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
 6. Skill **`/kit-vamoo:handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
 7. [`plugin/templates/ci.yml`](plugin/templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
@@ -333,8 +334,8 @@ Sim, com WSL (Ubuntu). Fora do WSL, o Git Bash roda os hooks e a barra (tudo é
 o `afplay` existe antes de tocar, então no Windows ele simplesmente não faz nada.
 
 **Isso vai deixar minhas sessões mais caras?**
-O plugin adiciona ~2,6k tokens por sessão: são as descrições das skills, que é
-como o Claude sabe quando usar cada uma. Se alguma você nunca vai usar, desligue
+O plugin adiciona poucos milhares de tokens por sessão: são as descrições das skills,
+que é como o Claude sabe quando usar cada uma. Se alguma você nunca vai usar, desligue
 em `/plugin`. Em tempo, os hooks custam menos de 0,1 s por ação (o do dotcontext
 roda só na abertura da sessão, e só em projeto com `.context/`). O que pesa de
 verdade no seu limite é sessão longa — está em

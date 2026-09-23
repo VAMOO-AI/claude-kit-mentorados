@@ -46,6 +46,7 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 | Skills de domínio (`n8n-workflow-agent`, `whatsapp-inbox-stack`, `pipedrive-automation`, `vamoo-infra`, `ambientes-clientes`, `vps-hardening-clientes`, `graphify`, `video-watch`, `notebooklm-project-ops`, `pulso-mentorado`, `rsc-client-boundary`, `vamoo-memoria`) | sim | Conhecimento de cliente e de infra da casa. O kit público leva o método, não o cliente. |
 | `skills/diretor-imagem`, `guardrails-ia`, `setup` | só aqui | Nasceram para o mentorado; o time não tem o problema. |
 | Aviso de novidades no SessionStart (`scripts/warn-kit-updated.sh`, `plugin/novidades.txt`, `test-warn-kit-updated.sh`) | só aqui | O time instala por `update.sh`, rodado por quem sabe o que mudou. Aqui a instalação é plugin com auto-update: o kit se troca sozinho e o único sinal é o indicador dentro do `/plugin`, que ninguém abre. O problema não existe lá — **divergência deliberada, não porte atrasado.** |
+| Guarda de convidado: todo comando do `hooks/hooks.json` sai 0 antes de abrir o script quando existe `~/.claude/.team-manifest`, e o `kit-setup.sh` sai sem tocar em nada pelo mesmo motivo (salvo `--force`) | só aqui | Com os dois kits ligados na mesma máquina, cada hook rodava duas vezes: 2 sons por turno, texto repetido no contexto, corrida no dotcontext criando sessões órfãs, e o modelo lendo a mensagem de bloqueio daqui no lugar da do time. O replay de 1.110 comandos nos dois dispatchers deu 0 decisões divergentes, então calar este lado não tira barreira nenhuma. Cede o plugin porque é o convidado: o `update.sh` do time grava o `.team-manifest`, e o plugin nunca grava. O setup também cede porque já tinha rodado uma vez por cima do kit do time. `KIT_VAMOO_HOOKS=1` religa os hooks daqui para dogfooding. A guarda não esconde as skills do plugin. Perda conhecida: a regra `*/package.json` do `path-rules.conf` só existe aqui e deixa de chegar em máquina com os dois kits até ser portada para o time. Provas: `tests/test-hooks-convidado.sh` e o caso do `.team-manifest` em `test-kit-setup-keep-local.sh`. Decisão do Ruan em 22/09/2026. |
 | `agents/revisor.md` | diverge | Mesmo contrato; lá cita `bun run type-check` e caminhos do time. |
 
 ## O que é espelhado (porte obrigatório nos dois sentidos)
@@ -76,9 +77,11 @@ pronto: a mesma família de relatório que mente.
 | `block-cd-leitura-relativa.sh` | 0.26.0 (05/09) | + redirecionamento não é caminho |
 | `block-parallel-clone-switch.sh`, `block-delete-branch-with-children.sh` | 0.25.0 (03/09) | |
 | `block-monitor-ci.sh` | 0.26.0 (05/09) | nasceu no time em 0.29.0 |
-| `pre-bash.sh`, `pre-prompt.sh` (dispatchers) | 0.26.0 (05/09) | mesma semântica de cadeia; aqui sem o rtk |
-| `branch-guard.sh`, `session-size-guard.sh`, `repo-session.sh`, `notify-stop.sh`, `path-rules.sh` | 0.25.0 (03/09) | |
-| `lint-fix.sh` / hook de eslint | 0.26.0 (05/09) | `--cache` + `async` |
+| `pre-bash.sh`, `pre-prompt.sh` (dispatchers) | 0.35.0 (22/09) | mesma semântica de cadeia; aqui sem o rtk. Linha `@usuario ` vira `systemMessage` (para a pessoa, fora do contexto do modelo) — aqui o JSON sai por node, lá por jq |
+| `branch-guard.sh`, `session-size-guard.sh` | 0.35.0 (22/09) | marcador do branch-guard por sessão e raiz do repo (`cksum`); aviso do session-size em tokens, para a pessoa |
+| `repo-session.sh`, `notify-stop.sh` | 0.25.0 (03/09) | |
+| `path-rules.sh` | 0.35.0 (22/09) | aqui lê o payload por node (`hookjson.js`), lá por jq; o laço do conf usa expansão do bash, sem `sed` por linha |
+| `lint-fix.sh` / hook de eslint | **diverge desde 22/09** | aqui continua o `eslint --fix` async no PostToolUse; no time o PostToolUse só anota o arquivo e o Stop linta o que a sessão editou (o async podia sobrescrever a edição seguinte). O kit do aluno não tem o hook de Stop |
 | `warn-branch-behind.sh`, `warn-worktree-stale.sh`, `worktree-gc.sh`, `atalhos.sh` | idênticos | byte a byte |
 | `memoria-indice.sh`, `memoria-link.sh` (núcleo), `skill-pressure-test.sh` | 0.26.0 (05/09) | |
 | `settings.json` → `permissions.deny` | 0.26.0 (05/09) | as 26 regras são as mesmas |
@@ -92,6 +95,7 @@ pronto: a mesma família de relatório que mente.
 | `skill-pressure-test.sh` isolado do ambiente (`--setting-sources project,local` no `--com-skill`) + `tests/test-pressure-isolamento.sh` | 0.29.0 (06/09) | PR gêmeo no time na mesma sessão. Sem isolar, o GREEN herdava a máquina de quem rodava — lá as settings do Ruan, aqui as do mentorado, que ninguém revisou. Um cenário existente (`ship/cenario-01`) foi rodado 3× antes e 3× depois nos dois kits: 3/3 `C` nas quatro vezes, o isolamento não mexeu no resultado. |
 | `tests/test-skill-sem-injecao.sh` | 0.28.0 (06/09) — **o lado do time ainda não entrou** | mesmo gate, mesmo padrão. Ele não reprova a prosa `` `!` `` do `git-sync`, que está na lista de espelhados — reescrever aquela linha só para satisfazer um grep criaria divergência não registrada. |
 | Régua editorial de saída da `secscan` | 0.30.0 (06/09) — time em 0.33.0, PR gêmeo na mesma sessão | Mesma decisão nos dois: o cap de 1–2 por categoria vale para o **resumo no terminal**, nunca para o arquivo do relatório; `CRITICAL`/`HIGH` fora do corte; "categoria vazia não vira seção" **recusado** nos dois (colide com *É proibido omitir uma linha*). O texto diverge por público: lá os números da casa (16 functions fora do `config.toml`, os 18 `===`, as 51 expressões `{{ $json }}`), aqui a calibração de 36% de precisão e a lição genérica escrita como lição — regra editorial boa num lugar vira defeito no outro quando muda o que a saída é. |
+| Permissão de trocar author/committer para destravar deploy bloqueado na Vercel (skill `ship`) | 0.35.0 (22/09) | Decisão do Ruan: a permissão vale nos dois kits. Até ali a `ship` do time proibia mexer em author/committer, e a daqui não tratava do caso. É regra espelhada, não divergência. |
 
 **Divergência aberta, registrada aqui para não virar porte esquecido:** a régua editorial
 que originou a da `secscan` nasceu na `harness-check` do time (0.32.0) e **não existe na

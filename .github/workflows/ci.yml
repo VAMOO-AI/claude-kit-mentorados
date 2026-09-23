@@ -112,6 +112,11 @@ jobs:
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 
+      - name: Com o kit do time na máquina, os hooks do plugin saem sem fazer nada
+        # Sem a guarda, cada hook rodava duas vezes: dois sons por turno, texto repetido no
+        # contexto e corrida no dotcontext. KIT_VAMOO_HOOKS=1 religa para teste.
+        run: bash tests/test-hooks-convidado.sh
+
       - name: As cinco versões do kit dizem a mesma coisa
         # plugin.json, plugin/scripts/kit-setup.sh, install.sh, o topo do CHANGELOG e o
         # topo do plugin/novidades.txt (o aviso de novidades do SessionStart lê esse arquivo).

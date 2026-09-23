@@ -13,6 +13,52 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.35.0] — 2026-09-22
+
+### Depois de atualizar
+
+- Esta versão mexeu no CLAUDE.md global: **rode `/kit-vamoo:setup`** para receber essa parte
+  (ele faz backup antes). É uma rodada de ajuste ao **Opus 5.5**, que segue o texto ao pé da
+  letra: o que mudou foi contradição e regra velha, não tamanho.
+
+### Mudou
+
+- **O aviso de sessão longa agora aparece para você, não para o Claude.** Antes ele entrava no
+  contexto do modelo como contagem regressiva, e o Claude passava a falar em `/clear` no lugar
+  de terminar a tarefa. O texto fala em tokens relidos a cada passo (~200 mil, ~300 mil, 425 mil).
+- **O kit cede ao kit do time na mesma máquina.** Quando existe `~/.claude/.team-manifest`, os
+  hooks do plugin saem sem fazer nada e o `/kit-vamoo:setup` não roda por cima (a skill para e
+  explica). Para testar o plugin assim mesmo: `KIT_VAMOO_HOOKS=1`.
+- **Início de sessão mais rápido:** o hook do dotcontext tem teto de 10 s. O primeiro prompt
+  espera o início de sessão terminar, e com 60 s dava para ficar um minuto esperando.
+- **O aviso de troca de branch** parou de disparar quando você só entra ou sai de um worktree.
+- **A regra de caminho (`path-rules`) funciona sem `jq`** — antes, sem ele, saía calada. O texto
+  sobre `.claude/settings.json` foi corrigido: o setup mescla, não sobrescreve.
+- **CLAUDE.md global:** verificação proporcional ao risco do que mudou (não "proibido pular");
+  uma linha dizendo quando dar status em tarefa longa; sai a regra de "~60% de contexto", que
+  numa janela de 1M são 600 mil tokens relidos a cada passo; menos caixa alta.
+- **Esforço** entrou em `docs/economia-de-tokens.md` e na `harness-check`: no Opus 5.5 o padrão
+  (`medium`) já entrega o que o Opus 5 dava em `high`. Esforço alto se escolhe ao abrir a sessão;
+  trocar no meio relê a conversa inteira sem cache.
+- **Template de CLAUDE.md de projeto** ganhou a seção Visual, com os padrões a evitar nomeados.
+
+### Skills
+
+- **`ship`** explica como destravar um deploy que a Vercel bloqueou por causa do author do commit
+  (trocar `user.name`/`user.email` repo-local para uma identidade membro do team).
+- **`orquestracao`** usa o teto de concorrência do próprio runner em vez de ondas manuais, e
+  calibra o effort de cada estágio.
+- **`verificacao`** e o `agents.md` conferem pelo `git diff` em vez de reler o arquivo inteiro.
+- **`grilling`** e **`grill-with-docs`** aceitam até 3 perguntas independentes numa rodada.
+- **`bot-discord`**: bot que caiu começa pelo diagnóstico, não pelo questionário de bot novo.
+- **`diretor-imagem`**: os exemplos passam a seguir os próprios princípios da skill (câmera travada
+  ou zoom óptico de 2–4% no Kling, sem respiração visível, negativos dentro do orçamento), as
+  regras de tamanho ficaram coerentes, pedido completo não passa mais por rodada de perguntas, e a
+  regra de cabelo vale para cabelo solto.
+- **`gerar-imagem`**: o modelo padrão depende da sua conta — confira com `--listar-modelos`.
+- **`/atalhos`**: uma linha por atalho sem gatilho, sem teto de linhas.
+- README e docs com os números atuais (22 skills, 6 categorias de auditoria, 8 pilares).
+
 ## [0.34.0] — 2026-09-19
 
 ### Adicionado

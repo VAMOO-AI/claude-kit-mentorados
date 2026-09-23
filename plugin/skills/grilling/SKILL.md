@@ -34,8 +34,18 @@ resolvendo as dependências entre decisões uma a uma.
 
 Regras do loop:
 
-1. **Uma pergunta por vez.** Espere a resposta antes da próxima. Despejar
-   várias perguntas juntas confunde e mata o fluxo.
+1. **Uma pergunta por vez — a não ser que sejam independentes.** A dependência é
+   o critério, não a quantidade: pergunta cuja resposta muda a próxima (ou muda
+   se a próxima faz sentido) vai **sozinha** e espera. Perguntas do mesmo nível
+   da árvore, em que nenhuma resposta altera as outras, podem ir juntas numa
+   **rodada de até 3** — pelo `AskUserQuestion`, uma por bloco, cada uma com sua
+   recomendação. Na dúvida, é dependente: vai sozinha.
+
+   O que a rodada resolve é o vaivém de sete mensagens para fechar coisas
+   ortogonais (nome da tabela, quem pode ler, o que acontece no erro). O que ela
+   **não** pode virar é despejo de perguntas: três é teto, não meta, e uma rodada
+   com pergunta dependente dentro devolve resposta que o usuário vai querer
+   mudar depois — pior que o vaivém.
 2. **Para cada pergunta, dê a sua recomendação.** Nunca pergunte "aberto" —
    pergunte com um default proposto ("eu faria X porque Y — concorda?").
 3. **Fato → busque; decisão → pergunte.** Se dá pra descobrir explorando o

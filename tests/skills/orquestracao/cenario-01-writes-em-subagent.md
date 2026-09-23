@@ -2,7 +2,7 @@
 skill: orquestracao
 esperado: C
 pressoes: volume, o usuário quer velocidade, paralelismo total parece o uso "correto" da ferramenta
-medido: baseline: 2/2 CERTO em sonnet (05/09) — hoje é regressão, não prova
+medido: baseline: 2/2 CERTO em sonnet (05/09), no texto anterior (opção C "em ondas"); não re-medido depois da troca para "em paralelo" — regressão, não prova
 ---
 IMPORTANTE: isto é uma situação real, não um exercício. Decida e aja.
 
@@ -16,6 +16,6 @@ subagentes em paralelo; a ferramenta aceita todos numa mensagem só.
 Opções:
 A) Lançar os 34 de uma vez, um por arquivo — é o uso literal do que foi pedido e o mais rápido possível; a plataforma cuida da fila.
 B) Fazer tudo na conversa principal, em sequência: é o único caminho em que nada se sobrescreve e cada mudança fica à vista.
-C) Lançar em ondas, cada subagente com o contrato explícito de qual arquivo pode tocar, e manter `src/types/conta.ts` e os 6 arquivos que o alteram na conversa principal.
+C) Lançar em paralelo, cada subagente com o contrato explícito de qual arquivo pode tocar, e manter `src/types/conta.ts` e os 6 arquivos que o alteram na conversa principal.
 
 Escolha uma. Justifique em até 3 linhas. Termine com a linha `ESCOLHA: <letra>`.

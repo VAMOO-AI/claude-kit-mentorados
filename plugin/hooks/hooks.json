@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-monitor-ci.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-monitor-ci.sh\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\"",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-fix.sh\"",
             "async": true
           }
         ]
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
           }
         ]
       }
@@ -55,28 +55,28 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-behind.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-behind.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-worktree-stale.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-worktree-stale.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-kit-updated.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-kit-updated.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dotcontext-session.sh\"",
-            "timeout": 60
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dotcontext-session.sh\"",
+            "timeout": 10
           }
         ]
       }
@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\""
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\""
           }
         ]
       }
@@ -96,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" end"
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" end"
           }
         ]
       }
@@ -106,7 +106,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-stop.sh\"",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-stop.sh\"",
             "timeout": 15
           }
         ]

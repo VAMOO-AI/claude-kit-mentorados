@@ -27,8 +27,9 @@ projeto recorrente:
 
 ## Durante
 
-Rode o loop da skill `grilling` (uma pergunta por vez, com recomendação, fato
-→ busca / decisão → pergunta, não executa até confirmar).
+Rode o loop da skill `grilling` (pergunta dependente vai sozinha, até 3
+independentes cabem numa rodada, cada uma com recomendação, fato → busca /
+decisão → pergunta, não executa até confirmar).
 
 ## Depois
 

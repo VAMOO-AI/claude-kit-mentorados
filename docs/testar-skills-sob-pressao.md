@@ -83,7 +83,7 @@ isso o GREEN herdava settings, CLAUDE.md, skills e hooks de quem estivesse rodan
 e um "ok" podia vir de outra skill global — não do texto em teste. Comparar RED com
 GREEN só quer dizer alguma coisa quando a única diferença entre os dois é a SKILL.md. O modelo padrão é o
 da sua sessão; `--model haiku` serve pra iterar barato no texto do cenário, mas
-a prova final é no modelo que o time usa.
+a prova final é no modelo que você usa no dia a dia: trocou de modelo, rode de novo.
 
 O que está em teste é o **texto** da skill, não o gatilho: no modo com skill a
 SKILL.md entra direto no system prompt. Se a dúvida é "a skill dispara quando
@@ -100,9 +100,10 @@ coisas entram na SKILL.md, nesta ordem:
    rode de novo" segura. Genérico não funciona; o contra-argumento exato funciona.
 2. **Linha na tabela de racionalizações** da skill, com a frase do agente e a
    resposta: `| "o type-check já passou hoje" | Passou antes das 3 últimas edições. Status herdado não é status. |`
-3. **Sintoma na `description`**: acrescente a frase que o agente usa quando
-   está prestes a furar ("já testei manualmente", "é uma linha só"), pra skill
-   disparar nesse momento.
+3. **Sintoma na `description`, como situação — não como frase.** Descreva o
+   momento em que a regra costuma furar ("quando a mudança parece pequena demais
+   para testar"), não a frase exata do agente: frase por frase a description só
+   cresce, generaliza pior e bate no teto de 500 chars do kit.
 
 Depois rode de novo. Quando o agente escolhe certo, cita a seção da skill e
 reconhece a tentação, a skill segura esse cenário. Quando ele inventa uma

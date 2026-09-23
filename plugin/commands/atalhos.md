@@ -8,4 +8,4 @@ Rode e mostre a saída inteira:
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/atalhos.sh" .
 ```
 
-Depois, em até 5 linhas: quais atalhos estão `[sem-gatilho]` e, pra cada um, proponha o gatilho que faltou (`; <condição mensurável pra revisitar>`), lendo o trecho de código ao redor pra propor algo concreto, não genérico. Não altere nada sem eu mandar.
+Depois, uma linha por atalho `[sem-gatilho]`: o `arquivo:linha` e o gatilho que faltou (`; <condição mensurável pra revisitar>`), proposto a partir do código ao redor, não genérico. Não altere nada sem eu mandar.

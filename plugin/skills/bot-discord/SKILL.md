@@ -20,11 +20,15 @@ Onde diz **ARMADILHA**, alguém já perdeu o bot no ar por causa disso.
 
 ## Como usar esta skill
 
-Trabalhe em fases, na ordem. Antes de escrever código, leia a reference da fase:
+Bot novo: trabalhe em fases, na ordem. Bot que já existe e caiu ou não responde: comece
+pela Fase 9 e pela tabela *Quando falhar*, e pergunte só o que o diagnóstico pedir (host,
+nome do container, o sintoma exato).
+
+Antes de escrever código, leia a reference da fase:
 
 | Fase | O quê | Leia antes |
 |---|---|---|
-| 0 | Perguntar (abaixo) | — |
+| 0 | Perguntar, só em bot novo (abaixo) | — |
 | 1 | Developer Portal: app, token, intents, convite, IDs | `references/01-portal-discord.md` |
 | 2–6 | Projeto, banco, handlers, idempotência, cron | `references/02-codigo-base.md` |
 | 7–8 | Dockerfile, VPS, deploy | `references/03-deploy-vps.md` |
@@ -34,7 +38,7 @@ Os valores entre `<COLCHETES ANGULARES>` nas references são **placeholders**: p
 usuário e substitua pelo valor real antes de rodar qualquer comando. Nunca execute um comando
 com `<IP_DA_VPS>` literal dentro.
 
-## Fase 0 — Pergunte antes de escrever a primeira linha
+## Fase 0 — Bot novo: pergunte antes de escrever a primeira linha
 
 Bloco único, e espere as respostas:
 

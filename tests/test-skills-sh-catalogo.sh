@@ -3,7 +3,7 @@
 #
 # O `skills.sh.json` agrupa as skills na página pública do repo. O modo de falha é
 # silencioso dos dois lados: skill nova que ninguém agrupou cai em "notGrouped" no
-# fim da página (o kit anuncia 21 skills e o catálogo mostra 20 mais uma órfã), e
+# fim da página (o kit anuncia N skills e o catálogo mostra N-1 mais uma órfã), e
 # slug que sobrou de uma skill renomeada some da página sem erro nenhum.
 #
 # Nenhum dos dois quebra a instalação — por isso é teste, e não revisão.
