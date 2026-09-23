@@ -39,9 +39,10 @@ Não foi excesso de uso — foi a conversa acumulando peso.
    (aquele arquivo de 800 linhas lido há uma hora) continua sendo relido a
    cada passo. `/clear` zera a conta.
 
-3. **`/compact` quando a barra de contexto passar de ~60%.** Ele resume a
-   conversa e libera espaço. Fazer cedo é mais barato e resume melhor do que
-   esperar o compact automático estourar no talo.
+3. **`/compact` quando o `ctx:` da barra ficar amarelo (~150k tokens).** Ele
+   resume a conversa e libera espaço. Conte em número absoluto, não em %: com
+   janela de 1M, "60%" seriam 600k relidos a cada passo. Fazer cedo é mais
+   barato e resume melhor do que esperar o compact automático estourar no talo.
 
 4. **Não "continue amanhã" na mesma sessão.** Retomar uma sessão pesada paga
    o preço dela inteira de novo. Amanhã, sessão nova + "continua o X" — o
@@ -60,10 +61,21 @@ consomem seu limite na mesma proporção. Regra prática:
 | Problema difícil, refactor grande, sessão longa autônoma | Opus |
 | O problema impossível da semana | Tier acima do Opus, pontualmente (`/model`) |
 
-E cuidado com a **janela de 1M de contexto** (`[1m]`): parece upgrade, mas ela
-também desativa na prática a compactação automática — a sessão incha sem
-limite e cada mensagem fica caríssima. Use só quando realmente precisa de um
-contexto gigante de uma vez.
+**Esforço também é custo.** Além do modelo, dá pra fixar quanto o Claude pensa
+por resposta (a chave `effortLevel` do `settings.json`, ou `/effort`). Não
+deixe esforço alto fixo: no Opus 5.5 o nível padrão (medium) já entrega o que o
+Opus 5 dava em high, e no mesmo nível o 5.5 pensa mais por turno — high, xhigh
+ou max fixos viram limite gasto em ajuste de CSS. Suba só pra tarefa difícil,
+numa sessão nova e antes da primeira mensagem, e volte ao padrão na sessão
+seguinte: trocar no meio da conversa faz a próxima mensagem reler tudo sem
+cache.
+
+E cuidado com a **janela de contexto**: no Sonnet 5 e no Opus 5/5.5 ela chega
+a **1M tokens** (no Haiku 4.5, 200k). Parece folga, mas a compactação
+automática só age perto do teto — a sessão incha e cada mensagem relê centenas
+de milhares de tokens. Quem segura é você, pelo `ctx:` da barra (amarelo em
+~150k), não pela porcentagem. Confira no `/model` se a sua sessão está na
+variante `[1m]`.
 
 ## Imagens pesam (e ficam)
 

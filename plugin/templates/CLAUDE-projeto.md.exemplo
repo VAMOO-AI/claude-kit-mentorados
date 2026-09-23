@@ -34,6 +34,10 @@
 - <ex.: nada de chamada ao banco direto no componente — passa por src/lib/>
 - <ex.: sempre tipar; nada de `any`>
 
+## Visual (se o projeto tem tela)
+- <ex.: cores da marca em hex, fonte de título e de texto, raio de borda>
+- <o que evitar, pelo nome — sem direção o Claude repete o mesmo visual: fundo creme ou off-white, palavra em itálico no meio do título, seções numeradas "01 / 02 / 03", rótulos em fonte monospace, botão em pílula. Viu outro padrão repetido no primeiro resultado? Acrescente aqui.>
+
 ## Comandos de verificação
 - Type-check: `<ex.: npx tsc --noEmit>`
 - Lint: `<ex.: npx eslint .>`
