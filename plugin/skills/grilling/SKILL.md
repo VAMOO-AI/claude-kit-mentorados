@@ -41,6 +41,11 @@ Regras do loop:
    **rodada de até 3** — pelo `AskUserQuestion`, uma por bloco, cada uma com sua
    recomendação. Na dúvida, é dependente: vai sozinha.
 
+   A diferença nem sempre é óbvia. "Que banco usar?" vai **sozinha**: a resposta
+   muda o que faz sentido perguntar depois (tabela, permissão, migração). As
+   três do parágrafo abaixo cabem numa rodada porque nenhuma resposta mexe nas
+   outras.
+
    O que a rodada resolve é o vaivém de sete mensagens para fechar coisas
    ortogonais (nome da tabela, quem pode ler, o que acontece no erro). O que ela
    **não** pode virar é despejo de perguntas: três é teto, não meta, e uma rodada
