@@ -132,6 +132,7 @@ test-path-rules.sh|test-path-rules.sh
 test-pre-bash.sh|test-pre-bash.sh
 test-pressure-isolamento.sh|test-pressure-isolamento.sh
 test-pre-prompt.sh|test-pre-prompt.sh
+test-precompact.sh|test-precompact.sh
 test-session-size-guard.sh|test-session-size-guard.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh
 test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
@@ -139,6 +140,7 @@ test-skill-spec.sh|test-skill-spec.sh
 test-skills-projeto.sh|test-skills-projeto-scan.sh,test-warn-skills-projeto.sh
 test-warn-branch-behind.sh|test-warn-branch-behind.sh
 test-worktree-gc.sh|test-worktree-gc.sh
+test-worktree-seed-env.sh|test-worktree-seed-env.sh
 PARES
 }
 

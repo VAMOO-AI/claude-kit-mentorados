@@ -44,8 +44,10 @@ login devolve **"Failed to fetch"**. Nada na tela diz "faltou env".
 O kit resolve isso com um hook: no primeiro prompt que você manda dentro de um
 worktree sob `<repo>/.claude/worktrees/` (onde o `EnterWorktree` cria), ele
 copia do clone principal os arquivos `.env*` que o git **ignora e não estão no
-índice**, e nunca sobrescreve arquivo que já existe no worktree. Duas
-consequências:
+índice** — no clone e também na branch do worktree —, e nunca sobrescreve
+arquivo que já existe no worktree. `.npmrc` e `.bunfig.toml` ficam de fora de
+propósito (costumam guardar token de registry): o kit só avisa que existem, e
+você copia à mão se o install pedir autenticação. Duas consequências:
 
 - O worktree criado no meio de uma resposta só recebe o env no **prompt
   seguinte**. Se o dev server falhar no mesmo turno em que o worktree nasceu,

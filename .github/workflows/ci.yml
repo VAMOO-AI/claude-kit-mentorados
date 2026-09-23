@@ -82,6 +82,12 @@ jobs:
       - name: O memoria-link não perde projeto sem transcript nem escreve README sem pedir
         run: bash tests/test-memoria-link.sh
 
+      - name: O estado do repo atravessa o compact e volta uma vez só, sem tocar no repo
+        run: bash tests/test-precompact.sh
+
+      - name: Worktree novo recebe o .env ignorado, sem sobrescrever nem vazar conteúdo
+        run: bash tests/test-worktree-seed-env.sh
+
       - name: O hook de regra por caminho injeta uma vez e nunca bloqueia
         run: bash tests/test-path-rules.sh
 

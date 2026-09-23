@@ -84,6 +84,8 @@ pronto: a mesma família de relatório que mente.
 | `branch-guard.sh`, `session-size-guard.sh` | 0.35.0 (22/09) | marcador do branch-guard por sessão e raiz do repo (`cksum`); aviso do session-size em tokens, para a pessoa |
 | `repo-session.sh`, `notify-stop.sh` | 0.25.0 (03/09) | |
 | `path-rules.sh` | 0.35.0 (22/09) | aqui lê o payload por node (`hookjson.js`), lá por jq; o laço do conf usa expansão do bash, sem `sed` por linha |
+| `precompact-snapshot.sh` + `precompact-devolve.sh` | 0.36.0 (23/09) | payload por node/hookjson.js; o devolve roda dentro do `pre-prompt.sh` (primeiro da fila). A linha de memória aponta para a skill `memoria-projeto` passo 4 em vez do `publicar-memoria.sh` (só do time) |
+| `worktree-seed-env.sh` | 0.36.0 (23/09) | + só copia se a branch do WORKTREE também ignora o arquivo; `.npmrc`/`.bunfig.toml` são citados, não copiados (token de registry num kit público) |
 | `lint-modificados.sh` (Stop + anotação no PostToolUse) | 0.36.0 (23/09) | porte do #164 + `90b0293` do time; o `lint-fix.sh` async saiu. Aqui o payload vem por node (`hookjson.js`), lá por jq; o registrador é o modo `anota` do mesmo script, lá é inline no `settings.json`; os dois comandos levam a guarda `.team-manifest`. Suíte com um caso a mais (fora de repo git não linta). Nos dois, edição feita pelo Bash não é lintada |
 | `warn-branch-behind.sh`, `warn-worktree-stale.sh`, `worktree-gc.sh`, `atalhos.sh` | idênticos | byte a byte |
 | `memoria-indice.sh`, `memoria-link.sh` (núcleo), `skill-pressure-test.sh` | 0.26.0 (05/09) | |
@@ -103,7 +105,7 @@ pronto: a mesma família de relatório que mente.
 | Lição do ugrep (`-qv` e `-v > /dev/null` invertem o exit) | 0.36.0 (23/09) | aqui cobre também o `-v > /dev/null`, que a `licoes-do-harness.md` do time não tem (issue aberta lá) |
 | Telemetria × Remote Control no README | 0.36.0 (23/09) | |
 | Barra de status: `⚡N t/s` e `⚠ modelo trocou` | 0.36.0 (23/09) | o t/s aqui mede da linha `user` anterior até a última linha do id da mensagem; o do time mede do último tool_result e infla o número (issue aberta lá). Marcador do modelo em tmpdir. Sem segmento fixo de modelo, teto de janela nem tag de thinking |
-| Skills `worktrees`/`ship`/`orquestracao`/`memoria-projeto`: base velha, `.env.local`, gh body é dado, N terminais, slug | 0.36.0 (23/09) | o texto do `.env.local` cobre só `.env*` (o time também semeia `.npmrc`/`.bunfig.toml`). Pendente: o item do guard "`bash "$VAR"` é recusado; caminho literal passa" (1cbd160) |
+| Skills `worktrees`/`ship`/`orquestracao`/`memoria-projeto`: base velha, `.env.local`, gh body é dado, N terminais, slug | 0.36.0 (23/09) | Pendente: o item do guard "`bash "$VAR"` é recusado; caminho literal passa" (1cbd160) |
 | `git-sync`: mural da equipe + aviso de branch atrás condicionado ao risco de conflito + chamada literal | 0.36.0 (23/09) | o risco de conflito aqui é só do checkout de onde o script roda (lá é por checkout, `TEAM_CHECKOUTS`), então o aviso de outro worktree aponta para `--cwd <wt> --team`; fallback em duas linhas literais, sem `S=`; a SKILL aceita "apaga ou move para `## Resolvidos`". Pendente: `7c7da6b` (prova de PR no aviso de push) e `6403c92` |
 | `hitl-loop.sh` + `tests/test-hitl-loop.sh` | 0.36.0 (23/09) | caminho `plugin/scripts`. `-h` e guard do tty corrigidos aqui; porte de volta pendente (issue aberta lá) |
 | `bot-discord/references/03-deploy-vps.md` | 0.36.0 (23/09) | leva o método do `vps-hardening-clientes` (#167) sem o cliente: sem hosts, domínios, IPs nem a receita de socket-proxy/Traefik da casa |
