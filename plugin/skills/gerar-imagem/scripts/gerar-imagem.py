@@ -14,8 +14,8 @@ A chave é procurada nesta ordem, e o script SEMPRE imprime de onde ela veio:
 Chave que vem de fora do diretório atual aparece com aviso: o custo cai na conta
 daquele projeto. Isso é de propósito — descobrir na fatura é pior.
 
-O modelo NÃO é fixo. O default abaixo era o melhor em setembro/2026; rode
---listar-modelos antes de assumir que ainda é.
+O modelo NÃO é fixo, e o default abaixo depende do que a SUA conta da OpenAI
+libera. Rode --listar-modelos antes de assumir que ele existe para você.
 """
 import argparse, base64, json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
@@ -91,7 +91,7 @@ def pedir(caminho, chave, payload=None, timeout=300):
 
 
 def para_jpeg(png_bytes, destino, largura):
-    """PNG -> JPEG redimensionado. ffmpeg desta máquina não tem encoder webp."""
+    """PNG -> JPEG redimensionado. JPEG porque todo ffmpeg tem o encoder; webp depende de como ele foi compilado."""
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
         tmp.write(png_bytes)
         origem = tmp.name
