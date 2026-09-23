@@ -80,7 +80,7 @@ pronto: a mesma família de relatório que mente.
 | `block-cd-leitura-relativa.sh` | 0.26.0 (05/09) | + redirecionamento não é caminho |
 | `block-parallel-clone-switch.sh`, `block-delete-branch-with-children.sh` | 0.25.0 (03/09) | |
 | `block-monitor-ci.sh` | 0.26.0 (05/09) | nasceu no time em 0.29.0 |
-| `pre-bash.sh`, `pre-prompt.sh` (dispatchers) | 0.35.0 (22/09) | mesma semântica de cadeia; aqui sem o rtk. Linha `@usuario ` vira `systemMessage` (para a pessoa, fora do contexto do modelo) — aqui o JSON sai por node, lá por jq |
+| `pre-bash.sh`, `pre-prompt.sh` (dispatchers) | 0.36.0 (23/09) | mesma semântica de cadeia (o `pre-prompt` agora com seis: `precompact-devolve` primeiro, `worktree-seed-env` por último com stdin vazio); aqui sem o rtk. Linha `@usuario ` vira `systemMessage` (para a pessoa, fora do contexto do modelo) — aqui o JSON sai por node, lá por jq |
 | `branch-guard.sh`, `session-size-guard.sh` | 0.35.0 (22/09) | marcador do branch-guard por sessão e raiz do repo (`cksum`); aviso do session-size em tokens, para a pessoa |
 | `repo-session.sh`, `notify-stop.sh` | 0.25.0 (03/09) | |
 | `path-rules.sh` | 0.35.0 (22/09) | aqui lê o payload por node (`hookjson.js`), lá por jq; o laço do conf usa expansão do bash, sem `sed` por linha |
