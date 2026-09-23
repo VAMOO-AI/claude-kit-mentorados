@@ -84,6 +84,20 @@ Vale igual para credencial faltando: continue tudo que não depende dela.
   - com writes, cole no prompt o scope contract e o formato de report do
     `agents.md`, que o resumo do CLAUDE.md não traz.
 
+## N terminais no mesmo repo: escopo disjunto e merge em fila
+
+Abrir várias sessões de uma vez no mesmo repositório é fan-out sem orquestrador:
+ninguém vê o que o outro faz. Duas regras bastam:
+
+- **Escopo disjunto por arquivo**, decidido ANTES de abrir os terminais. Dois
+  terminais no mesmo `src/pages/X.tsx` escrevem o mesmo código duas vezes, e o
+  segundo só descobre na hora do PR.
+- **Merge é serializado, não paralelo.** O primeiro que mergeia move a `main`, e
+  o verde do CI de todos os outros passa a ser de uma base que já não é a da
+  `main`. Rebase quem tocar os mesmos arquivos; o resto mergeia como está — o
+  squash não apaga trabalho alheio. O porquê, e a armadilha do diff de dois
+  pontos que sugere o contrário, estão na skill `worktrees` ("Base velha").
+
 ## Cleanup
 
 Worktree cleanup ao finalizar → skill `worktrees`.
