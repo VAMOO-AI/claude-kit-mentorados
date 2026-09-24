@@ -13,6 +13,53 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.40.0] — 2026-09-24
+
+### Depois de atualizar
+
+- Esta versão mexeu nas preferências: **rode `/kit-vamoo:setup`** para receber as duas chaves
+  novas do `settings.json` (ele faz backup antes). Quem já tem uma delas fica com a sua.
+  Fecha #126.
+
+### Adicionado
+
+- **A lista de skills ganha o dobro de espaço e cresce com a janela do modelo.** O Claude
+  Code reserva para a lista de skills que o modelo vê `janela × 4 ×
+  skillListingBudgetFraction` chars. Sem a chave a fração é 0,01: 8.000 chars numa janela
+  de 200K, e o que passa disso entra só pelo nome, sem aviso. As 18 skills visíveis do kit
+  somam 7.956 chars nessa conta — o kit sozinho ocupava 99% do padrão, antes das skills do
+  próprio Claude Code, de outros plugins e do projeto. O template do setup agora grava
+  `skillListingBudgetFraction: 0.02`: 16.000 chars em 200K e 80.000 em 1M. Espelho de
+  claude-config-team#214, que trocou por essa fração a env `SLASH_COMMAND_TOOL_CHAR_BUDGET`
+  fixa em 16.000 — numa janela de 1M a env baixava o budget, a fração nunca baixa.
+- **O Claude Code passa a se atualizar pelo canal `stable`** (`autoUpdatesChannel` no
+  template do setup), que recebe a versão depois de ela passar pelo `latest`. Quem já
+  escolheu um canal fica com o seu. Espelho de claude-config-team#213.
+
+### Alterado
+
+- **O `tests/test-skill-descriptions.sh` também soma a lista.** Conta cada skill como o
+  Claude Code conta skill de plugin: `kit-vamoo:` + nome + 4 + description (mais ` - ` +
+  `when_to_use`, se houver), só das que não têm `disable-model-invocation`. Teto: metade do
+  budget na janela de 200K, 8.000 chars — sobram 44. A próxima skill visível entra
+  enxugando description ou com `disable-model-invocation: true`. O teste também reprova o
+  template sem a fração válida ou com a env, que venceria a fração.
+- **`plugin/novidades.txt` podado para as 12 versões mais recentes**, como o cabeçalho
+  pede. Tinha 27.
+
+### Corrigido
+
+- **O scan de skills do projeto contava bytes no app de desktop.** O Bash tool e os hooks
+  do app rodam sem `LANG` nem `LC_ALL`, e aí o `wc -m` do `skills-projeto-scan.sh` conta
+  bytes: uma description acentuada estourava o teto no aviso do `SessionStart` e passava no
+  CI. O script agora fixa um locale UTF-8 por conta própria, sem fork. Caso novo no
+  `tests/test-skills-projeto.sh`: uma description de 93 chars e 101 bytes, que a versão
+  anterior contava como 101. O `test-skill-descriptions.sh` ganhou o mesmo laço.
+- **O aviso de novidades pede o setup quando você pulou mais versões do que o arquivo
+  guarda.** Com o `novidades.txt` podado, uma versão `setup` que já saiu do arquivo sumia
+  do aviso. Agora, se a última versão anunciada para você é mais velha que a última linha
+  que sobrou, o aviso manda rodar o `/kit-vamoo:setup`: a linha podada podia pedir.
+
 ## [0.39.0] — 2026-09-24
 
 ### Removido

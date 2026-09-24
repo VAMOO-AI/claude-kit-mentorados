@@ -109,6 +109,15 @@ echo "== teto configurável (é orçamento, não lei da física) =="
 saida="$(TETO_SKILLS=20 TETO_CHARS=99999 TETO_UMA=99999 bash "$SCAN" "$MUITAS")"; codigo=$?
 check "com teto maior, o mesmo projeto passa" "$([ $codigo -eq 0 ] && echo ok || echo fail)"
 
+echo "== description acentuada conta chars, não bytes, sem locale no ambiente =="
+# O Bash tool e os hooks do app Desktop rodam sem LANG nem LC_ALL; aí o `wc -m` conta
+# bytes, e a mesma skill estourava o teto na máquina e passava no CI. 93 chars, 101 bytes.
+ACENTO="$TMP/acento"
+skill "$ACENTO" revisar-migracao revisar-migracao "Use ao revisar migração de cobrança: índice, coluna, ação irreversível e sequência de deploy." 10
+n_sem="$(env -u LC_ALL -u LANG -u LC_CTYPE bash "$SCAN" "$ACENTO" | awk '$1 == "revisar-migracao" { print $2 }')"
+check "sem locale no ambiente, o scan conta 93 chars (contou: ${n_sem:-nada})" \
+  "$([ "$n_sem" = 93 ] && echo ok || echo fail)"
+
 echo "== sessão aberta em ~: o .claude/skills do projeto é o catálogo global =="
 # Em ~ o `.claude/skills` do "projeto" é o próprio ~/.claude/skills. Sem tratar como
 # vazio, as skills pessoais viravam "skills deste projeto" acima do teto em toda sessão

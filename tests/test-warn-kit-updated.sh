@@ -111,6 +111,23 @@ check "lista tudo que o arquivo tem (5)" "$(printf '%s' "$saida" | grep -q '(5 v
 check "marcador vai pra versão carregada mesmo vindo de versão pré-histórica" \
   "$([ "$(marca)" = 1.4.0 ] && echo ok || echo fail)"
 
+echo "== arquivo podado: pulou mais do que ele guarda, manda rodar o setup =="
+# O novidades.txt guarda ~12 linhas. Quem vem de antes da mais velha que sobrou pode ter
+# passado por uma versão `setup` que já foi podada — o hook não tem como saber, então pede.
+PODADO="$TMP/podado"; mkdir -p "$PODADO/.claude-plugin"
+cp "$ROOT/.claude-plugin/plugin.json" "$PODADO/.claude-plugin/"
+printf '1.4.0|a quarta coisa\n1.3.0|a terceira coisa\n' > "$PODADO/novidades.txt"
+reset; semeia 1.1.0; saida="$(roda "" "$PODADO")"
+check "marcador mais velho que o arquivo manda rodar o setup" \
+  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo ok || echo fail)"
+reset; semeia 1.3.0; saida="$(roda "" "$PODADO")"
+check "marcador dentro do arquivo, sem flag setup: não pede" \
+  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+printf '1.4.0|a quarta coisa\n1.2.0|a segunda coisa\n' > "$PODADO/novidades.txt"
+reset; semeia 1.3.0; saida="$(roda "" "$PODADO")"
+check "marcador fora do arquivo mas mais novo que a última linha: nada foi podado, não pede" \
+  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+
 echo "== rollback (marcador à frente do carregado): realinha e cala =="
 reset; semeia 1.9.0; saida="$(roda)"
 check "rollback não imprime nada"       "$([ -z "$saida" ] && echo ok || echo fail)"

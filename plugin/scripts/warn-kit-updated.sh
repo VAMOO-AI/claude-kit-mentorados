@@ -18,6 +18,8 @@
 # aparecer dentro do resumo (o último campo engole tudo que vier depois do 2º `|`, e
 # com ele a flag `setup`). O parser não tem como distinguir separador de texto — quem
 # reprova a linha torta é o gate de formato do tests/test-versao-changelog.sh.
+# O arquivo é podado para ~12 linhas; marcador mais velho que a última linha que sobrou
+# também manda rodar o setup, porque a versão que pedia pode ter sido podada.
 #
 # Estado: ~/.claude/.cache/kit-vamoo/versao-avisada. Fora do diretório do plugin
 # de propósito — ~/.claude/plugins/cache/<market>/<plugin>/<versão>/ muda de nome a
@@ -70,11 +72,14 @@ fi
 novas=0
 linhas=""
 setup=0
+achou=0
+ultima=""
 while IFS='|' read -r v resumo flag || [ -n "${v:-}" ]; do
   case "$v" in ''|\#*) continue ;; esac
   v="$(printf '%s' "$v" | tr -d '[:space:]')"
   [ -n "$v" ] || continue
-  [ "$v" = "$anterior" ] && break                 # daqui pra baixo já foi contado
+  ultima="$v"
+  [ "$v" = "$anterior" ] && { achou=1; break; }   # daqui pra baixo já foi contado
   maior "$v" "$carregada" && continue             # linha de versão futura no arquivo
   maior "$v" "$anterior" || continue
   novas=$((novas + 1))
@@ -85,6 +90,9 @@ while IFS='|' read -r v resumo flag || [ -n "${v:-}" ]; do
 "
   fi
 done < "$NOVIDADES"
+# O novidades.txt é podado (~12 linhas). Quem pulou mais versões do que ele guarda pode
+# ter passado por uma que pedia o setup e cuja linha já saiu — sem como saber, manda rodar.
+if [ "$achou" -eq 0 ] && [ -n "$ultima" ] && maior "$ultima" "$anterior"; then setup=1; fi
 
 # ── nada novo carregado: a atualização pode estar baixada e ainda não aplicada ──
 if [ "$novas" -eq 0 ]; then
