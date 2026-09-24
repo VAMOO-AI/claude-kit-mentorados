@@ -20,6 +20,13 @@
 #   TETO_SKILLS=8  TETO_CHARS=2000  TETO_UMA=500
 # Sai 1 quando o projeto passa do teto ou tem skill quebrada; 0 quando está limpo.
 set -uo pipefail
+# Sem LANG nem LC_ALL, que é como rodam o Bash tool e os hooks do app Desktop, o `wc -m`
+# conta bytes: description acentuada estoura o teto aqui e passa no CI. Sem fork — o modo
+# --resumo roda no SessionStart.
+for l in C.UTF-8 en_US.UTF-8; do
+  { export LC_ALL="$l"; } 2>/dev/null
+  x='ç'; [ "${#x}" -eq 1 ] && break
+done
 
 DIR="."; RESUMO=0
 for a in "$@"; do

@@ -5,6 +5,9 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+# Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
+# que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.40.0|a lista de skills ganha o dobro de espaço e cresce com a janela do modelo, o Claude Code passa a se atualizar pelo canal stable (se você não escolheu outro) e este aviso pede o setup quando você pulou versões demais|setup
 0.39.0|a sessão abre sem esperar o dotcontext (o MCP continua): o hook que lia o repo inteiro a cada início saiu, e o setup tira a cópia que o instalador de antes de 24/08 deixou no seu settings.json|setup
 0.38.1|o estado salvo antes do compact mostra só o nome novo de arquivo renomeado, e o git-sync --no-pr prova o PR mergeado pela conta do gh que enxerga o repo
 0.38.0|depois de um compact, inclusive o automático no meio de uma tarefa, o Claude já volta sabendo a branch e o que estava modificado, sem esperar a sua próxima mensagem
@@ -16,19 +19,3 @@
 0.34.0|Auditoria de segurança com hipótese a validar, juiz que tenta refutar cada achado grave, --verificar que confere o trecho contra o código e categoria A6 para agente de IA com ferramentas
 0.33.2|o guard de sessão paralela parou de barrar comando legítimo cujo texto de busca contém "git checkout", e passou a pegar o mesmo checkout quando ele vem com o prefixo rtk
 0.33.1|o aviso de custo da geração de imagem parou de gritar quando a chave já está no lugar certo
-0.33.0|o Claude agora gera as imagens da sua landing pela API e publica junto com a página
-0.32.4|quando o hook barra um commit e não consegue resolver para qual repositório o comando aponta, ele passa a dizer isso em vez de afirmar a branch de um alvo que não olhou
-0.32.3|o hook que impede leitura de caminho relativo parou de tropeçar em aspa dentro de aspa — um padrão de grep com " dentro de ' fazia o texto de um echo virar "caminho" e barrava comando legítimo
-0.32.2|o hook que impede leitura de caminho relativo parou de confundir redirecionamento (2>/dev/null, > log) com nome de arquivo e barrar comando legítimo
-0.32.0|a auditoria de segurança passou a dizer como cada achado foi obtido (grep, leitura ou segunda fonte) e a fechar um veredito bloqueado/revisar/liberado — e parou de copiar segredo para dentro do PDF e da issue
-0.31.0|o kit passou a se atualizar sozinho: o setup liga o auto-update no settings.json, o que funciona também no app de desktop (onde o painel /plugin não existe)|setup
-0.30.2|ligar a memória de um projeto parou de deixar um README solto dentro de cada worktree — o arquivo é do clone e chega no worktree pelo git
-0.30.1|o hook que impede esperar CI dentro do Monitor fechou o buraco do "gh workflow run" e do "gh run rerun" — e a mensagem devolve o comando certo pronto
-0.30.0|o secscan agora resume no terminal (1-2 achados por categoria) e mantém o relatório completo no arquivo — CRITICAL e HIGH nunca entram no corte
-0.29.0|o teste de pressão das skills passou a rodar isolado da sua máquina: o "passou" agora é da skill, não do seu CLAUDE.md
-0.28.0|o kit passou a te avisar quando ele mesmo muda (é esta mensagem) e a medir o que as skills do projeto custam
-0.27.0|quatro cenários de pressão para as skills; a skill ship aprendeu que --admin não é atalho pro verde
-0.26.1|a barra de status mostra o tamanho da sessão (ses:1.3k /compact) pra você saber a hora de dar /clear|setup
-0.26.0|esperar CI dentro do Monitor agora é bloqueado, e os hooks viraram dispatcher (menos processo por comando)
-0.25.0|skill guardrails-ia e limpeza do backlog de portes do kit do time
-0.24.0|memória de projeto versionada no repo e /handoff pra publicar o que a sessão aprendeu
