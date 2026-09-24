@@ -152,6 +152,38 @@ git -C "$CLONE" worktree unlock "$WT" 2>/dev/null
 git -C "$CLONE" worktree lock --reason "claude session viva (pid $$ start now)" "$WT" 2>/dev/null
 OUT="$(run --cleanup-dry-run)"
 check 'locked \(sessão viva\)'                  "pid vivo: worktree protegido"        "$OUT"
+git -C "$CLONE" worktree unlock "$WT" 2>/dev/null
+
+# Branch recém-criada de origin/main é ancestral trivial de origin/main: o
+# `merge-base --is-ancestor` chamava de "merged" o worktree limpo de uma sessão que
+# acabou de abrir, e o --cleanup-apply o removia. Sessão do app desktop não trava o
+# worktree, então o lock não protege. Mesmo defeito do warn-worktree-stale (0.48.1) e
+# do worktree-gc (0.49.1).
+echo "== worktree sem commit próprio não é candidato =="
+# 'sessao-antiga' nasceu de origin/main e a main andou depois: tip na linha first-parent
+git -C "$CLONE" worktree add -q -b sessao-antiga "$TMP/wt-antiga" origin/main 2>/dev/null
+# 'mergeada': commit próprio que entrou em main por merge commit — continua candidata
+git -C "$CLONE" worktree add -q -b mergeada "$TMP/wt-mergeada" origin/main 2>/dev/null
+( cd "$TMP/wt-mergeada" && echo m > m.txt && git add m.txt && git commit -qm "mergeada" )
+git -C "$CLONE" merge -q --no-ff -m "Merge mergeada (#46)" mergeada
+git -C "$CLONE" push -q origin main
+git -C "$CLONE" fetch -q origin
+# sessão que acabou de abrir: branch nova e detached, os dois no tip de origin/main
+git -C "$CLONE" worktree add -q -b sessao-nova "$TMP/wt-nova" origin/main 2>/dev/null
+git -C "$CLONE" worktree add -q --detach "$TMP/wt-detached" origin/main 2>/dev/null
+OUT="$(run --cleanup-dry-run)"
+refute "CANDIDATO: .*/wt-nova "                "branch recém-criada de origin/main: não é candidata"  "$OUT"
+check  "keep: .*/wt-nova \(sessao-nova\) — sem commit próprio" "branch recém-criada: keep com motivo" "$OUT"
+refute "CANDIDATO: .*/wt-antiga "              "branch sem commit, main andou depois: não é candidata" "$OUT"
+refute "CANDIDATO: .*/wt-detached "            "detached no tip da main: não é candidato"             "$OUT"
+check  "CANDIDATO: .*/wt-mergeada \(mergeada\)" "branch com commit mergeado: continua candidata"       "$OUT"
+OUT="$(run --cleanup-apply)"
+for w in wt-nova wt-antiga wt-detached; do
+  if [ -d "$TMP/$w" ]; then printf '  ok    %s\n' "$w: sobreviveu ao --cleanup-apply"
+  else printf '  FALHA %s\n' "$w: removido pelo --cleanup-apply"; falhas=$((falhas+1)); fi
+done
+if [ -d "$TMP/wt-mergeada" ]; then printf '  FALHA %s\n' "wt-mergeada: não foi removido"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "wt-mergeada: removido pelo --cleanup-apply"; fi
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi

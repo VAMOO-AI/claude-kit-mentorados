@@ -155,6 +155,27 @@ lock_is_stale() {
   return 0
 }
 
+# Branch recém-criada de origin/main é ancestral trivial dele: sem esta checagem o
+# is-ancestor chama de "mergeado" o worktree limpo de uma sessão que acabou de abrir, e
+# sessão do app desktop não trava o worktree. Mesma regra do plugin/scripts/worktree-gc.sh.
+# Sem commit próprio = tip não passou do ponto de criação da branch, ou é o tip de
+# $ORIGIN_DEFAULT, ou é commit da linha first-parent dele.
+sem_commit_proprio() {   # <tip> [branch]
+  local tip="$1" br="${2:-}" criacao ultimo
+  [[ -n "$tip" ]] || return 1
+  if [[ -n "$br" ]]; then
+    criacao="$(git reflog show --format='%H %gs' "refs/heads/$br" 2>/dev/null | tail -n 1)"
+    if [[ "$criacao" == *" branch: Created from "* ]] \
+       && [[ "$(git rev-list --count "${criacao%% *}..$tip" 2>/dev/null)" == 0 ]]; then
+      return 0
+    fi
+  fi
+  # atalho: branch mergeada por fast-forward na main nunca é candidata (parece base puxada); rever se o time mergear por ff fora do PR
+  [[ "$tip" == "$(git rev-parse --verify -q "$ORIGIN_DEFAULT")" ]] && return 0
+  ultimo="$(git rev-list --first-parent "$ORIGIN_DEFAULT" "^$tip" 2>/dev/null | tail -n 1)"
+  [[ -n "$ultimo" && "$(git rev-parse --verify -q "$ultimo^1")" == "$tip" ]]
+}
+
 UPDATED=()
 SKIPPED=()
 UNTRACKED_LINES=()
@@ -845,6 +866,8 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="locked (sessão viva)"
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
+      elif sem_commit_proprio "$(git -C "$wt" rev-parse --verify -q HEAD 2>/dev/null)" "$wt_branch"; then
+        reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
         _pr="$(merged_pr_num "$wt_branch")"
         if [[ -n "$_pr" ]]; then
