@@ -13,6 +13,20 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.38.1] — 2026-09-24
+
+### Corrigido
+
+- **Rename no snapshot do compact sai só com o destino.** O porcelain traz rename como
+  `"velho nome" -> "novo nome"`, e o `precompact-snapshot.sh` gravava a linha inteira,
+  com as aspas do meio. Agora fica só o nome novo. Fecha #123; espelho de
+  claude-config-team#210.
+- **`git-sync.sh --no-pr` resolve a conta do gh quando o aviso de push precisa provar o
+  PR.** A flag pulava a resolução inteira: a consulta ia pela conta ativa (cega em repo de
+  cliente) e o aviso dizia que não havia gh que enxergasse o repo, com a prova a um token
+  de distância. A resolução continua fora do caminho comum do `--no-pr` — só roda no ramo
+  do aviso. Espelho de claude-config-team#211.
+
 ## [0.38.0] — 2026-09-24
 
 ### Adicionado

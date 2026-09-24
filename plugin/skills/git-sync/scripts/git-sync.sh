@@ -358,34 +358,42 @@ hr
 #
 # Roda ANTES da varredura de branches abaixo: o aviso "NUNCA foi ao GitHub" consulta PR
 # mergeado, e pela conta cega cairia no "sem gh" num repo onde a prova estava a um token
-# de distância. A nota só é impressa lá embaixo, na seção de PRs.
+# de distância. A nota só é impressa lá embaixo, na seção de PRs. Com --no-pr a
+# resolução fica para o aviso, que a chama só quando precisa da prova (é idempotente).
 GH_CONTA_NOTA=""
-if { [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; } && command -v gh >/dev/null 2>&1 \
-   && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
-  _status="$(gh auth status 2>&1 || true)"
-  _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
-  _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
-  for _c in $_contas; do
-    _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
-    [[ -n "$_t" ]] || continue
-    if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
-      # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
-      # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
-      if [[ "$_c" == "$_ativa" ]]; then
-        GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
-      else
-        export GH_TOKEN="$_t"
-        GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+GH_CONTA_RESOLVIDA=0
+resolver_conta_gh() {
+  [[ "$GH_CONTA_RESOLVIDA" -eq 1 ]] && return 0
+  GH_CONTA_RESOLVIDA=1
+  if command -v gh >/dev/null 2>&1 \
+     && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
+    _status="$(gh auth status 2>&1 || true)"
+    _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
+    _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
+    for _c in $_contas; do
+      _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
+      [[ -n "$_t" ]] || continue
+      if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
+        # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
+        # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
+        if [[ "$_c" == "$_ativa" ]]; then
+          GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
+        else
+          export GH_TOKEN="$_t"
+          GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+        fi
+        break
       fi
-      break
+    done
+    if [[ -z "$GH_CONTA_NOTA" ]]; then
+      _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
+      GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
     fi
-  done
-  if [[ -z "$GH_CONTA_NOTA" ]]; then
-    _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
-    GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
+    unset _status _contas _ativa _c _t _slug
   fi
-  unset _status _contas _ativa _c _t _slug
-fi
+  return 0
+}
+if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; fi
 
 # Varredura de TODAS as branches locais (inclusive as não checkoutadas em worktree).
 # Pega o caso clássico de time: os dois criam a mesma branch, ou alguém trabalha
@@ -424,6 +432,8 @@ while IFS='|' read -r lb lup ltrack; do
     else
       lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
+        # Com --no-pr a conta não foi resolvida lá em cima; a prova precisa dela.
+        resolver_conta_gh
         _pr="$(pr_merged_desta_head "$lb" "$(git rev-parse "refs/heads/$lb" 2>/dev/null || true)")"
         if [[ -n "$_pr" && "$_pr" != "?" ]]; then
           WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $ORIGIN_DEFAULT pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")

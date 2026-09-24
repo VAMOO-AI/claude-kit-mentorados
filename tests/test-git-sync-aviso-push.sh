@@ -147,4 +147,13 @@ check  'mergeada.*PR #91' "provou o merge pela conta certa" "$OUT_CONTAS"
 refute 'mergeada.*[Ss]em gh' "não cai no 'sem gh'" "$OUT_CONTAS"
 
 echo
+echo "== --no-pr: a mesma prova, com a conta resolvida só quando o aviso precisa =="
+# --no-pr pula a seção de PRs, não a prova do aviso: sem resolver a conta aqui, a
+# consulta ia pela ativa (cega) e o aviso dizia 'sem gh' com a prova a um token.
+OUT_NOPR="$(rodar_com "$TMP/bin-contas" --no-pr)"
+check  'mergeada.*PR #91' "--no-pr: provou o merge pela conta certa" "$OUT_NOPR"
+refute 'mergeada.*[Ss]em gh' "--no-pr: não cai no 'sem gh'" "$OUT_NOPR"
+refute 'PRs abertos' "--no-pr: a seção de PRs continua de fora" "$OUT_NOPR"
+
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
