@@ -101,6 +101,18 @@ payload "../fuga" "$REPO" | HOME="$H1" bash "$SNAP" >/dev/null 2>&1
 check "session_id com ../ não vira caminho" "$(sim [ ! -e "$H1/.claude/.cache/fuga.md" ])"
 payload ".oculto" "$REPO" | HOME="$H1" bash "$SNAP" >/dev/null 2>&1
 check "session_id começando com ponto é recusado" "$(sim [ ! -e "$CACHE/.oculto.md" ])"
+# Rename vem como `"velho nome" -> "novo nome"` no porcelain: sai só o destino.
+REPO3="$TMP/repo3"
+mkdir -p "$REPO3"
+git -C "$REPO3" init -q -b main
+git -C "$REPO3" config user.email t@t.t
+git -C "$REPO3" config user.name teste
+printf 'x\n' > "$REPO3/old name.txt"
+git -C "$REPO3" add "old name.txt"
+git -C "$REPO3" commit -qm x
+git -C "$REPO3" mv "old name.txt" "novo relatório.txt"
+payload s10 "$REPO3" auto | HOME="$H1" bash "$SNAP"
+check "rename com espaço: só o destino, sem aspas" "$(sim grep -qx 'modificados: 1 (novo relatório.txt)' "$CACHE/s10.md")"
 payload s5 "$REPO" "" | HOME="$H1" bash "$SNAP"
 check "sem trigger no payload: grava com (?)" "$(sim grep -qF '(?)' "$CACHE/s5.md")"
 rm -f "$CACHE/s5.md"
