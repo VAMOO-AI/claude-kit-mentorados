@@ -2,8 +2,8 @@
 # O estado do repo atravessa o compact — uma vez só, e sem vazar entre sessões.
 #
 # O par de hooks existe porque o PreCompact não injeta contexto (o stdout dele vai para o
-# log de debug): quem injeta é o UserPromptSubmit, pelo pre-prompt.sh. Os dois modos de
-# falha próprios desse arranjo estão cobertos aqui:
+# log de debug): quem injeta é o SessionStart(compact), com o UserPromptSubmit (pelo
+# pre-prompt.sh) de rede. Os dois modos de falha próprios desse arranjo estão cobertos aqui:
 #
 #   - o snapshot nunca chegar (gravado com o nome errado, hook fora do hooks.json, ou o
 #     hook bloqueando o compact);
@@ -164,6 +164,29 @@ check "o comando do hooks.json, como o Claude Code roda, grava o snapshot" "$(si
 H3="$TMP/home-time"; mkdir -p "$H3/.claude"; : > "$H3/.claude/.team-manifest"
 ( cd "$REPO" && HOME="$H3" CLAUDE_PLUGIN_ROOT="$RAIZ/plugin" sh -c "$comando" < "$TMP/p7.json" ); rc=$?
 check "com o kit do time na máquina, cede (sai 0 sem gravar)" "$(sim [ "$rc" = 0 ] && [ ! -d "$H3/.claude/.cache" ])"
+
+echo "== SessionStart(compact) entrega logo depois do compact, e o prompt seguinte cala =="
+# Visto num /compact manual (desktop, 2.1.280): o stdout do SessionStart com source=compact
+# entra no contexto. No auto-compact no meio de um turno não há prompt novo, e pelo
+# UserPromptSubmit o estado só chegaria na próxima mensagem da pessoa.
+dev_cmd="$(node -e '
+  const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  const tem = (g) => (g.hooks || []).some((h) => /precompact-devolve\.sh/.test(h.command || ""));
+  const ss = j.hooks.SessionStart || [];
+  const fora = ss.filter((g) => g.matcher !== "compact" && tem(g)).length;
+  const g = ss.find((g) => g.matcher === "compact" && tem(g));
+  if (!g) process.exit(1);
+  console.log([fora, g.hooks.find((h) => /precompact-devolve\.sh/.test(h.command)).command].join("\t"));
+' "$HOOKS_JSON" 2>/dev/null)"
+check "hooks.json liga o devolve no SessionStart com matcher compact" "$(sim [ -n "$dev_cmd" ])"
+check "e só nesse grupo (startup/resume/clear não consomem)" "$(sim [ "$(printf '%s' "$dev_cmd" | cut -f1)" = 0 ])"
+comando="$(printf '%s' "$dev_cmd" | cut -f2-)"
+payload s8 "$REPO" | HOME="$H1" bash "$SNAP"
+S="s8" D="$REPO" node -e 'process.stdout.write(JSON.stringify({session_id: process.env.S, cwd: process.env.D, hook_event_name: "SessionStart", source: "compact"}))' > "$TMP/p8.json"
+out=$( cd "$REPO" && HOME="$H1" CLAUDE_PLUGIN_ROOT="$RAIZ/plugin" sh -c "$comando" < "$TMP/p8.json" )
+check "o comando do hooks.json imprime o estado" "$(sim grep -q 'branch feat/algo' <<<"$out")"
+out=$( cd "$REPO" && HOME="$H1" bash "$DISPATCH" < "$(pf s8 "$REPO")" 2>/dev/null )
+check "o primeiro prompt depois não repete o estado" "$(sim nao grep -q 'estado do repo antes do compact' <<<"$out")"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -13,6 +13,19 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.38.0] — 2026-09-24
+
+### Adicionado
+
+- **O estado do repo volta logo depois do compact, não só no prompt seguinte.** O
+  `precompact-devolve.sh` ganhou um grupo próprio no `SessionStart` com matcher `compact`.
+  Visto num `/compact` manual (desktop, 2.1.280): o stdout desse hook entra no contexto
+  assim que o compact termina. Importa no auto-compact, que acontece no meio de um turno:
+  pelo `UserPromptSubmit` o estado só chegaria na próxima mensagem da pessoa. O
+  `pre-prompt.sh` continua chamando o devolve como rede; o arquivo é consumido uma vez,
+  então o prompt seguinte não repete. O grupo não é o geral: startup, resume e clear não
+  mexem no snapshot. Espelho de claude-config-team#207.
+
 ## [0.37.0] — 2026-09-23
 
 ### Adicionado
