@@ -141,6 +141,7 @@ test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
 test-skill-spec.sh|test-skill-spec.sh
 test-skills-projeto.sh|test-skills-projeto-scan.sh,test-warn-skills-projeto.sh
 test-warn-branch-behind.sh|test-warn-branch-behind.sh
+test-warn-worktree-stale.sh|test-warn-worktree-stale.sh
 test-worktree-gc.sh|test-worktree-gc.sh
 test-worktree-seed-env.sh|test-worktree-seed-env.sh
 PARES
