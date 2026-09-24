@@ -19,7 +19,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 - **Rename no snapshot do compact sai só com o destino.** O porcelain traz rename como
   `"velho nome" -> "novo nome"`, e o `precompact-snapshot.sh` gravava a linha inteira,
-  com as aspas do meio. Agora fica só o nome novo. Fecha #123; espelho de
+  com as aspas do meio. Agora fica só o nome novo — o corte vale só para linha de rename
+  ou cópia, então arquivo com ` -> ` no nome sai inteiro. Fecha #123; espelho de
   claude-config-team#210.
 - **`git-sync.sh --no-pr` resolve a conta do gh quando o aviso de push precisa provar o
   PR.** A flag pulava a resolução inteira: a consulta ia pela conta ativa (cega em repo de

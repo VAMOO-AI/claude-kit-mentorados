@@ -113,6 +113,20 @@ git -C "$REPO3" commit -qm x
 git -C "$REPO3" mv "old name.txt" "novo relatório.txt"
 payload s10 "$REPO3" auto | HOME="$H1" bash "$SNAP"
 check "rename com espaço: só o destino, sem aspas" "$(sim grep -qx 'modificados: 1 (novo relatório.txt)' "$CACHE/s10.md")"
+# ` -> ` só separa em linha de rename, e só a primeira: arquivo novo com a seta no nome
+# sai inteiro, e destino com a seta também.
+REPO4="$TMP/repo4"
+mkdir -p "$REPO4"
+git -C "$REPO4" init -q -b main
+git -C "$REPO4" config user.email t@t.t
+git -C "$REPO4" config user.name teste
+printf 'x\n' > "$REPO4/a.txt"
+git -C "$REPO4" add a.txt
+git -C "$REPO4" commit -qm x
+git -C "$REPO4" mv a.txt "x -> y.txt"
+printf 'u\n' > "$REPO4/u -> v.md"
+payload s11 "$REPO4" auto | HOME="$H1" bash "$SNAP"
+check "seta no nome: arquivo novo e destino de rename saem inteiros" "$(sim grep -qx 'modificados: 2 (x -> y.txt, u -> v.md)' "$CACHE/s11.md")"
 payload s5 "$REPO" "" | HOME="$H1" bash "$SNAP"
 check "sem trigger no payload: grava com (?)" "$(sim grep -qF '(?)' "$CACHE/s5.md")"
 rm -f "$CACHE/s5.md"
