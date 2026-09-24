@@ -13,6 +13,22 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.40.2] — 2026-09-24
+
+### Corrigido
+
+- **O `git-sync --cleanup-apply` removia o worktree de uma sessão recém-aberta.** Terceiro
+  lugar do defeito da 0.40.1: o worktree era candidato por
+  `merge-base --is-ancestor HEAD origin/<default>`, e uma branch criada de `origin/main`,
+  ainda sem commit, é ancestral dela por definição. O lock só protege sessão do CLI; a do
+  app de desktop não trava o worktree, e o limpo dela saía `CANDIDATO`. Agora a mesma
+  regra de "sem commit próprio" do `worktree-gc.sh` vem antes da ancestralidade, e o
+  worktree fica como `keep: … sem commit próprio`. O detached já ficava ("avaliar
+  manualmente") e segue assim. `tests/test-git-sync-cleanup.sh` ganhou o caso: 5 falhas
+  no script antigo; branch com commit mergeado continua candidata. Limite herdado: branch
+  mergeada por fast-forward com tip igual a `origin/main` não é candidata. Fecha #130;
+  espelho de claude-config-team#221.
+
 ## [0.40.1] — 2026-09-24
 
 ### Corrigido
