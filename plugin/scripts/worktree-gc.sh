@@ -4,7 +4,8 @@
 # Remove worktrees em .claude/worktrees/ cuja branch JÁ FOI MERGEADA (ancestral de
 # origin/main OU squash-merge detectado via `gh pr`), e que estejam LIMPOS (sem
 # mudança não-commitada). Nunca toca: clone principal, branch main/master, worktree
-# sujo, ou o worktree de onde o script roda (use ExitWorktree pra esse).
+# sujo, branch ou detached sem commit próprio (sessão recém-aberta), ou o worktree de
+# onde o script roda (use ExitWorktree pra esse).
 #
 # Uso:
 #   worktree-gc.sh            # dry-run (só mostra o que faria) — PADRÃO
@@ -52,6 +53,28 @@ is_merged() {
   return 1
 }
 
+# Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
+# `--is-ancestor` sozinho a chamava de mergeada: o --apply removia o worktree limpo de
+# uma sessão que acabou de abrir (24/09/2026, o mesmo defeito do warn-worktree-stale).
+# Sem commit próprio = o tip não passou do ponto de criação (a 1ª entrada do reflog), ou
+# é commit da linha first-parent da main — a branch que só puxou a base, a de reflog
+# expirado, e o detached que é só checkout da main (sem branch, sem reflog).
+sem_commit_proprio() {
+  local tip="$1" br="${2:-}" criacao ultimo
+  [ -n "$tip" ] || return 1
+  if [ -n "$br" ]; then
+    criacao="$(git -C "$PRIMARY" reflog show --format='%H %gs' "refs/heads/$br" 2>/dev/null | tail -n 1)"
+    case "$criacao" in
+      *" branch: Created from "*)
+        [ "$(git -C "$PRIMARY" rev-list --count "${criacao%% *}..$tip" 2>/dev/null)" = 0 ] && return 0 ;;
+    esac
+  fi
+  # atalho: branch mergeada por fast-forward na main nunca é coletada (parece base puxada); rever se o time mergear por ff fora do PR
+  [ "$tip" = "$(git -C "$PRIMARY" rev-parse --verify -q origin/main)" ] && return 0
+  ultimo="$(git -C "$PRIMARY" rev-list --first-parent origin/main "^$tip" 2>/dev/null | tail -n 1)"
+  [ -n "$ultimo" ] && [ "$(git -C "$PRIMARY" rev-parse --verify -q "$ultimo^1")" = "$tip" ]
+}
+
 removed=0; kept=0; skipped=0
 # Percorre os worktrees (path + branch) do porcelain.
 path=""; branch=""
@@ -69,9 +92,13 @@ while IFS= read -r line; do
       if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
         echo "  ⏭️  $p  → branch '$branch' (mantido)"; skipped=$((skipped+1)); path=""; branch=""; continue
       fi
-      # detached (EnterWorktree cria assim): lixo se limpo e HEAD já contido em origin/main
+      # detached (EnterWorktree cria assim): lixo se limpo e o HEAD é commit já contido
+      # em origin/main fora da linha da main — HEAD na linha da main é checkout da base
       if [ -z "$branch" ]; then
-        if [ "$p" != "$SELF" ] && [ -z "$(git -C "$p" status --porcelain 2>/dev/null)" ] \
+        tip="$(git -C "$p" rev-parse --verify -q HEAD 2>/dev/null)"
+        if [ "$p" != "$SELF" ] && sem_commit_proprio "$tip"; then
+          echo "  ⏭️  $p  → detached sem commit próprio (HEAD na linha da main) — mantido"; skipped=$((skipped+1))
+        elif [ "$p" != "$SELF" ] && [ -z "$(git -C "$p" status --porcelain 2>/dev/null)" ] \
            && { [ ! -f "$p/.env.local" ] || cmp -s "$p/.env.local" "$PRIMARY/.env.local"; } \
            && git -C "$p" merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
           if [ "$APPLY" = 1 ]; then
@@ -101,7 +128,10 @@ while IFS= read -r line; do
       if [ -f "$p/.env.local" ] && ! cmp -s "$p/.env.local" "$PRIMARY/.env.local"; then
         echo "  ✋ $p  → .env.local difere do clone principal — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
-      # trava 5: só se mergeada
+      # trava 5: só se mergeada — e branch sem commit próprio nunca foi mergeada
+      if sem_commit_proprio "$(git -C "$PRIMARY" rev-parse --verify -q "refs/heads/$branch")" "$branch"; then
+        echo "  🔒 $p  → branch '$branch' sem commit próprio (recém-criada ou só puxou a base) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
+      fi
       if ! is_merged "$branch"; then
         echo "  🔒 $p  → branch '$branch' NÃO mergeada — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi

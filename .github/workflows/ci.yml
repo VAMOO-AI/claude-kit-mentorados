@@ -85,6 +85,9 @@ jobs:
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
+      - name: O aviso de worktree mergeado não acusa branch sem commit nem manda remover worktree sujo
+        run: bash tests/test-warn-worktree-stale.sh
+
       - name: O memoria-link não perde projeto sem transcript nem escreve README sem pedir
         run: bash tests/test-memoria-link.sh
 

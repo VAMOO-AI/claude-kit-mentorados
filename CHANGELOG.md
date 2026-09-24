@@ -13,6 +13,34 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.40.1] — 2026-09-24
+
+### Corrigido
+
+- **O aviso de abertura chamava de "lixo" o worktree de uma sessão recém-aberta.** O
+  `warn-worktree-stale.sh` dava a branch como mergeada só por ela ser ancestral de
+  `origin/main` — e uma branch criada de `origin/main`, ainda sem commit, é ancestral
+  dela por definição. O aviso "já foi MERGEADA — este worktree é lixo. Remova com
+  'ExitWorktree'" saía com o trabalho inteiro ainda sem commit. Agora só conta como
+  mergeada a branch com commit próprio: o tip passou do ponto de criação (a 1ª entrada do
+  reflog) e não é commit da linha first-parent da main. Worktree mergeado com mudança não
+  commitada ganha outro aviso, "é trabalho, não remova", sem sugerir `ExitWorktree`. A
+  prova pelo PR (squash) passou a exigir o tip contido no head do PR mergeado, como no
+  `worktree-gc.sh`. Suíte nova `tests/test-warn-worktree-stale.sh`, com 8 falhas no
+  script antigo. Fecha #127; espelho de claude-config-team#215.
+- **O `worktree-gc.sh --apply` removia o worktree de uma sessão recém-aberta.** Mesmo
+  defeito, só que aqui ele apaga: o worktree limpo de branch sem commit saía como
+  "mergeada + limpa", e o detached no tip da main também virava lixo. No app de desktop a
+  sessão não trava o worktree, então um `--apply` rodado de outra sessão podia apagar o
+  diretório de uma sessão viva, com os arquivos ignorados junto. Agora a branch sem
+  commit próprio e o detached na linha first-parent da main ficam. O detached num commit
+  que entrou na main por merge continua lixo — é o que sobra do "detached limpo é lixo"
+  da 0.28.3. 14 falhas no script antigo. Fecha #129; espelho de claude-config-team#216.
+- Limites dos dois: branch mergeada por fast-forward na main não é detectada (o PR do
+  GitHub não faz ff); worktree criado direto de outra branch (empilhada, revisão de PR)
+  não é dado como mergeado quando ela entra; worktree vazio abandonado passa a ser
+  remoção manual.
+
 ## [0.40.0] — 2026-09-24
 
 ### Depois de atualizar
