@@ -13,6 +13,22 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.39.0] — 2026-09-24
+
+### Removido
+
+- **O dotcontext saiu da abertura da sessão.** O `plugin/hooks/dotcontext-session.sh`
+  chamava o `hook dispatch` do dotcontext 1.1.1 no `SessionStart` de projeto com
+  `.context/`. O dispatch recalcula o fingerprint do repo a cada sessão, sem TTL — lê e
+  faz hash de todo arquivo, e o ignore dele só vale na raiz, então `node_modules`
+  aninhado, `.claude/worktrees/` e `.next` entram na conta. Medido em 24/09/2026 em três
+  repos reais: cada checagem lia de 33 mil a 110 mil arquivos (42–77 s num repo grande),
+  e com o teto de 10 s, 45 de 76 execuções desde 22/09 foram cortadas no meio. O MCP do
+  dotcontext continua: o Claude consulta o `.context/` quando precisa. O
+  `tests/test-hooks-boot.sh` reprova hook, em qualquer evento, que volte a chamar o
+  dispatch. Correção de fundo pedida em vinilana/dotcontext#93. Espelho de
+  claude-config-team#213.
+
 ## [0.38.1] — 2026-09-24
 
 ### Corrigido

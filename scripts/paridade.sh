@@ -118,13 +118,13 @@ test-block-monitor-ci.sh|test-block-monitor-ci.sh
 test-block-parallel-clone-switch.sh|test-block-parallel-clone-switch.sh
 test-branch-guard.sh|test-branch-guard.sh
 test-check-careful.sh|test-check-careful.sh
-test-dotcontext-session.sh|test-dotcontext-session.sh
 test-git-sync-cleanup.sh|test-git-sync-cleanup.sh
 test-git-sync-conta.sh|test-git-sync-conta.sh
 test-git-sync-aviso-push.sh|test-git-sync-aviso-push.sh
 test-git-sync-mural.sh|test-git-sync-mural.sh
 test-git-sync-voltar-main.sh|test-git-sync-voltar-main.sh
 test-hitl-loop.sh|test-hitl-loop.sh
+test-hooks-boot.sh|test-settings-boot.sh
 test-memoria-indice.sh|test-memoria-indice.sh
 test-memoria-link.sh|test-memoria-link.sh
 test-lint-modificados.sh|test-lint-modificados.sh
