@@ -118,7 +118,7 @@ if (branch) {
 // Numa janela de 1M, 500k de contexto pinta "50%" e parece saudável — quando na
 // verdade é meio milhão de tokens sendo relidos a cada comando. O que dói é o
 // valor absoluto: é ele que multiplica por request numa sessão longa.
-// Passou de 150k, considere /clear ou /compact.
+// Passou de 150k, considere /compact ou uma sessão nova no projeto.
 let ctxSeg = '';
 const usage = (input.context_window && input.context_window.current_usage) || {};
 const totalInput = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
@@ -147,7 +147,7 @@ try {
       if (linhas >= 600) {
         const col = linhas >= 2000 ? C.red : linhas >= 1200 ? C.yellow : C.dim;
         // 2.000+ é a faixa das maratonas: nem adianta compactar, o barato é sessão nova.
-        const dica = linhas >= 2000 ? ' maratona' : linhas >= 1200 ? ' /compact' : ' /clear?';
+        const dica = linhas >= 2000 ? ' maratona' : linhas >= 1200 ? ' /compact' : ' sessão nova?';
         sesSeg = ` ${C.dim}·${C.reset} ${col}ses:${linhas >= 1000 ? (linhas / 1000).toFixed(1) + 'k' : linhas}${dica}${C.reset}`;
       }
     } finally { fs.closeSync(fd); }

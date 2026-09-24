@@ -43,8 +43,8 @@ prev=${prev:-0}
 printf '%s' "$tier" > "$f" 2>/dev/null
 
 case "$tier" in
-  600)  echo "@usuario 📊 session-size: esta sessão passou de ~600 linhas, perto de 200 mil tokens de contexto, e cada passo do Claude relê tudo isso. Terminou a tarefa? Rode /clear antes do próximo assunto." ;;
-  1200) echo "@usuario ⚠️ session-size: ~1.200 linhas, perto de 300 mil tokens relidos a cada passo do Claude. Rode /compact agora, ou /clear se o assunto mudou." ;;
-  2000) echo "@usuario 🚨 session-size: ~2.000+ linhas, 425 mil tokens ou mais relidos a cada passo do Claude. Rode /clear ou /compact." ;;
+  600)  echo "@usuario 📊 session-size: esta sessão passou de ~600 linhas, perto de 200 mil tokens de contexto, e cada passo do Claude relê tudo isso. Terminou a tarefa? Abra uma sessão nova no projeto para o próximo assunto." ;;
+  1200) echo "@usuario ⚠️ session-size: ~1.200 linhas, perto de 300 mil tokens relidos a cada passo do Claude. Rode /compact agora, ou abra uma sessão nova no projeto se o assunto mudou." ;;
+  2000) echo "@usuario 🚨 session-size: ~2.000+ linhas, 425 mil tokens ou mais relidos a cada passo do Claude. Abra uma sessão nova no projeto, ou rode /compact." ;;
 esac
 exit 0

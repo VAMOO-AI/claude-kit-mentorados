@@ -26,7 +26,7 @@ printf '%s' "$s" | grep -q 'ses:' && falha "apareceu abaixo da primeira faixa: $
 printf '%s' "$s" | grep -q 'ctx:' && ok "o resto da barra continua saindo" || falha "barra vazia: $s"
 
 linhas 700;  s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:700 /clear?' && ok "700 linhas: contagem + /clear?" || falha "faixa 600 errada: $s"
+printf '%s' "$s" | grep -q 'ses:700 sessão nova?' && ok "700 linhas: contagem + sessão nova?" || falha "faixa 600 errada: $s"
 linhas 1300; s="$(render "$TMP/tr.jsonl")"
 printf '%s' "$s" | grep -q 'ses:1.3k /compact' && ok "1.300 linhas: abreviado + /compact" || falha "faixa 1.200 errada: $s"
 linhas 2500; s="$(render "$TMP/tr.jsonl")"

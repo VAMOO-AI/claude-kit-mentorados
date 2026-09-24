@@ -108,8 +108,8 @@ que o modelo lê toda vez.
 
 Em ordem de impacto medido, não de esforço:
 
-1. **Sessão-maratona.** É o item número um, com folga. `/clear` ao trocar de
-   assunto e `/compact` por volta de 150K de contexto (o `ctx:` amarelo da
+1. **Sessão-maratona.** É o item número um, com folga. Sessão nova no projeto
+   ao trocar de assunto (não `/clear`, que apaga o histórico da sessão) e `/compact` por volta de 150K de contexto (o `ctx:` amarelo da
    barra) — em janela de 1M o auto-compact só age perto do teto, e aí custa
    100–200K tokens de uma vez.
 2. **Modelo caro como padrão.** Reserve o tier de cima pro problema difícil, não
