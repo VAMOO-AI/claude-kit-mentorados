@@ -401,7 +401,7 @@ resolver_conta_gh() {
           GH_CONTA_NOTA="(gh: a 1ª consulta pela conta ativa ($_c) falhou e a 2ª passou — instabilidade de rede/API, não conta errada)"
         else
           export GH_TOKEN="$_t"
-          GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; 'gh auth switch -u $_c' se for ficar nele)"
+          GH_CONTA_NOTA="(conta gh: $_c — a ativa não enxerga este repositório; gh na mão: GH_TOKEN=\$(gh auth token -u $_c) gh ...)"
         fi
         break
       fi
