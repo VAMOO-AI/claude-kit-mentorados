@@ -93,6 +93,10 @@ check 'conta gh: cliente — a ativa não enxerga este repositório' "avisa qual
 check '#?7  feat: coisa'                                          "lista o PR pela conta certa"     "$OUT"
 refute 'gh pr list falhou'                                        "não reporta falha"               "$OUT"
 refute 'tok-'                                                     "token não vaza na saída"         "$OUT"
+# 24/09/2026: trocar a conta ativa da máquina é decisão de quem usa, não dica do relatório —
+# a outra conta entra só por processo, e é isso que a nota ensina para o `gh` na mão.
+refute 'gh auth switch'                                           "não sugere trocar a conta ativa" "$OUT"
+check 'GH_TOKEN=\$\(gh auth token -u cliente\)'                   "ensina o token por processo"     "$OUT"
 
 echo "== conta ativa enxerga o repo: caminho rápido, sem nota =="
 OUT="$(FAKE_GH_ACTIVE=tok-cliente run)"

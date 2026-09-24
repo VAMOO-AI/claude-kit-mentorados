@@ -135,7 +135,7 @@ usa a que enxerga o repo (só neste processo, sem trocar a ativa) e diz qual foi
 
 ```
 ### PRs abertos (gh)
-(conta gh: trabalho — a ativa não enxerga este repositório; 'gh auth switch -u trabalho' se for ficar nele)
+(conta gh: trabalho — a ativa não enxerga este repositório; gh na mão: GH_TOKEN=$(gh auth token -u trabalho) gh ...)
 ```
 
 Se nenhuma enxerga, ele diz isso com todas as letras (`nenhuma conta do gh enxerga

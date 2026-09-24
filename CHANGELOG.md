@@ -13,6 +13,18 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.40.4] — 2026-09-24
+
+### Corrigido
+
+- **A nota de conta do `git-sync` mandava trocar a conta ativa do `gh`.** Com duas contas
+  no keyring, a nota terminava em `'gh auth switch -u <conta>' se for ficar nele`. Trocar
+  a conta ativa é decisão de quem usa a máquina, e é estado global que outra sessão
+  reescreve. Agora a nota ensina o token por processo:
+  `gh na mão: GH_TOKEN=$(gh auth token -u <conta>) gh ...`. Mesmo texto no exemplo do
+  `SKILL.md`. `tests/test-git-sync-conta.sh` ganhou 2 checks, que falhavam no script
+  antigo. Fecha #133; espelho de claude-config-team#222.
+
 ## [0.40.3] — 2026-09-24
 
 ### Alterado
