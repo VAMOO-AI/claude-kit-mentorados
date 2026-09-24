@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.38.0|depois de um compact, inclusive o automático no meio de uma tarefa, o Claude já volta sabendo a branch e o que estava modificado, sem esperar a sua próxima mensagem
 0.37.0|a auditoria de segurança agora diz qual controle OWASP 2025, ISO, SOC 2, PCI ou LGPD cada achado viola, e a harness-check mostra de onde saiu cada recomendação
 0.36.1|git-sync não manda mais pushar branch que já foi mergeada por squash, e ganhou --voltar-main para devolver o clone à main no fim do dia
 0.36.0|lint no fim do turno só no que você editou, estado do repo sobrevive ao compact, worktree nasce com o .env.local, git-sync lê o mural da equipe e a barra mostra t/s e troca de modelo|setup

@@ -8,7 +8,8 @@
 #
 # O par é o `precompact-devolve.sh`: aqui grava, lá devolve. São dois porque o PreCompact
 # NÃO injeta contexto — o stdout dele vai para o log de debug. Quem injeta é o
-# UserPromptSubmit, então o snapshot espera em disco até o primeiro prompt depois do compact.
+# SessionStart com matcher `compact`, logo depois (e o UserPromptSubmit, como rede), então o
+# snapshot espera em disco até lá.
 #
 # Entrada: payload do PreCompact (session_id, cwd, trigger), lido por node
 # (scripts/hookjson.js) — jq não é pré-requisito do kit.

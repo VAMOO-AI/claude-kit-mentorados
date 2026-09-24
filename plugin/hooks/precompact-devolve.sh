@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Devolve, no primeiro prompt depois do compact, o estado que o `precompact-snapshot.sh`
-# gravou — e some.
+# Devolve, logo depois do compact, o estado que o `precompact-snapshot.sh` gravou — e some.
 #
-# Roda dentro do pre-prompt.sh (UserPromptSubmit), o único lugar em que o stdout de hook
-# vira contexto que o modelo lê. O dispatcher entrega o payload por pipe: é dele que sai o
-# session_id.
+# Roda em dois lugares, e o payload chega por stdin nos dois (é dele que sai o session_id):
+#   - SessionStart com matcher `compact` (hooks.json): o principal. O stdout entra no
+#     contexto assim que o compact termina, inclusive no auto-compact no meio de um turno,
+#     em que não há prompt novo;
+#   - dentro do pre-prompt.sh (UserPromptSubmit), como rede. Como o arquivo é consumido
+#     na primeira entrega, o prompt seguinte não repete.
 #
 # Custo fora do prompt seguinte a um compact: um glob na pasta do cache. O node só abre
 # quando existe algum snapshot esperando — checar só se a PASTA existe não serve, porque
