@@ -13,6 +13,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.40.3] — 2026-09-24
+
+### Alterado
+
+- **A dica de fim de tarefa virou "abra uma sessão nova no projeto", não `/clear`.** No
+  Claude Code desktop o `/clear` apaga o histórico da sessão; a sessão nova zera o custo
+  do mesmo jeito e deixa a anterior na lista. Mudou no `CLAUDE-global.md`, nos três
+  avisos do `session-size-guard.sh`, no recado da barra (`ses:700 sessão nova?`), nas
+  skills `harness-check` e `skills-projeto` e em `docs/economia-de-tokens.md`, que passa
+  a ter 3 hábitos (o 1 e o 2 diziam a mesma coisa). O `/compact` continua recomendado.
+  Os avisos chegam pelo auto-update; a barra e o CLAUDE.md global só com
+  `/kit-vamoo:setup`. Se você já tinha um CLAUDE.md, o setup não mexe nele: compare com
+  o `~/.claude/CLAUDE.kit.md` e troque a linha do `/clear` à mão. Espelho de
+  claude-config-team 0.49.4.
+
 ## [0.40.2] — 2026-09-24
 
 ### Corrigido

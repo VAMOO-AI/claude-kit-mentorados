@@ -36,7 +36,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh" .
 Sai uma linha por skill (chars de description, linhas de corpo, situação), o
 total, o custo estimado por request e o que está quebrado. O hook do kit roda o
 mesmo scan na abertura da sessão e fala **uma vez por mudança** — não a cada
-`/clear`.
+sessão nova.
 
 ## O risco maior é o `npx skills add`
 

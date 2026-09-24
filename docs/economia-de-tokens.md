@@ -29,22 +29,22 @@ Não foi excesso de uso — foi a conversa acumulando peso.
 
 ---
 
-## Os 4 hábitos que mais economizam (custo zero)
+## Os 3 hábitos que mais economizam (custo zero)
 
 1. **Sessão nova por tarefa.** Terminou o bug do login? Vai mexer no layout?
-   Fecha e abre outra (`/clear` ou novo terminal). Seu `CLAUDE.md` e o
-   `.context/` do dotcontext recuperam o contexto necessário — barato.
-
-2. **`/clear` ao trocar de assunto.** Tudo que ficou pra trás na conversa
+   Abra uma sessão nova no mesmo projeto. Tudo que ficou pra trás na conversa
    (aquele arquivo de 800 linhas lido há uma hora) continua sendo relido a
-   cada passo. `/clear` zera a conta.
+   cada passo; a sessão nova zera a conta, e seu `CLAUDE.md` e o `.context/`
+   do dotcontext recuperam o contexto necessário — barato. Evite o `/clear`:
+   no Claude Code desktop ele apaga o histórico da sessão, e a sessão nova
+   deixa a anterior guardada na lista pra você consultar.
 
-3. **`/compact` quando o `ctx:` da barra ficar amarelo (~150k tokens).** Ele
+2. **`/compact` quando o `ctx:` da barra ficar amarelo (~150k tokens).** Ele
    resume a conversa e libera espaço. Conte em número absoluto, não em %: com
    janela de 1M, "60%" seriam 600k relidos a cada passo. Fazer cedo é mais
    barato e resume melhor do que esperar o compact automático estourar no talo.
 
-4. **Não "continue amanhã" na mesma sessão.** Retomar uma sessão pesada paga
+3. **Não "continue amanhã" na mesma sessão.** Retomar uma sessão pesada paga
    o preço dela inteira de novo. Amanhã, sessão nova + "continua o X" — o
    CLAUDE.md do projeto lembra o resto.
 
@@ -82,7 +82,7 @@ variante `[1m]`.
 Print de tela é ótimo pra mostrar um bug — mas cada imagem vira parte da
 conversa e é reprocessada a cada mensagem até a sessão acabar. Prefira colar o
 texto do erro quando der, e evite sequências longas de screenshots na mesma
-sessão (é mais um motivo pro `/clear` entre tarefas).
+sessão (é mais um motivo pra abrir sessão nova entre tarefas).
 
 ## O que quase nunca é o problema
 

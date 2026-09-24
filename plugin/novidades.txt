@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.40.3|terminou uma tarefa? O Claude e os avisos de sessão longa agora recomendam abrir uma sessão nova no projeto, e não mais o /clear, que apaga o histórico da conversa|setup
 0.40.2|o git-sync --cleanup-apply parou de apagar o worktree de uma sessão que acabou de começar
 0.40.1|o aviso de abertura parou de chamar de "lixo" o worktree de uma sessão que acabou de começar, e a limpeza de worktrees parou de apagá-lo
 0.40.0|a lista de skills ganha o dobro de espaço e cresce com a janela do modelo, o Claude Code passa a se atualizar pelo canal stable (se você não escolheu outro) e este aviso pede o setup quando você pulou versões demais|setup
