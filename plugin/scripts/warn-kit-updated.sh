@@ -138,6 +138,6 @@ fi
 printf '%s' "$linhas"
 
 fim="Tudo: github.com/VAMOO-AI/claude-kit-mentorados/blob/main/CHANGELOG.md"
-[ "$setup" -eq 1 ] && fim="$fim · esta atualização mexe no CLAUDE.md/barra de status: rode \`/kit-vamoo:setup\`."
+[ "$setup" -eq 1 ] && fim="$fim · esta atualização mexe no que só o setup instala (CLAUDE.md, barra de status ou settings.json): rode \`/kit-vamoo:setup\`."
 echo "$fim"
 exit 0

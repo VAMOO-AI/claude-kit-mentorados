@@ -5,6 +5,7 @@
 # ou nas preferências — coisas que só o /kit-vamoo:setup instala.
 # O "|" separa: um a mais trunca o resumo e engole a flag em silêncio. Quem reprova a
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
+0.39.0|a sessão abre sem esperar o dotcontext (o MCP continua): o hook que lia o repo inteiro a cada início saiu, e o setup tira a cópia que o instalador de antes de 24/08 deixou no seu settings.json|setup
 0.38.1|o estado salvo antes do compact mostra só o nome novo de arquivo renomeado, e o git-sync --no-pr prova o PR mergeado pela conta do gh que enxerga o repo
 0.38.0|depois de um compact, inclusive o automático no meio de uma tarefa, o Claude já volta sabendo a branch e o que estava modificado, sem esperar a sua próxima mensagem
 0.37.0|a auditoria de segurança agora diz qual controle OWASP 2025, ISO, SOC 2, PCI ou LGPD cada achado viola, e a harness-check mostra de onde saiu cada recomendação

@@ -340,8 +340,7 @@ o `afplay` existe antes de tocar, então no Windows ele simplesmente não faz na
 **Isso vai deixar minhas sessões mais caras?**
 O plugin adiciona poucos milhares de tokens por sessão: são as descrições das skills,
 que é como o Claude sabe quando usar cada uma. Se alguma você nunca vai usar, desligue
-em `/plugin`. Em tempo, os hooks custam menos de 0,1 s por ação (o do dotcontext
-roda só na abertura da sessão, e só em projeto com `.context/`). O que pesa de
+em `/plugin`. Em tempo, os hooks custam menos de 0,1 s por ação. O que pesa de
 verdade no seu limite é sessão longa — está em
 [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md).
 

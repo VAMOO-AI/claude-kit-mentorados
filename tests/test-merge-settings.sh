@@ -44,10 +44,31 @@ JSON
 # `/plugin marketplace add` escreve no settings.json de quem instalou. Ele é a
 # razão de o merge não poder ser tudo-ou-nada nessa chave — a chave JÁ existe,
 # então "o seu ganha" significava que o autoUpdate do kit nunca chegava.
+#
+# Os `hooks` são o que o install.sh de antes da 0.7.0 deixou: ele sobrescrevia o
+# settings.json com um que chamava o dispatch do dotcontext no SessionStart e depois
+# de todo Write/Edit/Bash — e o merge, que preserva hook seu, preservava esse junto.
+# O do Stop é um dispatch que a pessoa configurou por conta própria: não é do kit.
 cat > "$TMP/meu.json" <<'JSON'
 {
   "theme": "light",
   "statusLine": { "type": "command", "command": "meu-script.sh" },
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "*", "hooks": [
+        { "type": "command", "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@latest hook dispatch --source claude-code || exit 0", "timeout": 60 },
+        { "type": "command", "command": "meu-hook.sh" }
+      ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write|Edit|Bash", "hooks": [
+        { "type": "command", "command": "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@latest hook dispatch --source claude-code || exit 0", "timeout": 60 }
+      ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "npx -y @dotcontext/cli@1.2.0 hook dispatch --source claude-code" } ] }
+    ]
+  },
   "extraKnownMarketplaces": {
     "vamoo-ai": {
       "source": { "source": "directory", "path": "/Users/eu/dev/claude-kit-mentorados" }
@@ -101,6 +122,15 @@ printf '%s' "$SAIDA" | grep -q 'extraKnownMarketplaces.vamoo-ai.autoUpdate' \
   && echo "  ok    a saída nomeia o auto-update que ligou" \
   || { echo "  FALHA a saída não nomeia o auto-update: $SAIDA"; falhas=$((falhas+1)); }
 
+echo "== o hook antigo do dotcontext sai; o resto dos hooks é seu =="
+check "o dispatch do dotcontext não sobrevive ao setup" \
+  "[h['command'] for gs in d.get('hooks',{}).values() for g in gs for h in g.get('hooks',[]) if '@dotcontext/cli@latest hook dispatch' in h['command']]" "[]"
+check "hook seu no mesmo grupo continua" \
+  "[h['command'] for g in d['hooks']['SessionStart'] for h in g['hooks']]" '["meu-hook.sh"]'
+check "evento que só tinha o dispatch some, sem grupo vazio" "'PostToolUse' in d['hooks']" "false"
+check "dispatch que você configurou de outro jeito fica" \
+  "d['hooks']['Stop'][0]['hooks'][0]['command']" '"npx -y @dotcontext/cli@1.2.0 hook dispatch --source claude-code"'
+
 echo "== quem desligou o auto-update de propósito não é religado =="
 cat > "$TMP/desligado.json" <<'JSON'
 {
@@ -135,6 +165,12 @@ sys.exit(0 if m.get('autoUpdate') is True and m.get('source',{}).get('repo')=='V
 " 2>/dev/null \
   && echo "  ok    fonte e auto-update chegam juntos" \
   || { echo "  FALHA settings zerado não recebeu o marketplace do kit"; falhas=$((falhas+1)); }
+python3 -c "
+import json,sys
+sys.exit(0 if 'hooks' not in json.load(open('$TMP/zerado.json',encoding='utf-8')) else 1)
+" 2>/dev/null \
+  && echo "  ok    settings sem hooks não ganha a chave" \
+  || { echo "  FALHA a limpeza do hook antigo criou a chave hooks em quem não tinha"; falhas=$((falhas+1)); }
 
 echo "== o instalador precisa dizer o que fez =="
 printf '%s' "$SAIDA" | grep -q 'permissions.deny (+2)' \
@@ -143,6 +179,9 @@ printf '%s' "$SAIDA" | grep -q 'permissions.deny (+2)' \
 printf '%s' "$SAIDA" | grep -q 'recomenda "acceptEdits"' \
   && echo "  ok    avisa que seu modo difere do recomendado, sem trocar" \
   || { echo "  FALHA não avisou sobre o modo divergente: $SAIDA"; falhas=$((falhas+1)); }
+printf '%s' "$SAIDA" | grep -q 'removido: hook antigo do dotcontext (2)' \
+  && echo "  ok    a saída nomeia o hook antigo que tirou" \
+  || { echo "  FALHA a saída não nomeia a remoção do hook antigo: $SAIDA"; falhas=$((falhas+1)); }
 
 echo "== rodar duas vezes não pode mudar nada =="
 ANTES="$(cat "$TMP/meu.json")"
