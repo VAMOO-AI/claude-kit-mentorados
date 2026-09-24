@@ -29,6 +29,20 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   dispatch. Correção de fundo pedida em vinilana/dotcontext#93. Espelho de
   claude-config-team#213.
 
+### Corrigido
+
+- **O `/kit-vamoo:setup` tira do seu `settings.json` o dispatch que o instalador antigo
+  gravou.** Até a 0.7.0 (24/08) o `install.sh` sobrescrevia o `~/.claude/settings.json`
+  com um que chamava `npx -y @dotcontext/cli@latest hook dispatch` no `SessionStart`
+  (teto de 60 s) e depois de todo `Write`/`Edit`/`Bash`. Desde a 0.7.0 o merge preserva
+  os seus hooks — e preservava esse junto, então quem instalou cedo continuava pagando a
+  leitura do repo inteiro na abertura e um `npx` a cada ação. O `merge-settings.js` agora
+  remove esse comando, casado pelo texto exato que o kit escreveu; os outros hooks,
+  inclusive um dispatch que você mesmo configurou, ficam. **Instalou antes de 24/08? Rode
+  `/kit-vamoo:setup` uma vez** — o auto-update do plugin não roda o setup, e o setup faz
+  backup antes. Por isso o aviso de novidades desta versão manda rodá-lo, e a frase dele
+  passou a citar o `settings.json`, não só o CLAUDE.md e a barra de status.
+
 ## [0.38.1] — 2026-09-24
 
 ### Corrigido

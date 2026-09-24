@@ -13,7 +13,9 @@
 //   • defaultMode é preferência sua: o kit só define se você nunca escolheu, e
 //     avisa (sem mexer) quando o seu é diferente do recomendado;
 //   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
-//     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta.
+//     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta;
+//   • hooks são seus — o único que sai é o dispatch do dotcontext que o
+//     instalador antigo gravou, casado pelo comando exato.
 //
 // Perder um `deny` é abrir buraco de segurança — por isso ele entra na união em
 // vez de ficar de fora, que era o caso até 0.8.0: quem já tinha o kit instalado
@@ -88,5 +90,34 @@ if (meuModo === undefined && kitPerms.defaultMode) {
   console.log(`  pra trocar: /config, ou mude permissions.defaultMode no ~/.claude/settings.json`);
 }
 
+// Até a 0.7.0 (24/08) o install.sh SOBRESCREVIA o settings.json com o da raiz do
+// repo, que chamava o dispatch do dotcontext no SessionStart e depois de todo
+// Write/Edit/Bash. Desde então o merge preserva os seus hooks — e preservava esse
+// junto, que relê o repo inteiro a cada chamada (vinilana/dotcontext#93). Só sai o
+// comando que o kit escreveu: um dispatch que você configurou de outro jeito não
+// casa e fica.
+const DISPATCH_LEGADO = '@dotcontext/cli@latest hook dispatch --source claude-code';
+let legados = 0;
+if (user.hooks && typeof user.hooks === 'object' && !Array.isArray(user.hooks)) {
+  for (const [evento, grupos] of Object.entries(user.hooks)) {
+    if (!Array.isArray(grupos)) continue;
+    let mexeu = false;
+    const restantes = grupos.filter((g) => {
+      if (!g || !Array.isArray(g.hooks)) return true;
+      const antes = g.hooks.length;
+      g.hooks = g.hooks.filter((h) => !(h && typeof h.command === 'string' && h.command.includes(DISPATCH_LEGADO)));
+      if (g.hooks.length === antes) return true;
+      legados += antes - g.hooks.length;
+      mexeu = true;
+      return g.hooks.length > 0;
+    });
+    if (!mexeu) continue;
+    if (restantes.length) user.hooks[evento] = restantes;
+    else delete user.hooks[evento];
+  }
+}
+
 fs.writeFileSync(userPath, JSON.stringify(user, null, 2) + '\n');
-console.log(novas.length ? `  acrescentado: ${novas.join(', ')}` : '  já estava tudo lá — nada mudou');
+if (novas.length) console.log(`  acrescentado: ${novas.join(', ')}`);
+if (legados) console.log(`  removido: hook antigo do dotcontext (${legados}) — o instalador de antes da 0.7.0 tinha gravado no seu settings.json`);
+if (!novas.length && !legados) console.log('  já estava tudo lá — nada mudou');
