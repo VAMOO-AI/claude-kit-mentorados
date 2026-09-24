@@ -40,9 +40,14 @@ branch=$(git -C "$root" branch --show-current 2>/dev/null)
 head=$(git -C "$root" log -1 --format='%h %<(60,trunc)%s' 2>/dev/null | sed 's/ *$//')
 # quotePath=false: acento sai como acento, não como \303\247. Nome com espaço ainda vem
 # entre aspas, que o sed tira; `cut -c4-` e não o último campo, que o partiria ao meio.
+# Rename/cópia vem como `velho -> novo`: fica só o destino. O corte é só nessas linhas e
+# no primeiro separador: origem com espaço vem entre aspas, sem espaço não tem seta, e
+# um arquivo novo pode ter ` -> ` no nome.
 status=$(git -c core.quotePath=false -C "$root" status --porcelain 2>/dev/null)
 mod=$(printf '%s' "$status" | grep -c . 2>/dev/null)
-nomes=$(printf '%s\n' "$status" | sed '/^$/d' | cut -c4- | sed 's/^"\(.*\)"$/\1/' | head -3 | junta)
+nomes=$(printf '%s\n' "$status" | sed '/^$/d' \
+  | sed -E -e 's/^([RC]. )"([^"\\]|\\.)*" -> /\1/' -e 's/^([RC]. )[^" ][^ ]* -> /\1/' \
+  | cut -c4- | sed 's/^"\(.*\)"$/\1/' | head -3 | junta)
 wt=$(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | sed 1d | sed 's|.*/||' | junta)
 # -uall: sem ele, uma pasta de memória toda nova conta como UMA linha, seja qual for o
 # número de arquivos dentro.

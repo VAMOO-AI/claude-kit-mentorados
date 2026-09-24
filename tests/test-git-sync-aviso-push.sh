@@ -124,6 +124,7 @@ mkdir -p "$TMP/bin-contas"
 cat > "$TMP/bin-contas/gh" <<EOF
 #!/usr/bin/env bash
 tok="\${GH_TOKEN:-tok-pessoal}"
+echo "\$*" >> "$TMP/gh-chamadas.log"
 case "\$*" in
   "auth status"*)
     printf '%s\n' "github.com" \\
@@ -145,6 +146,25 @@ OUT_CONTAS="$(rodar_com "$TMP/bin-contas")"
 check  'conta gh: cliente' "usou a conta que enxerga" "$OUT_CONTAS"
 check  'mergeada.*PR #91' "provou o merge pela conta certa" "$OUT_CONTAS"
 refute 'mergeada.*[Ss]em gh' "não cai no 'sem gh'" "$OUT_CONTAS"
+
+echo
+echo "== --no-pr: a mesma prova, com a conta resolvida só quando o aviso precisa =="
+# --no-pr pula a seção de PRs, não a prova do aviso: sem resolver a conta aqui, a
+# consulta ia pela ativa (cega) e o aviso dizia 'sem gh' com a prova a um token.
+OUT_NOPR="$(rodar_com "$TMP/bin-contas" --no-pr)"
+check  'mergeada.*PR #91' "--no-pr: provou o merge pela conta certa" "$OUT_NOPR"
+refute 'mergeada.*[Ss]em gh' "--no-pr: não cai no 'sem gh'" "$OUT_NOPR"
+refute 'PRs abertos' "--no-pr: a seção de PRs continua de fora" "$OUT_NOPR"
+# Nenhuma conta enxerga: nada é exportado, e sem a guarda cada branch que cai no aviso
+# (mergeada e sozinha) refaria o giro pelo keyring inteiro.
+mkdir -p "$TMP/bin-ninguem"
+sed 's/= tok-cliente ]/= ninguem ]/' "$TMP/bin-contas/gh" > "$TMP/bin-ninguem/gh"
+chmod +x "$TMP/bin-ninguem/gh"
+: > "$TMP/gh-chamadas.log"
+OUT_NINGUEM="$(rodar_com "$TMP/bin-ninguem" --no-pr)"
+n_status="$(grep -c '^auth status' "$TMP/gh-chamadas.log" 2>/dev/null || true)"
+check '^1$' "--no-pr: sem conta que enxergue, o keyring é varrido uma vez só (foram ${n_status:-0})" "${n_status:-0}"
+check 'mergeada.*[Ss]em gh' "--no-pr: e aí sim diz que não deu para saber" "$OUT_NINGUEM"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
