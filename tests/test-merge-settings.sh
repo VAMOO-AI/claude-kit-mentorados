@@ -190,12 +190,74 @@ node "$MERGE" "$TMP/kit.json" "$TMP/meu.json" >/dev/null 2>&1
   && echo "  ok    idempotente" \
   || { echo "  FALHA a segunda passada mudou o arquivo"; falhas=$((falhas+1)); }
 
+echo "== o deny do template cobre supabase/vercel por qualquer runner =="
+TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)/plugin/templates/settings.json"
+# Em bypass o deny é o único freio, e ele casa por prefixo: `supabase db push:*` não pega
+# `npx -y supabase@latest db push`, `bunx supabase …` nem `pnpm dlx supabase …` (issue #137).
+# Todo deny de supabase/vercel precisa da forma com curinga em cada runner.
+SEM_RUNNER="$(node -e '
+const d = require(process.argv[1]).permissions.deny
+const rs = ["npx","bunx","bun","pnpx","pnpm","npm","yarn"]
+const falta = []
+for (const e of d) {
+  const m = e.match(/^Bash\((supabase|vercel) (.*):\*\)$/)
+  if (!m) continue
+  for (const r of rs) { const n = `Bash(${r} *${m[1]}* ${m[2]} *)`; if (!d.includes(n)) falta.push(n) }
+}
+console.log(falta.join(" "))' "$TEMPLATE")"
+if [ -z "$SEM_RUNNER" ]; then echo "  ok    todo deny de supabase/vercel cobre os runners (npx, bunx, pnpm…)"
+else echo "  FALHA deny sem a forma por runner: $SEM_RUNNER"; falhas=$((falhas+1)); fi
+
+# O glob do deny é quase o do `case` do bash; a diferença é o ` *` final, que o matcher do
+# Claude Code também aceita sem argumento nenhum — daí testar o padrão com e sem ele. O
+# sufixo é ` *`, não `*`: `link*` pegava `functions deploy link-preview`.
+PADROES="$(node -e 'for (const e of require(process.argv[1]).permissions.deny)
+  if (e.startsWith("Bash(") && !e.endsWith(":*)")) console.log(e.slice(5, -1))' "$TEMPLATE")"
+negado() {
+  local p; while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    case "$1" in $p) return 0 ;; esac
+    case "$p" in *' *') case "$1" in ${p% \*}) return 0 ;; esac ;; esac
+  done <<< "$PADROES"; return 1
+}
+for c in 'npx supabase db push' 'npx -y supabase@latest db push --linked' 'bunx supabase db push' \
+         'pnpm dlx supabase link --project-ref x' 'pnpm exec supabase login' 'yarn dlx vercel@latest login' \
+         'npm exec -- supabase db push' 'bun x supabase login' 'npx vercel login'; do
+  if negado "$c"; then echo "  ok    deny pega: $c"; else echo "  FALHA deny não pega: $c"; falhas=$((falhas+1)); fi
+done
+for c in 'npx supabase db reset' 'npx supabase migration new link_table' 'npx supabase unlink' 'pnpm test' \
+         'npx supabase functions deploy link-preview' 'npx supabase functions deploy login-handler' \
+         'pnpm exec supabase functions deploy link-preview' 'pnpm dlx supabase functions deploy login-handler' \
+         'yarn dlx supabase migration new link_table' 'npm exec supabase functions deploy linkedin-sync'; do
+  if negado "$c"; then echo "  FALHA deny pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    deny deixa: $c"; fi
+done
+
+# `Read(**/.env.*)` bloquearia o .env.example, que é commitado e lido de propósito; os
+# arquivos de ambiente com segredo vão enumerados.
+for e in .env .env.local .env.production .env.development .env.staging; do
+  if node -e 'process.exit(require(process.argv[1]).permissions.deny.includes(process.argv[2]) ? 0 : 1)' \
+       "$TEMPLATE" "Read(**/$e)"; then echo "  ok    deny de leitura: $e"
+  else echo "  FALHA falta deny de leitura: $e"; falhas=$((falhas+1)); fi
+done
+
 echo "== settings.json quebrado não pode ser sobrescrito =="
 echo '{ isso não é json' > "$TMP/ruim.json"
 node "$MERGE" "$TMP/kit.json" "$TMP/ruim.json" >/dev/null 2>&1
 grep -q 'isso não é json' "$TMP/ruim.json" \
   && echo "  ok    arquivo inválido fica intacto" \
   || { echo "  FALHA o arquivo inválido foi sobrescrito"; falhas=$((falhas+1)); }
+printf '{\n  "a": 1,\n}\n' > "$TMP/virgula.json"
+SAIDA_V="$(node "$MERGE" "$TMP/kit.json" "$TMP/virgula.json" 2>&1)"
+printf '%s' "$SAIDA_V" | grep -q 'linha 3, coluna 1' \
+  && echo "  ok    o aviso de JSON inválido diz a linha do erro" \
+  || { echo "  FALHA o aviso não diz onde está o erro: $SAIDA_V"; falhas=$((falhas+1)); }
+
+echo "== settings.json vazio recebe o kit inteiro =="
+: > "$TMP/vazio.json"
+node "$MERGE" "$TMP/kit.json" "$TMP/vazio.json" >/dev/null 2>&1
+node -e 'process.exit(require(process.argv[1]).language === "portuguese" ? 0 : 1)' "$TMP/vazio.json" 2>/dev/null \
+  && echo "  ok    arquivo de 0 bytes vira {} e é mesclado" \
+  || { echo "  FALHA arquivo vazio foi tratado como JSON inválido e ficou sem o kit"; falhas=$((falhas+1)); }
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

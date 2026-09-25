@@ -56,7 +56,7 @@ case "$c_cmd" in *HOTFIX_MAIN=1*) exit 0 ;; esac
 ALVO='git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+commit'
 
 is_commit=0
-if printf '%s\n' "$c_cmd" | grep -qE "(^|;|&&|\|\||\()[[:space:]]*${ALVO}([[:space:]]|$)"; then
+if printf '%s\n' "$c_cmd" | grep -qE "(^|;|&&|\|\||[({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*${ALVO}([[:space:]]|$)"; then
   is_commit=1
 fi
 # Também pega commits embutidos em bash -c / sh -c.
@@ -110,44 +110,62 @@ expand_shell_path() {
   printf '%s' "$p"
 }
 
-tgt="${cwd:-.}"
+# `git -C <path>` e `cd <path>`: aspas duplas, simples ou nu numa regex só. Cada commit em
+# posição de comando é checado com o trecho que vem ATÉ ele — o que vem depois
+# (`cd $M⏎git commit⏎cd $F`) ou um `-C` citado na mensagem não muda onde ele caiu, e o
+# segundo commit de `git -C $F commit; git -C $M commit` não se esconde atrás do primeiro.
+# O trecho termina no `commit`: primeiro o `-C` colado nele, senão um `-C` no mesmo comando,
+# senão o último `cd` em posição de comando. O `-C` de outro comando não é o alvo.
+Q='("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]"'"'"';&|)]+))'
+CORTE="s/((^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*${ALVO})([[:space:]]|;|$).*/\\1/p"
 
-# `git -C <path>`: aspas duplas, aspas simples, nu — nessa ordem.
-p=$(printf '%s' "$c_cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"([^"]+)".*/\1/p' | head -1)
-[ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+'([^']+)'.*/\1/p" | head -1)
-[ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]"'"'"';&|]+).*/\1/p' | head -1)
+checa_alvo() {
+  local ate="$1" p p_cru tgt="${cwd:-.}" alvo_incerto="" b
+  p=$(printf '%s' "$ate" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[[:space:]]+commit$/\\2\\3\\4/p" | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$ate" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[^;&|]*[[:space:]]commit$/\\2\\3\\4/p" | head -1)
+  [ -z "$p" ] && p=$(printf '%s' "$ate" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\\5\\6\\7/p" | head -1)
+  # Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
+  # sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
+  p_cru="$p"
+  [ -n "$p" ] && p=$(expand_shell_path "$p" "$c_cmd")
+  if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
+    tgt="$p"
+  elif [ -n "$p" ]; then
+    # O comando aponta para um repo que o hook não conseguiu resolver — variável vinda de
+    # `$(mktemp -d)`/`$(…)`, path inexistente, expansão que só o shell faz. Cair no cwd
+    # continua certo (falha fechada: um `git -C $VAR commit` com VAR em main não pode
+    # passar), mas a mensagem afirmava "cairia na branch main (repo: <cwd>)" como se
+    # tivesse verificado o alvo do comando — e quem lia ia consertar o repositório errado.
+    alvo_incerto="$p_cru"
+  fi
 
-# `cd <path>` em posição de comando. O path é o grupo 2 — o 1 é o separador.
-if [ -z "$p" ]; then
-  p=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+"([^"]+)".*/\2/p' | head -1)
-  [ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE "s/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+'([^']+)'.*/\2/p" | head -1)
-  [ -z "$p" ] && p=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+([^[:space:]"'"'"';&|]+).*/\2/p' | head -1)
+  b=$(git -C "$tgt" branch --show-current 2>/dev/null)
+  case "$b" in
+    main|master)
+      if [ -n "$alvo_incerto" ]; then
+        echo "BLOQUEADO pelo hook: o comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, ou expansão que só o shell faz), então decidi pelo cwd da sessão — e ele está em '$b' (repo: $tgt). Não verifiquei a branch do alvo real. Se o alvo é outro repo, escreva o caminho literal; se é repo descartável (fixture, tmpdir de teste), prefixe o comando com HOTFIX_MAIN=1." >&2
+      else
+        echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente." >&2
+      fi
+      exit 2
+      ;;
+  esac
+}
+
+flat=$(printf '%s' "$c_cmd" | tr '\n' ';')
+ate=$(printf '%s' "$flat" | sed -nE "$CORTE")
+# Sem commit em posição de comando (só dentro de `bash -c "…"`): a linha inteira decide.
+if [ -z "$ate" ]; then
+  checa_alvo "$flat"
+  exit 0
 fi
-# Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
-# sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
-p_cru="$p"
-[ -n "$p" ] && p=$(expand_shell_path "$p" "$c_cmd")
-alvo_incerto=""
-if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
-  tgt="$p"
-elif [ -n "$p" ]; then
-  # O comando aponta para um repo que o hook não conseguiu resolver — variável vinda de
-  # `$(mktemp -d)`/`$(…)`, path inexistente, expansão que só o shell faz. Cair no cwd
-  # continua certo (falha fechada: um `git -C $VAR commit` com VAR em main não pode
-  # passar), mas a mensagem afirmava "cairia na branch main (repo: <cwd>)" como se tivesse
-  # verificado o alvo do comando — e quem lia ia consertar o repositório errado.
-  alvo_incerto="$p_cru"
-fi
-
-b=$(git -C "$tgt" branch --show-current 2>/dev/null)
-case "$b" in
-  main|master)
-    if [ -n "$alvo_incerto" ]; then
-      echo "BLOQUEADO pelo hook: o comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, ou expansão que só o shell faz), então decidi pelo cwd da sessão — e ele está em '$b' (repo: $tgt). Não verifiquei a branch do alvo real. Se o alvo é outro repo, escreva o caminho literal; se é repo descartável (fixture, tmpdir de teste), prefixe o comando com HOTFIX_MAIN=1." >&2
-    else
-      echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Se foi proposital, rode o comando com HOTFIX_MAIN=1 na frente." >&2
-    fi
-    exit 2
-    ;;
-esac
+i=0
+while [ -n "$ate" ] && [ "$i" -lt 20 ]; do
+  i=$((i+1))
+  checa_alvo "$ate"
+  resto=${flat#"$ate"}
+  prox=$(printf '%s' "$resto" | sed -nE "$CORTE")
+  [ -z "$prox" ] && break
+  ate="$ate$prox"
+done
 exit 0

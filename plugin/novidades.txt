@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.41.0|o bloqueio de publicar no Supabase e na Vercel agora pega também npx, bunx e pnpm, o guarda do clone compartilhado entende pasta com espaço no nome e as skills de memória não abrem PR repetido|setup
 0.40.4|quando a conta ativa do gh não enxerga o repo, o git-sync ensina a usar a outra só no comando (GH_TOKEN=...) em vez de mandar trocar a conta da máquina
 0.40.3|terminou uma tarefa? O Claude e os avisos de sessão longa agora recomendam abrir uma sessão nova no projeto, e não mais o /clear, que apaga o histórico da conversa|setup
 0.40.2|o git-sync --cleanup-apply parou de apagar o worktree de uma sessão que acabou de começar

@@ -53,7 +53,9 @@ flat=$(printf '%s' "$c_cmd" | tr '\n' ';')
 # passar por comando (18/09/2026, bloqueou um `grep -n "git push\|git checkout -b"`). `||` é
 # operador de verdade e continua no anchor — `cmd || git checkout` tem que bloquear.
 # `rtk git checkout` executa o mesmo checkout — o prefixo não pode escapar o guard.
-git_cmd='(^|[;&(]|\|\|)[[:space:]]*(rtk[[:space:]]+)?git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+'
+# O `-C` aceita path entre aspas com espaço: com `[^[:space:]]+` sozinho, `git -C "/x y"
+# checkout` não casava e o hook saía 0 antes de olhar o repo (falha aberta).
+git_cmd='(^|[;&({]|\|\|)[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*(rtk[[:space:]]+)?git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+'
 m=0
 printf '%s' "$flat" | grep -qE "${git_cmd}(checkout|switch)([[:space:]]|$)" && m=1
 printf '%s' "$flat" | grep -qE "${git_cmd}reset[[:space:]]+--hard" && m=1
@@ -63,7 +65,7 @@ if [ "$m" = 0 ] && printf '%s' "$flat" | grep -qE "${git_cmd}stash([[:space:]]|$
 fi
 [ "$m" = 0 ] && exit 0
 
-# Resolve o repo-alvo: git -C <path> > primeiro cd <path> > workdir da tool > cwd da sessão.
+# Resolve o repo-alvo: git -C <path> > último cd <path> > workdir da tool > cwd da sessão.
 # Path pode vir entre aspas (`git -C "$W"`, `cd "/x y"`); capturado com elas o git não
 # resolve, a checagem falha ABERTA e o checkout perigoso passa — por isso o strip.
 # O shell expande `~` e `$VAR` antes de o git ver o path; o hook lê a string CRUA. Sem
@@ -92,13 +94,16 @@ expand_shell_path() {
 }
 
 tgt="${cwd:-.}"
-p=$(printf '%s' "$c_cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+([^[:space:]]+).*/\1/p' | head -1 | tr -d '"'"'"'')
-if [ -n "$p" ]; then
-  tgt=$(expand_shell_path "$p" "$c_cmd")
-else
-  cdp=$(printf '%s' "$c_cmd" | sed -nE "s/.*cd[[:space:]]+[\"']?([^[:space:]'\";&|]+).*/\1/p" | head -1)
-  [ -n "$cdp" ] && tgt=$(expand_shell_path "$cdp" "$c_cmd")
-fi
+# Path do `git -C`/`cd`: aspas duplas, simples ou nu, numa regex só — o `.*` guloso
+# pega a ÚLTIMA ocorrência. Três buscas em sequência (uma por tipo de aspa) deixavam
+# um `-C "$WT"` de outro comando vencer o `-C ~/clone` do checkout e o hook liberava.
+# Preferência: o `-C` colado no verbo perigoso; senão o último `-C`; senão o último `cd`.
+Q='("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]"'"'"';&|)]+))'
+p=$(printf '%s' "$flat" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[[:space:]]+(checkout|switch|reset|stash).*/\2\3\4/p" | head -1)
+[ -z "$p" ] && p=$(printf '%s' "$flat" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}.*/\2\3\4/p" | head -1)
+# `cd` só depois de separador, `{` ou palavra-chave (if/then/do...) — sem âncora, o `cd` de `abcd` casava.
+[ -z "$p" ] && p=$(printf '%s' "$flat" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\5\6\7/p" | head -1)
+[ -n "$p" ] && tgt=$(expand_shell_path "$p" "$c_cmd")
 
 root=$(git -C "$tgt" rev-parse --show-toplevel 2>/dev/null)
 [ -z "$root" ] && exit 0

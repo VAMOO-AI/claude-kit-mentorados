@@ -101,6 +101,18 @@ git add .context/memoria && git commit -m "docs(memoria): o que aprendi nesta se
 Se você trabalha com branch e PR, isso entra no PR como qualquer mudança. Não
 deixe pra depois: sincronizar o repo antes de commitar é como se perde memória.
 
+Antes de abrir um PR **só de memória**, veja se já existe um aberto mexendo na
+mesma pasta:
+
+```bash
+gh pr list --state open --json number,headRefName,url,files \
+  --jq '.[] | select(any(.files[]?; .path | startswith(".context/memoria/"))) | "#\(.number) \(.headRefName) \(.url)"'
+```
+
+Saiu alguma linha: não abra outro. Commite na branch desse PR (ou espere o merge
+e publique depois) — dois PRs com a mesma memória conflitam entre si, e quem
+mergeia o segundo resolve conflito em arquivo que ninguém lembra de ter escrito.
+
 ## 5. Índice em dois níveis (quando o `MEMORY.md` passa de 8 KB)
 
 O `MEMORY.md` entra no contexto de **toda** request. Sem teto ele cresce com o
@@ -140,3 +152,4 @@ arquivo de memória antes de aplicar, senão perde o conteúdo.
 | Sessão em worktree "não conseguiu" registrar | O worktree tem diretório de projeto próprio, e o link do clone não serve: gravar no `.context/memoria` do clone é gravar fora da árvore da branch, e o Claude recusa. O hook `memoria-worktree-link.sh` liga na hora; sem ele, escreva em `.context/memoria/` do próprio worktree e **commite junto com o código** |
 | `--adotar` recusou e o projeto é meu mesmo | O gate não pergunta de quem é o repo. Limpar o arquivo é mais barato que trocar credencial depois |
 | Memória sumiu depois de dar `git pull` | Não estava commitada. Commite antes de sincronizar — sempre |
+| Dois ou três PRs abertos com a mesma memória | Cada sessão publicou sem olhar se já havia PR de memória aberto. Confira com o `gh pr list` da §4 antes de abrir outro |

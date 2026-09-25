@@ -13,6 +13,41 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.41.0] — 2026-09-25
+
+### Corrigido
+
+- **`block-parallel-clone-switch` falhava aberto com path que tem espaço.** O `git -C`
+  só aceitava path sem espaço, então `git -C "/x/repo esp - novo" checkout main` nem era
+  reconhecido como checkout; o `cd "/x y"` vinha truncado em `/x`. Agora o `-C` e o `cd`
+  aceitam aspas duplas, simples ou path nu numa regex só, o `cd` exige separador ou
+  palavra-chave antes (`{ cd …`, `then cd …`, `if cd …`; o `cd` de `abcd` não conta mais) e
+  o `-C` colado no verbo perigoso vence o `-C` de outro comando. 6 casos novos no
+  `tests/test-block-parallel-clone-switch.sh`, que falham no hook anterior. Fecha #136.
+- **O deny de `supabase db push`/`link`/`login` e `vercel login` não pegava runner.** O
+  matcher casa por prefixo: `npx -y supabase@latest db push`, `bunx supabase …`,
+  `pnpm dlx supabase …` e `yarn dlx vercel login` passavam. O template ganhou a forma
+  `Bash(<runner> *supabase* db push *)` para npx, bunx, bun, pnpx, pnpm, npm e yarn. O
+  sufixo é ` *` com espaço: `link*` pegaria `functions deploy link-preview`. Fecha #137.
+- **Deny de leitura de `.env.production`, `.env.development` e `.env.staging`.** Vão
+  enumerados: `Read(**/.env.*)` bloquearia o `.env.example`.
+- **`block-main-commit` decidia pelo `cd`/`-C` errado.** `git -C "$FEAT" status; git -C
+  $MAIN commit` e `cd $MAIN && git commit && cd $FEAT` passavam; `{ cd …; }`, `if cd …;
+  then` e `if git commit` escapavam. Agora cada `git commit` em posição de comando é checado
+  com o trecho até ele: o alvo é o `-C` desse commit ou o último `cd` antes dele.
+- **`block-delete-branch-with-children` achava o seletor só logo depois de `merge`.**
+  `gh pr merge --squash 42 --delete-branch` passava, o `-R` de `cp -R` virava repo e o
+  `sed` da lista de filhos era GNU (no macOS saía sem `#`). O hook agora lê o comando por
+  segmento (aspas, `\` de continuação, heredoc), pega `-R`/`--repo` só dentro do `gh` e
+  aceita o seletor em qualquer posição, inclusive URL.
+- **`settings.json` vazio travava o setup** como "JSON inválido" e ficava sem o kit. Agora
+  vira `{}` e é mesclado; o aviso de JSON inválido de verdade diz linha e coluna.
+- **`memoria-projeto` e `handoff` abriam PR de memória duplicado.** As duas skills conferem
+  com `gh pr list` se já há PR aberto mexendo em `.context/memoria/` antes de publicar.
+  Fecha #138.
+
+Espelho de claude-config-team 0.51.1 (#227) e 0.52.0 (#228).
+
 ## [0.40.4] — 2026-09-24
 
 ### Corrigido

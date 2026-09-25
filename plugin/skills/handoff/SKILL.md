@@ -96,6 +96,17 @@ pode ficar só no handoff — handoff é de uma frente, memória é do projeto. 
 raiz de incidente recorrente, decisão do cliente que parece bug, armadilha que
 custou horas: isso vira arquivo na memória, com link para o handoff.
 
+Na hora de publicar, confira antes se já há PR aberto com memória — publicar em
+paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos:
+
+```bash
+gh pr list --state open --json number,headRefName,url,files \
+  --jq '.[] | select(any(.files[]?; .path | startswith(".context/memoria/"))) | "#\(.number) \(.headRefName) \(.url)"'
+```
+
+Saiu linha: commite na branch desse PR em vez de abrir outro, e cite o PR no
+handoff (quem assume precisa saber que tem memória esperando merge).
+
 Sem `.context/memoria/` no projeto, diga no handoff onde a memória mora (ou que
 não existe) — a próxima sessão precisa saber se pode confiar em algo além do
 documento.
@@ -212,3 +223,4 @@ Ex.: `baseline` (auditar antes de mexer) · `ship` (deploy) ·
 | Segredo vazou junto | Redação não foi feita. É item de checklist, não de bom senso |
 | Fato descoberto com esforço se perdeu depois do handoff | Ficou só no documento da frente. Handoff é de uma frente; memória é do projeto — o durável tem que sair dos dois lados |
 | Memória ficou só na máquina de quem saiu | O agente escreve sozinho, mas publicar é passo de gente. Se não sai no handoff, não sai nunca |
+| Dois PRs abertos com a mesma memória | O handoff publicou sem olhar o PR de memória que outra sessão já tinha aberto. O `gh pr list` antes de publicar evita |
