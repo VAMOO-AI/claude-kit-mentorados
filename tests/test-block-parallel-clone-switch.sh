@@ -44,6 +44,14 @@ H_H=$(printf '%s' "$(git -C "$CLONE_H" rev-parse --show-toplevel)" | shasum | aw
 mkdir -p "$COM_SESSAO/.claude/.cache/repo-sessions/$H_H"
 touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_H/outra-sessao"
 
+# Path com espaço no nome do repo (issue #136).
+CLONE_ESP="$TMP/repo esp - novo"; mkdir -p "$CLONE_ESP"
+git -C "$CLONE_ESP" init -q
+git -C "$CLONE_ESP" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+H_E=$(printf '%s' "$(git -C "$CLONE_ESP" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+mkdir -p "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E"
+touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E/outra-sessao"
+
 payload() { # <comando> <cwd> [sid]
   CMD="$1" CWD="$2" SID="${3:-sessao-teste}" node -e \
     'process.stdout.write(JSON.stringify({session_id:process.env.SID,cwd:process.env.CWD,tool_input:{command:process.env.CMD}}))'
@@ -83,6 +91,21 @@ check block "cd com aspas antes do checkout"          "cd \"$CLONE\" && git chec
 check block "git -C com ~"                            'git -C ~/repo-no-home checkout x' "$FORA"
 check block "cd com ~ antes do checkout"              'cd ~/repo-no-home && git checkout x' "$FORA"
 check block "git -C \$VAR do próprio comando"         "W=$CLONE; git -C \$W checkout x" "$FORA"
+# Path com espaço (issue #136). O regex de detecção parava no espaço e o
+# hook saía 0 antes de olhar o repo; o `cd` casava, mas o path vinha truncado em `/x`.
+check block "git -C com espaço no path, aspas duplas" "git -C \"$CLONE_ESP\" checkout main" "$FORA"
+check block "git -C com espaço no path, aspas simples" "git -C '$CLONE_ESP' checkout main" "$FORA"
+check block "cd com espaço no path"                   "cd \"$CLONE_ESP\" && git checkout main" "$FORA"
+# A primeira versão do fix acima (no claude-config-team) abriu cinco buracos. A âncora do
+# `cd` não conhecia `{`/then/do, e buscar o `-C` por tipo de aspa deixava o `-C "…"` de
+# OUTRO comando vencer o `-C` nu do checkout.
+check block "{ cd clone; git checkout; }"             "{ cd $CLONE; git checkout main; }" "$FORA"
+check block "for … do cd clone; git checkout"         "for d in x; do cd $CLONE; git checkout main; done" "$FORA"
+check block "then cd clone; git checkout"             "if true; then cd $CLONE; git checkout main; fi" "$FORA"
+check block "if cd clone; then git checkout"          "if cd $CLONE; then git checkout main; fi" "$FORA"
+check block "if git checkout (verbo logo após if)"    'if git checkout main; then :; fi' "$CLONE"
+check block "-C com aspas em outro comando não rouba o alvo" \
+  "git -C \"$CLONE/.wt\" status; git -C $CLONE checkout main" "$FORA"
 # Heredoc: o corpo some do match, mas o que vem DEPOIS do terminador é comando. Tag não
 # reconhecida engole o resto — e aqui a falha é ABERTA: o checkout real some junto.
 NL=$'\n'; TAB=$'\t'
@@ -120,6 +143,9 @@ check pass "padrão de grep com \\| é argumento, não comando (18/09)" \
 check pass "alternação ERE com pipe simples dentro de aspas" \
   'grep -E "git switch|git checkout main" doc.md'                                     "$CLONE"
 check pass "comando sem git nem checkout"             'ls -la src/'                  "$CLONE"
+check pass "checkout num worktree via -C, clone citado em outro -C" \
+  "git -C \"$CLONE\" status; git -C $CLONE/.wt checkout main"                          "$FORA"
+check pass "'cd' dentro de outra palavra não é cd"    "echo abcd $CLONE; git checkout main" "$FORA"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

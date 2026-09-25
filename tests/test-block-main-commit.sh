@@ -51,6 +51,7 @@ check() { # check <esperado> <descrição> <comando> [cwd]
   else printf '  FALHA %s (esperado %s, veio %s)\n' "$2" "$1" "$got"; falhas=$((falhas+1)); fi
 }
 
+NL=$'\n'; TAB=$'\t'
 echo "== tem que bloquear (é pra isso que ele existe) =="
 check bloqueia "commit direto com a sessão em main"        'git commit -q -m x'
 check bloqueia "cd pra repo em main"                       "cd $MAIN && git commit -m x"
@@ -60,6 +61,26 @@ check bloqueia "git -C com aspas apontando pra main"       "git -C \"$MAIN\" com
 check bloqueia "commit embutido em bash -c"                "bash -c 'git commit -m x'"
 check bloqueia "git -C com aspas E espaço apontando pra main" \
                                                            "git -C \"$IRMAO_MAIN\" commit -m x" "$FEAT"
+# 25/09: com o `-C` de OUTRO comando na linha, o path saía do primeiro que casasse por
+# tipo de aspa — `-C "$FEAT" status` vencia o `-C $MAIN commit` e o commit passava.
+check bloqueia "-C com aspas de outro comando não mascara o -C do commit" \
+                                                           "git -C \"$FEAT\" status; git -C $MAIN commit -m x" "$FEAT"
+check bloqueia "cd dentro de { …; }"                       "{ cd $MAIN; git commit -m x; }" "$FEAT"
+check bloqueia "cd como condição de if"                    "if cd $MAIN; then git commit -m x; fi" "$FEAT"
+check bloqueia "cd dentro de for … do"                     "for d in x; do cd $MAIN; git commit -m x; done" "$FEAT"
+check bloqueia "commit como condição de if"                'if git commit -m x; then :; fi'
+# O alvo é o que vem ATÉ o commit: o que vem depois não muda onde ele caiu.
+check bloqueia "cd depois do commit, em outra linha"      "cd $MAIN${NL}git commit -m x${NL}cd $FEAT" "$FEAT"
+check bloqueia "cd depois do commit, na mesma linha"      "cd $MAIN && git commit -m x && cd $FEAT" "$FEAT"
+check bloqueia "cd - depois do commit"                     "cd $MAIN && git commit -m x && cd -" "$FEAT"
+check bloqueia "git -C depois do commit"                   "cd $MAIN && git commit -m x && git -C $FEAT log -1" "$FEAT"
+check bloqueia "-C de outro comando antes não é o alvo"    "git -C $FEAT add . && git commit -m x"
+check bloqueia "-C citado na mensagem não é o alvo"        "git commit -m \"see git -C $FEAT commit\""
+check bloqueia "cd citado na mensagem não é o alvo"        "cd $MAIN; git commit -m \"x; cd $FEAT\"" "$FEAT"
+# Cada commit da linha é checado, não só o primeiro.
+check bloqueia "segundo commit com -C em main"             "git -C $FEAT commit -m x; git -C $MAIN commit -m y" "$FEAT"
+check bloqueia "segundo commit depois de cd pra main"       "cd $FEAT && git commit -m x; cd $MAIN && git commit -m y" "$FEAT"
+check bloqueia "-C de um commit anterior não vale pro seguinte" "git -C $FEAT commit -m x; git commit -m y"
 check bloqueia "path inexistente não vira passe livre"     "cd /nao/existe/aqui && git commit -m x"
 check bloqueia "cd com ~ pra repo em main"                 "cd $TIL_MAIN && git commit -m x" "$FEAT"
 # Falha ABERTA que motivou o fix: o path era a string literal `$WT`, o git não resolvia,
@@ -71,7 +92,6 @@ check bloqueia "cd \$VAR do próprio comando apontando pra main" \
 # Heredoc (03/09): o corpo some do match, mas o que vem DEPOIS do terminador é comando.
 # Tag não reconhecida engole o resto do comando e o commit em main passa — cada forma
 # de fechar (tab do `<<-`, `EOF)"` do `$(cat <<EOF`, tag com hífen) precisa ser vista.
-NL=$'\n'; TAB=$'\t'
 check bloqueia "commit depois de um heredoc fechado"        "cat > s.sh <<'EOF'${NL}echo oi${NL}EOF${NL}git commit -m x"
 check bloqueia "<<- fecha com o terminador indentado por tab" \
                                                            "cat > s.sh <<-EOF${NL}${TAB}echo oi${NL}${TAB}EOF${NL}git commit -m x"
@@ -91,6 +111,9 @@ check bloqueia "HOTFIX_MAIN=1 citado no heredoc não é a escotilha" \
 echo
 echo "== não pode bloquear =="
 check passa "cd pra worktree em feature branch"            "cd $FEAT && git commit -m x"
+check passa "cd de volta pra main depois do commit"        "cd $FEAT && git commit -m x && cd $MAIN"
+check passa "dois commits em feature"                     "cd $FEAT && git commit -m x && git commit --amend --no-edit"
+check passa "commits nos dois worktrees de feature"      "git -C $FEAT commit -m x; git -C $FEAT commit -m y"
 check passa "cd COM ASPAS pra feature branch (o falso positivo de 30/08)" \
                                                            "cd \"$FEAT\" && git commit -m x"
 check passa "path com espaço só funciona com aspas"        "cd \"$COM_ESPACO\" && git commit -m x"
@@ -99,6 +122,8 @@ check passa "worktree cujo prefixo truncado é um repo em main (31/08)" \
 check passa "o mesmo com aspas simples"                    "cd '$IRMAO_WT' && git commit -m x" "$IRMAO_MAIN"
 check passa "git -C para esse mesmo worktree"              "git -C \"$IRMAO_WT\" commit -m x" "$IRMAO_MAIN"
 check passa "git -C pra feature branch"                    "git -C $FEAT commit -m x"
+check passa "-C com aspas de outro comando não rouba o -C do commit" \
+                                                           "git -C \"$MAIN\" status; git -C $FEAT commit -m x"
 # Falsos positivos de 01/09: `~` não expande dentro das aspas do hook, e variável
 # atribuída no próprio comando chegava crua — os dois caíam no cwd da sessão (main).
 check passa "cd com ~ pra worktree em feature branch"      "cd $TIL_FEAT && git commit -m x"
