@@ -105,13 +105,18 @@ Antes de abrir um PR **só de memória**, veja se já existe um aberto mexendo n
 mesma pasta:
 
 ```bash
-gh pr list --state open --json number,headRefName,url,files \
-  --jq '.[] | select(any(.files[]?; .path | startswith(".context/memoria/"))) | "#\(.number) \(.headRefName) \(.url)"'
+gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[]
+  | select(any(.files[]?; .path | startswith(".context/memoria/")))
+  | (if all(.files[]?; .path | startswith(".context/memoria/")) then "memoria" else "misto" end) as $t
+  | "#\(.number) \($t) \(.headRefName) \(.url)"'
 ```
 
-Saiu alguma linha: não abra outro. Commite na branch desse PR (ou espere o merge
-e publique depois) — dois PRs com a mesma memória conflitam entre si, e quem
-mergeia o segundo resolve conflito em arquivo que ninguém lembra de ter escrito.
+Linha `memoria` (PR só de memória): não abra outro. Commite na branch desse PR (ou
+espere o merge e publique depois) — dois PRs com a mesma memória conflitam entre
+si, e quem mergeia o segundo resolve conflito em arquivo que ninguém lembra de ter
+escrito. Linha `misto` é PR de feature que levou memória junto: **não commite
+nele** (a branch é de outra frente, talvez de outra pessoa); publique a sua e, se
+mexer nos mesmos arquivos, cite o PR na descrição.
 
 ## 5. Índice em dois níveis (quando o `MEMORY.md` passa de 8 KB)
 

@@ -100,12 +100,16 @@ Na hora de publicar, confira antes se já há PR aberto com memória — publica
 paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos:
 
 ```bash
-gh pr list --state open --json number,headRefName,url,files \
-  --jq '.[] | select(any(.files[]?; .path | startswith(".context/memoria/"))) | "#\(.number) \(.headRefName) \(.url)"'
+gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[]
+  | select(any(.files[]?; .path | startswith(".context/memoria/")))
+  | (if all(.files[]?; .path | startswith(".context/memoria/")) then "memoria" else "misto" end) as $t
+  | "#\(.number) \($t) \(.headRefName) \(.url)"'
 ```
 
-Saiu linha: commite na branch desse PR em vez de abrir outro, e cite o PR no
-handoff (quem assume precisa saber que tem memória esperando merge).
+Linha `memoria` (PR só de memória): commite na branch desse PR em vez de abrir
+outro, e cite o PR no handoff — quem assume precisa saber que tem memória
+esperando merge. Linha `misto` é PR de feature que levou memória junto: não
+commite nele; só cite no handoff.
 
 Sem `.context/memoria/` no projeto, diga no handoff onde a memória mora (ou que
 não existe) — a próxima sessão precisa saber se pode confiar em algo além do

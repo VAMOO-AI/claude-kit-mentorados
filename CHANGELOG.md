@@ -43,10 +43,11 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - **`settings.json` vazio travava o setup** como "JSON inválido" e ficava sem o kit. Agora
   vira `{}` e é mesclado; o aviso de JSON inválido de verdade diz linha e coluna.
 - **`memoria-projeto` e `handoff` abriam PR de memória duplicado.** As duas skills conferem
-  com `gh pr list` se já há PR aberto mexendo em `.context/memoria/` antes de publicar.
+  com `gh pr list` se já há PR aberto mexendo em `.context/memoria/` antes de publicar:
+  PR só de memória recebe o commit; PR de feature que levou memória junto só é citado.
   Fecha #138.
 
-Espelho de claude-config-team 0.51.1 (#227) e 0.52.0 (#228).
+Espelho de claude-config-team 0.51.0 (#226), 0.51.1 (#227) e 0.52.0 (#228).
 
 ## [0.40.4] — 2026-09-24
 

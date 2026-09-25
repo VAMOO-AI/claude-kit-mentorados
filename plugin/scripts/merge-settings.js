@@ -45,7 +45,8 @@ if (fs.existsSync(userPath)) {
     } catch (e) {
       // Node < 22 só diz a posição; linha e coluna saem dela.
       const pos = /position (\d+)/.exec(e.message);
-      let onde = e.message;
+      // Sem posição (ex.: BOM no início), a mensagem do V8 cita o conteúdo do arquivo — corta.
+      let onde = e.message.replace(/,\s*".*" is not valid JSON$/s, '');
       if (pos) {
         const antes = bruto.slice(0, Number(pos[1])).split('\n');
         onde = `linha ${antes.length}, coluna ${antes[antes.length - 1].length + 1}`;

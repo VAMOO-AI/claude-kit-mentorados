@@ -2,7 +2,7 @@
 # PreToolUse(Bash): bloqueia `git commit` que cairia em main/master.
 # Mais robusto que a checagem por substring:
 #   1) NÃO bloqueia quando "git commit" aparece dentro de string (grep/echo).
-#   2) Checa a branch do REPO-ALVO real (git -C <path> ou primeiro `cd <path>`), não só o cwd.
+#   2) Checa a branch do REPO-ALVO real (o `-C` do commit ou o último `cd <path>` antes dele), não só o cwd.
 #   3) Ignora o corpo de heredoc: `cat > x.sh <<'EOF' … git commit … EOF` é conteúdo.
 # Override: prefixe o comando com HOTFIX_MAIN=1 (commit em main proposital).
 # Lê o JSON do hook via node (sem depender de jq). Falha-aberta: erro => exit 0.
@@ -67,7 +67,7 @@ if [ "$is_commit" = 0 ] \
 fi
 [ "$is_commit" = 0 ] && exit 0
 
-# Resolve o repo-alvo: git -C <path>  >  primeiro cd <path>  >  cwd da sessão.
+# Resolve o repo-alvo: git -C <path>  >  último cd <path> antes do commit  >  cwd da sessão.
 # As aspas quebravam OS DOIS caminhos, e em direções opostas: no `cd "x"` o hook caía
 # no cwd da sessão e bloqueava commit legítimo; no `git -C "x"` ele capturava o path
 # COM as aspas, o git não resolvia, a branch saía vazia e o commit em main PASSAVA.
