@@ -127,6 +127,25 @@ check block "|| antes do git ainda bloqueia" \
   'false || git checkout main'                                                        "$CLONE"
 check block "prefixo rtk não escapa o guard"          'rtk git checkout main'        "$CLONE"
 
+# Issue #229 (team) / #140 (kit): o alvo era UM só por comando — o último `cd` da linha
+# inteira, inclusive o que vem DEPOIS do verbo — e alvo que não resolvia virava `exit 0`.
+check block "cd clone; checkout; cd - depois não muda o alvo" \
+  "cd $CLONE && git checkout main && cd -"                                            "$FORA"
+check block "cd clone; checkout; cd worktree depois não muda o alvo" \
+  "cd $CLONE && git checkout main && cd $CLONE/.wt"                                   "$FORA"
+check block "cd .. depois do checkout não tira o clone do alvo" \
+  'git checkout main && cd ..'                                                        "$CLONE"
+check block "segundo checkout não se esconde atrás do -C do primeiro" \
+  "git -C $CLONE/.wt checkout x; git checkout main"                                   "$CLONE"
+check block "cd dentro de subshell já fechado não muda o alvo" \
+  "(cd $CLONE/.wt && git log); git checkout main"                                     "$CLONE"
+check block "-C que não resolve cai no cwd, não libera" \
+  'git -C /nao/existe checkout main'                                                  "$CLONE"
+check block "\$VAR sem atribuição no cd cai no cwd, não libera" \
+  'cd $NAO_ATRIBUIDA && git checkout main'                                            "$CLONE"
+
+check block "D=\$(mktemp -d) com cwd no clone: alvo incerto cai no clone" \
+  'D=$(mktemp -d); git -C $D checkout -b x'                                           "$CLONE"
 echo
 echo "== tem que deixar passar =="
 check pass "stash list é read-only"                   'git stash list'               "$CLONE"
@@ -147,5 +166,13 @@ check pass "checkout num worktree via -C, clone citado em outro -C" \
   "git -C \"$CLONE\" status; git -C $CLONE/.wt checkout main"                          "$FORA"
 check pass "'cd' dentro de outra palavra não é cd"    "echo abcd $CLONE; git checkout main" "$FORA"
 
+check pass "cd worktree antes, cd clone depois: checkout caiu no worktree" \
+  "cd $CLONE/.wt && git checkout main && cd $CLONE"                                   "$FORA"
+check pass "cd relativo para o worktree" \
+  'cd .wt && git checkout main'                                                       "$CLONE"
+check pass "D=\$(mktemp -d) não vira path inventado; cwd fora de repo" \
+  'D=$(mktemp -d); git -C $D init -q; git -C $D checkout -b x'                        "$FORA"
+check pass "reset sem --hard no clone não mexe no working tree" \
+  'git reset HEAD~1; git stash list'                                                  "$CLONE"
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

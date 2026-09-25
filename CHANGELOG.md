@@ -13,6 +13,22 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.41.1] — 2026-09-25
+
+### Corrigido
+
+- **`block-parallel-clone-switch` resolvia um alvo só para a linha inteira.** O último `cd`
+  do comando valia mesmo vindo DEPOIS do verbo, então `cd $CLONE && git checkout main && cd -`
+  e `git checkout main && cd ..` passavam no clone com outra sessão ativa; o segundo checkout
+  de `git -C $WT checkout x; git checkout main` se escondia atrás do `-C` do primeiro; um `cd`
+  dentro de `( … )` já fechado contava; e alvo que não resolvia (`cd -`, `$VAR` sem
+  atribuição, path inexistente) virava `exit 0`. Agora é o laço do `block-main-commit`: cada
+  checkout/switch/stash/reset em posição de comando é checado com o trecho até ele, e alvo
+  irresolvível volta para o cwd — e a mensagem de bloqueio avisa que o alvo não foi
+  conferido, em vez de acusar o clone como se fosse ele (`D=$(mktemp -d)` não vira mais
+  path inventado). Saída consciente continua sendo `PARALLEL_OK=1`. 8 casos de bloqueio e 4 de passagem novos no
+  `tests/test-block-parallel-clone-switch.sh`; os 8 que mudaram falham no hook anterior. Fecha #140.
+
 ## [0.41.0] — 2026-09-25
 
 ### Corrigido
