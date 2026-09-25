@@ -122,6 +122,7 @@ pronto: a mesma família de relatório que mente.
 | Deny de supabase/vercel por runner + `.env` de ambiente + checks `sem_runner`/`negado` no `tests/test-merge-settings.sh` | 0.41.0 (25/09) — time em 0.52.0 (#228) | lá o check lê o `settings.json` com jq; aqui o node lê o `plugin/templates/settings.json`, numa seção própria do teste |
 | `block-main-commit` (laço por commit) e `block-delete-branch-with-children` (tokenizador por segmento) | 0.41.0 (25/09) — time em 0.52.0 (#228) | corpo igual ao de lá; muda o cabeçalho (node + `hookjson.js`) e a mensagem, genérica, sem o fluxo do time |
 | `-C`/`cd` com aspas e âncora no `block-parallel-clone-switch` | 0.41.0 (25/09) — time em 0.51.0 (#226) | mesma regex; aqui o comentário diz "último cd", que é o que o `.*` guloso faz |
+| Laço por verbo no `block-parallel-clone-switch` (alvo por checkout, alvo irresolvível cai no cwd) | 0.41.1 (25/09) — time em 0.53.1 (#231) | corpo igual ao de lá; muda o cabeçalho (node + `hookjson.js`) e a mensagem |
 | Aviso de JSON inválido com linha e coluna (`merge-settings.js`) | 0.41.0 (25/09) — time em 0.52.0 (#228) | lá é o overlay por pessoa; aqui, que não tem overlay, é o `settings.json` da pessoa. Linha e coluna saem da posição, porque Node < 22 não as dá |
 | PR de memória duplicado (`memoria-projeto` §4 e `handoff`) | 0.41.0 (25/09) — time em 0.51.1 (#227) | lá a trava mora no `publicar-memoria.sh`; aqui, que não tem o script, é o `gh pr list` escrito nas duas skills |
 

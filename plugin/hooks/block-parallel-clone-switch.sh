@@ -56,16 +56,8 @@ flat=$(printf '%s' "$c_cmd" | tr '\n' ';')
 # O `-C` aceita path entre aspas com espaço: com `[^[:space:]]+` sozinho, `git -C "/x y"
 # checkout` não casava e o hook saía 0 antes de olhar o repo (falha aberta).
 git_cmd='(^|[;&({]|\|\|)[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*(rtk[[:space:]]+)?git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+'
-m=0
-printf '%s' "$flat" | grep -qE "${git_cmd}(checkout|switch)([[:space:]]|$)" && m=1
-printf '%s' "$flat" | grep -qE "${git_cmd}reset[[:space:]]+--hard" && m=1
-if [ "$m" = 0 ] && printf '%s' "$flat" | grep -qE "${git_cmd}stash([[:space:]]|$)"; then
-  # stash list/show são read-only; o resto mexe no working tree compartilhado
-  printf '%s' "$flat" | grep -qE "${git_cmd}stash[[:space:]]+(list|show)" || m=1
-fi
-[ "$m" = 0 ] && exit 0
-
-# Resolve o repo-alvo: git -C <path> > último cd <path> > workdir da tool > cwd da sessão.
+# Resolve o repo-alvo de CADA verbo: git -C <path> > último cd <path> antes dele > workdir
+# da tool > cwd da sessão.
 # Path pode vir entre aspas (`git -C "$W"`, `cd "/x y"`); capturado com elas o git não
 # resolve, a checagem falha ABERTA e o checkout perigoso passa — por isso o strip.
 # O shell expande `~` e `$VAR` antes de o git ver o path; o hook lê a string CRUA. Sem
@@ -83,6 +75,9 @@ expand_shell_path() {
     [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}='([^']*)'.*/\2/p" | head -1)
     [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=([^[:space:];&|\"']+).*/\2/p" | head -1)
     [ -z "$val" ] && break
+    # `D=$(mktemp -d)` ou `D=`pwd``: o valor só existe depois de o shell EXECUTAR aquilo.
+    # Expandir o pedaço de texto (`$(mktemp`) fabricaria um path que ninguém pediu.
+    case "$val" in *'$('*|*'`'*) break ;; esac
     p=${p//\$\{$name\}/$val}
     p=${p//\$$name/$val}
   done
@@ -93,31 +88,86 @@ expand_shell_path() {
   printf '%s' "$p"
 }
 
-tgt="${cwd:-.}"
-# Path do `git -C`/`cd`: aspas duplas, simples ou nu, numa regex só — o `.*` guloso
-# pega a ÚLTIMA ocorrência. Três buscas em sequência (uma por tipo de aspa) deixavam
-# um `-C "$WT"` de outro comando vencer o `-C ~/clone` do checkout e o hook liberava.
-# Preferência: o `-C` colado no verbo perigoso; senão o último `-C`; senão o último `cd`.
+# Cada checkout/switch/stash/reset em posição de comando é checado com o trecho que vem ATÉ
+# ele — o mesmo laço do block-main-commit. Resolver um alvo só para a linha inteira deixava
+# três furos (issue claude-config-team#229): o `cd -`/`cd ..` que vem DEPOIS do checkout
+# virava o alvo; o segundo checkout de `git -C $WT checkout x; git checkout main` se escondia
+# atrás do `-C` do primeiro; e um `cd` dentro de `( … )` já fechado contava, embora não saia
+# do subshell. Alvo: o `-C` colado no verbo; senão o último `cd` antes dele; senão o cwd.
+# Alvo que não resolve como repo (`cd -`, `$HOME/x` sem atribuição, path inexistente) volta
+# para o cwd — sair 0 ali deixava o checkout no clone passar.
 Q='("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]"'"'"';&|)]+))'
-p=$(printf '%s' "$flat" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[[:space:]]+(checkout|switch|reset|stash).*/\2\3\4/p" | head -1)
-[ -z "$p" ] && p=$(printf '%s' "$flat" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}.*/\2\3\4/p" | head -1)
-# `cd` só depois de separador, `{` ou palavra-chave (if/then/do...) — sem âncora, o `cd` de `abcd` casava.
-[ -z "$p" ] && p=$(printf '%s' "$flat" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\5\6\7/p" | head -1)
-[ -n "$p" ] && tgt=$(expand_shell_path "$p" "$c_cmd")
+VERBO='(checkout|switch|reset|stash)'
+CORTE="s/(${git_cmd}${VERBO})([[:space:]]|[;&|)]|$).*/\\1/p"
 
-root=$(git -C "$tgt" rev-parse --show-toplevel 2>/dev/null)
-[ -z "$root" ] && exit 0
-gd=$(git -C "$tgt" rev-parse --path-format=absolute --git-dir 2>/dev/null)
-gcd=$(git -C "$tgt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-# worktree linkado tem git-dir próprio dentro de .git/worktrees/ => livre
-[ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ] && exit 0
+# reset só com --hard e stash fora de list/show mexem no working tree compartilhado.
+perigoso() { # <verbo> <argumentos até o próximo separador>
+  case "$1" in
+    checkout|switch) return 0 ;;
+    reset) case " $2 " in *[[:space:]]--hard[[:space:]]*) return 0 ;; esac ;;
+    stash) case "$(printf '%s' "$2" | awk '{print $1}')" in list|show) ;; *) return 0 ;; esac ;;
+  esac
+  return 1
+}
 
-h=$(printf '%s' "$root" | shasum 2>/dev/null | awk '{print $1}')
-[ -z "$h" ] && exit 0
-d="$HOME/.claude/.cache/repo-sessions/$h"
-[ -d "$d" ] || exit 0
-others=$(find "$d" -type f ! -name .root ! -name "$sid" -mmin -30 2>/dev/null)
-[ -z "$others" ] && exit 0
-n=$(printf '%s\n' "$others" | grep -c .)
-echo "BLOQUEADO pelo hook: $n outra(s) sessão(ões) Claude ativa(s) neste repositório nos últimos 30 min, e '$root' é o CLONE PRINCIPAL compartilhado — checkout/switch/stash/reset aqui troca a branch e sobrescreve o trabalho delas. Trabalhe num worktree próprio (regras na skill worktrees). Se tiver CERTEZA de que nenhuma outra sessão está escrevendo neste clone, prefixe o comando com PARALLEL_OK=1." >&2
-exit 2
+alvo_de() { # <trecho que termina no verbo> — define tgt e alvo_incerto
+  local ate="$1" p p_cru sem_sub
+  tgt="${cwd:-.}"; alvo_incerto=""
+  p=$(printf '%s' "$ate" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[[:space:]]+${VERBO}$/\\2\\3\\4/p" | head -1)
+  if [ -z "$p" ]; then
+    sem_sub="$ate"
+    while :; do
+      p=$(printf '%s' "$sem_sub" | sed -E 's/\([^()]*\)//g')
+      [ "$p" = "$sem_sub" ] && break
+      sem_sub="$p"
+    done
+    # `cd` só depois de separador, `{` ou palavra-chave (if/then/do...) — sem âncora, o `cd` de `abcd` casava.
+    p=$(printf '%s' "$sem_sub" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\\5\\6\\7/p" | head -1)
+  fi
+  [ -z "$p" ] && return 0
+  p_cru="$p"
+  p=$(expand_shell_path "$p" "$c_cmd")
+  case "$p" in /*) ;; *) p="${cwd:-.}/$p" ;; esac
+  if git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
+    tgt="$p"
+  else
+    # Decidir pelo cwd continua certo (falha fechada), mas a mensagem não pode afirmar que
+    # conferiu o alvo do comando — quem lê ia consertar o repositório errado.
+    alvo_incerto="$p_cru"
+  fi
+}
+
+checa_clone() { # usa tgt e alvo_incerto do alvo_de
+  local root gd gcd h d others n
+  root=$(git -C "$tgt" rev-parse --show-toplevel 2>/dev/null)
+  [ -z "$root" ] && return 0
+  gd=$(git -C "$tgt" rev-parse --path-format=absolute --git-dir 2>/dev/null)
+  gcd=$(git -C "$tgt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  # worktree linkado tem git-dir próprio dentro de .git/worktrees/ => livre
+  [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ] && return 0
+
+  h=$(printf '%s' "$root" | shasum 2>/dev/null | awk '{print $1}')
+  [ -z "$h" ] && return 0
+  d="$HOME/.claude/.cache/repo-sessions/$h"
+  [ -d "$d" ] || return 0
+  others=$(find "$d" -type f ! -name .root ! -name "$sid" -mmin -30 2>/dev/null)
+  [ -z "$others" ] && return 0
+  n=$(printf '%s\n' "$others" | grep -c .)
+  echo "BLOQUEADO pelo hook: $n outra(s) sessão(ões) Claude ativa(s) neste repositório nos últimos 30 min, e '$root' é o CLONE PRINCIPAL compartilhado — checkout/switch/stash/reset aqui troca a branch e sobrescreve o trabalho delas. Trabalhe num worktree próprio (regras na skill worktrees). Se tiver CERTEZA de que nenhuma outra sessão está escrevendo neste clone, prefixe o comando com PARALLEL_OK=1." >&2
+  [ -n "$alvo_incerto" ] && echo "O comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, cd -, ou expansão que só o shell faz), então decidi pelo cwd da sessão. Se o alvo é outro repo, escreva o caminho literal." >&2
+  exit 2
+}
+
+ate=$(printf '%s' "$flat" | sed -nE "$CORTE")
+i=0
+while [ -n "$ate" ] && [ "$i" -lt 20 ]; do
+  i=$((i+1))
+  resto=${flat#"$ate"}
+  verbo=$(printf '%s' "$ate" | sed -nE 's/.*[[:space:]]([a-z]+)$/\1/p')
+  args=$(printf '%s' "$resto" | sed -E 's/[;&|)].*//')
+  if perigoso "$verbo" "$args"; then alvo_de "$ate"; checa_clone; fi
+  prox=$(printf '%s' "$resto" | sed -nE "$CORTE")
+  [ -z "$prox" ] && break
+  ate="$ate$prox"
+done
+exit 0
