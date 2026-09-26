@@ -183,6 +183,13 @@ if grep -qF 'NÃO resolvi como repo' "$ERR-ok"; then
 elif grep -qF "cairia na branch 'main' (repo: $MAIN)" "$ERR-ok"; then
   printf '  ok    %s\n' "alvo resolvido não ganha a ressalva"
 else printf '  FALHA %s (veio: %s)\n' "alvo resolvido afirma a branch do alvo" "$(cat "$ERR-ok")"; falhas=$((falhas+1)); fi
+# A escotilha é do usuário. "Se foi proposital" deixava o modelo julgar sozinho e se liberar.
+if grep -qF 'só se o usuário pediu isso nesta conversa' "$ERR-ok"; then
+  printf '  ok    %s\n' "HOTFIX_MAIN=1 só com pedido do usuário"
+else printf '  FALHA %s (veio: %s)\n' "HOTFIX_MAIN=1 só com pedido do usuário" "$(cat "$ERR-ok")"; falhas=$((falhas+1)); fi
+if grep -qF 'Se foi proposital' "$ERR-ok"; then
+  printf '  FALHA %s\n' "a mensagem não deixa o modelo julgar o próprio commit na main"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "a mensagem não deixa o modelo julgar o próprio commit na main"; fi
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
