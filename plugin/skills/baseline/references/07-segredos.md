@@ -33,10 +33,10 @@ deste pilar:
 
 | Segredo | Onde vive | Raio de dano | Rotação | Dono |
 |---|---|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env + n8n cred | **total** — ignora RLS | manual, dashboard | Ruan |
-| `SUPABASE_ANON_KEY` | bundle (por design) | limitado pela RLS | com o projeto | Ruan |
-| `APP_WEBHOOK_SECRET` | Vercel env + n8n cred | permite forjar webhook | manual | Ruan |
-| `OPENAI_API_KEY` | Supabase function secrets | custo | painel OpenAI | Ruan |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env + n8n cred | **total** — ignora RLS | manual, dashboard | dev responsável |
+| `SUPABASE_ANON_KEY` | bundle (por design) | limitado pela RLS | com o projeto | dev responsável |
+| `APP_WEBHOOK_SECRET` | Vercel env + n8n cred | permite forjar webhook | manual | dev responsável |
+| `OPENAI_API_KEY` | Supabase function secrets | custo | painel OpenAI | dev responsável |
 | senha de ERP | 1Password | acesso ao ERP | via fornecedor | cliente |
 
 "Raio de dano" é a coluna que decide a prioridade. `anon` no bundle é esperado;
@@ -111,7 +111,7 @@ legítima e precisa virar registro:
 | Motivo | O Code node do n8n não aceita credencial; o valor precisa estar no JSON importado |
 | Mitigação | Repo privado; CODEOWNERS em `/scripts/`; chave sem escopo reduzido disponível |
 | Risco aceito | Leitura do repo = acesso total ao banco, ignorando RLS |
-| Dono | Ruan · Aceito em 2026-08-22 · Revisar em 2026-11-22 |
+| Dono | dev responsável · Aceito em 2026-08-22 · Revisar em 2026-11-22 |
 ```
 
 Sem esse bloco, toda auditoria reabre o assunto e você paga de novo pela mesma

@@ -78,7 +78,7 @@ as select ...;
 comment on view public.v_faturamento_mensal is
   'security_invoker=false intencional: agrega erp_faturamento, que o vendedor
    não lê linha a linha. Filtro por vendedor aplicado DENTRO da view.
-   Aceito por Ruan em 2026-08-22. Revisar em 2027-02.';
+   Aceito pelo dono do projeto em 2026-08-22. Revisar em 2027-02.';
 ```
 
 O `comment on` é o melhor lugar: viaja com o objeto, aparece no `\d+`, e não
