@@ -75,6 +75,8 @@ skill "$CASCA" testes testes "Ajuda com testes." 0
 saida="$(bash "$SCAN" "$CASCA")"; codigo=$?
 check "scan sai 1 com casca"                "$([ $codigo -eq 1 ] && echo ok || echo fail)"
 check "chama a casca pelo nome"             "$(printf '%s' "$saida" | grep -q 'casca' && echo ok || echo fail)"
+check "manda o que não ensina para o AGENTS.md do projeto" \
+  "$(printf '%s' "$saida" | grep -q 'uma linha no AGENTS.md do projeto' && echo ok || echo fail)"
 
 echo "== skill sem description: o modelo não tem como saber quando usar =="
 SEMD="$TMP/sem-description"; d="$SEMD/.claude/skills/orfa"; mkdir -p "$d"

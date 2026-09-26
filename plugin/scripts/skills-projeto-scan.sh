@@ -119,7 +119,7 @@ fi
 if [ "$estourou" -eq 1 ] || [ "$quebradas" -gt 0 ]; then
   echo
   echo "Não é para apagar tudo: a pergunta por skill é \"o que ela ensina que eu teria que repetir?\"."
-  echo "O que não ensina nada vira uma linha no CLAUDE.md do projeto, ou vai embora."
+  echo "O que não ensina nada vira uma linha no AGENTS.md do projeto, ou vai embora."
   exit 1
 fi
 echo "dentro do teto."
