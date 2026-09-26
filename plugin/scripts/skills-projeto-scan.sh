@@ -102,7 +102,7 @@ if [ "$RESUMO" -eq 1 ]; then
   msg="📎 skills deste projeto: $n_skills em .claude/skills, $total_chars chars de description (~$tokens tokens em TODA request; teto do kit: $TETO_SKILLS skills / $TETO_CHARS chars)"
   [ "$quebradas" -gt 0 ] && msg="$msg · $quebradas não roteia(m) ou tem corpo vazio"
   echo "$msg."
-  echo "   Peça \"revisa as skills deste projeto\" (skill skills-projeto) ou rode: bash \"\${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh\" ."
+  echo "   Peça \"revisa as skills deste projeto\" (skill skills-projeto) ou rode: bash \"$(cd "$(dirname "$0")" 2>/dev/null && pwd)/skills-projeto-scan.sh\" ."
   exit 1
 fi
 
