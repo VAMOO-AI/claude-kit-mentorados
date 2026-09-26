@@ -84,11 +84,11 @@ check "protegido não vai pro backup (não saiu)"         "$([ ! -e "$H2"/.claud
 
 echo "== .keep-local protege contra remoção, não contra instalação =="
 H3="$TMP/h3"; mkdir -p "$H3/.claude"
-echo "agents antigo" > "$H3/.claude/agents.md"
-printf 'agents.md\n' > "$H3/.claude/.keep-local"
+echo "subagentes antigo" > "$H3/.claude/subagentes.md"
+printf 'subagentes.md\n' > "$H3/.claude/.keep-local"
 HOME="$H3" bash "$SETUP" >/dev/null 2>&1
-check "agents.md do kit é instalado por cima mesmo listado" "$([ "$(cat "$H3/.claude/agents.md")" != "agents antigo" ] && echo ok || echo fail)"
-check "a versão antiga foi pro backup"                  "$([ "$(cat "$H3"/.claude/backup-kit-*/agents.md 2>/dev/null)" = "agents antigo" ] && echo ok || echo fail)"
+check "subagentes.md do kit é instalado por cima mesmo listado" "$([ "$(cat "$H3/.claude/subagentes.md")" != "subagentes antigo" ] && echo ok || echo fail)"
+check "a versão antiga foi pro backup"                  "$([ "$(cat "$H3"/.claude/backup-kit-*/subagentes.md 2>/dev/null)" = "subagentes antigo" ] && echo ok || echo fail)"
 
 echo "== --dry-run não remove nem cria backup =="
 H4="$TMP/h4"; monta_home "$H4"
@@ -102,7 +102,7 @@ echo "== rotação: 5 execuções deixam 3 backups, os mais novos =="
 H5="$TMP/h5"; mkdir -p "$H5/.claude"
 # A 1ª execução num HOME vazio não tem o que copiar — é o caso em que o glob de
 # backup-kit-* não casa nada, e onde o script já morreu calado uma vez (set -e +
-# pipefail no `for` sem match). A partir da 2ª há agents.md, statusline etc.; o
+# pipefail no `for` sem match). A partir da 2ª há subagentes.md, statusline etc.; o
 # carimbo tem resolução de segundo, daí o sleep.
 HOME="$H5" bash "$SETUP" >"$TMP/saida5" 2>&1; codigo=$?
 check "1ª execução em HOME vazio termina com exit 0"    "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
@@ -118,11 +118,11 @@ check "o backup desta execução é um dos 3"              "$(/bin/ls -d "$H5"/.
 check "instalação segue íntegra (CLAUDE.md e settings)" "$([ -f "$H5/.claude/CLAUDE.md" ] && python3 -m json.tool "$H5/.claude/settings.json" >/dev/null 2>&1 && echo ok || echo fail)"
 
 echo "== ~/.claude do kit do time (.team-manifest): sai 0 sem tocar em nada =="
-# O setup já rodou uma vez por cima do kit do time: trocou o agents.md e a barra de
-# status de lá pelos daqui, mexeu no settings e deixou um backup-kit-* no ~/.claude
+# O setup já rodou uma vez por cima do kit do time: trocou as regras de subagente e a barra
+# de status de lá pelas daqui, mexeu no settings e deixou um backup-kit-* no ~/.claude
 # do time. Quem grava o .team-manifest é o update.sh do time; este kit nunca grava.
 H6="$TMP/h6"; mkdir -p "$H6/.claude/skills/vamoo-verificacao" "$H6/.claude/scripts"
-for f in CLAUDE.md agents.md statusline-command.sh skills/vamoo-verificacao/SKILL.md; do
+for f in CLAUDE.md subagentes.md statusline-command.sh skills/vamoo-verificacao/SKILL.md; do
   echo "do time" > "$H6/.claude/$f"
 done
 echo '{"permissions":{"allow":["Bash(bun test:*)"]}}' > "$H6/.claude/settings.json"
@@ -138,7 +138,7 @@ check "a saída diz que o ~/.claude é do kit do time"    "$(grep -q 'kit do tim
 # por cima do CLAUDE.md do time.
 check "a saída diz 'Nada feito', o sinal de parada da skill" "$(grep -q 'Nada feito' "$TMP/saida6" && echo ok || echo fail)"
 HOME="$H6" bash "$SETUP" --force >/dev/null 2>&1; codigo=$?
-check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/agents.md")" != "do time" ] && echo ok || echo fail)"
+check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/subagentes.md")" != "do time" ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

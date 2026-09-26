@@ -23,7 +23,7 @@ projeto recorrente:
    pergunte o que a doc já responde — traga como fato.
 2. **Respeite estado intencional.** Nó n8n desabilitado, flag, decisão de
    negócio registrada no `.context` = não desfaça sem autorização explícita.
-   Acordo verbal não basta; vale o que está escrito no `.context`.
+   Acordo verbal não basta; vale o que está escrito no `AGENTS.md` ou no `.context/`.
 
 ## Durante
 
@@ -33,13 +33,11 @@ decisão → pergunta, não executa até confirmar).
 
 ## Depois
 
-Ao fechar o entendimento, **grave as decisões na doc certa** (roteamento de
-feedback do CLAUDE.md):
+Ao fechar o entendimento, **grave as decisões na doc certa**:
 
-- Regra de comportamento durável do projeto → `.context/docs/` (ou CLAUDE.md do
-  projeto se for regra dura).
+- Regra dura do projeto → `AGENTS.md` da raiz (o `CLAUDE.md` do projeto só importa `@AGENTS.md`).
+- Decisão e conhecimento do projeto → `.context/docs/`.
 - Fato durável → memória.
 - Doc de implementação / changelog → `.context/docs/`.
 
-Nunca infle o CLAUDE.md com o histórico da conversa — ele cresce com regra, não
-com changelog.
+Não infle o `AGENTS.md` com o histórico da conversa — ele cresce com regra, não com changelog.

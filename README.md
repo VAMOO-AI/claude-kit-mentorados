@@ -37,14 +37,14 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
-| `plugin/templates/agents.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
+| `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (`npm run`, `npm test`, git read-only). É **mesclado** com o que você já tem — nada seu é perdido. |
 | `plugin/scripts/statusline.js` | `~/.claude/scripts/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e o contexto **em número absoluto**. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
-| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
+| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
 > **Custo de contexto:** o plugin adiciona poucos milhares de tokens a cada sessão
@@ -311,7 +311,7 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 6. Skill **`/kit-vamoo:handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
 7. [`plugin/templates/ci.yml`](plugin/templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 8. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
-9. [`plugin/templates/CLAUDE-projeto.md.exemplo`](plugin/templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
+9. [`plugin/templates/CLAUDE-projeto.md.exemplo`](plugin/templates/CLAUDE-projeto.md.exemplo) — um `AGENTS.md` por projeto, com o `CLAUDE.md` de uma linha (`@AGENTS.md`) que o importa.
 
 ---
 

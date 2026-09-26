@@ -242,7 +242,7 @@ jobs:
           bash plugin/scripts/kit-setup.sh --dry-run
           bash plugin/scripts/kit-setup.sh
           test -f "$HOME/.claude/CLAUDE.md"
-          test -f "$HOME/.claude/agents.md"
+          test -f "$HOME/.claude/subagentes.md"
           test -f "$HOME/.claude/scripts/statusline.js"
           python3 -m json.tool "$HOME/.claude/settings.json" > /dev/null
 
