@@ -6,7 +6,7 @@ description: >-
   ferramentas) com entregável: PDF em pt-BR dentro do repo auditado + issues de
   GitHub prontas para colar. Detecta a stack e relê a auditoria anterior. Use em
   "auditoria de segurança", "relatório de segurança", "auditoria em PDF", "achou
-  IDOR?". NÃO é o secscan (Markdown fora do repo): este é o pacote para outra
+  IDOR?". NÃO é o secscan (Markdown fora do git): este é o pacote para outra
   pessoa ler e agir.
 ---
 
@@ -23,23 +23,24 @@ amostra), **registrar o que está correto** e **entregar num formato que sobrevi
 | Skill | Responde | Entrega |
 |---|---|---|
 | **`auditoria-seguranca`** (esta) | "Quais das 6 falhas clássicas este código tem, e o que faço com isso?" | PDF + issues, **dentro** do repo |
-| `secscan` | "Existe `service_role` em `src/`? Esse `eval` é explorável?" | Markdown + SARIF, **fora** do repo |
+| `secscan` | "Existe `service_role` em `src/`? Esse `eval` é explorável?" | Markdown + SARIF em `secscan-reports/`, **fora** do git |
 | `baseline` | "A plataforma está apta a produção?" | contrato em `.context/docs/baseline.md` (ou o doc de contrato do seu projeto) |
 
-**Não reimplemente as sondas do secscan aqui.** Quando a stack for
-Supabase/Next/n8n, as buscas de cada categoria já estão calibradas lá — este
-arquivo aponta para a fase certa em cada seção. Copiar grep entre as duas skills
-é como as duas divergem.
+**Não reimplemente as sondas do secscan aqui.** Em stack Next/React/Supabase, as de
+banco já estão calibradas na Fase 2 de lá, e a A1 aponta para ela; n8n o `secscan`
+não cobre. Copiar grep entre as duas skills é como as duas divergem.
 
 ## Iron rules
 
 - **Read-only no código auditado.** A única escrita permitida é `docs/security-audit/`
   (relatório, script gerador, `findings.json`). Isso é uma exceção **declarada** —
-  o `secscan` proíbe escrever no working tree alheio; aqui o PDF e o gerador são o
+  o `secscan` só escreve o relatório e o SARIF, fora do git; aqui o PDF e o gerador são o
   produto, e produto vai versionado. Ainda assim: **branch própria**, nunca
   commit direto na branch de trabalho de outra pessoa.
-- **Achado só existe com `arquivo:linha` aberto e lido.** Grep localiza; quem
-  decide é a leitura. Trecho de código no relatório é copiado do arquivo, não
+- **Grep localiza; quem decide é a leitura.** Candidato que o grep achou e você
+  ainda não abriu entra como `padrao` (teto 0,60) em vez de sumir: aqui o
+  trabalho é cobertura, e quem filtra é o juiz das `alta`/`critica` e o veredito
+  que o gerador calcula. Trecho de código no relatório é copiado do arquivo, não
   reescrito de memória.
 - **Todo achado declara como foi obtido.** `padrao` (o grep casou), `lido` (abri
   e conferi) ou `corroborado` (uma segunda fonte independente confirma). O teto
@@ -189,13 +190,16 @@ Agregação e exportação são as que mais escapam, porque não devolvem "um
 registro" e por isso ninguém pensa nelas como vazamento — e são as que devolvem
 o negócio inteiro do concorrente.
 
-- Stack Supabase → as sondas de RLS, `SECURITY DEFINER` sem `search_path`, view
-  sem `security_invoker` e policy `PERMISSIVE` duplicada estão no **`secscan`,
-  Phase 2**. Use de lá.
+- Stack Supabase → RLS desligada, policy `using (true)`, `SECURITY DEFINER` sem
+  `search_path` e MV legível estão na **Fase 2 do `secscan`**; use de lá. View sem
+  `security_invoker` e policy `PERMISSIVE` duplicada o `secscan` não sonda: rode os
+  lints da `baseline`, que são `select` puro:
+  `bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" 0010 0006`.
+  Sem acesso ao banco, a cobertura da A1 diz que essas duas não foram medidas.
 
-**Antes de qualquer policy, pergunte o que a RLS não alcança.** Toda a Phase 2 do
-secscan — RLS, policy, `security_invoker`, `SECURITY DEFINER` — só fala de
-objetos onde RLS existe. **Materialized view não tem RLS. Nunca.** Não há policy
+**Antes de qualquer policy, pergunte o que a RLS não alcança.** RLS, policy e
+`SECURITY DEFINER` só falam de objetos onde RLS existe. **Materialized view não
+tem RLS. Nunca.** Não há policy
 que a proteja, e o Supabase concede `ALL ON ALL TABLES` no schema `public` por
 padrão (`GRANT`s que o `pg_dump` do baseline costuma omitir e alguém restaura
 depois). Para tabela isso está certo — a RLS decide a linha. Para MV, o `GRANT`
@@ -280,7 +284,8 @@ grep -rnE "requireAuth|requireRole|authorize|before_action|@login_required|middl
 O achado é sempre a diferença: gate de papel no front **sem** verificação
 equivalente no handler. A `baseline`, pilar `03-auth.md`, chama isso de
 gate **cosmético** e exige que cada um declare sua contrapartida — quando o
-projeto for da casa, use o contrato de lá em vez de recomeçar o inventário.
+projeto já tiver `.context/docs/baseline.md`, use o contrato de lá em vez de
+recomeçar o inventário.
 
 Autenticação não é autorização: `requireAuth` num endpoint de admin é achado,
 não proteção.
@@ -353,8 +358,11 @@ command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histó
 grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null  # defaults
 grep -rnE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules
-# 4. o bundle publicado (o segredo que "só existe no servidor" e foi pro browser)
-[ -d dist ] || npm run build 2>/dev/null; grep -rEo "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ 2>/dev/null | sort -u
+# 4. o bundle publicado (o segredo que "só existe no servidor" e foi pro browser).
+#    Sem build no disco, não rode o build: ele executa script do repo auditado e
+#    grava fora de docs/security-audit/. Peça o build a quem é dono do repo, ou leia
+#    os .js que o domínio serve (leitura em produção pode).
+grep -rEo "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null | sort -u
 ```
 
 **Default público é achado, mesmo com a variável sobrescrita em produção hoje.**
@@ -471,8 +479,8 @@ que não são a severidade:
    `mantido` ou `refutado` com motivo em uma frase. Refutado vira
    `falso_positivo` com o `motivo` do juiz; mantido segue. O juiz não recebe
    sua opinião, sua confiança nem os outros achados — isso é o que faz dele
-   uma segunda leitura. (O workflow `audit-multidim` já faz juiz por finding e
-   critic de cobertura; use-o quando forem mais de cinco achados graves.)
+   uma segunda leitura. Com mais de cinco achados graves, lance os juízes em
+   paralelo, um `revisor` por achado, numa mensagem só.
 4. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
    do cálculo do veredito, mas continuam no relatório com selo e `motivo`:
    sumir com eles é como a mesma discussão volta na auditoria seguinte.
@@ -510,8 +518,7 @@ gráficos saem dos mesmos dados da tabela, e não podem discordar.
 
 ```bash
 mkdir -p docs/security-audit
-cp ~/.claude/plugins/*/skills/auditoria-seguranca/scripts/gerar-relatorio.py docs/security-audit/ \
-  || cp "$CLAUDE_PLUGIN_ROOT/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/
+cp "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/
 # escreva docs/security-audit/findings.json (schema em references/findings-schema.md)
 python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json --verificar --raiz .
 python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json \
