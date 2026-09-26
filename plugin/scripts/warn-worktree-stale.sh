@@ -3,10 +3,13 @@
 # (1) Avisa se a sessão começa num worktree cuja branch JÁ FOI MERGEADA (lixo — pode
 #     remover com worktree-gc.sh --apply, ou ExitWorktree). Branch sem commit próprio
 #     não conta como mergeada, e worktree com mudança não commitada nunca é lixo.
-# (2) Avisa se o CLONE PRINCIPAL não está em main (sua regra: clone principal read-only
-#     em main). Não modifica o git — só lê e avisa. Silencioso quando está tudo ok.
+# (2) Numa sessão em worktree, avisa se o CLONE PRINCIPAL não está em main (com worktrees,
+#     o clone principal fica na main). Não modifica o git — só lê e avisa. Silencioso
+#     quando está tudo ok.
 set -uo pipefail
 
+# Antes do cd: com $0 relativo, o dirname depois dele apontaria para outra pasta.
+AQUI="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$DIR" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
@@ -53,14 +56,17 @@ if [ "$GIT_DIR" != "$COMMON" ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br"
     if [ "${sujos:-0}" -gt 0 ]; then
       echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
     else
-      echo "🧹 worktree: '$br' já foi MERGEADA — este worktree é lixo. Remova com 'ExitWorktree' (sessão) ou '~/.claude/scripts/worktree-gc.sh --apply'."
+      gc="$AQUI/worktree-gc.sh"
+      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, ofereça remover: 'ExitWorktree' (nesta sessão) ou 'bash \"$gc\" --apply'."
     fi
   fi
 fi
 
-# (2) Clone principal fora de main?
-primary_br="$(git -C "$PRIMARY" branch --show-current 2>/dev/null)"
-if [ -n "$primary_br" ] && [ "$primary_br" != "main" ] && [ "$primary_br" != "master" ]; then
-  echo "⚠️ clone principal ($PRIMARY) está em '$primary_br', não em main. Sua regra: clone principal read-only em main. Volte pra main quando puder (cuidado com trabalho não-commitado)."
+# (2) Clone principal fora de main? Só importa quando esta sessão está num worktree.
+if [ "$GIT_DIR" != "$COMMON" ]; then
+  primary_br="$(git -C "$PRIMARY" branch --show-current 2>/dev/null)"
+  if [ -n "$primary_br" ] && [ "$primary_br" != "main" ] && [ "$primary_br" != "master" ]; then
+    echo "⚠️ clone principal ($PRIMARY) está em '$primary_br', não em main. Com worktrees, o clone principal fica na main, só pra leitura (skill worktrees); se não houver trabalho não commitado nele, ofereça ao usuário voltar pra main."
+  fi
 fi
 exit 0

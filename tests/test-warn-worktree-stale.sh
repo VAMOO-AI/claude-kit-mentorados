@@ -11,6 +11,13 @@
 #   - mergeada com mudança não commitada não é lixo;
 #   - a prova pelo PR (squash) exige o tip contido no head do PR, como no worktree-gc.
 #
+# Na 0.42.0 o aviso deixou de dar ordem ("Remova", "Volte pra main") e passou a pedir que o
+# Claude ofereça: quem decide apagar ou trocar de branch é o usuário. O comando de limpeza
+# aponta para o worktree-gc.sh ao lado do hook, porque o setup não instala
+# ~/.claude/scripts/worktree-gc.sh. E o clone principal fora da main só é assunto numa
+# sessão em worktree: quem trabalha numa feat/x direto no clone não usa worktree, e o aviso
+# em todo início de sessão era ruído.
+#
 # O `gh` é falso (PATH) e responde às duas formas de consulta — a antiga (`length`) e a
 # nova (`headRefOid`) — para o mesmo teste rodar contra as duas versões do script.
 #
@@ -109,6 +116,8 @@ GH
 chmod +x "$TMP/bin/gh"
 
 run() { CLAUDE_PROJECT_DIR="$WTS/$1" PATH="$TMP/bin:$PATH" bash "$SCRIPT" 2>&1; }
+# O caminho que o aviso manda rodar em `bash "<caminho>" --apply`.
+gc_do_aviso() { printf '%s' "$1" | sed -n "s/.*'bash \"\([^\"]*\)\" --apply'.*/\1/p"; }
 
 echo "== branch sem commit próprio: nada a avisar =="
 calado "nova de origin/main com mudança sem commit (o caso de 24/09)"   "$(run nova-suja)"
@@ -119,9 +128,14 @@ calado "empilhada numa branch que depois foi mergeada"                  "$(run e
 
 echo "== mergeada de verdade: continua avisando =="
 OUT="$(run mergeada)"
-check  "já foi MERGEADA — este worktree é lixo"  "commit próprio em origin/main, limpa: lixo"   "$OUT"
+check  "já foi mergeada e está limpo"            "commit próprio em origin/main, limpa: avisa"  "$OUT"
+check  "ofereça remover"                         "oferece a remoção ao usuário"                 "$OUT"
+refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
+gc="$(gc_do_aviso "$OUT")"
+if [ -n "$gc" ] && [ -f "$gc" ]; then printf '  ok    %s\n' "o worktree-gc.sh que o aviso cita existe"
+else printf '  FALHA %s (veio: %s)\n' "o worktree-gc.sh que o aviso cita existe" "${gc:-nada}"; falhas=$((falhas+1)); fi
 OUT="$(run squash)"
-check  "já foi MERGEADA — este worktree é lixo"  "squash com tip == head do PR, limpa: lixo"    "$OUT"
+check  "já foi mergeada e está limpo"            "squash com tip == head do PR, limpa: avisa"   "$OUT"
 OUT="$(run mergeada-suja)"
 check  "mergeada.*mudança não commitada"         "mergeada com mudança sem commit: avisa a mudança" "$OUT"
 refute "lixo|ExitWorktree|worktree-gc"           "mergeada suja nunca é chamada de lixo"        "$OUT"
@@ -129,6 +143,16 @@ refute "lixo|ExitWorktree|worktree-gc"           "mergeada suja nunca é chamada
 echo "== trabalho vivo: nada a avisar =="
 calado "commit depois do head do PR mergeado"                           "$(run squash-depois)"
 calado "commit próprio sem merge e sem PR"                              "$(run viva)"
+
+echo "== clone principal fora da main: assunto só de sessão em worktree =="
+G checkout -q -b no-clone
+[ "$(G branch --show-current)" = no-clone ] || { echo "fixture: o clone não saiu da main"; exit 2; }
+calado "sessão no próprio clone, numa feat/x: nada a avisar" \
+  "$(CLAUDE_PROJECT_DIR="$CLONE" PATH="$TMP/bin:$PATH" bash "$SCRIPT" 2>&1)"
+OUT="$(run viva)"
+check  "clone principal .* está em 'no-clone'" "sessão em worktree: avisa o clone fora da main" "$OUT"
+check  "ofereça ao usuário voltar pra main"          "oferece a volta, sem dar ordem"               "$OUT"
+refute "Sua regra|Volte pra main"                    "sem 'sua regra' nem 'volte pra main'"         "$OUT"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
