@@ -16,7 +16,7 @@ if (!A.alvo || !Array.isArray(A.areas) || !A.areas.length) {
 }
 const MAX = A.maxFindings || 8
 
-const COMMON = `Você é auditor especialista. Alvo: ${A.alvo}\n${A.contexto || ''}\n\nREGRAS DURAS:\n- READ-ONLY: não edite, não crie, não delete nada; use Read/Grep/Glob/Bash(ls, head, wc) só pra inspecionar.\n- NUNCA leia .env*/credenciais (deny ativo). Existência de key: no máximo grep -c count-only.\n- Cada finding = mudança CONCRETA com o texto exato pronto pra aplicar. Nada de conselho genérico.\n- Qualidade > quantidade: máximo ${MAX} findings; zero é resposta válida.\n- Responda em PT-BR.\n${A.regras || ''}`
+const COMMON = `Você é auditor especialista. Alvo: ${A.alvo}\n${A.contexto || ''}\n\nREGRAS DURAS:\n- READ-ONLY: não edite, não crie, não delete nada; use Read/Grep/Glob/Bash(ls, head, wc) só pra inspecionar.\n- NUNCA leia .env*/credenciais (deny ativo). Existência de key: no máximo grep -c count-only.\n- Responda em PT-BR.\n${A.regras || ''}`
 
 const FINDINGS_SCHEMA = {
   type: 'object',
@@ -43,7 +43,7 @@ const VERDICT_SCHEMA = {
   type: 'object',
   required: ['verdict', 'reason'],
   properties: {
-    verdict: { enum: ['APROVAR', 'REJEITAR', 'PENDENTE_RUAN'] },
+    verdict: { enum: ['APROVAR', 'REJEITAR', 'PENDENTE_DECISAO'] },
     reason: { type: 'string', description: '1-2 frases' },
     proposalRefinada: { type: 'string', description: 'só se APROVAR com ajuste' },
   },
@@ -68,13 +68,13 @@ const CRITIC_SCHEMA = {
 phase('Auditoria')
 const porArea = await pipeline(
   A.areas,
-  (a) => agent(`${COMMON}\n\nSUA ÁREA: ${a.key}\nARQUIVOS: ${a.files}\nFOCO: ${a.foco || 'problemas concretos que mudam comportamento na prática'}\n\nEntregue os findings no formato estruturado: {findings: [{file, issue, proposal, impact}]} (máximo ${MAX}).`,
+  (a) => agent(`${COMMON}\n\nSUA ÁREA: ${a.key}\nARQUIVOS: ${a.files}\nFOCO: ${a.foco || 'problemas concretos que mudam comportamento na prática'}\n\nCada finding = mudança CONCRETA com o texto exato pronto pra aplicar; nada de conselho genérico. Nesta etapa o seu papel é cobertura: um juiz adversarial confere cada finding depois, então reporte também o que você não conseguiu confirmar e diga isso no issue. Até ${MAX}; passando disso, fique com os de maior impacto. Zero é resposta válida.\n\nEntregue os findings no formato estruturado: {findings: [{file, issue, proposal, impact}]} (máximo ${MAX}).`,
     { label: 'audit:' + a.key, phase: 'Auditoria', schema: FINDINGS_SCHEMA }
   ).then((res) => {
     const fs = (res && res.findings) || []
     if (!fs.length) return []
     return parallel(fs.map((f) => () =>
-      agent(`Você é juiz ADVERSARIAL de uma proposta de melhoria. Tente REFUTÁ-LA antes de aprovar.\n\nAlvo: ${A.alvo}\n${A.regras || ''}\n\nFINDING (área ${a.key}):\n- file: ${f.file}\n- issue: ${f.issue}\n- proposal: ${f.proposal}\n\nChecagens: (1) factualidade — abra o arquivo e confirme que o problema existe HOJE; (2) a proposta aplica sem quebrar nada; (3) não viola nenhuma regra dura. Na dúvida sobre factualidade, REJEITAR. Responda {verdict, reason, proposalRefinada?}.`,
+      agent(`Você é juiz ADVERSARIAL de uma proposta de melhoria. Tente REFUTÁ-LA antes de aprovar. Read-only: só inspecione.\n\nAlvo: ${A.alvo}\n${A.contexto || ''}\n${A.regras || ''}\n\nFINDING (área ${a.key}):\n- file: ${f.file}\n- issue: ${f.issue}\n- proposal: ${f.proposal}\n\nChecagens: (1) factualidade — abra o arquivo e confirme que o problema existe HOJE; (2) a proposta aplica sem quebrar nada; (3) não viola nenhuma regra dura. Na dúvida sobre factualidade, REJEITAR. Real e aplicável, mas a decisão é de quem pediu a auditoria (segurança, race, remoção de funcionalidade, decisão de design, fix acima de ~20 linhas ou mudança de comportamento visível) → PENDENTE_DECISAO. Responda {verdict, reason, proposalRefinada?}.`,
         { label: 'judge:' + a.key, phase: 'Verificação', schema: VERDICT_SCHEMA }
       ).then((v) => v
         ? { area: a.key, ...f, verdict: v.verdict, verdictReason: v.reason, proposalRefinada: v.proposalRefinada }
@@ -93,7 +93,7 @@ const critic = await agent(`${COMMON}\n\nVocê é o CRITIC DE COMPLETUDE. Áreas
 
 return {
   aprovados: all.filter((f) => f.verdict === 'APROVAR'),
-  pendentes: all.filter((f) => f.verdict === 'PENDENTE_RUAN'),
+  pendentes: all.filter((f) => f.verdict === 'PENDENTE_DECISAO'),
   rejeitados: all.filter((f) => f.verdict === 'REJEITAR' || f.verdict === 'SEM_VEREDITO').map((f) => ({ area: f.area, issue: f.issue, motivo: f.verdictReason })),
   gaps: (critic && critic.gaps) || [],
 }
