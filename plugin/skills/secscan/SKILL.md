@@ -23,12 +23,12 @@ mas NÃO testa nada rodando/deployado/produção. Aponta os problemas; quem corr
 
 ## Regras de ferro (nunca quebrar)
 
-- **READ-ONLY.** Nunca modifique/apague/crie código ou config no projeto auditado. Só localize (`arquivo:linha`) e sugira o fix. O único arquivo que você escreve é o relatório.
+- **READ-ONLY.** Nunca modifique/apague/crie código ou config no projeto auditado. Só localize (`arquivo:linha`) e sugira o fix. Você só escreve em `secscan-reports/`: o relatório e o SARIF do semgrep.
 - **Verify, don't claim.** Todo "limpo / sem findings" precisa do output REAL da ferramenta colado na mesma resposta. Não rodou uma ferramenta? Diga "não executado" + o comando que falta.
 - **Zero findings ≠ seguro.** Relatório limpo só diz que ESTE scan + as ferramentas disponíveis não acharam nada no escopo. O relatório TEM que deixar isso claro.
 - **Só o workspace local.** Ler código, rodar SAST/SCA local, ler o SQL do projeto. Nunca cutucar endpoint externo/deployado. Ler doc oficial (OWASP/CWE) pra embasar um fix é permitido.
 - **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode os scanners reais (`semgrep`, `gitleaks`, `npm/pnpm audit`, `osv-scanner`) ANTES de confiar em grep. Esta é a única definição de `Confiança` da skill: achado é `CONFIRMED` quando ferramenta real e heurística concordam **ou** quando um teste do próprio projeto exercita o mesmo ponto; qualquer outro é `heuristic` (pode ser falso positivo). *(Modelo adaptado do `decksoftware/csreview`, MIT — crédito preservado.)*
-- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: baixe só da fonte oficial, **confira o SHA-256 antes de rodar**, instale num dir isolado e gitignored (nunca global, nunca `sudo`), e siga em modo só-heurística se não der.
+- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: ferramenta Python (`semgrep`) vai pelo gerenciador oficial (`pipx install semgrep`, `uv tool install semgrep` ou `brew install semgrep`); binário baixado à mão (`gitleaks`, `osv-scanner`) vem só da página de releases oficial, com o **SHA-256 conferido antes de rodar**. Nos dois casos, fora do projeto auditado e nunca com `sudo`. Não deu → siga em modo só-heurística.
 - **Na dúvida, pesquise.** Não chute comportamento de framework / detalhe de CVE. Use a skill `find-docs` e cite a fonte no finding.
 
 ## Fase 0 — Recon
@@ -43,7 +43,8 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 ## Fase 0.5 — Scanners reais (rode primeiro)
 
 ```bash
-command -v semgrep && semgrep scan --config auto --sarif --output secscan.sarif . \
+mkdir -p secscan-reports
+command -v semgrep && semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif . \
   || echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
 command -v gitleaks && gitleaks detect --no-banner --redact || echo "gitleaks AUSENTE"
 command -v osv-scanner && osv-scanner scan --format json . || echo "osv-scanner AUSENTE (opcional)"
@@ -85,7 +86,9 @@ Caça:
    WHERE n.nspname = 'public' AND c.relkind = 'm';
   ```
 
-  Qualquer `true` é finding, e dá pra provar pela porta do atacante:
+  Qualquer `true` é finding, e a própria query prova: o privilégio é o fato. A
+  prova pela porta do atacante vai no relatório, para o dono do projeto rodar
+  contra o projeto dele — a skill não chama endpoint publicado:
   `curl "$SUPABASE_URL/rest/v1/<mv>?select=*" -H "apikey: <anon>"`. Medido numa
   auditoria real em 01/09/2026: 180 de 180 tabelas com RLS, 170 funções
   `SECURITY DEFINER` sem uma falha — e 904 linhas de 16 clientes saindo por uma
@@ -226,7 +229,7 @@ saíram dessa rodada:
 ## Fase 6 — Relatório
 
 Escreva em `secscan-reports/<YYYY-MM-DD>-secscan.md`. Peça pro usuário adicionar `secscan-reports/`
-no `.gitignore` (não edite o `.gitignore` você mesmo). Se o semgrep rodou, guarde o `secscan.sarif` junto.
+no `.gitignore` (não edite o `.gitignore` você mesmo). Se o semgrep rodou, o `secscan.sarif` já está nessa pasta (Fase 0.5).
 
 Ordem literal do documento: **Resumo → Disclaimer → 1. CHECKLIST → 2. ANOTAÇÕES →
 3. SUGESTÕES DE CORREÇÃO → Ferramentas executadas → Handoff.** Só os três blocos
@@ -324,19 +327,11 @@ Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de auto
 
 ### O que se corta do relatório (e o que é proibido cortar)
 
-Existe uma régua anti-inflação que vale para quase todo relatório de agente: **no máximo
-1–2 recomendações por categoria, categoria sem achado não vira seção, e a última linha diz
-o que ficou de fora.** Ela é boa — nasceu na `harness-check` do kit do time, que depois
-trocou o teto numérico por critério de impacto (a daqui foi portada já assim) — e **não**
-se aplica inteira aqui. A diferença não é de gosto: é do que a saída **é**. Relatório
-de melhoria é conselho, vive no chat e é descartável; trinta recomendações viram zero
-porque ninguém aplica trinta. Relatório de segurança é **artefato de handoff** — o arquivo
-que outro agente lê antes de corrigir — e achado que não está escrito nele some quando a
-sessão acabar. Cortar conselho custa atenção; cortar achado esconde vulnerabilidade.
-
-Guarde a lição em si, que vale além desta skill: **regra editorial boa num lugar vira
-defeito no outro quando muda o que a saída é.** Copiar a régua sem perguntar isso é como
-copiar código sem ler.
+A saída desta skill é **artefato de handoff**: o arquivo que outro agente lê antes de
+corrigir, e achado que não está escrito nele some quando a sessão acaba. Cortar conselho
+custa atenção; cortar achado esconde vulnerabilidade. Por isso o arquivo leva tudo, e o
+corte, quando existe, é só no chat. A lição vale além desta skill: **regra editorial boa
+num lugar vira defeito no outro quando muda o que a saída é.**
 
 **Proibido no arquivo do relatório:**
 
@@ -347,11 +342,11 @@ copiar código sem ler.
   **é** informação: diz que a sonda rodou e não achou, e é ela que separa `nenhum problema
   identificado` de `não medido`. As 7 linhas saem sempre.
 
-**O que vale, com o corte movido de lugar:** o cap é para o **resumo no terminal**, não para
-o arquivo. No chat imprima o checklist inteiro e depois no máximo **1–2 achados por
-categoria**, os mais graves; feche com `cortei N achados menores — os N estão completos em
-<caminho>`. O excedente não sumiu: já está escrito, e a linha de corte é um ponteiro.
-**`CRITICAL` e `HIGH` nunca entram no corte**, nem no terminal — se são nove, saem nove.
+**No terminal o corte é de atenção, nunca de registro.** No chat: o checklist inteiro
+(7 linhas), todos os `CRITICAL` e `HIGH` — se são nove, saem nove —, e dos `MEDIUM`/`LOW`
+só o que muda a ordem de correção, agrupado por classe; feche com `cortei N achados
+menores — os N estão completos em <caminho>`. O excedente já está escrito no arquivo: a
+linha de corte é um ponteiro, não uma promessa.
 
 **Agrupar não é cortar, e é o que de fato desinfla.** Vinte hits da mesma classe viram
 **um** bloco com a contagem e 2–3 representantes `arquivo:linha`, não vinte blocos quase
