@@ -48,12 +48,16 @@ mas o inventário exige varrer HEAD e histórico:
 ```bash
 gitleaks detect --no-banner --redact -v                    # histórico completo
 gitleaks dir --no-banner --redact .                        # working tree
-trufflehog git file://. --only-verified --no-update        # confirma se AINDA vive
 ```
 
 `--only-verified` do trufflehog testa a credencial contra a API real. Isso elimina
 falso-positivo por construção — e **faz chamada de rede com a credencial do
-cliente**, então precisa estar autorizado no escopo do contrato.
+cliente**. Só rode com a autorização registrada no contrato ("Autorizações extras
+concedidas"):
+
+```bash
+trufflehog git file://. --only-verified --no-update        # confirma se AINDA vive
+```
 
 Para repo com dívida conhecida, use baseline em vez de desligar o gate:
 

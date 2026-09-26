@@ -137,9 +137,10 @@ grep -rhoiE 'alter table (public\.)?[a-z0-9_]+ enable row level security' supaba
   grep -oiE '[a-z0-9_]+ enable' | cut -d' ' -f1 | sort -u > /tmp/r.txt
 comm -23 /tmp/t.txt /tmp/r.txt        # criadas e nunca protegidas
 
-# SECURITY DEFINER sem search_path
-grep -rn -A6 'security definer' supabase/migrations | \
-  grep -B6 -L 'search_path' | head
+# SECURITY DEFINER sem search_path. É por arquivo: migration com duas funções e um só
+# search_path passa; quem decide é o lint 0011 (ou o pg_proc) no banco
+grep -rli 'security definer' supabase/migrations | while read -r f; do
+  grep -qi 'search_path' "$f" || echo "SEM search_path: $f"; done
 ```
 
 **O fallback estático mente em dois sentidos** e o report tem que dizer isso:

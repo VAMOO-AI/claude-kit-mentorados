@@ -85,8 +85,10 @@ feature em produção — com o dev verde.
 ## Como provar
 
 ```bash
-# sourcemap vazou pro build?
-npm run build >/dev/null 2>&1 && find dist .next -name '*.map' 2>/dev/null | head
+# sourcemap vazou pro build? No CONSTRUIR, rode `npm run build` antes; no AUDITAR,
+# olhe só o build que já está no disco (build grava no projeto) e prove pelo domínio:
+find dist .next -name '*.map' 2>/dev/null | head
+curl -s -o /dev/null -w '%{http_code}\n' https://<dominio>/<caminho-de-um-.js>.map   # 404 é o esperado
 
 # variável pública com cara de segredo
 grep -rEn '(VITE|NEXT_PUBLIC|PUBLIC|REACT_APP)_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)' \

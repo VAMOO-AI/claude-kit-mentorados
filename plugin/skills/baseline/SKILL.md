@@ -5,8 +5,7 @@ description: >-
   n8n) em 8 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
   segredos, perímetro. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
   produção está apto?). Use em "está pronto pra prod", "auditar produção",
-  "hardening", "app novo do zero", "baseline". O gate do /ship já roda o
-  collect.sh sozinho — aqui mora o método e o julgamento dos achados.
+  "hardening", "app novo do zero", "baseline".
 ---
 
 > Derivada de `claude-config-team/skills/vamoo-baseline`. Ao divergir de propósito, diga aqui o quê e por quê.
@@ -33,7 +32,7 @@ modelo que o `/ship` já usa ao ler `.context/docs/deploy.md`.
 
 
 No pilar de código, **chame `secscan`** — não refaça SAST aqui.
-Para fan-out por área com juiz adversarial, use o workflow `audit-multidim` que o `/kit-vamoo:setup` instala em `~/.claude/workflows/`.
+Auditoria com fan-out por área e juiz adversarial: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
 
 ---
 
@@ -99,7 +98,7 @@ com contexto de regressão.
 | Fase | O que faz | Escreve |
 |---|---|---|
 | **1 Medir** | `doctor.sh` → `collect.sh`. Determinístico, zero julgamento | `findings.json` |
-| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Falso-positivo via `fp-check` | `report.md` |
+| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Falso-positivo decidido lendo o `arquivo:linha` e registrado em `.context/docs/security/vereditos.md` | `report.md` |
 | **3 Propor** | Correção concreta + comando de reconferência, por finding | nada |
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
@@ -123,9 +122,11 @@ O collect emite fatos, não vereditos. Você aplica, nesta ordem:
 1. **Exceção aceita** no contrato e ainda dentro da validade → o finding sai do
    report principal e vai pra seção "Exceções aplicadas". Fora da validade → volta
    como finding, severidade original, com a nota de que a exceção venceu.
-2. **Veredito anterior** em `.context/docs/security/vereditos.md` → não reabra
-   falso-positivo já julgado. Registre novos ali, nunca com `nosemgrep` espalhado
-   pelo código.
+2. **Veredito anterior** em `.context/docs/security/vereditos.md` → falso-positivo
+   já julgado não reabre enquanto o trecho julgado for o mesmo (abra o
+   `arquivo:linha`); mudou o código, julgue de novo. Registre novos ali no formato
+   do `secscan` (fingerprint · veredito · por quê · quem · quando), nunca com
+   `nosemgrep` espalhado pelo código.
 3. **Confiança**: `CONFIRMED` quando ferramenta real e heurística concordam;
    `heuristic` quando só o grep viu. (Modelo herdado do `secscan`.)
 4. **Severidade**: `CRITICAL` (segredo vivo exposto, bypass de RLS, RCE) ·

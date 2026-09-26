@@ -95,22 +95,38 @@ não saber qual dos seus gates é.
 
 ## Como provar
 
-O único teste que vale é com um token real do papel mais restrito.
+O único teste que vale é com um token real do papel mais restrito. Só que o token
+é credencial de uma pessoa e a resposta traz linhas de produção: os dois ficam no
+terminal de quem roda, e a prova volta como **contagem**. Num `HEAD` com
+`Prefer: count=exact`, o PostgREST devolve o total no `Content-Range` (o número
+depois da barra) e nenhuma linha.
+
+Escreva o roteiro num arquivo e entregue o comando do `hitl-loop.sh` como a
+`verificacao` manda na seção "O que só um humano consegue verificar": caminhos
+absolutos, e quem roda é a pessoa, não você. Troque `erp_faturamento` pela tabela
+que a UI esconde desse papel:
+
+```text
+# /tmp/roteiro-gate.txt (escrito pelo agente)
+# 1) o token entra no terminal da pessoa, nunca na conversa
+passo Em outra aba do terminal: read -rs TOKEN e cole o access_token de um usuário do papel restrito (login na app, devtools); depois REF='<project-ref>'; ANON='<anon-key>'
+# 2) o que ele consegue ler de uma tabela que a UI esconde dele?
+passo Nessa aba: curl -sI "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*" -H "apikey: $ANON" -H "Authorization: Bearer $TOKEN" -H "Prefer: count=exact" | grep -iE '^http|^content-range'
+captura LINHAS_COM_TOKEN Qual é o número depois da barra no content-range? (*/0 é 0; sem content-range, responda com o status da linha HTTP)
+# 3) e sem token nenhum?
+passo Agora sem o token: curl -sI "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*" -H "apikey: $ANON" -H "Prefer: count=exact" | grep -iE '^http|^content-range'
+captura LINHAS_SEM_TOKEN E o número depois da barra, sem token? (mesma regra)
+```
 
 ```bash
-# 1) pegue um access_token de um usuário do papel restrito (login na app, devtools)
-TOKEN='eyJ...'
-REF='<project-ref>'; ANON='<anon-key>'
-
-# 2) o que ele consegue ler de uma tabela que a UI esconde dele?
-curl -s "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*&limit=5" \
-  -H "apikey: $ANON" -H "Authorization: Bearer $TOKEN" | head -c 400
-# [] → a policy protege.  linhas → o gate era só da UI.
-
-# 3) e sem token nenhum?
-curl -s "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*&limit=1" \
-  -H "apikey: $ANON" | head -c 200
+# o que a pessoa roda, num terminal dela (caminho absoluto no lugar da variável)
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-gate.txt --saida /tmp/gate.txt
+# LINHAS_COM_TOKEN=0 → a policy protege (0 só prova se a tabela tem linhas). >0 → o gate era só da UI.
+# LINHAS_SEM_TOKEN>0 → qualquer um com a anon key lê a tabela.
 ```
+
+O bloco `--- capturado ---` do `--saida` é a prova que vai no report, sem token e
+sem linha de produção.
 
 Estático, como apoio:
 
