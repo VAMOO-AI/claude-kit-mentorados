@@ -112,7 +112,7 @@ que a UI esconde desse papel:
 passo Em outra aba do terminal: read -rs TOKEN e cole o access_token de um usuário do papel restrito (login na app, devtools); depois REF='<project-ref>'; ANON='<anon-key>'
 # 2) o que ele consegue ler de uma tabela que a UI esconde dele?
 passo Nessa aba: curl -sI "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*" -H "apikey: $ANON" -H "Authorization: Bearer $TOKEN" -H "Prefer: count=exact" | grep -iE '^http|^content-range'
-captura LINHAS_COM_TOKEN Qual é o número depois da barra no content-range? (*/0 é 0; sem content-range, responda com o status da linha HTTP)
+captura LINHAS_COM_TOKEN Qual é o número depois da barra no content-range? (*/0 é 0; sem content-range, rode o mesmo curl sem o -I e sem o grep, e responda negado, o status e a mensagem de erro, ex.: negado 401 JWT expired)
 # 3) e sem token nenhum?
 passo Agora sem o token: curl -sI "https://$REF.supabase.co/rest/v1/erp_faturamento?select=*" -H "apikey: $ANON" -H "Prefer: count=exact" | grep -iE '^http|^content-range'
 captura LINHAS_SEM_TOKEN E o número depois da barra, sem token? (mesma regra)
@@ -123,6 +123,8 @@ captura LINHAS_SEM_TOKEN E o número depois da barra, sem token? (mesma regra)
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-gate.txt --saida /tmp/gate.txt
 # LINHAS_COM_TOKEN=0 → a policy protege (0 só prova se a tabela tem linhas). >0 → o gate era só da UI.
 # LINHAS_SEM_TOKEN>0 → qualquer um com a anon key lê a tabela.
+# negado … permission denied → o papel não tem GRANT na tabela, e isso também protege.
+# negado com outra mensagem (JWT, API key) → a prova não rodou: corrija e refaça.
 ```
 
 O bloco `--- capturado ---` do `--saida` é a prova que vai no report, sem token e
