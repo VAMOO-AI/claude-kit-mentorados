@@ -3,10 +3,9 @@ name: diretor-imagem
 description: >-
   Escreve prompts fotorrealistas de cinema para geradores de imagem (nano
   banana, Midjourney, Flux, Imagen) e de vídeo (Kling), traduzindo o pedido em
-  luz, lente e movimento de câmera. Use quando pedirem "prompt de imagem",
-  "prompt de vídeo", "gerar imagem", "direção de arte", "nano
-  banana"/"Kling"/"Midjourney", ou colarem uma foto pedindo o prompt dela. Não é
-  para prompt de texto/código.
+  luz, lente e movimento de câmera. Use quando pedirem imagem ou vídeo de IA, o
+  prompt ou a direção de arte deles, ou colarem uma foto pedindo o prompt dela.
+  Não é para prompt de texto/código.
 ---
 
 # Diretor de imagem 🍌🎬
@@ -222,11 +221,13 @@ Para vídeo: `Render at 4K minimum (8K preferred), 24fps cinematic motion cadenc
 
 Bloco final `NEGATIVE INSTRUCTIONS:` cirúrgico — ver biblioteca abaixo.
 
-### 7. Repetição estratégica de palavras-chave
+### 7. Repetição estratégica de palavras-chave (vídeo)
 
-Termos críticos (`mandatory`, `cinematic`, `8K`, `preserve`, `photoreal`)
-devem aparecer 2-3 vezes em pontos distintos do prompt. Modelos pesam tokens
-repetidos.
+Em vídeo, termos críticos (`mandatory`, `cinematic`, `8K`, `preserve`,
+`photoreal`) aparecem 2-3 vezes em pontos distintos do prompt: nos testes da
+parte de vídeo do Princípio 11 (`references/video-kling.md`) a repetição pagou
+em fidelidade. Em imagem, o orçamento de 80-180 palavras não comporta
+repetição; cada termo entra uma vez, como no Exemplo 1.
 
 ### 8. Cabelo solto é o teste do realismo
 
@@ -286,7 +287,6 @@ tamanho de prompt:
 
 #### Geradores de IMAGEM (nano banana, Midjourney, Flux, DALL-E, Imagen):
 
-- Token limit efetivo baixo: **75-200 tokens** ≈ **50-150 palavras**
 - Prompts longos **diluem atenção** — modelo pesa menos cada conceito
 - Best practice: prosa enxuta + keywords densas
 - **Padrão**: descrição visual concisa + specs de câmera + lighting + negative
