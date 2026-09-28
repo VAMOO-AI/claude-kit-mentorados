@@ -55,6 +55,7 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 | `--no-verify` no push (`worktrees`, banco local compartilhado entre worktrees) | diverge | Aqui é decisão da pessoa, alinhado à `ship`, que só pula hook com pedido explícito: o agente propõe, com o gate completo verde antes do drift e o motivo à vista. Lá o agente pode pular e dizer na resposta. 0.42.0 (M2, achado 1). |
 | Merge na `ship` | diverge | Aqui é uma linha: merge só com pedido da pessoa, `gh pr merge <n> --squash`, com o verde deste SHA. Lá o merge fecha o §2 da `ship` (self-merge com o CI verde), com o roteiro de PR encadeado e do `--delete-branch` de dentro de worktree. 0.42.0. |
 | Modo pedagógico da `secscan` | diverge | Lá é exceção com gatilho; aqui é o padrão, porque o público do kit é justamente o iniciante. Até a 0.41 isso estava numa nota no topo da skill, junto com a linhagem; a regra continua no corpo (Fase 7). |
+| `secscan` (gitleaks sem git, lockfiles) e A4 da `auditoria-seguranca` (default curto) | diverge desde 0.42.0 | Aqui o gitleaks fora de repositório git sai `não medido (sem git)` em vez de exit 0 lido como limpo; a Fase 4 reconhece `yarn.lock`, `bun.lockb` e `npm-shrinkwrap.json`; e na A4 o default do compose com até 8 caracteres sai todo mascarado (no time sai com os 6 primeiros, que num valor curto são ele quase inteiro). Ainda sem gêmea no time. |
 
 ## O que é espelhado (porte obrigatório nos dois sentidos)
 
