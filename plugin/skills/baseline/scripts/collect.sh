@@ -10,7 +10,7 @@
 #
 #   collect.sh [--out DIR] [--root DIR] [--diff BASE] [--pilar 01,07]
 #
-#   --diff BASE   só o que o diff contra BASE toca (gate do /ship; rápido, sem rede)
+#   --diff BASE   o que o diff contra BASE toca, mais o untracked fora do .gitignore (gate do /ship; sem rede)
 
 set -uo pipefail
 
@@ -83,10 +83,16 @@ add_coverage() {
     '{pilar:$p,check:$k,status:$s,tool:$t,reason:$r}' >> "$C"
 }
 
-# Escopo de arquivos. Em --diff, só o que mudou; senão, tudo que o git rastreia.
+# Escopo de arquivos. Em --diff, o que mudou mais o untracked; senão, tudo que o git rastreia.
+# Nenhum `git diff` vê arquivo que ainda não entrou no git: o .env e a migration novos, que o
+# próximo `git add -A` leva, passavam pelo gate sem ninguém olhar. O .gitignore decide o que
+# fica fora — arquivo ignorado não entra.
+UNTRACKED_FILE="$OUT/.untracked"; : > "$UNTRACKED_FILE"
 if [ -n "$DIFF_BASE" ]; then
   SCOPE="$(git diff --name-only --diff-filter=ACMR "$DIFF_BASE"...HEAD 2>/dev/null)"
   [ -n "$SCOPE" ] || SCOPE="$(git diff --name-only --diff-filter=ACMR "$DIFF_BASE" 2>/dev/null)"
+  git ls-files --others --exclude-standard 2>/dev/null > "$UNTRACKED_FILE"
+  SCOPE="$(printf '%s\n' "$SCOPE"; cat "$UNTRACKED_FILE")"
 else
   SCOPE="$(git ls-files 2>/dev/null)"
 fi
@@ -187,16 +193,34 @@ fi
 
 # ─────────────────────────────────────────── 02 · banco
 if want 02; then
-  if [ -d supabase/migrations ] || [ -d migrations ]; then
-    MIG="$(ls -d supabase/migrations migrations 2>/dev/null | head -1)"
-    # No modo --diff, só as migrations que ESTE diff adicionou.
+  # As duas pastas, quando existem as duas: o `ls -d … | head -1` de antes lia só a primeira em
+  # ordem alfabética e dizia "medido" sobre as duas. Pasta sem .sql também não é medição. O
+  # motivo da cobertura nomeia o que foi lido — e o que não foi sai "RLS não medido".
+  MIG_DIRS=""
+  for d in supabase/migrations migrations; do [ -d "$d" ] && MIG_DIRS="$MIG_DIRS $d"; done
+  MIG_DIRS="${MIG_DIRS# }"
+  if [ -n "$MIG_DIRS" ]; then
+    # No modo --diff, só as migrations que ESTE diff traz (untracked inclusive).
     if [ $DIFF_MODE -eq 1 ]; then
-      MIG_FILES="$(grep -E '(supabase/)?migrations/.*\.sql$' "$SCOPE_FILE" 2>/dev/null | tr '\n' ' ')"
-      [ -n "$MIG_FILES" ] || MIG_FILES=""
-    else MIG_FILES="$MIG"; fi
-    if [ -z "$MIG_FILES" ]; then
-      add_coverage 02 rls_migrations nao_medido grep "nenhuma migration neste diff"
+      MIG_LIST="$(grep -E '(supabase/)?migrations/.*\.sql$' "$SCOPE_FILE" 2>/dev/null)"
     else
+      # shellcheck disable=SC2086
+      MIG_LIST="$(find $MIG_DIRS -type f -name '*.sql' 2>/dev/null | sort)"
+    fi
+    if [ -z "$MIG_LIST" ]; then
+      if [ $DIFF_MODE -eq 1 ]; then
+        add_coverage 02 rls_migrations nao_medido grep "RLS não medido: nenhuma migration .sql neste diff ($MIG_DIRS)"
+      else
+        add_coverage 02 rls_migrations nao_medido grep "RLS não medido: nenhum .sql em $MIG_DIRS"
+      fi
+    else
+    MIG="$(printf '%s\n' "$MIG_LIST" | sed 's|/[^/]*$||' | sort -u | tr '\n' ' ' | sed 's/ $//')"
+    sem_sql=""
+    if [ $DIFF_MODE -eq 0 ]; then
+      for d in $MIG_DIRS; do printf '%s\n' "$MIG_LIST" | grep -q "^$d/" || sem_sql="$sem_sql $d"; done
+    fi
+    n_sql="$(hits "$MIG_LIST")"
+    MIG_FILES="$(printf '%s\n' "$MIG_LIST" | tr '\n' ' ')"
     # [[:space:]]+ e não espaço literal: as migrations alinham as colunas
     # ("ALTER TABLE public.deal_tags     ENABLE ROW LEVEL SECURITY") e um regex
     # com espaço único reporta como desprotegida uma tabela que tem RLS.
@@ -212,7 +236,7 @@ if want 02; then
         "Tabela em schema exposto sem RLS é legível por qualquer um com a anon key. Migrations podem não refletir o banco: confirme com o lint 0013. Tabelas: $(printf '%s' "$semrls" | tr '\n' ' ' | cut -c1-300)" \
         "bash $SK/scripts/splinter.sh 0013" "lint 0013_rls_disabled_in_public"
     fi
-    add_coverage 02 rls_migrations medido grep "estático: policy aplicada pelo dashboard não aparece aqui"
+    add_coverage 02 rls_migrations medido grep "pastas medidas: $MIG ($n_sql .sql, $(hits "$created") CREATE TABLE)${sem_sql:+; sem .sql:$sem_sql}; estático: policy aplicada pelo dashboard não aparece aqui"
 
     # SECURITY DEFINER sem search_path (bloco de função)
     sd_total="$(grep -rioE 'security definer' $MIG_FILES 2>/dev/null | grep -c . 2>/dev/null; true)"
@@ -240,7 +264,7 @@ if want 02; then
     add_coverage 02 policies_permissivas medido grep ""
     fi
   else
-    add_coverage 02 rls_migrations nao_medido - "sem diretório de migrations"
+    add_coverage 02 rls_migrations nao_medido - "RLS não medido: sem pasta de migration (supabase/migrations/ ou migrations/)"
   fi
 
   if [ -x scripts/db-query.sh ] || [ -n "${SUPABASE_DB_URL:-}" ]; then
@@ -405,7 +429,15 @@ if want 07; then
       "Arquivo de ambiente no git expõe todo segredo do projeto para quem tiver leitura do repositório, e o histórico guarda mesmo depois de removido${NO_RANGE}. Arquivos:$(printf '%s' "$envs" | tr '\n' ' ')" \
       "git ls-files | grep -E '(^|/)\\.env'; git log --oneline --name-only <base>..HEAD | grep -E '(^|/)\\.env'" "pilar 07"
   fi
-  add_coverage 07 env_versionado medido git "$([ $DIFF_MODE -eq 1 ] && echo 'índice + commits do range')"
+  # Untracked fora do .gitignore (só no --diff): nenhum commit tem o arquivo, mas nada o segura
+  # fora do próximo `git add -A`. HIGH e não CRITICAL: a correção é o .gitignore antes do commit.
+  envs_u="$(grep -E '(^|/)\.env' "$UNTRACKED_FILE" 2>/dev/null | grep -vE "$ENV_OK" | sort -u)"
+  if [ -n "$envs_u" ]; then
+    add_finding 07 HIGH CONFIRMED "Arquivo .env untracked e fora do .gitignore" "$(printf '%s' "$envs_u" | head -1)" \
+      "Ainda não está em commit nenhum, mas nada o segura fora do git: o próximo git add -A o versiona, e o push leva. Ponha no .gitignore (ou tire da pasta do projeto) antes do commit. Arquivos: $(printf '%s' "$envs_u" | tr '\n' ' ')" \
+      "git ls-files --others --exclude-standard | grep -E '(^|/)\\.env'" "pilar 07"
+  fi
+  add_coverage 07 env_versionado medido git "$([ $DIFF_MODE -eq 1 ] && echo 'índice + commits do range + untracked fora do .gitignore')"
 
   jwt="$(git grep -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null | only_scope_paths)"
   if [ -n "$RANGE_COMMITS" ]; then
@@ -422,7 +454,20 @@ if want 07; then
       "Token JWT em arquivo rastreado${NO_RANGE}. Se for service_role, é acesso total ao banco ignorando RLS. Gate de secret scan que só varre o diff nunca encontra isto. Arquivos: $(printf '%s' "$jwt" | tr '\n' ' ' | cut -c1-400)" \
       "git grep -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' -- . ':!*.lock'; git grep -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' \$(git rev-list <base>..HEAD)" "pilar 07"
   fi
-  add_coverage 07 jwt_no_head medido git "$([ $DIFF_MODE -eq 1 ] && echo 'disco + commits do range')"
+  # O `git grep` acima só vê arquivo rastreado; o --untracked lê o resto, e o .gitignore vale.
+  jwt_u=""
+  if [ -s "$UNTRACKED_FILE" ]; then
+    jwt_u="$(git grep --untracked -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
+              | grep -Fxf "$UNTRACKED_FILE")"
+  fi
+  nju="$(hits "$jwt_u")"
+  if [ "${nju:-0}" -gt 0 ]; then
+    add_finding 07 HIGH CONFIRMED "JWT em arquivo untracked e fora do .gitignore ($nju arquivos)" \
+      "$(printf '%s' "$jwt_u" | head -1)" \
+      "Token JWT em arquivo que ainda não está em commit nenhum, e que nada segura fora do git: o próximo commit o versiona, e o push leva. Tire o token do arquivo (variável de ambiente) ou ponha o arquivo no .gitignore antes do commit. Arquivos: $(printf '%s' "$jwt_u" | tr '\n' ' ' | cut -c1-400)" \
+      "git grep --untracked -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' -- . ':!*.lock'" "pilar 07"
+  fi
+  add_coverage 07 jwt_no_head medido git "$([ $DIFF_MODE -eq 1 ] && echo 'disco + commits do range + untracked fora do .gitignore')"
 
   if command -v gitleaks >/dev/null 2>&1 && global_check; then
     gitleaks detect --no-banner --redact --report-format json \
@@ -471,7 +516,7 @@ jq -n \
   '{meta:{project:$project,root:$root,generated_at:$at,git_sha:$sha,branch:$br,mode:$mode,
           checks_run:$checks,checks_measured:$measured},
     coverage:$c, findings:$f}' > "$OUT/findings.json" || { echo "falha ao montar findings.json" >&2; exit 4; }
-rm -f "$F" "$C" "$SCOPE_FILE" "$OUT/.range"
+rm -f "$F" "$C" "$SCOPE_FILE" "$OUT/.range" "$UNTRACKED_FILE"
 
 nf="$(jq '.findings | length' "$OUT/findings.json")"
 echo "checks: $CHECKS_RUN (medidos: $MEASURED) · findings: $nf · $OUT/findings.json"

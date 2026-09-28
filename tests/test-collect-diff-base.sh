@@ -13,6 +13,10 @@
 # disco (JWT). `git rm --cached .env` sem --amend, commit novo tirando o .env e JWT
 # consertado só no disco davam exit 0 — e o push levava o segredo no histórico.
 #
+# O untracked: o escopo saía só de `git diff`, que não vê arquivo fora do git. `.env` novo, JWT
+# em arquivo novo e migration sem RLS passavam com exit 0, a um `git add -A` do commit. O que o
+# .gitignore cobre continua fora: o seed ignora .env e .env.local.
+#
 # A fixture é um clone de verdade (origin/HEAD existe): `--diff origin/HEAD` é o jeito de
 # comparar com a branch padrão sem saber o nome dela, e o teste prova esse comando nos dois
 # sentidos, limpo e com segredo.
@@ -40,7 +44,8 @@ git -C "$SEED" config user.email t@t; git -C "$SEED" config user.name t
 git -C "$SEED" config commit.gpgsign false
 printf '{"name":"fixture"}\n' > "$SEED/package.json"
 mkdir -p "$SEED/src"; printf 'export const x = 1;\n' > "$SEED/src/a.ts"
-git -C "$SEED" add package.json src/a.ts
+printf '.env\n.env.local\n' > "$SEED/.gitignore"
+git -C "$SEED" add package.json src/a.ts .gitignore
 git -C "$SEED" commit -qm base
 git -C "$SEED" push -q "$TMP/origin.git" main
 git clone -q "$TMP/origin.git" "$REPO"
@@ -62,9 +67,15 @@ critico_07() { # critico_07 <n> — o findings.json da passada <n> tem CRITICAL 
     && jq -e '[.findings[] | select(.pilar=="07" and .severity=="CRITICAL")] | length > 0' \
          "$TMP/out-$1/findings.json" >/dev/null 2>&1
 }
+segredo_untracked() { # segredo_untracked <n> — finding CRITICAL/HIGH do pilar 07 com "untracked" no título?
+  [ -f "$TMP/out-$1/findings.json" ] \
+    && jq -e '[.findings[] | select(.pilar=="07" and (.severity=="CRITICAL" or .severity=="HIGH")
+                                    and (.title | test("untracked")))] | length > 0' \
+         "$TMP/out-$1/findings.json" >/dev/null 2>&1
+}
 ramo() { # ramo <nome> — branch nova a partir de origin/HEAD, sem sobra do cenário anterior
   git -C "$REPO" checkout -q -- . 2>/dev/null
-  rm -f "$REPO/.env"
+  git -C "$REPO" clean -qfdx   # untracked e ignorado: o .env do cenário anterior entraria no escopo
   git -C "$REPO" checkout -q -b "$1" origin/HEAD
 }
 
@@ -152,6 +163,41 @@ roda 8 origin/HEAD
 [ "$EXIT" -eq 1 ] && ok ".env só na resolução do merge: exit 1" \
   || falha ".env só na resolução do merge saiu $EXIT (esperado 1) — o commit de merge sobe com ele"
 critico_07 8 && ok "o finding é do pilar 07, CRITICAL" || falha "sem finding CRITICAL do pilar 07"
+
+echo "== arquivo novo, untracked e fora do .gitignore: entra no escopo e reprova =="
+ramo untracked-env
+printf 'SEGREDO=1\n' > "$REPO/.env.production"
+roda 11 origin/HEAD
+[ "$EXIT" -eq 1 ] && ok ".env.production untracked: exit 1" \
+  || falha ".env.production untracked saiu $EXIT (esperado 1) — o próximo git add -A o leva"
+segredo_untracked 11 && ok "o finding do pilar 07 diz que é untracked" \
+  || falha "sem finding CRITICAL/HIGH do pilar 07 com untracked no título"
+
+ramo untracked-jwt
+printf 'export const k = "%s";\n' "$JWT_FAKE" > "$REPO/src/novo.ts"
+roda 12 origin/HEAD
+[ "$EXIT" -eq 1 ] && ok "JWT em arquivo novo, untracked: exit 1" \
+  || falha "JWT em arquivo novo, untracked, saiu $EXIT (esperado 1)"
+segredo_untracked 12 && ok "o finding do pilar 07 diz que é untracked" \
+  || falha "sem finding CRITICAL/HIGH do pilar 07 com untracked no título"
+
+ramo untracked-migration
+mkdir -p "$REPO/supabase/migrations"
+printf 'create table public.pedidos (id int);\n' > "$REPO/supabase/migrations/20260928000000_pedidos.sql"
+roda 13 origin/HEAD
+[ "$EXIT" -eq 1 ] && ok "migration nova, untracked, sem RLS: exit 1" \
+  || falha "migration nova, untracked, sem RLS saiu $EXIT (esperado 1)"
+jq -e '[.findings[] | select(.pilar=="02" and .severity=="HIGH")] | length > 0' \
+     "$TMP/out-13/findings.json" >/dev/null 2>&1 \
+  && ok "o finding é a tabela sem RLS (pilar 02, HIGH)" || falha "sem finding HIGH do pilar 02"
+
+ramo untracked-ignorado
+printf 'SEGREDO=1\n' > "$REPO/.env"
+printf 'K=%s\n' "$JWT_FAKE" > "$REPO/.env.local"
+roda 14 origin/HEAD
+[ "$EXIT" -eq 0 ] && ok "o que o .gitignore cobre fica fora: exit 0" \
+  || falha "arquivo ignorado reprovou o gate: saiu $EXIT (esperado 0)"
+git -C "$REPO" clean -qfdx
 
 echo "== clone sem origin/HEAD: o mesmo comando sai 3 e diz como consertar =="
 # o caso real: clone feito com init + remote add nunca ganha origin/HEAD — e o .env

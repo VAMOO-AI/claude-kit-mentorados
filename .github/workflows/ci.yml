@@ -212,6 +212,9 @@ jobs:
         # Inclui o segredo que entra só na resolução de um merge (--diff-merges=first-parent).
         run: bash tests/test-collect-diff-base.sh
 
+      - name: O pilar 02 da baseline diz quais pastas de migration mediu, e os blocos da skill rodam linha a linha
+        run: bash tests/test-baseline-banco.sh
+
       - name: A barra mostra o comprimento da sessão e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 
