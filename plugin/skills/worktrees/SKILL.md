@@ -280,8 +280,11 @@ O `--verificar` não remove nada (só atualiza as refs remotas com `git fetch --
 - qualquer outro ignorado de valor (`outputs/`, `.context/runtime/`), com os
   caminhos. Passam só symlink (remover o link não apaga o alvo) e cache/build que
   uma instalação recria (`node_modules`, `.next`, `dist`, `build`, `.venv`...);
-- branch não mergeada. Sem `gh` que enxergue o repo, um squash sai como "NÃO
-  mergeada": aí vale a prova do PR acima, e os outros motivos continuam valendo.
+- branch não mergeada na branch padrão do origin (sem padrão descoberta, é keep com o
+  motivo). O squash é provado pelo PR, pelo `gh` ou, se a conta dele não enxerga o repo,
+  pela API REST com o token de `git config git-sync.tokenVar`, como no git-sync. Só
+  quando o motivo diz "sem gh nem token da API" vale a prova do PR acima à mão, e os
+  outros motivos continuam valendo.
 
 Exit 2 é uso errado (o clone principal, caminho que não é raiz de worktree).
 
@@ -290,7 +293,9 @@ Exit 2 é uso errado (o clone principal, caminho que não é raiz de worktree).
   `git worktree prune`. Worktree que esta sessão criou com o `EnterWorktree`:
   `ExitWorktree` com `action: "remove"`; se ele recusar por commits fora da branch
   original (é o squash), `discard_changes: true` só com a prova completa — ele
-  também apaga o que não foi commitado.
+  também apaga o que não foi commitado e o que o git ignora, sem listar, como um
+  `--force`. Por isso o `--verificar` roda de novo **logo antes** do re-invoke, não só
+  no começo da limpeza: exit 0 libera, qualquer outro exit é `action: "keep"`.
 - Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
   à pessoa o que faltou — a linha `keep:` do `--verificar` já traz o arquivo, o repo
   aninhado ou os caminhos ignorados.
