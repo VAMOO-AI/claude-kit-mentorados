@@ -65,4 +65,4 @@ sobrevivem a mudança de CSS.
 ## Quando travar
 
 Roda `--ui`, olha o print da falha, ajusta o seletor. Se não destravar, manda o print pro Claude
-(ou pro Ruan) — com a imagem da tela real, o seletor certo sai na hora.
+(ou pro mentor) — com a imagem da tela real, o seletor certo sai na hora.

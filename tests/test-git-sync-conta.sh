@@ -104,8 +104,8 @@ refute 'conta gh:'                                                "sem nota de c
 check '#?7  feat: coisa'                                          "lista o PR"                      "$OUT"
 
 echo "== ativa enxerga, mas a 1ª consulta falhou por instabilidade: não manda trocar de conta =="
-# 23/09/2026: a nota disse "a ativa não enxerga; gh auth switch -u ruannmiranda1" com
-# ruannmiranda1 JÁ ativa. O retry pelas contas começa em ordem alfabética, a própria ativa
+# 23/09/2026: a nota disse "a ativa não enxerga; gh auth switch -u <conta-ativa>" com
+# a <conta-ativa> JÁ ativa. O retry pelas contas começa em ordem alfabética, a própria ativa
 # passou, e a nota atribuiu a uma conta errada o que era rede.
 OUT="$(FAKE_GH_ACTIVE=tok-cliente FAKE_GH_FALHA_1A="$TMP/falhou-1a" run)"; rm -f "$TMP/falhou-1a"
 refute 'a ativa não enxerga'                                      "não culpa a conta ativa"         "$OUT"

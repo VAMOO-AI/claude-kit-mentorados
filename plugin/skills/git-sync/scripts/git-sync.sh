@@ -846,7 +846,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   # [gone] depende de a ref remota ter sido apagada no merge. Branch mergeada por PR cujo
   # remoto sobreviveu (o `gh pr merge --delete-branch` quebra depois do merge quando roda de
   # dentro de um worktree) ou que nunca teve upstream fica com track vazio e não aparecia
-  # aqui — 10 no kit mentorados e 5 no CRM Multipedidos em 03/09/2026, todas resíduo. A
+  # aqui — 10 no kit mentorados e 5 num projeto de cliente em 03/09/2026, todas resíduo. A
   # prova continua sendo o PR; aqui exige-se também head do PR == tip da branch, porque
   # commit depois do merge é trabalho, não resíduo. Uma chamada ao gh por branch, cacheada.
   echo "--- branches com PR mergeado e remoto vivo ou sem upstream ---"

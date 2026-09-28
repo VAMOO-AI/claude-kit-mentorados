@@ -14,7 +14,7 @@
 #
 # E o buraco de 03/09/2026: o cleanup só olhava branch [gone]. Branch mergeada por PR cujo
 # remoto sobreviveu (gh pr merge --delete-branch quebrando de dentro de um worktree) ou que
-# nunca teve upstream ficava invisível — 10 no kit mentorados, 5 no CRM Multipedidos. A
+# nunca teve upstream ficava invisível — 10 no kit mentorados, 5 num projeto de cliente. A
 # prova é PR merged + head do PR == tip; commit depois do merge é trabalho e fica.
 #
 # Até 28/09/2026 essa prova dupla só valia para as branches fora do [gone]. A branch [gone]
