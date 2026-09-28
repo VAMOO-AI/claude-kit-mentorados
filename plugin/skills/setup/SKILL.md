@@ -51,7 +51,8 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
   que versões anteriores do kit instalavam sai, com cópia no backup: em disco que
   não diferencia maiúscula de minúscula (o padrão no macOS e no Windows), o Claude
   Code o lia como `AGENTS.md` em toda sessão. Listado no `.keep-local`, ele fica, e
-  a saída avisa.
+  a saída avisa. Um `AGENTS.md` que a pessoa escreveu (o do Codex, por exemplo)
+  fica intocado: o setup só tira o arquivo gravado como `agents.md`, em minúsculas.
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
