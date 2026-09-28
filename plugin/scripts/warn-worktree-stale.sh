@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # warn-worktree-stale.sh — SessionStart hook.
-# (1) Avisa se a sessão começa num worktree cuja branch JÁ FOI MERGEADA (lixo — pode
-#     remover com worktree-gc.sh --apply, ou ExitWorktree). Branch sem commit próprio
+# (1) Avisa se a sessão começa num worktree cuja branch JÁ FOI MERGEADA (a limpeza é com
+#     pedido da pessoa, pela skill worktrees). Branch sem commit próprio
 #     não conta como mergeada, e worktree com mudança não commitada nunca é lixo.
-# (2) Avisa se o CLONE PRINCIPAL não está em main (sua regra: clone principal read-only
-#     em main). Não modifica o git — só lê e avisa. Silencioso quando está tudo ok.
+# (2) Numa sessão em worktree, avisa se o CLONE PRINCIPAL não está em main (com worktrees,
+#     o clone principal fica na main). Não modifica o git — só lê e avisa. Silencioso
+#     quando está tudo ok.
 set -uo pipefail
 
 DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
@@ -17,7 +18,7 @@ PRIMARY="$(dirname "$COMMON")"
 br="$(git branch --show-current 2>/dev/null)"
 
 # Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
-# `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, no CRM Multipedidos, o
+# `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, num projeto real, o
 # aviso mandou remover um worktree com o fix inteiro ainda sem commit. Sem commit próprio
 # = o tip não passou do ponto de criação (a 1ª entrada do reflog), ou é commit da linha
 # first-parent da main — a branch que só puxou a base, ou cujo reflog já expirou.
@@ -53,14 +54,16 @@ if [ "$GIT_DIR" != "$COMMON" ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br"
     if [ "${sujos:-0}" -gt 0 ]; then
       echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
     else
-      echo "🧹 worktree: '$br' já foi MERGEADA — este worktree é lixo. Remova com 'ExitWorktree' (sessão) ou '~/.claude/scripts/worktree-gc.sh --apply'."
+      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa e trava de env ignorado). Para vários de uma vez, 'git-sync --cleanup-dry-run' primeiro, e o '--cleanup-apply' só com o pedido dele."
     fi
   fi
 fi
 
-# (2) Clone principal fora de main?
-primary_br="$(git -C "$PRIMARY" branch --show-current 2>/dev/null)"
-if [ -n "$primary_br" ] && [ "$primary_br" != "main" ] && [ "$primary_br" != "master" ]; then
-  echo "⚠️ clone principal ($PRIMARY) está em '$primary_br', não em main. Sua regra: clone principal read-only em main. Volte pra main quando puder (cuidado com trabalho não-commitado)."
+# (2) Clone principal fora de main? Só importa quando esta sessão está num worktree.
+if [ "$GIT_DIR" != "$COMMON" ]; then
+  primary_br="$(git -C "$PRIMARY" branch --show-current 2>/dev/null)"
+  if [ -n "$primary_br" ] && [ "$primary_br" != "main" ] && [ "$primary_br" != "master" ]; then
+    echo "⚠️ clone principal ($PRIMARY) está em '$primary_br', não em main. Com worktrees, o clone principal fica na main, só pra leitura (skill worktrees); se não houver trabalho não commitado nele, ofereça ao usuário voltar pra main."
+  fi
 fi
 exit 0

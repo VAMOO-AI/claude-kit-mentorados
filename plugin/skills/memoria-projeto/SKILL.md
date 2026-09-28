@@ -9,8 +9,6 @@ description: >-
   memória está no repo?".
 ---
 
-> Derivada de `claude-config-team/skills/memoria-projeto`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Memória do projeto dentro do repositório
 
 O Claude Code guarda o que aprende sobre um projeto em
@@ -92,14 +90,17 @@ Ligar **não** publica. O symlink põe no seu clone; o commit põe no repositór
 git status --short .context/memoria/
 ```
 
-Vazio: em dia. Com linhas, antes de fechar a sessão:
+Vazio: em dia. Com linhas, antes de fechar a sessão, commite **numa branch** — o
+hook do kit bloqueia commit na `main`. Se a sessão tem branch de tarefa que vai
+virar PR, é nela; senão, uma só de memória (`docs/memoria-<AAAA-MM-DD>`), num
+worktree se outra sessão usa este clone (skill `worktrees`), com PR:
 
 ```bash
 git add .context/memoria && git commit -m "docs(memoria): o que aprendi nesta sessão"
 ```
 
-Se você trabalha com branch e PR, isso entra no PR como qualquer mudança. Não
-deixe pra depois: sincronizar o repo antes de commitar é como se perde memória.
+Não deixe pra depois: memória que não foi commitada fica presa nesta máquina — e,
+num worktree, vai embora com ele.
 
 Antes de abrir um PR **só de memória**, veja se já existe um aberto mexendo na
 mesma pasta:

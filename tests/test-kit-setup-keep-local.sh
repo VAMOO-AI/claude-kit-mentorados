@@ -13,6 +13,13 @@
 # que é dele; 5 execuções deixam exatamente 3 backups — os 3 mais novos; e num
 # ~/.claude do kit do time (com .team-manifest) o setup não toca em nada sem --force.
 #
+# As regras de subagente mudaram de nome: em disco que não diferencia maiúscula
+# (macOS, Windows), o ~/.claude/agents.md é o AGENTS.md que o Claude Code lê em toda
+# sessão. O setup instala subagentes.md e tira o agents.md antigo, com backup (o
+# .keep-local segura, como segura qualquer remoção). CLAUDE.md da pessoa que ainda
+# cita agents.md ganha aviso, e o fim da saída só manda preencher os <campos> quando
+# o setup instalou o CLAUDE.md — o que já existia é da pessoa.
+#
 # Uso: bash tests/test-kit-setup-keep-local.sh [caminho-do-kit-setup.sh]
 set -uo pipefail
 SETUP="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/scripts/kit-setup.sh}"
@@ -62,6 +69,50 @@ check "skill fora do manifesto nunca é tocada"          "$(existe "$H1/.claude/
 check "o que saiu está no backup"                       "$([ "$(cat "$H1"/.claude/backup-kit-*/skills/minha-skill/SKILL.md 2>/dev/null)" = "editei" ] && echo ok || echo fail)"
 check "manifesto apagado (a limpeza rodou)"             "$(sumiu "$H1/.claude/.kit-manifest")"
 
+echo "== agents.md antigo sai com backup, e as regras vão para subagentes.md =="
+H7="$TMP/h7"; mkdir -p "$H7/.claude"
+echo "agents do kit antigo" > "$H7/.claude/agents.md"
+HOME="$H7" bash "$SETUP" >"$TMP/saida7" 2>&1; codigo=$?
+check "setup termina com exit 0"                        "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
+check "subagentes.md instalado"                         "$(existe "$H7/.claude/subagentes.md")"
+check "agents.md antigo removido"                       "$(sumiu "$H7/.claude/agents.md")"
+check "o agents.md antigo foi pro backup fora da rotação" "$([ "$(cat "$H7"/.claude/backup-agents-md/* 2>/dev/null)" = "agents do kit antigo" ] && echo ok || echo fail)"
+check "CLAUDE.md instalado agora: manda preencher os <campos>" "$(grep -q 'preencha os campos' "$TMP/saida7" && echo ok || echo fail)"
+
+echo "== agents.md listado no .keep-local fica, com aviso =="
+H8="$TMP/h8"; mkdir -p "$H8/.claude"
+echo "meu agents" > "$H8/.claude/agents.md"
+printf 'agents.md\n' > "$H8/.claude/.keep-local"
+HOME="$H8" bash "$SETUP" >"$TMP/saida8" 2>&1
+check "o agents.md protegido continua lá, intacto"      "$([ "$(cat "$H8/.claude/agents.md" 2>/dev/null)" = "meu agents" ] && echo ok || echo fail)"
+check "a saída diz que ele foi mantido"                 "$(grep -q 'mantido (está no .keep-local): agents.md' "$TMP/saida8" && echo ok || echo fail)"
+check "subagentes.md é instalado mesmo assim"           "$(existe "$H8/.claude/subagentes.md")"
+
+echo "== CLAUDE.md da pessoa que ainda cita agents.md: aviso, sem mexer nele =="
+H9="$TMP/h9"; mkdir -p "$H9/.claude"
+printf '# minhas regras\nSubagentes: ver ~/.claude/agents.md\n' > "$H9/.claude/CLAUDE.md"
+cp "$H9/.claude/CLAUDE.md" "$TMP/claude9-antes"
+HOME="$H9" bash "$SETUP" >"$TMP/saida9" 2>&1
+check "CLAUDE.md da pessoa intacto"                     "$(cmp -s "$H9/.claude/CLAUDE.md" "$TMP/claude9-antes" && echo ok || echo fail)"
+check "avisa que ele ainda cita agents.md"              "$(grep -q 'cita agents.md' "$TMP/saida9" && echo ok || echo fail)"
+check "não manda preencher os <campos> de um CLAUDE.md que não instalou" "$(grep -q 'preencha os campos' "$TMP/saida9" && echo fail || echo ok)"
+check "o fim da saída aponta o CLAUDE.kit.md"           "$(tail -n 3 "$TMP/saida9" | grep -q 'CLAUDE.kit.md' && echo ok || echo fail)"
+# o aviso é pelo nome antigo exato: AGENTS.md de projeto e subagentes.md não contam
+H10="$TMP/h10"; mkdir -p "$H10/.claude"
+printf '# minhas regras\nNo projeto, o AGENTS.md; subagentes em ~/.claude/subagentes.md\n' > "$H10/.claude/CLAUDE.md"
+HOME="$H10" bash "$SETUP" >"$TMP/saida10" 2>&1
+check "AGENTS.md e subagentes.md não disparam o aviso"  "$(grep -q 'cita agents.md' "$TMP/saida10" && echo fail || echo ok)"
+
+echo "== --dry-run mostra a remoção e o aviso, sem fazer =="
+H11="$TMP/h11"; mkdir -p "$H11/.claude"
+echo "agents antigo" > "$H11/.claude/agents.md"
+printf 'Subagentes: ver ~/.claude/agents.md\n' > "$H11/.claude/CLAUDE.md"
+HOME="$H11" bash "$SETUP" --dry-run >"$TMP/saida11" 2>&1
+check "dry-run não remove o agents.md"                  "$([ "$(cat "$H11/.claude/agents.md" 2>/dev/null)" = "agents antigo" ] && echo ok || echo fail)"
+check "dry-run não instala o subagentes.md"             "$(sumiu "$H11/.claude/subagentes.md")"
+check "dry-run mostra a remoção do agents.md"           "$(grep -q 'dry-run.*removeria .*agents\.md' "$TMP/saida11" && echo ok || echo fail)"
+check "dry-run mostra o aviso do CLAUDE.md"             "$(grep -q 'cita agents.md' "$TMP/saida11" && echo ok || echo fail)"
+
 echo "== com .keep-local: o que está lá fica, o resto sai =="
 H2="$TMP/h2"; monta_home "$H2"
 cat > "$H2/.claude/.keep-local" <<'EOF'
@@ -84,11 +135,11 @@ check "protegido não vai pro backup (não saiu)"         "$([ ! -e "$H2"/.claud
 
 echo "== .keep-local protege contra remoção, não contra instalação =="
 H3="$TMP/h3"; mkdir -p "$H3/.claude"
-echo "agents antigo" > "$H3/.claude/agents.md"
-printf 'agents.md\n' > "$H3/.claude/.keep-local"
+echo "subagentes antigo" > "$H3/.claude/subagentes.md"
+printf 'subagentes.md\n' > "$H3/.claude/.keep-local"
 HOME="$H3" bash "$SETUP" >/dev/null 2>&1
-check "agents.md do kit é instalado por cima mesmo listado" "$([ "$(cat "$H3/.claude/agents.md")" != "agents antigo" ] && echo ok || echo fail)"
-check "a versão antiga foi pro backup"                  "$([ "$(cat "$H3"/.claude/backup-kit-*/agents.md 2>/dev/null)" = "agents antigo" ] && echo ok || echo fail)"
+check "subagentes.md do kit é instalado por cima mesmo listado" "$([ "$(cat "$H3/.claude/subagentes.md")" != "subagentes antigo" ] && echo ok || echo fail)"
+check "a versão antiga foi pro backup"                  "$([ "$(cat "$H3"/.claude/backup-kit-*/subagentes.md 2>/dev/null)" = "subagentes antigo" ] && echo ok || echo fail)"
 
 echo "== --dry-run não remove nem cria backup =="
 H4="$TMP/h4"; monta_home "$H4"
@@ -102,7 +153,7 @@ echo "== rotação: 5 execuções deixam 3 backups, os mais novos =="
 H5="$TMP/h5"; mkdir -p "$H5/.claude"
 # A 1ª execução num HOME vazio não tem o que copiar — é o caso em que o glob de
 # backup-kit-* não casa nada, e onde o script já morreu calado uma vez (set -e +
-# pipefail no `for` sem match). A partir da 2ª há agents.md, statusline etc.; o
+# pipefail no `for` sem match). A partir da 2ª há subagentes.md, statusline etc.; o
 # carimbo tem resolução de segundo, daí o sleep.
 HOME="$H5" bash "$SETUP" >"$TMP/saida5" 2>&1; codigo=$?
 check "1ª execução em HOME vazio termina com exit 0"    "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
@@ -118,11 +169,11 @@ check "o backup desta execução é um dos 3"              "$(/bin/ls -d "$H5"/.
 check "instalação segue íntegra (CLAUDE.md e settings)" "$([ -f "$H5/.claude/CLAUDE.md" ] && python3 -m json.tool "$H5/.claude/settings.json" >/dev/null 2>&1 && echo ok || echo fail)"
 
 echo "== ~/.claude do kit do time (.team-manifest): sai 0 sem tocar em nada =="
-# O setup já rodou uma vez por cima do kit do time: trocou o agents.md e a barra de
-# status de lá pelos daqui, mexeu no settings e deixou um backup-kit-* no ~/.claude
+# O setup já rodou uma vez por cima do kit do time: trocou as regras de subagente e a barra
+# de status de lá pelas daqui, mexeu no settings e deixou um backup-kit-* no ~/.claude
 # do time. Quem grava o .team-manifest é o update.sh do time; este kit nunca grava.
 H6="$TMP/h6"; mkdir -p "$H6/.claude/skills/vamoo-verificacao" "$H6/.claude/scripts"
-for f in CLAUDE.md agents.md statusline-command.sh skills/vamoo-verificacao/SKILL.md; do
+for f in CLAUDE.md subagentes.md statusline-command.sh skills/vamoo-verificacao/SKILL.md; do
   echo "do time" > "$H6/.claude/$f"
 done
 echo '{"permissions":{"allow":["Bash(bun test:*)"]}}' > "$H6/.claude/settings.json"
@@ -138,7 +189,7 @@ check "a saída diz que o ~/.claude é do kit do time"    "$(grep -q 'kit do tim
 # por cima do CLAUDE.md do time.
 check "a saída diz 'Nada feito', o sinal de parada da skill" "$(grep -q 'Nada feito' "$TMP/saida6" && echo ok || echo fail)"
 HOME="$H6" bash "$SETUP" --force >/dev/null 2>&1; codigo=$?
-check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/agents.md")" != "do time" ] && echo ok || echo fail)"
+check "com --force o setup roda mesmo assim"            "$([ "$codigo" -eq 0 ] && [ "$(cat "$H6/.claude/subagentes.md")" != "do time" ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -13,6 +13,135 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.42.0] — 2026-09-28
+
+### Depois de atualizar
+
+- **Rode `/kit-vamoo:setup`.** As regras de subagente do kit saem de `~/.claude/agents.md` e
+  vão para `~/.claude/subagentes.md`. O setup instala o novo e tira o antigo, com cópia em
+  `~/.claude/backup-agents-md/`, fora da rotação dos três backups. Um `AGENTS.md` em
+  `~/.claude`, de outra ferramenta ou escrito por você, fica intocado: o setup só tira o
+  arquivo gravado como `agents.md`, em minúsculas, e o `AGENTS.md` que tem a linha "Fica em
+  `~/.claude/agents.md`" do modelo antigo do kit (setup antigo que gravou por cima). Sobre o
+  `AGENTS.md` que é seu o setup não diz nada; só o `--dry-run` conta que o deixaria. Se o seu
+  `CLAUDE.md` ainda cita `agents.md`, o setup avisa e não mexe nele.
+
+### Por quê
+
+- **Auditoria de prompts contra o Opus 5.5.** Cada skill, template, agente e hook que o modelo
+  lê foi relido do jeito que o 5.5 lê: ao pé da letra. Saíram dali regra que contradiz outra
+  (`ship` e `worktrees` discordando sobre `--no-verify` e limpeza), número sem data lido como
+  teto, escotilha que o modelo usava sem ninguém pedir e comando que imprime segredo na
+  conversa. Quatro áreas (base, fluxos, segurança e diversas) num PR só; acompanhamento no #142.
+- **`AGENTS.md` × `CLAUDE.md`.** O `AGENTS.md` do projeto passa a ser a fonte das regras, lido
+  também pelo Codex e por outras ferramentas; o `CLAUDE.md` do projeto só o importa
+  (`@AGENTS.md`) e guarda o que é só do Claude. E o `~/.claude/agents.md` do kit, em disco que
+  não diferencia maiúscula (o padrão no Mac e no Windows), era o `~/.claude/AGENTS.md`: as
+  regras de subagente entravam em toda conversa. Daí o `subagentes.md`.
+
+### Mudou
+
+- **Modelo de projeto:** o `CLAUDE-projeto.md.exemplo` sai e entra o
+  `AGENTS-projeto.md.exemplo`: o `AGENTS.md` é a fonte, o `CLAUDE.md` do projeto é a linha
+  `@AGENTS.md`, e a seção `## Deploy` vem no formato que a `ship` lê (automático no merge ou
+  comandos manuais). O CLAUDE global, a `grill-with-docs` e os docs seguem a mesma regra.
+- **O aviso de sessão longa mede o contexto de verdade** (porte do kit do time). Ele contava
+  linhas do histórico, que só crescem, inclusive depois do `/compact`, e o aviso que manda
+  compactar voltava depois dele. Agora lê o contexto do último turno e avisa em 150 mil, 300 mil
+  e de novo a cada +100 mil tokens; depois de um `/compact`, só volta quando o contexto crescer.
+- **Escotilhas dos guard-rails só com pedido seu:** a mensagem do bloqueio de commit na `main` e
+  a de apagar branch com PR encadeado só oferecem `HOTFIX_MAIN=1`/`DELETE_BRANCH_OK=1` quando
+  você pediu isso na conversa. Antes, "se foi proposital" deixava o Claude decidir sozinho.
+- **Aviso de worktree mergeado** não manda remover nem oferece o `ExitWorktree`: diz que você pode
+  pedir a limpeza, que segue a skill `worktrees` (prova completa e trava de env); para vários de
+  uma vez, `git-sync --cleanup-dry-run` primeiro e o `--cleanup-apply` só com o seu pedido. O de
+  clone principal fora da `main` só aparece numa sessão em worktree.
+- **`subagentes.md`:** o revisor não edita nem classifica: reporta cada achado com confiança e
+  cenário, e a conversa principal separa o que é mecânico do que é decisão e aplica; "Arquivos tocados" sai do `git diff --stat`; sai a cota de 3 edições.
+- **CLAUDE global:** uma frase antes da primeira ferramenta, `git diff` no lugar de reler o
+  arquivo, commit na `main` só quando você pede, grilling numa linha.
+- **Template de CI:** semgrep com `p/owasp-top-ten --metrics=off`. O `--config auto` faz login no
+  registry e manda a URL do repositório.
+
+### Skills
+
+- **`ship`**: o teste roda uma vez (sem o `|| npm run test` que rerodava a suíte que falhou); o
+  comando de deploy mora na seção `## Deploy` do `AGENTS.md` do projeto; a checklist de migration
+  vem antes do push; merge só com pedido seu. Dentro de worktree o Claude Code recusa o
+  `gh pr create` com `(escopo)` no título (lido como subshell): a skill manda gravar o comando
+  num `.sh` e rodar pelo caminho.
+- **`worktrees`**: sessão que escreve entra com o `EnterWorktree`; `--no-verify` só com o seu OK;
+  base velha com arquivo nas duas pontas: `git rebase origin/main` se a branch é só sua,
+  `git merge origin/main` se outra pessoa commita nela (ali o rebase pediria force-push);
+  apagar worktree e branch só com o seu pedido e prova completa: PR mergeado, head do PR igual ao
+  tip, nada sujo, env ignorado igual ao do clone principal e nenhum repositório aninhado ignorado.
+- **`git-sync`**: o `--cleanup-apply` cobra essa prova. O `-D` de branch `[gone]` e o worktree de
+  squash só com o head do PR igual ao tip; worktree com `.env*`, `.npmrc` ou `bunfig.toml`
+  diferente do clone principal, ou com repositório aninhado ignorado, fica. Push pendente vai para
+  o PENDENTE.
+- **`handoff`** confere a memória dentro do worktree; **`memoria-projeto`** commita a memória numa
+  branch, não na `main`.
+- **`verificacao`**: sai a skill `run`, que o kit não tem (o app roda pelo comando do projeto), e
+  a leitura da página como texto (`read_page`) fica para quem tem o MCP do navegador.
+- **`secscan`**: ruleset fixo e sem métricas, SARIF na pasta do relatório; ferramenta Python pelo
+  gerenciador oficial (`pipx`, `uv`, `brew`), SHA-256 só para binário baixado à mão; no terminal,
+  todo CRITICAL/HIGH e, dos MEDIUM/LOW, só o que muda a ordem de correção.
+- **`auditoria-seguranca`**: candidato do grep ainda não aberto entra como `padrao` em vez de
+  sumir; com mais de cinco achados graves, um `revisor` por achado julga em paralelo; a A4 não roda
+  `npm run build` no repositório auditado.
+- **`baseline`**: o fallback de `SECURITY DEFINER` sem `search_path` volta a acusar a migration;
+  a prova do gate de auth vira contagem pelo `hitl-loop.sh` (token e linhas ficam no seu
+  terminal); falso-positivo reabre quando o código julgado muda; o AUDITAR não roda build.
+- **`diretor-imagem`**: a parte de vídeo (Kling) foi para `references/video-kling.md`, e o pedido
+  de imagem carrega ~12 mil tokens em vez de ~27 mil. A repetição de termos críticos vale só para
+  vídeo.
+- **`gerar-imagem`**: a ordem real de onde a chave é lida, o script chamado pelo caminho do plugin
+  e o artefato só quando você pede.
+- **`find-docs`**, **`find-skills`**, **`bot-discord`**, **`skills-projeto`**,
+  **`harness-check`**, o workflow **`audit-multidim`** e o agente **`revisor`**: passos que se
+  contradiziam, descriptions por intenção (a lista de skills ficou menor), juiz × cobertura no
+  revisor e `PENDENTE_DECISAO` no workflow, que roda na sua máquina.
+- Sai das skills a nota que citava o repositório de origem; a linhagem mora em `docs/paridade.md`.
+
+### Corrigido
+
+- **O setup não apaga mais um `AGENTS.md` seu.** No Mac e no Windows, tirar o `agents.md` antigo
+  acertava também o `AGENTS.md` com outra caixa. Agora ele confere o nome exato no disco e, com
+  outra caixa, só tira o arquivo que tem a linha-assinatura do modelo antigo do kit. O dry-run diz
+  "removeria", e a cópia fica em `~/.claude/backup-agents-md/`, que a rotação dos três backups não
+  apaga (`tests/test-kit-setup-subagentes.sh`; porte do #240 do kit do time).
+- **A A4 da `auditoria-seguranca` imprimia o segredo inteiro** achado no bundle e em config:
+  agora sai `arquivo:linha` e, do valor, só `…` quando ele tem até 12 caracteres, ou os 4
+  primeiros + `…` quando é maior, inclusive no default do compose (`${VAR:-valor}`); o tipo vai
+  em rótulo separado, e o JWT do bundle sai com o `role` do payload (anon × service_role). O
+  default é procurado também em `compose.yaml`, `compose.yml` e `docker-compose*.yaml`, os nomes
+  do Compose v2, e em variável com dígito no nome (`${S3_SECRET:-…}`), e o `-a` lê binário no bundle sem derrubar a varredura
+  (`tests/test-auditoria-a4-mascara.sh`).
+- **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
+  ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando
+  acham. E a Fase 4 nunca dizia `SEM LOCKFILE`: o exit que valia era o do `head`, que sai 0 sem
+  nada para ler; agora ela lê também `yarn.lock`, `bun.lockb` e `npm-shrinkwrap.json`. E o
+  gitleaks fora de repositório git sai 0 sem ler nada: a linha diz `não medido (sem git)` em vez
+  de limpo (`tests/test-secscan-ferramentas.sh`).
+- **O AUDITAR da `baseline`** não listava o `vereditos.md` entre as escritas permitidas, e a fase 2
+  mandava registrar nele.
+- **Limpeza de worktree:** `.npmrc` de subpasta, `bunfig.toml`, `.bunfig.toml` e repositório
+  aninhado ignorado sumiam no `git worktree remove` (porte do #234 do kit do time).
+- **Worktree novo:** o `bunfig.toml` (sem ponto, o nome de projeto na doc do Bun) também guarda
+  token de registry e passa a ser só citado, como o `.npmrc` e o `.bunfig.toml`, nunca copiado.
+- **`collect.sh --diff` da `baseline`:** base que não resolve sai 3 (antes: 0 findings e exit 0),
+  e segredo em qualquer commit do range reprova, inclusive o que entrou só na resolução de um merge.
+- **README:** o peso da `diretor-imagem`; e "paganham" → "ganham" na referência de vídeo.
+
+### Para quem mantém
+
+- Espelho do kit do time: #233 (0.54.0), #236 (0.55.1), #237 (0.55.3), #234 (0.56.1, `28ba6dc`)
+  e #240 (0.56.2, `607fcc7`). Divergências deliberadas e portes em `docs/paridade.md`.
+- Quatro suítes novas no CI: `test-kit-setup-subagentes`, `test-auditoria-a4-mascara`,
+  `test-secscan-ferramentas` e `test-collect-diff-base`. As do `worktree-gc`, do cleanup do
+  `git-sync` e do `worktree-seed-env` ganham o caso `.bunfig.toml`; a do guard de sessão, o caso
+  sem node.
+
 ## [0.41.1] — 2026-09-25
 
 ### Corrigido

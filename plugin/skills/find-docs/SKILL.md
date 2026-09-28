@@ -7,8 +7,6 @@ description: >-
   Gatilhos: "find-docs", dúvida de API/SDK/CLI, migração.
 ---
 
-> Derivada de `claude-config-team/skills/find-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Documentation Lookup
 
 Retrieve current documentation and code examples for any library using the Context7 CLI.
@@ -33,9 +31,11 @@ ctx7 library <name> <query>
 ctx7 docs <libraryId> <query>
 ```
 
-You MUST call `ctx7 library` first to obtain a valid library ID UNLESS the user explicitly provides a library ID in the format `/org/project` or `/org/project/version`.
+Call `ctx7 library` first to get a valid library ID (`ctx7 docs` fails without one), unless
+the user already gave an ID in the form `/org/project` or `/org/project/version`.
 
-IMPORTANT: Do not run these commands more than 3 times per question. If you cannot find what you need after 3 attempts, use the best result you have.
+Stop after 3 commands per question — the Context7 quota is monthly. If you still haven't
+found it, use the best result you have and say what the docs didn't cover.
 
 ## Step 1: Resolve a Library
 
@@ -61,18 +61,13 @@ Each result includes:
 - **Benchmark Score** — Quality indicator (100 is the highest score)
 - **Versions** — List of versions if available. Use one of those versions if the user provides a version in their query. The format is `/org/project/version`.
 
-### Selection process
+### Choosing the match
 
-1. Analyze the query to understand what library/package the user is looking for
-2. Select the most relevant match based on:
-   - Name similarity to the query (exact matches prioritized)
-   - Description relevance to the query's intent
-   - Documentation coverage (prioritize libraries with higher Code Snippet counts)
-   - Source reputation (consider libraries with High or Medium reputation more authoritative)
-   - Benchmark score (higher is better, 100 is the maximum)
-3. If multiple good matches exist, acknowledge this but proceed with the most relevant one
-4. If no good matches exist, clearly state this and suggest query refinements
-5. For ambiguous queries, request clarification before proceeding with a best-guess match
+Pick the result that best fits the query's intent: name (exact match first), description,
+documentation coverage (Code Snippets), Source Reputation, Benchmark Score. If several fit,
+proceed with the best one and say which you chose. If none fits, say so and retry with a
+refined query. Ask the user only when the plausible readings point to genuinely different
+libraries.
 
 ### Version-specific IDs
 

@@ -13,7 +13,7 @@
 # Fonte do texto: plugin/novidades.txt — uma linha por versão, mais nova em cima:
 #     <versão>|<resumo numa frase>[|setup]
 # O 3º campo `setup` marca a versão que mexeu no que vem do /kit-vamoo:setup
-# (CLAUDE.md global, barra de status, preferências) — o plugin sozinho não entrega
+# (CLAUDE.md global, subagentes.md, barra de status, preferências) — o plugin sozinho não entrega
 # essas coisas, então a linha final manda rodar o setup. O `|` é separador: não pode
 # aparecer dentro do resumo (o último campo engole tudo que vier depois do 2º `|`, e
 # com ele a flag `setup`). O parser não tem como distinguir separador de texto — quem
@@ -146,6 +146,6 @@ fi
 printf '%s' "$linhas"
 
 fim="Tudo: github.com/VAMOO-AI/claude-kit-mentorados/blob/main/CHANGELOG.md"
-[ "$setup" -eq 1 ] && fim="$fim · esta atualização mexe no que só o setup instala (CLAUDE.md, barra de status ou settings.json): rode \`/kit-vamoo:setup\`."
+[ "$setup" -eq 1 ] && fim="$fim · esta atualização mexe no que só o setup instala (CLAUDE.md, subagentes.md, barra de status ou settings.json): rode \`/kit-vamoo:setup\`."
 echo "$fim"
 exit 0

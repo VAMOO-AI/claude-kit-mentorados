@@ -23,7 +23,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.41.1"
+KIT_VERSION="0.42.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -52,10 +52,10 @@ warn() { printf '\033[1;33m!\033[0m %s\n' "$1"; }
 run() { if [ "$DRY" -eq 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
 
 # Máquina com o kit do time: o update.sh de lá grava o .team-manifest, e este script
-# nunca grava. Rodar por cima trocaria o agents.md e a barra de status do time pelos
-# daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
+# nunca grava. Rodar por cima tiraria o agents.md do time, poria o subagentes.md e a
+# barra de status daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
 if [ -f "$CLAUDE_DIR/.team-manifest" ] && [ "$FORCE" -eq 0 ]; then
-  warn "~/.claude é do kit do time: o setup dos mentorados sobrescreveria agents.md e statusline e mexeria no settings. Nada feito."
+  warn "~/.claude é do kit do time: o setup dos mentorados tiraria o agents.md de lá, instalaria o subagentes.md e a statusline daqui e mexeria no settings. Nada feito."
   exit 0
 fi
 
@@ -82,6 +82,15 @@ protegido() {
     # shellcheck disable=SC2254  # o glob é do usuário e tem que expandir
     case "$rel" in $pat|$pat/*) return 0 ;; esac
   done < "$KEEP_LOCAL"
+  return 1
+}
+
+# O último componente do caminho existe com esta caixa exata? No APFS padrão do Mac e no
+# NTFS, que não diferenciam maiúscula, `[ -e ]`, `cp` e `rm` em ~/.claude/agents.md também
+# acertam um AGENTS.md que o kit nunca escreveu. O glob devolve o nome como está gravado.
+nome_exato() {
+  local e
+  for e in "${1%/*}"/* "${1%/*}"/.*; do [ "${e##*/}" = "${1##*/}" ] && return 0; done
   return 1
 }
 
@@ -116,20 +125,63 @@ say "Kit v$KIT_VERSION — completando a instalação em $CLAUDE_DIR"
 run mkdir -p "$CLAUDE_DIR" "$CLAUDE_DIR/scripts"
 
 # ── CLAUDE.md: é SEU arquivo. Não sobrescreve sem mandado explícito ──────────
+INSTALOU_CLAUDE=0
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ "$FORCE" -eq 0 ]; then
   run cp "$TPL/CLAUDE-global.md" "$CLAUDE_DIR/CLAUDE.kit.md"
   warn "Você já tem um CLAUDE.md — não mexi nele."
   warn "  O modelo do kit ficou em ~/.claude/CLAUDE.kit.md pra você comparar."
   warn "  Pra trocar pelo do kit: bash kit-setup.sh --force"
+  # O nome antigo das regras de subagente ficou para trás no CLAUDE.md da pessoa. O
+  # arquivo é dela: o setup aponta, não edita. Sem -i: AGENTS.md no texto é o do projeto.
+  if grep -q 'agents\.md' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+    warn "  Ele ainda cita agents.md: as regras de subagente agora ficam em ~/.claude/subagentes.md."
+  fi
 else
   backup "CLAUDE.md"
   run cp "$TPL/CLAUDE-global.md" "$CLAUDE_DIR/CLAUDE.md"
   ok "CLAUDE.md instalado  (preencha os <campos> com os seus dados)"
+  INSTALOU_CLAUDE=1
 fi
 
-backup "agents.md"
-run cp "$TPL/agents.md" "$CLAUDE_DIR/agents.md"
-ok "agents.md instalado"
+# ── Regras dos subagentes: subagentes.md ────────────────────────────────────
+# O nome antigo, agents.md, em disco que não diferencia maiúscula (macOS, Windows) é o
+# ~/.claude/AGENTS.md que o Claude Code lê em toda sessão: as regras de subagente
+# entravam em toda conversa. Ele sai com backup; o .keep-local segura, como segura
+# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só. Sai o que está
+# gravado como `agents.md`, o nome que o setup instalava, e o AGENTS.md com a linha-assinatura
+# do template antigo (setup antigo gravou por cima de um AGENTS.md que já existia). Sem
+# ela, o AGENTS.md é de outra ferramenta ou escrito pela pessoa, e fica.
+# A cópia vai para backup-agents-md/, fora da rotação dos backup-kit-*: três setups
+# depois ela ainda está lá.
+ASSINATURA_AGENTS='Fica em `~/.claude/agents.md`'
+tira_agents_antigo() { # <nome gravado no disco> <motivo>
+  local nome="$1" dest="$CLAUDE_DIR/backup-agents-md/agents-$STAMP.md"
+  if [ "$DRY" -eq 1 ]; then
+    echo "  [dry-run] removeria ~/.claude/$nome ($2), com cópia em $dest"
+    return 0
+  fi
+  mkdir -p "$CLAUDE_DIR/backup-agents-md"
+  cp "$CLAUDE_DIR/$nome" "$dest"
+  rm -f "$CLAUDE_DIR/$nome"
+  ok "$nome antigo removido ($2) — as regras agora ficam em subagentes.md; cópia em $dest"
+}
+backup "subagentes.md"
+run cp "$TPL/subagentes.md" "$CLAUDE_DIR/subagentes.md"
+ok "subagentes.md instalado"
+if [ -e "$CLAUDE_DIR/agents.md" ]; then
+  outro="agents.md"
+  nome_exato "$CLAUDE_DIR/agents.md" || outro="$(ls -A "$CLAUDE_DIR" | grep -Fxi -- agents.md | head -n 1 || true)"
+  if protegido "agents.md" || protegido "AGENTS.md"; then
+    warn "mantido (está no .keep-local): ${outro:-agents.md} — em disco que não diferencia maiúscula, o Claude Code o lê como AGENTS.md em toda sessão."
+  elif [ "$outro" = "agents.md" ]; then
+    tira_agents_antigo "agents.md" "o nome que o setup instalava"
+  elif [ -n "$outro" ] && grep -qF -- "$ASSINATURA_AGENTS" "$CLAUDE_DIR/$outro" 2>/dev/null; then
+    tira_agents_antigo "$outro" "é o template de um setup antigo do kit, com a linha 'Fica em ~/.claude/agents.md'"
+  elif [ "$DRY" -eq 1 ]; then
+    # O arquivo é da pessoa: fora do dry-run, nada a dizer sobre ele.
+    echo "  [dry-run] manteria ~/.claude/${outro:-AGENTS.md}: não foi instalado pelo kit (não tem a linha 'Fica em ~/.claude/agents.md' do template antigo)."
+  fi
+fi
 
 # ── Barra de status ─────────────────────────────────────────────────────────
 # Cópia, não link: a barra continua funcionando quando o plugin for atualizado
@@ -211,5 +263,9 @@ echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"
-say "Agora abra ~/.claude/CLAUDE.md e preencha os campos <entre-colchetes>."
+if [ "$INSTALOU_CLAUDE" -eq 1 ]; then
+  say "Agora abra ~/.claude/CLAUDE.md e preencha os campos <entre-colchetes>."
+else
+  say "Seu CLAUDE.md ficou como estava; o do kit está em ~/.claude/CLAUDE.kit.md para comparar."
+fi
 say "Reinicie o Claude Code pra barra de status aparecer."

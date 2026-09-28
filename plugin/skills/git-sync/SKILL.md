@@ -9,9 +9,6 @@ description: >-
   colega mexeu?", "tem PR aberto?"). Complementa a skill worktrees (isolamento).
 ---
 
-> Derivada de `claude-config-team/skills/git-sync`. Ao divergir de propósito, diga aqui o quê e por quê.
-> Divergência: o aviso “NUNCA foi ao GitHub” sai da varredura de **todas** as branches locais (no time, só dos checkouts), e a resolução de conta do `gh` roda antes dela, para a prova de PR mergeado não sair pela conta que não enxerga o repo.
-
 # /git-sync — Atualizar local com o GitHub
 
 Objetivo: deixar o clone e os worktrees **em dia com o remoto**, reportar o que a IDE mostra no Source Control, e opcionalmente listar PRs + dry-run de lixo (branches `gone`, worktrees mortos).
@@ -29,7 +26,7 @@ Responda em **PT-BR**, direto. Cole output real dos comandos.
 - Fim de sessão, se você quer o clone principal de volta em `main`: acrescente
   `--voltar-main`. Não é o padrão de propósito — trocar a branch de um checkout no fim de
   um comando de leitura surpreende, e com duas sessões no mesmo clone a última a rodar
-  decidiria em que branch a outra está (issue claude-config-team#175).
+  decidiria em que branch a outra está.
 - **Repo compartilhado — SEMPRE ao abrir e ao fechar a sessão** (ver “Modo time”).
 
 ## Modo time (2+ pessoas no mesmo repo)
@@ -95,8 +92,10 @@ Leia nesta ordem e não comece a codar antes de zerar:
    e o que está em revisão. Se há PR aberto tocando sua área, fale com ele antes.
 5. `--- branches remotas ativas ---` — antes de criar `feat/x`, veja se já existe.
 
-**Ao fechar:** rode de novo. Nenhum aviso de *“commit(s) sem push”* / *“NUNCA foi ao
-GitHub”* pode sobrar — trabalho que não subiu não existe para o outro.
+**Ao fechar:** rode de novo. Aviso de *“commit(s) sem push”* / *“NUNCA foi ao
+GitHub”* vai para o `PENDENTE:` do relatório — trabalho que não subiu não existe
+para o outro. O git-sync não sobe nada (regra 4): o push é do fluxo da tarefa
+(a `ship`, por exemplo), não daqui.
 
 Branch sem upstream e sem `origin/<branch>` é também o que o squash merge deixa (o GitHub
 apaga a remota). Por isso o aviso consulta o `gh` antes de mandar `git push -u`: com PR
@@ -187,8 +186,8 @@ Flags:
 | `--no-team` | desliga o modo time mesmo em repo multi-autor |
 | `--voltar-main` | **opt-in.** No fim, devolve o checkout deste clone à branch default (ff-only). Aborta e explica em: working tree suja, detached HEAD, merge/rebase/cherry-pick/bisect em andamento, worktree locked, default divergente da remota. Commit local à frente é preservado e vira aviso de push pendente — nunca reset. Em `--status-only` não toca em HEAD. |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
-| `--cleanup-dry-run` | lista branches `gone`, branches com **PR mergeado e head == tip** (remoto vivo ou sem upstream — as que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga) |
-| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`); branch sem commit próprio (tip no ponto de criação, igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada — é sessão recém-aberta, e sessão do app desktop não trava o worktree. Depois vêm as branches `gone`: `-d` primeiro, e `-D` **só quando o `gh` confirma um PR mergeado com aquela head** (squash merge quebra a ancestralidade — sem isso o cleanup skipa 100% das branches). Branch sem PR encontrado, ou `gh` indisponível, é sempre preservada. Fora do `[gone]` (remoto vivo ou nunca pushada) a prova é dupla: PR mergeado **e** head do PR igual ao tip — commit depois do merge preserva a branch; e só o local sai: o remoto sobrevivente fica com o comando `git push origin --delete <b>` impresso para você decidir |
+| `--cleanup-dry-run` | lista branches `gone`, branches mergeadas por PR fora do `[gone]` (remoto vivo ou sem upstream, que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga). Quando a prova é o PR, é sempre **PR mergeado e head == tip** |
+| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove só o que tem prova, nesta ordem: (1) worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) — mergeado é ancestral de `origin/$DEFAULT` ou PR mergeado com head igual ao `HEAD` do worktree, e clean inclui os env ignorados (`.env*`, `.npmrc`, `bunfig.toml` e `.bunfig.toml` de qualquer pasta) iguais aos do clone principal e nenhum repo aninhado ignorado, porque o `remove` apaga os dois sem recusar: diferente, fica, com o nome do arquivo ou o caminho do repo; (2) branches `gone`: `-d`, e, se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho); (3) branches fora do `[gone]` (remoto vivo ou nunca pushada), com a mesma prova e só a local — o `git push origin --delete <b>` do remoto sai impresso para você decidir. Branch sem commit próprio (tip igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada: é sessão recém-aberta, que o app desktop não trava. Sem PR, sem head para conferir ou sem `gh`, a branch fica. |
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
@@ -346,19 +345,25 @@ git worktree list
 Candidatos típicos a remoção (só listar no dry-run):
 
 - Branch local com `[origin/…: gone]` e working tree clean
-- Worktree em branch `ship-*` / PR já mergeado, clean, com commit próprio já em `origin/$DEFAULT` (HEAD **igual** a `origin/$DEFAULT` ou na linha da main é sessão recém-aberta: fica)
+- Worktree em branch `ship-*` / PR já mergeado com head igual ao `HEAD` dele, clean, com commit próprio já em `origin/$DEFAULT` (HEAD **igual** a `origin/$DEFAULT` ou na linha da main é sessão recém-aberta: fica)
 - `tmp-main` e similares bem atrás de `origin/$DEFAULT`
 
 **Apply** (só com pedido explícito) — worktrees primeiro, para liberar as branches deles:
 
 ```bash
-# worktree candidato (clean + commit próprio mergeado por ancestralidade OU por PR + sem sessão viva)
+# worktree candidato (clean + commit próprio mergeado por ancestralidade OU por PR com head == HEAD + sem sessão viva)
+# e env ignorado igual ao do clone: o remove o apaga sem recusar
+git -C <path> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml'
+cmp -s <path>/<arquivo> <clone principal>/<arquivo>   # um por arquivo listado; diferente = fica
+# linha com / no fim é repo aninhado ignorado: o remove o apagaria com .git e tudo — fica
 git worktree remove <path>      # falha se dirty — não force
 git worktree prune
 
 # branch gone, não checkoutada em nenhum worktree restante
 git branch -d <branch>          # -d recusa se não mergeada — bom
-# se squash-merge e -d recusar: confirmar PR merged via gh, aí git branch -D com OK do user
+# se squash-merge e -d recusar: -D só com o PR mergeado cujo head é o tip, e com OK do user
+gh pr list --state merged --head <branch> --json number,headRefOid
+git rev-parse <branch>          # tem de ser igual ao headRefOid
 
 git fetch --prune
 ```

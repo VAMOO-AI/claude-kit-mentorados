@@ -37,7 +37,8 @@ REPO="$TMP/repo"; mkdir -p "$REPO"
 git -C "$REPO" init -q -b main
 git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 TP="$TMP/transcript.jsonl"; : > "$TP"
-linhas() { : > "$TP"; local i=0; while [ "$i" -lt "$1" ]; do echo '{"x":1}' >> "$TP"; i=$((i+1)); done; }
+# transcript cujo último turno tem <ctx> tokens de contexto: o session-size-guard mede o usage
+contexto() { printf '{"type":"assistant","isSidechain":false,"message":{"usage":{"input_tokens":2,"cache_creation_input_tokens":1000,"cache_read_input_tokens":%d}}}\n' $(( $1 - 1002 )) > "$TP"; }
 
 # roda <sid> <cwd> [pasta-de-hooks] [PATH] → rc; stdout em $TMP/out, stderr em $TMP/err
 roda() {
@@ -73,13 +74,13 @@ H=$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | shasum | awk '{p
 [ -f "$HOME/.claude/.cache/repo-sessions/$H/s1" ] && ok "repo-session marcou s1 no repo" || falha "repo-session não marcou a sessão"
 
 echo
-echo "== transcript de 700 linhas: o session-size vai para a pessoa, o branch-guard para o modelo =="
-linhas 700
+echo "== contexto de 160K: o session-size vai para a pessoa, o branch-guard para o modelo =="
+contexto 160000
 git -C "$REPO" switch -q -c feat/outra
 rc=$(roda s1 "$REPO")
 espera_rc 0 "$rc" "sai 0"
 aviso=$(json systemMessage)
-tem "~600 linhas" "$aviso" "systemMessage traz o aviso do session-size"
+tem "~160K tokens" "$aviso" "systemMessage traz o aviso do session-size"
 case "$aviso" in "@usuario"*|"<"*) falha "systemMessage com o prefixo, ou ausente: $aviso" ;; *) ok "systemMessage sem o prefixo @usuario" ;; esac
 igual "UserPromptSubmit" "$(json hookSpecificOutput.hookEventName)" "hookEventName é UserPromptSubmit"
 modelo=$(json hookSpecificOutput.additionalContext)
@@ -88,7 +89,7 @@ nao_tem "session-size" "$modelo" "o session-size não entra no additionalContext
 rc=$(roda s1 "$REPO")
 [ -s "$TMP/out" ] && falha "repetiu aviso: $(cat "$TMP/out")" || ok "prompt seguinte: nada a repetir"
 rc=$(roda s2 "$REPO")
-tem "~600 linhas" "$(json systemMessage)" "sessão nova com 700 linhas: aviso para a pessoa"
+tem "~160K tokens" "$(json systemMessage)" "sessão nova com 160K: aviso para a pessoa"
 igual "<ausente>" "$(json hookSpecificOutput)" "…e sem additionalContext quando só a pessoa tem aviso"
 
 echo

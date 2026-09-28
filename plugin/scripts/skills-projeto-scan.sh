@@ -102,7 +102,7 @@ if [ "$RESUMO" -eq 1 ]; then
   msg="📎 skills deste projeto: $n_skills em .claude/skills, $total_chars chars de description (~$tokens tokens em TODA request; teto do kit: $TETO_SKILLS skills / $TETO_CHARS chars)"
   [ "$quebradas" -gt 0 ] && msg="$msg · $quebradas não roteia(m) ou tem corpo vazio"
   echo "$msg."
-  echo "   Peça \"revisa as skills deste projeto\" (skill skills-projeto) ou rode: bash \"\${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh\" ."
+  echo "   Peça \"revisa as skills deste projeto\" (skill skills-projeto) ou rode: bash \"$(cd "$(dirname "$0")" 2>/dev/null && pwd)/skills-projeto-scan.sh\" ."
   exit 1
 fi
 
@@ -119,7 +119,7 @@ fi
 if [ "$estourou" -eq 1 ] || [ "$quebradas" -gt 0 ]; then
   echo
   echo "Não é para apagar tudo: a pergunta por skill é \"o que ela ensina que eu teria que repetir?\"."
-  echo "O que não ensina nada vira uma linha no CLAUDE.md do projeto, ou vai embora."
+  echo "O que não ensina nada vira uma linha no AGENTS.md do projeto, ou vai embora."
   exit 1
 fi
 echo "dentro do teto."

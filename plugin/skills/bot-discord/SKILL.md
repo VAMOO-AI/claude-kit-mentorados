@@ -1,12 +1,10 @@
 ---
 name: bot-discord
 description: >-
-  Use quando o usuário quiser criar, corrigir ou colocar no ar um bot de Discord
-  em Node/TypeScript hospedado em VPS própria — "quero um bot no Discord",
-  "o bot não responde", "meu bot caiu", "como subo o bot na VPS",
-  "bot que lê mensagem do canal e salva no banco", "bot com comando e relatório
-  automático". Cobre do Developer Portal ao container rodando: intents, convite,
-  código, idempotência, cron, Docker e a verificação de que subiu de verdade.
+  Use para criar, diagnosticar (caiu, não responde) ou colocar no ar um bot de
+  Discord em Node/TypeScript numa VPS própria. Cobre do Developer Portal ao
+  container rodando: intents, convite, código, idempotência, cron, Docker e a
+  verificação de que subiu de verdade.
 ---
 
 # bot-discord — do Developer Portal ao container rodando

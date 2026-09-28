@@ -124,11 +124,16 @@ jobs:
       - name: O branch-guard avisa só quando a branch mudou entre prompts
         run: bash tests/test-branch-guard.sh
 
-      - name: O session-size-guard avisa uma vez por faixa
+      - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
 
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
+
+      - name: O kit-setup tira o agents.md antigo e deixa intocado o AGENTS.md da pessoa
+        # No ubuntu o disco diferencia maiúscula: roda o caso (d). O (b), que só existe em
+        # disco que não diferencia (Mac, Windows), roda na máquina de quem mantém.
+        run: bash tests/test-kit-setup-subagentes.sh
 
       - name: Com o kit do time na máquina, os hooks do plugin saem sem fazer nada
         # Sem a guarda, cada hook rodava duas vezes: dois sons por turno, texto repetido no
@@ -194,6 +199,16 @@ jobs:
       - name: O relatório da auditoria de segurança sai íntegro do findings.json
         run: bash tests/test-auditoria-relatorio.sh
 
+      - name: A varredura de chaves da auditoria (A4) mostra arquivo:linha, nunca o segredo inteiro
+        run: bash tests/test-auditoria-a4-mascara.sh
+
+      - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade
+        run: bash tests/test-secscan-ferramentas.sh
+
+      - name: O gate --diff da baseline sai 3 com base que não resolve e acusa segredo em qualquer commit do range
+        # Inclui o segredo que entra só na resolução de um merge (--diff-merges=first-parent).
+        run: bash tests/test-collect-diff-base.sh
+
       - name: A barra mostra o comprimento da sessão e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 
@@ -242,7 +257,7 @@ jobs:
           bash plugin/scripts/kit-setup.sh --dry-run
           bash plugin/scripts/kit-setup.sh
           test -f "$HOME/.claude/CLAUDE.md"
-          test -f "$HOME/.claude/agents.md"
+          test -f "$HOME/.claude/subagentes.md"
           test -f "$HOME/.claude/scripts/statusline.js"
           python3 -m json.tool "$HOME/.claude/settings.json" > /dev/null
 

@@ -9,8 +9,6 @@ description: >-
   comandos manuais "/grill-me" e "/grill-with-docs" continuam sendo do usuário.
 ---
 
-> Derivada de `claude-config-team/skills/grilling`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Grilling — interrogatório de plano
 
 Transforma "instruções vagas → pergunte" (regra passiva) num loop ativo que

@@ -12,8 +12,13 @@ O Claude Code carrega CLAUDE.md de mais de um lugar, em camadas:
 | Camada | Onde fica | Pra quê |
 |---|---|---|
 | **Global (user)** | `~/.claude/CLAUDE.md` | Como VOCÊ trabalha — vale em todo projeto (idioma, segurança, disciplina). |
-| **Projeto** | `<projeto>/CLAUDE.md` | O que é AQUELE repo — stack, comandos, armadilhas. |
+| **Projeto** | `<projeto>/AGENTS.md`, que o `<projeto>/CLAUDE.md` importa com a linha `@AGENTS.md` | O que é AQUELE repo — stack, comandos, armadilhas. |
 | **Local (opcional)** | `<projeto>/CLAUDE.local.md` | Suas notas pessoais do projeto (fica no `.gitignore`). |
+
+**Por que `AGENTS.md` no projeto:** é o arquivo que Codex, Cursor e outros agentes também
+leem. O `CLAUDE.md` do projeto fica com uma linha, `@AGENTS.md`, mais o que for exclusivo do
+Claude — a regra mora num lugar só, sem cópia e sem symlink. Modelo pronto em
+[`plugin/templates/AGENTS-projeto.md.exemplo`](../plugin/templates/AGENTS-projeto.md.exemplo).
 
 **Como eles se combinam:** os arquivos são **concatenados** (somados), não disputados.
 Quando há *conflito* na mesma regra, o **mais específico vence** — projeto ganha do
@@ -37,14 +42,15 @@ Cada coisa tem um lugar. Misturar incha o contexto e degrada tudo.
 
 | Conteúdo | Vai pra... | Por quê |
 |---|---|---|
-| **Regra de comportamento** ("sempre X", "nunca Y") | `CLAUDE.md` | É carregado em toda sessão. Tem que ser curto e durável. |
+| **Regra de comportamento** ("sempre X", "nunca Y") | `AGENTS.md` do projeto (vale em todo projeto? `~/.claude/CLAUDE.md`) | É carregado em toda sessão. Tem que ser curto e durável. |
 | **Documentação de implementação** (como tal feature funciona, decisão de arquitetura) | `docs/` (ou `.context/docs/`) | É consultado sob demanda, não a cada sessão. |
-| **Fato durável do projeto** (credencial está em X, esse cliente usa Y) | memória / `.context/` | Lembrado entre sessões, sem inflar o CLAUDE.md. |
+| **Fato durável do projeto** (credencial está em X, esse cliente usa Y) | memória / `.context/` | Lembrado entre sessões, sem inflar o `AGENTS.md`. |
 
 > **Anti-pattern comum:** "toda vez que termino uma feature, mando atualizar o
-> CLAUDE.md". NÃO. O CLAUDE.md entra **inteiro** no contexto em **toda** sessão —
-> changelog ali dentro é peso morto que você paga sempre. Changelog e doc de
-> implementação vão pra `docs/`. **CLAUDE.md cresce com regra, não com histórico.**
+> AGENTS.md". NÃO. O AGENTS.md entra **inteiro** no contexto em **toda** sessão (o
+> `CLAUDE.md` o importa) — changelog ali dentro é peso morto que você paga sempre.
+> Changelog e doc de implementação vão pra `docs/`. **AGENTS.md cresce com regra, não
+> com histórico.**
 
 ---
 
@@ -53,8 +59,9 @@ Cada coisa tem um lugar. Misturar incha o contexto e degrada tudo.
 Quando o Claude faz algo que você não queria:
 
 1. Corrija na hora: *"não faça isso — [o que fazer no lugar]"*.
-2. Peça pra gravar no lugar certo: *"grava essa regra no CLAUDE.md"* (se é regra de
-   comportamento) ou *"guarda isso na memória"* (se é um fato do projeto).
+2. Peça pra gravar no lugar certo: *"grava essa regra no AGENTS.md"* (regra deste
+   projeto; se vale pra todo projeto, no `~/.claude/CLAUDE.md`) ou *"guarda isso na
+   memória"* (se é um fato do projeto).
 
 Assim, na próxima sessão, ele já começa sabendo — sem você repetir.
 
@@ -64,7 +71,7 @@ Assim, na próxima sessão, ele já começa sabendo — sem você repetir.
 
 Bom hábito de fechamento:
 
-> *"Atualiza a documentação em `docs/` e a memória se algo mudou. NÃO mexe no CLAUDE.md
+> *"Atualiza a documentação em `docs/` e a memória se algo mudou. NÃO mexe no AGENTS.md
 > a menos que tenha surgido uma regra nova."*
 
 Isso mantém o contexto vivo entre sessões **sem** inflar o arquivo que pesa toda vez.
@@ -73,5 +80,6 @@ Isso mantém o contexto vivo entre sessões **sem** inflar o arquivo que pesa to
 
 ## Em uma frase
 
-**Global + projeto se somam (não competem); regra vai no CLAUDE.md, implementação vai em
-`docs/`, fato vai na memória — e `/memory` mostra o que está carregado.**
+**Global + projeto se somam (não competem); regra do projeto vai no AGENTS.md (a de todo
+projeto, no `~/.claude/CLAUDE.md`), implementação vai em `docs/`, fato vai na memória — e
+`/memory` mostra o que está carregado.**

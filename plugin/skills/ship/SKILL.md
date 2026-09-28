@@ -5,11 +5,8 @@ description: >-
   "ship", "/ship", "deploy", "manda pra prod", ou pedir pra fechar uma feature
   com commit + PR. Roda o fluxo completo com gates duros: typecheck, lint,
   testes, conventional-commit, push, PR via gh; passos de deploy dependem do que
-  o projeto tem. Criada contra as falhas recorrentes: dizer "passou" sem output
-  fresco, commitar do diretório errado, deployar o que não devia.
+  o projeto tem.
 ---
-
-> Derivada de `claude-config-team/skills/ship`. Ao divergir de propósito, diga aqui o quê e por quê.
 
 # /ship — Pipeline de Release
 
@@ -37,6 +34,9 @@ test -f tsconfig.json && echo "TEM_TS"
 test -f package.json && grep -E '"(lint|test|build)"' package.json || true
 ```
 
+Leia a seção `## Deploy` do `AGENTS.md` do projeto (ou `.context/docs/deploy.md`),
+se existir: é ela que decide o §5.
+
 ## 1. Verificar (cole o output)
 
 Rode cada comando e cole o output real. Se algum falhar, **PARE e corrija a causa raiz** —
@@ -45,7 +45,7 @@ não "deploye mesmo assim".
 ```bash
 npx tsc --noEmit                  # se TEM_TS
 npx eslint . --quiet              # se eslint configurado
-npm test --silent || npm run test # se existe script de teste
+npm test                          # se existe script "test" (pnpm/yarn/bun: o do projeto)
 ```
 
 Se um comando não está configurado, diga explicitamente: "sem config de eslint — pulado".
@@ -88,7 +88,8 @@ git diff --name-only origin/main...HEAD           # TRÊS pontos: o diff real do
 ```
 
 Algum arquivo aparece nas duas listas, ou o que entrou mexe no mesmo
-comportamento que você? Rebase (`git rebase origin/main`), rode o §1 de novo e só
+comportamento que você? Traga a `main` (rebase se a branch é só sua, `git merge
+origin/main` se outra pessoa commita nela), rode o §1 de novo e só
 então siga — o CI precisa rodar contra o conjunto. Sem sobreposição, siga: rebase
 por higiene só faz a base envelhecer de novo enquanto o CI roda. O critério
 completo, e o que fazer quando a branch é de outra sessão viva, está na skill
@@ -97,6 +98,13 @@ completo, e o que fazer quando a branch é de outra sessão viva, está na skill
 **Nunca julgue um merge por `git diff origin/main..HEAD` (dois pontos):** ele
 mostra como deleção tudo que só existe na `main` — artefato do comando, não do
 merge.
+
+**O PR toca `supabase/migrations/` (ou qualquer DDL)?** A segunda lista acima
+responde. Com deploy manual ou automático no merge, passe antes do push pela
+checklist "Migration que não derruba produção" da skill `baseline`
+(`references/02-banco.md`): NOT NULL só depois do backfill, índice em tabela viva
+com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que
+reprova num item não sobe inteira: vira dois ou três PRs.
 
 ### Push e PR
 
@@ -115,6 +123,11 @@ gh pr create --title "..." --body "$(cat <<'EOF'
 EOF
 )"
 ```
+
+Dentro de worktree o Claude Code recusa este comando (o `(escopo)` do título vira
+subshell, e o heredoc dentro de `$(…)` também): escreva o corpo num arquivo, use
+`--body-file <arquivo>` e ponha o comando num `.sh` no scratchpad, chamado pelo
+caminho literal (`bash /caminho/abs/pr.sh`) — skill `worktrees`.
 
 Capture a URL do PR.
 
@@ -135,6 +148,8 @@ notificação, no fim, e `--fail-fast` aborta no primeiro check obrigatório ver
 "CI verde basta" quer dizer verde **do commit que vai para a main**, não do anterior.
 Empurrou qualquer coisa depois do último `gh pr checks`? O gate reabre, mesmo que o diff novo
 seja um comentário: a garantia é sobre o SHA que rodou, não sobre a sua leitura do diff.
+
+Merge só com pedido da pessoa: `gh pr merge <n> --squash`, com o verde deste SHA.
 
 E `gh pr merge --admin` não substitui a espera — ele existe para check obrigatório quebrado ou
 inexistente, com autorização de quem manda no repositório, não para pular fila de runner.
@@ -168,12 +183,14 @@ só confirma que o PR vai pro ambiente certo.
 Se o seu projeto exige um comando de deploy manual:
 
 - **Confirme `pwd` de novo antes de qualquer comando de deploy.** Diretório errado é destrutivo.
-- **O PR toca `supabase/migrations/` (ou qualquer DDL)?** Confira pela lista de arquivos do PR, não pelo `git diff` sem argumento, que a esta altura sai vazio porque tudo já foi commitado: `git diff --name-only origin/HEAD...HEAD` (três pontos: compara com o commit de onde a branch saiu da main, que é o que o PR leva; sem `origin/HEAD` no clone, use `origin/main...HEAD`). Se tocar, passe pela checklist "Migration que não derruba produção" da skill `baseline` (`references/02-banco.md`) antes de aplicar: NOT NULL só depois do backfill, índice em tabela viva com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que reprova num item não sobe inteira; vira duas ou três.
 - **Migração de banco contra produção é destrutiva** — pergunte ao usuário antes de aplicar.
 - Rode o comando de deploy do seu projeto só depois dos gates passarem.
 
-> Preencha aqui o comando de deploy do seu stack quando souber qual é. Enquanto não
-> houver, este passo é "deploy automático no merge — nada a rodar".
+> O comando de deploy é do projeto, não daqui: este arquivo vem do plugin e é
+> trocado a cada atualização, então o que for escrito aqui some. Ele fica numa
+> seção `## Deploy` do `AGENTS.md` do projeto (ou em `.context/docs/deploy.md`).
+> Sem essa anotação, este passo é "deploy automático no merge — nada a rodar", e o
+> relatório diz isso.
 
 ### Deploy bloqueado na Vercel pelo author do commit
 
@@ -212,6 +229,7 @@ o commit seguinte já com a identidade certa (sem mudança pendente,
 ```
 PR:      <url>
 Preview: <url de preview, se houver>
+Deploy:  <comando da seção ## Deploy> | automático no merge — nada a rodar
 Gates:
   - tsc:    pass | fail | skipped
   - eslint: pass | fail | skipped

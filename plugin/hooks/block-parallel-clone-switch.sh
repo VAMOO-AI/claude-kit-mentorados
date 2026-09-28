@@ -90,7 +90,7 @@ expand_shell_path() {
 
 # Cada checkout/switch/stash/reset em posição de comando é checado com o trecho que vem ATÉ
 # ele — o mesmo laço do block-main-commit. Resolver um alvo só para a linha inteira deixava
-# três furos (issue claude-config-team#229): o `cd -`/`cd ..` que vem DEPOIS do checkout
+# três furos: o `cd -`/`cd ..` que vem DEPOIS do checkout
 # virava o alvo; o segundo checkout de `git -C $WT checkout x; git checkout main` se escondia
 # atrás do `-C` do primeiro; e um `cd` dentro de `( … )` já fechado contava, embora não saia
 # do subshell. Alvo: o `-C` colado no verbo; senão o último `cd` antes dele; senão o cwd.

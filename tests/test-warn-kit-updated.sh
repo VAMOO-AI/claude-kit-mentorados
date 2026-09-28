@@ -71,6 +71,7 @@ reset; semeia 1.1.0; saida="$(roda)"
 check "cabeçalho diz 3 versões"         "$(printf '%s' "$saida" | grep -q '(3 versões)' && echo ok || echo fail)"
 check "3 bullets"                       "$([ "$(bullets "$saida")" = 3 ] && echo ok || echo fail)"
 check "manda rodar /kit-vamoo:setup"    "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo ok || echo fail)"
+check "a lista do que o setup instala inclui o subagentes.md" "$(printf '%s' "$saida" | grep -q 'subagentes.md.*kit-vamoo:setup' && echo ok || echo fail)"
 check "cabe em 5 linhas"                "$([ "$(linhas "$saida")" -le 5 ] && echo ok || echo fail)"
 
 echo "== versão sem a flag setup não manda rodar o setup =="

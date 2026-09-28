@@ -7,10 +7,6 @@ description: >-
   Read-only — NUNCA edita o código auditado. Não é pra alvo deployado/produção.
 ---
 
-> Derivada de `claude-config-team/skills/secscan`. Ao divergir de propósito, diga aqui o quê e por quê.
-> Diverge de propósito em um ponto: lá o modo pedagógico é exceção com gatilho;
-> aqui ele é o padrão, porque o público do kit é justamente o iniciante.
-
 # secscan — Revisão de segurança (read-only)
 
 Revisão de segurança **estática e read-only** do projeto local que você está construindo.
@@ -23,12 +19,12 @@ mas NÃO testa nada rodando/deployado/produção. Aponta os problemas; quem corr
 
 ## Regras de ferro (nunca quebrar)
 
-- **READ-ONLY.** Nunca modifique/apague/crie código ou config no projeto auditado. Só localize (`arquivo:linha`) e sugira o fix. O único arquivo que você escreve é o relatório.
+- **READ-ONLY.** Nunca modifique/apague/crie código ou config no projeto auditado. Só localize (`arquivo:linha`) e sugira o fix. Você só escreve em `secscan-reports/`: o relatório e o SARIF do semgrep.
 - **Verify, don't claim.** Todo "limpo / sem findings" precisa do output REAL da ferramenta colado na mesma resposta. Não rodou uma ferramenta? Diga "não executado" + o comando que falta.
 - **Zero findings ≠ seguro.** Relatório limpo só diz que ESTE scan + as ferramentas disponíveis não acharam nada no escopo. O relatório TEM que deixar isso claro.
 - **Só o workspace local.** Ler código, rodar SAST/SCA local, ler o SQL do projeto. Nunca cutucar endpoint externo/deployado. Ler doc oficial (OWASP/CWE) pra embasar um fix é permitido.
 - **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode os scanners reais (`semgrep`, `gitleaks`, `npm/pnpm audit`, `osv-scanner`) ANTES de confiar em grep. Esta é a única definição de `Confiança` da skill: achado é `CONFIRMED` quando ferramenta real e heurística concordam **ou** quando um teste do próprio projeto exercita o mesmo ponto; qualquer outro é `heuristic` (pode ser falso positivo). *(Modelo adaptado do `decksoftware/csreview`, MIT — crédito preservado.)*
-- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: baixe só da fonte oficial, **confira o SHA-256 antes de rodar**, instale num dir isolado e gitignored (nunca global, nunca `sudo`), e siga em modo só-heurística se não der.
+- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: ferramenta Python (`semgrep`) vai pelo gerenciador oficial (`pipx install semgrep`, `uv tool install semgrep` ou `brew install semgrep`); binário baixado à mão (`gitleaks`, `osv-scanner`) vem só da página de releases oficial, com o **SHA-256 conferido antes de rodar**. Nos dois casos, fora do projeto auditado e nunca com `sudo`. Não deu → siga em modo só-heurística.
 - **Na dúvida, pesquise.** Não chute comportamento de framework / detalhe de CVE. Use a skill `find-docs` e cite a fonte no finding.
 
 ## Fase 0 — Recon
@@ -43,12 +39,20 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 ## Fase 0.5 — Scanners reais (rode primeiro)
 
 ```bash
-command -v semgrep && semgrep scan --config auto --sarif --output secscan.sarif . \
-  || echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
-command -v gitleaks && gitleaks detect --no-banner --redact || echo "gitleaks AUSENTE"
-command -v osv-scanner && osv-scanner scan --format json . || echo "osv-scanner AUSENTE (opcional)"
+mkdir -p secscan-reports
+# AUSENTE é só binário que não existe. Scanner que roda e sai ≠ 0 falhou ou achou algo.
+if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
+elif semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif .; then echo "semgrep OK (achados no SARIF)"
+else echo "semgrep FALHOU (exit $?) → não medido; sem rede o ruleset p/owasp-top-ten não baixa"; fi
+if ! command -v gitleaks >/dev/null; then echo "gitleaks AUSENTE"
+elif ! git rev-parse --git-dir >/dev/null 2>&1; then echo "gitleaks não medido (sem git): fora de repositório ele sai 0 sem ler nada"
+else gitleaks detect --no-banner --redact; echo "gitleaks exit $? (0 limpo · 1 achou segredo · outro falhou)"; fi
+if ! command -v osv-scanner >/dev/null; then echo "osv-scanner AUSENTE (opcional)"
+else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile · outro falhou)"; fi
 ```
-Anote quais rodaram vs faltaram no disclaimer do relatório. Semgrep é o que mais agrega —
+Anote quais rodaram, quais faltaram e quais falharam no disclaimer do relatório. Semgrep
+que falhou não é semgrep ausente: instalar de novo não resolve, e a causa (rede, ruleset)
+vai para o relatório. Semgrep é o que mais agrega —
 mas saiba o que ele corrobora de fato. **Medido em 31/08/2026** num app React + Supabase:
 o ruleset OWASP rodou 255 regras sobre 2.198 arquivos e devolveu 27 findings, **100% em
 `.github/` e `.npmrc`**, zero em `src/`, zero em `supabase/functions/`. Num diretório com
@@ -85,7 +89,9 @@ Caça:
    WHERE n.nspname = 'public' AND c.relkind = 'm';
   ```
 
-  Qualquer `true` é finding, e dá pra provar pela porta do atacante:
+  Qualquer `true` é finding, e a própria query prova: o privilégio é o fato. A
+  prova pela porta do atacante vai no relatório, para o dono do projeto rodar
+  contra o projeto dele — a skill não chama endpoint publicado:
   `curl "$SUPABASE_URL/rest/v1/<mv>?select=*" -H "apikey: <anon>"`. Medido numa
   auditoria real em 01/09/2026: 180 de 180 tabelas com RLS, 170 funções
   `SECURITY DEFINER` sem uma falha — e 904 linhas de 16 clientes saindo por uma
@@ -125,14 +131,19 @@ grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
 ## Fase 4 — Dependências (SCA)
 
 ```bash
-ls package-lock.json pnpm-lock.yaml bun.lock 2>/dev/null | head -1 \
+f=$(ls package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb 2>/dev/null | head -1)
+[ -n "$f" ] && echo "lockfile: $f" \
   || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
 test -f package-lock.json && npm audit || true
 test -f pnpm-lock.yaml && pnpm audit || true
 ```
-A primeira linha não é decoração: os `|| true` são exatamente o modo de falha que esta
-skill acusa nos outros — sem lockfile, tudo falha em silêncio e C5 sairia limpa sem ter
-lido uma linha. `osv-scanner` tem o mesmo defeito: não lê `package.json` puro, roda, sai 0
+Com `yarn.lock` ou `bun.lockb`, o `npm audit` não serve: rode `yarn npm audit` (Yarn 2+) ou
+`yarn audit` (Yarn 1), ou leia o `osv-scanner` da Fase 0.5, que entende `yarn.lock` (o
+`bun.lockb` é binário e ele não lê: C5 fica `não medido` sem outro scanner).
+O teste do lockfile é o resultado do `ls`, não o exit do pipe: o `head` sai 0 mesmo sem
+nada para ler, e aí o aviso nunca saía. E ele não é decoração: os `|| true` são exatamente
+o modo de falha que esta skill acusa nos outros — sem lockfile, tudo falha em silêncio e
+C5 sairia limpa sem ter lido uma linha. `osv-scanner` tem o mesmo defeito: não lê `package.json` puro, roda, sai 0
 e não mede nada (medido em 31/08/2026: zero achado, e as vulnerabilidades estavam lá).
 
 Sinalize versão com CVE conhecido e **pacote alucinado** (importado mas não existe no registry — comum em código gerado por IA).
@@ -226,7 +237,7 @@ saíram dessa rodada:
 ## Fase 6 — Relatório
 
 Escreva em `secscan-reports/<YYYY-MM-DD>-secscan.md`. Peça pro usuário adicionar `secscan-reports/`
-no `.gitignore` (não edite o `.gitignore` você mesmo). Se o semgrep rodou, guarde o `secscan.sarif` junto.
+no `.gitignore` (não edite o `.gitignore` você mesmo). Se o semgrep rodou, o `secscan.sarif` já está nessa pasta (Fase 0.5).
 
 Ordem literal do documento: **Resumo → Disclaimer → 1. CHECKLIST → 2. ANOTAÇÕES →
 3. SUGESTÕES DE CORREÇÃO → Ferramentas executadas → Handoff.** Só os três blocos
@@ -256,10 +267,12 @@ está tudo limpo. Os estados são **quatro**:
 - **`nenhum problema identificado`** — procurou e não achou. Só sai assim se
   **todas** as provas mínimas daquela linha rodaram.
 - **`não medido (<ferramenta> ausente)`** — nomeie o binário que faltou
-  (`semgrep`, `gitleaks`, `osv-scanner`). **Ferramenta presente com input ausente
+  (`semgrep`, `gitleaks`, `osv-scanner`). Instalado e falhou (a Fase 0.5 imprime
+  `FALHOU` ou um exit fora da legenda) é **`não medido (<ferramenta> falhou: exit N)`**,
+  nunca `ausente`. **Ferramenta presente com input ausente
   também é não medido**, e é o caso que mais engana: `osv-scanner` instalado num projeto
-  sem lockfile roda, sai 0 e não lê nada. Escreva o motivo real — `não medido (lockfile
-  ausente)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
+  sem lockfile roda, sai 0 e não lê nada; `gitleaks` fora de repositório git também. Escreva
+  o motivo real — `não medido (lockfile ausente)`, `não medido (sem git)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
 - **`não aplicável (<motivo>)`** — a precondição da Fase 0 não existe (projeto sem
   banco não tem RLS; site estático não tem rota de API).
 
@@ -324,19 +337,11 @@ Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de auto
 
 ### O que se corta do relatório (e o que é proibido cortar)
 
-Existe uma régua anti-inflação que vale para quase todo relatório de agente: **no máximo
-1–2 recomendações por categoria, categoria sem achado não vira seção, e a última linha diz
-o que ficou de fora.** Ela é boa — nasceu na `harness-check` do kit do time, que depois
-trocou o teto numérico por critério de impacto (a daqui foi portada já assim) — e **não**
-se aplica inteira aqui. A diferença não é de gosto: é do que a saída **é**. Relatório
-de melhoria é conselho, vive no chat e é descartável; trinta recomendações viram zero
-porque ninguém aplica trinta. Relatório de segurança é **artefato de handoff** — o arquivo
-que outro agente lê antes de corrigir — e achado que não está escrito nele some quando a
-sessão acabar. Cortar conselho custa atenção; cortar achado esconde vulnerabilidade.
-
-Guarde a lição em si, que vale além desta skill: **regra editorial boa num lugar vira
-defeito no outro quando muda o que a saída é.** Copiar a régua sem perguntar isso é como
-copiar código sem ler.
+A saída desta skill é **artefato de handoff**: o arquivo que outro agente lê antes de
+corrigir, e achado que não está escrito nele some quando a sessão acaba. Cortar conselho
+custa atenção; cortar achado esconde vulnerabilidade. Por isso o arquivo leva tudo, e o
+corte, quando existe, é só no chat. A lição vale além desta skill: **regra editorial boa
+num lugar vira defeito no outro quando muda o que a saída é.**
 
 **Proibido no arquivo do relatório:**
 
@@ -347,11 +352,11 @@ copiar código sem ler.
   **é** informação: diz que a sonda rodou e não achou, e é ela que separa `nenhum problema
   identificado` de `não medido`. As 7 linhas saem sempre.
 
-**O que vale, com o corte movido de lugar:** o cap é para o **resumo no terminal**, não para
-o arquivo. No chat imprima o checklist inteiro e depois no máximo **1–2 achados por
-categoria**, os mais graves; feche com `cortei N achados menores — os N estão completos em
-<caminho>`. O excedente não sumiu: já está escrito, e a linha de corte é um ponteiro.
-**`CRITICAL` e `HIGH` nunca entram no corte**, nem no terminal — se são nove, saem nove.
+**No terminal o corte é de atenção, nunca de registro.** No chat: o checklist inteiro
+(7 linhas), todos os `CRITICAL` e `HIGH` — se são nove, saem nove —, e dos `MEDIUM`/`LOW`
+só o que muda a ordem de correção, agrupado por classe; feche com `cortei N achados
+menores — os N estão completos em <caminho>`. O excedente já está escrito no arquivo: a
+linha de corte é um ponteiro, não uma promessa.
 
 **Agrupar não é cortar, e é o que de fato desinfla.** Vinte hits da mesma classe viram
 **um** bloco com a contagem e 2–3 representantes `arquivo:linha`, não vinte blocos quase

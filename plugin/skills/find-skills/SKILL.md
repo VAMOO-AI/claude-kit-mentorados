@@ -9,10 +9,6 @@ description: >-
 disable-model-invocation: true
 ---
 
-> Derivada de `claude-config-team/skills/find-skills`. Aqui ela é **só-slash**
-> (`disable-model-invocation: true`, como no time) e ganhou a seção de
-> procedência, que vale para os dois kits.
-
 # Achar skill pronta — e não engolir o que vier junto
 
 `npx skills` é o gerenciador do ecossistema aberto de skills; o catálogo fica em
@@ -44,8 +40,8 @@ teórica:
 
 Checklist de procedência, na ordem:
 
-- **Quantas instalações?** Acima de 1.000, tranquilo. Abaixo de 100, leia o
-  código inteiro antes.
+- **Quantas instalações?** 1.000+ é sinal razoável; abaixo de 100, desconfie
+  mais. Nenhum número dispensa ler o SKILL.md (item 1).
 - **Quem publicou?** `anthropics`, `vercel-labs`, `microsoft` e afins são outra
   categoria de risco que um autor desconhecido.
 - **O repositório existe e tem histórico?** Poucas estrelas, sem commits, sem

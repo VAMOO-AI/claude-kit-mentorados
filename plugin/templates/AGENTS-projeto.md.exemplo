@@ -1,0 +1,58 @@
+# <Projeto> — <o que é, em uma linha>
+
+> Salve este arquivo como `AGENTS.md` na **raiz do projeto** (não no `~/.claude`). São as
+> regras deste repositório para qualquer agente: Claude Code, Codex e Cursor leem o mesmo
+> arquivo. Ao lado dele, crie um `CLAUDE.md` com uma linha só, `@AGENTS.md` (sem as
+> crases): é a ponte que faz o Claude Code carregar este arquivo. Abaixo dela, só o que for
+> exclusivo do Claude. Sem cópia e sem symlink: a regra mora num lugar só.
+>
+> Vale só para este projeto e **soma** com as suas regras globais (o mais específico vence
+> em conflito). Veja `docs/memoria-e-contexto.md` do kit.
+>
+> ⚠️ **O que vai aqui:** regra de comportamento e fato do projeto que o agente não tem como
+> adivinhar lendo o código. Nada de changelog nem documentação de implementação: este
+> arquivo entra inteiro no contexto de toda sessão, e o Codex CLI corta em silêncio o que
+> passar de 32 KiB, somando os `AGENTS.md` do projeto (o padrão do `project_doc_max_bytes`).
+> Histórico e doc vão para `docs/` (ou `.context/docs/`). Apague estas linhas de citação ao
+> preencher.
+
+## Stack
+- <ex.: Next.js 15 (App Router) + React + TypeScript>
+- <ex.: Supabase (banco + auth)>
+- <ex.: Tailwind + shadcn/ui>
+
+## Comandos
+- Instalar: `<ex.: npm install>`
+- Env local: `<ex.: cp .env.example .env.local>` (e preencha as chaves)
+- Rodar: `<ex.: npm run dev>`
+- Antes de dizer "pronto": `<ex.: npx tsc --noEmit && npx eslint . && npm test>`
+
+## Estrutura (o essencial)
+- `<ex.: src/app/>` — rotas
+- `<ex.: src/components/>` — componentes
+- `<ex.: src/lib/>` — helpers e cliente do banco
+
+## Regras
+- <o que não se adivinha lendo o código: "não mexa em X", integrações, decisões já tomadas>
+- <ex.: nada de chamada ao banco direto no componente — passa por src/lib/>
+
+## Visual (se o projeto tem tela)
+- <ex.: cores da marca em hex, fonte de título e de texto, raio de borda>
+- <o que evitar, pelo nome — sem direção o agente repete o mesmo visual: fundo creme ou off-white, palavra em itálico no meio do título, seções numeradas "01 / 02 / 03", rótulos em fonte monospace, botão em pílula. Viu outro padrão repetido no primeiro resultado? Acrescente aqui.>
+
+## Deploy
+<A skill `ship` lê esta seção no passo 0 e decide o passo de deploy por ela. Fique com um dos
+dois casos e apague o outro.>
+
+Automático no merge — nada a rodar. <ex.: a Vercel publica a `main`; o preview sai no PR.>
+
+<ou>
+
+Manual, depois do merge e dos gates verdes, da raiz do projeto:
+```bash
+<ex.: npx supabase db push>          # migration: pergunte antes, é produção
+<ex.: npx vercel deploy --prod>
+```
+
+## Limites
+- <o que o agente não faz sem pedir: deploy, migration em produção, mensagem para cliente>

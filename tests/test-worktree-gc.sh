@@ -7,10 +7,11 @@
 # conserto (vindo do kit do time) exige que o tip local esteja contido no head do PR
 # mergeado; sem isso, fail-closed: mantém.
 #
-# Também cobre as outras duas travas que vieram juntas: `.env.local` que difere do
+# Também cobre as outras duas travas que vieram juntas: env ignorado que difere do
 # clone principal (invisível no `status`, some junto com o worktree) e worktree
 # detached, que antes era pulado sempre e agora é lixo quando está limpo e o HEAD é
-# trabalho já contido em origin/main.
+# trabalho já contido em origin/main. Até 28/09/2026 a trava do env só comparava o
+# `.env.local` da raiz: `.npmrc` e `.env.local` de subpasta sumiam no --apply.
 #
 # Branch sem commit próprio é ancestral de origin/main por definição, e o `--apply`
 # removia o worktree limpo de uma sessão recém-aberta (24/09/2026 — o mesmo defeito do
@@ -53,11 +54,12 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf '.env.local\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 BASE="$(G rev-parse HEAD)"
-echo "ENV=clone" > "$CLONE/.env.local"
+echo "ENV=clone" > "$CLONE/.env.local"; echo "registry=clone" > "$CLONE/.npmrc"
+echo "exact = true" > "$CLONE/bunfig.toml"; echo "exact = true" > "$CLONE/.bunfig.toml"
 mkdir -p "$WTS"
 
 novo_wt()    { G worktree add -q -b "$1" "$WTS/wt-$1" "${2:-origin/main}"; }
@@ -95,6 +97,25 @@ commit_em pr-after Y
 # do .env.local a segura (o `worktree remove` apaga arquivo ignorado sem reclamar)
 novo_wt env; commit_em env e; merge_main env
 echo "ENV=outro" > "$WTS/wt-env/.env.local"
+# env-npmrc e env-aninhado: a mesma trava para o .npmrc e para um .env.local de subpasta,
+# que nem existe no clone principal. E a anc leva uma cópia igual do .env.local do clone:
+# env igual não segura ninguém.
+novo_wt env-npmrc; commit_em env-npmrc n; merge_main env-npmrc
+echo "registry=outro" > "$WTS/wt-env-npmrc/.npmrc"
+novo_wt env-aninhado; commit_em env-aninhado a; merge_main env-aninhado
+mkdir -p "$WTS/wt-env-aninhado/apps/x"; echo "ENV=sub" > "$WTS/wt-env-aninhado/apps/x/.env.local"
+cp "$CLONE/.env.local" "$WTS/wt-anc/.env.local"
+# env-bunfig, env-npmrc-sub e env-repo: o bunfig.toml de projeto (sem ponto) diferente, um
+# .npmrc de subpasta e um repo aninhado ignorado — o remove apagaria até o .git dele
+novo_wt env-bunfig; commit_em env-bunfig b; merge_main env-bunfig
+echo "exact = false" > "$WTS/wt-env-bunfig/bunfig.toml"
+novo_wt env-npmrc-sub; commit_em env-npmrc-sub s; merge_main env-npmrc-sub
+# env-bunfigdot: o .bunfig.toml (com ponto, o global do Bun copiado para o projeto) diferente
+novo_wt env-bunfigdot; commit_em env-bunfigdot bd; merge_main env-bunfigdot
+echo "exact = false" > "$WTS/wt-env-bunfigdot/.bunfig.toml"
+mkdir -p "$WTS/wt-env-npmrc-sub/apps/y"; echo "registry=sub" > "$WTS/wt-env-npmrc-sub/apps/y/.npmrc"
+novo_wt env-repo; commit_em env-repo r; merge_main env-repo
+git init -q "$WTS/wt-env-repo/vendor/lib"
 
 # dirty: mergeada de verdade, mas suja
 novo_wt dirty; commit_em dirty d; merge_main dirty
@@ -109,6 +130,9 @@ G worktree add -q --detach "$WTS/wt-det" origin/main
 G worktree add -q --detach "$WTS/wt-det-velho" "$BASE"
 # det-mergeado: detached num commit que entrou na main por merge commit — esse é lixo
 G worktree add -q --detach "$WTS/wt-det-mergeado" "$OID_ANC"
+# det-env: o mesmo commit mergeado, mas com .env.local diferente do clone — fica, e diz qual
+G worktree add -q --detach "$WTS/wt-det-env" "$OID_ANC"
+echo "ENV=det" > "$WTS/wt-det-env/.env.local"
 
 # --- gh falso: quem tem PR mergeado, e em qual head ----------------------------------
 mkdir -p "$TMP/bin"
@@ -139,8 +163,18 @@ check 'removeria: .*wt-pr-ok '          "squash-mergeada com tip == head do PR �
 check 'wt-pr-after .*NÃO mergeada'      "commit DEPOIS do PR mergeado mantém o worktree"         "$OUT"
 refute 'removeria: .*wt-pr-after'       "wt-pr-after nunca aparece como candidato"               "$OUT"
 check 'wt-env .*\.env\.local difere'    ".env.local divergente segura o worktree mergeado"       "$OUT"
+check 'wt-env-npmrc .*\.npmrc difere'   ".npmrc divergente segura o worktree mergeado"           "$OUT"
+check 'wt-env-aninhado .*apps/x/\.env\.local difere' ".env.local de subpasta segura o worktree mergeado" "$OUT"
+refute 'removeria: .*wt-env-(npmrc|aninhado) ' "nenhum dos dois aparece como candidato"         "$OUT"
+check 'wt-env-bunfig .*bunfig\.toml difere'     "bunfig.toml de projeto divergente segura o worktree"     "$OUT"
+check 'wt-env-npmrc-sub .*apps/y/\.npmrc difere' ".npmrc de subpasta segura o worktree"                   "$OUT"
+check 'wt-env-repo .*repo aninhado ignorado: vendor/lib/' "repo aninhado ignorado segura o worktree, com o caminho" "$OUT"
+refute 'removeria: .*wt-env-(bunfig|npmrc-sub|repo) ' "nenhum dos três aparece como candidato"          "$OUT"
+check 'wt-env-bunfigdot .*\.bunfig\.toml difere' ".bunfig.toml (com ponto) divergente segura o worktree" "$OUT"
+refute 'removeria: .*wt-env-bunfigdot '         "wt-env-bunfigdot não aparece como candidato"          "$OUT"
 check 'wt-dirty .*SUJO'                 "worktree mergeado e sujo é mantido"                     "$OUT"
 check 'removeria: .*wt-det-mergeado .*detached' "detached limpo num commit mergeado é lixo"      "$OUT"
+check 'wt-det-env .*\.env\.local difere' "detached mergeado com .env.local divergente: fica e diz o arquivo" "$OUT"
 
 echo "== sem commit próprio: sessão recém-aberta, não branch mergeada =="
 check  'wt-nova .*sem commit próprio'               "nova de origin/main, limpa: mantida"                        "$OUT"
@@ -157,6 +191,12 @@ check 'removido: .*wt-anc'              "apply remove a ancestral"              
 check 'removido: .*wt-det-mergeado'     "apply remove o detached num commit mergeado"            "$OUT"
 no_disco wt-pr-after     "commit sem push"
 no_disco wt-env          ".env.local divergente"
+no_disco wt-env-npmrc    ".npmrc divergente"
+no_disco wt-env-aninhado "apps/x/.env.local só no worktree"
+no_disco wt-det-env      ".env.local divergente num detached"
+no_disco wt-env-bunfig   "bunfig.toml divergente"
+no_disco wt-env-npmrc-sub "apps/y/.npmrc só no worktree"
+no_disco wt-env-repo     "repo aninhado ignorado"
 no_disco wt-dirty        "estava sujo"
 no_disco wt-nova         "branch sem commit próprio"
 no_disco wt-sem-reflog   "branch sem commit próprio"

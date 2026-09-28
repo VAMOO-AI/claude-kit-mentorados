@@ -34,17 +34,17 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 |---|---|---|
 | `plugin/skills/` | plugin | **22 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
-| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
-| `plugin/templates/agents.md` | `~/.claude/agents.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
+| `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (`npm run`, `npm test`, git read-only). É **mesclado** com o que você já tem — nada seu é perdido. |
 | `plugin/scripts/statusline.js` | `~/.claude/scripts/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e o contexto **em número absoluto**. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
-| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `CLAUDE.md` de projeto, `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
+| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
 > **Custo de contexto:** o plugin adiciona poucos milhares de tokens a cada sessão
@@ -104,7 +104,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~27k tokens quando dispara, então desligue em `/plugin` se não for usar. | conta no gerador |
+| **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~12k tokens quando dispara, e o pedido de vídeo lê mais ~15k da referência de vídeo; desligue em `/plugin` se não for usar. | conta no gerador |
 | **gerar-imagem** | Gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
 
 ---
@@ -150,7 +150,11 @@ valem no próximo start.
 - **O que é seu em `~/.claude` não é removido se você disser que é seu.** Liste
   em `~/.claude/.keep-local` — um caminho por linha, relativo a `~/.claude`,
   `#` comenta, glob simples (`skills/meu-*`). A limpeza da instalação antiga
-  pula o que está lá; o kit continua instalando e atualizando o que é dele.
+  pula o que está lá; o kit continua instalando e atualizando o que é dele. E um
+  `AGENTS.md` em `~/.claude`, de outra ferramenta ou escrito por você, fica
+  intocado: o setup só tira o `agents.md` que versões antigas do kit instalavam
+  (o gravado em minúsculas, ou o que tem a linha "Fica em `~/.claude/agents.md`"
+  do modelo antigo), com cópia em `~/.claude/backup-agents-md/`.
 
 ### Pelo terminal (alternativa)
 
@@ -307,11 +311,11 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `plugin/templates/playwright/`).
 3. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
 4. Skill **`baseline`** — *"está pronto pra produção?"* nos 8 pilares. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
-5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
+5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). O comando de deploy do seu stack vai na seção `## Deploy` do `AGENTS.md` do projeto (item 9), não na skill.
 6. Skill **`/kit-vamoo:handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
 7. [`plugin/templates/ci.yml`](plugin/templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 8. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
-9. [`plugin/templates/CLAUDE-projeto.md.exemplo`](plugin/templates/CLAUDE-projeto.md.exemplo) — um `CLAUDE.md` por projeto.
+9. [`plugin/templates/AGENTS-projeto.md.exemplo`](plugin/templates/AGENTS-projeto.md.exemplo) — um `AGENTS.md` por projeto, com o `CLAUDE.md` de uma linha (`@AGENTS.md`) que o importa, e a seção `## Deploy` que a `ship` lê.
 
 ---
 

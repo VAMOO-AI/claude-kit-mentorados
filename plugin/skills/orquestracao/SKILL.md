@@ -9,8 +9,6 @@ description: >-
   "rate limit 429/529".
 ---
 
-> Derivada de `claude-config-team/skills/vamoo-orquestracao`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Orquestração de subagents
 
 ## Quando fan-out (e quando NÃO)
@@ -72,17 +70,17 @@ Vale igual para credencial faltando: continue tudo que não depende dela.
   principal.
 - Writes paralelos só com **scope contract explícito por agent**. Worktree:
   cada agent confirma a branch correta antes do primeiro write.
-- **O `~/.claude/agents.md` não chega sozinho ao subagente.** Subagente
+- **O `~/.claude/subagentes.md` não chega sozinho ao subagente.** Subagente
   recebe os mesmos CLAUDE.md da sua sessão, menos tipos embutidos como
   `Explore` e `Plan`, que não recebem nenhum. E o CLAUDE.md que o kit instala
   só resume as regras de subagente e aponta o arquivo, sem importá-lo. Então:
-  - dispatch para `Explore`/`Plan`: o prompt diz "Leia ~/.claude/agents.md
+  - dispatch para `Explore`/`Plan`: o prompt diz "Leia ~/.claude/subagentes.md
     antes de começar e siga as regras de subagent de lá", porque eles não têm
     nem o resumo;
   - nos outros, não mande reler o CLAUDE.md nem cole as regras dele no
     prompt: cite só a regra de que aquele estágio precisa;
   - com writes, cole no prompt o scope contract e o formato de report do
-    `agents.md`, que o resumo do CLAUDE.md não traz.
+    `subagentes.md`, que o resumo do CLAUDE.md não traz.
 
 ## N terminais no mesmo repo: escopo disjunto e merge em fila
 

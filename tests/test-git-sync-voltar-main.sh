@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prova do --voltar-main do plugin/skills/git-sync/scripts/git-sync.sh.
 #
-# A funcionalidade veio da linhagem de 10/09 que rodava fora do repo (issue
-# claude-config-team#175), onde era comportamento PADRÃO. Voltou como flag: trocar a
+# Numa versão anterior do script (10/09), voltar para a branch principal no fim era
+# comportamento PADRÃO. Voltou como flag: trocar a
 # branch do checkout de alguém no fim de um comando que a pessoa chamou para LER estado é
 # ação que ninguém pediu, e com duas sessões no mesmo clone a última a rodar decidiria em
 # que branch a outra está.

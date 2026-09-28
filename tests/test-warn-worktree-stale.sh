@@ -2,14 +2,24 @@
 # Prova de regressão do plugin/scripts/warn-worktree-stale.sh (hook de SessionStart).
 #
 # O hook chamava de mergeada toda branch ancestral de origin/main — e a branch recém-criada
-# de origin/main, sem commit nenhum, é ancestral por definição. Em 24/09/2026, no CRM
-# Multipedidos, o aviso saiu num compact com o fix inteiro ainda sem commit no worktree:
+# de origin/main, sem commit nenhum, é ancestral por definição. Em 24/09/2026, num projeto
+# real, o aviso saiu num compact com o fix inteiro ainda sem commit no worktree:
 # "já foi MERGEADA — este worktree é lixo. Remova com 'ExitWorktree'". Agora:
 #   - branch sem commit próprio não é mergeada: o tip não passou do ponto de criação (a 1ª
 #     entrada do reflog) ou é commit da linha first-parent da main (só puxou a base, ou o
 #     reflog expirou);
 #   - mergeada com mudança não commitada não é lixo;
 #   - a prova pelo PR (squash) exige o tip contido no head do PR, como no worktree-gc.
+#
+# Na 0.42.0 o aviso deixou de dar ordem ("Remova", "Volte pra main") e passou a pedir que o
+# Claude ofereça: quem decide apagar ou trocar de branch é o usuário. E o aviso não oferece
+# mais o ExitWorktree direto: a limpeza segue a skill worktrees (prova completa e trava de
+# env ignorado). Para vários de uma vez, o aviso ensina o que a seção "Limpeza no fim"
+# ensina: `git-sync --cleanup-dry-run` antes e o `--cleanup-apply` só com o pedido da
+# pessoa. O worktree-gc.sh --apply, que remove todos os elegíveis sem dry-run, saiu do
+# aviso. E o clone principal fora da main só é assunto numa
+# sessão em worktree: quem trabalha numa feat/x direto no clone não usa worktree, e o aviso
+# em todo início de sessão era ruído.
 #
 # O `gh` é falso (PATH) e responde às duas formas de consulta — a antiga (`length`) e a
 # nova (`headRefOid`) — para o mesmo teste rodar contra as duas versões do script.
@@ -119,9 +129,16 @@ calado "empilhada numa branch que depois foi mergeada"                  "$(run e
 
 echo "== mergeada de verdade: continua avisando =="
 OUT="$(run mergeada)"
-check  "já foi MERGEADA — este worktree é lixo"  "commit próprio em origin/main, limpa: lixo"   "$OUT"
+check  "já foi mergeada e está limpo"            "commit próprio em origin/main, limpa: avisa"  "$OUT"
+check  "pedir a limpeza"                         "diz que a pessoa pode pedir a limpeza"        "$OUT"
+check  "skill worktrees"                         "aponta o procedimento da skill worktrees"     "$OUT"
+check  "cleanup-dry-run.*cleanup-apply"          "dry-run antes do apply, como na skill"        "$OUT"
+check  "cleanup-apply.* só com o pedido"         "o apply só com o pedido da pessoa"            "$OUT"
+refute "worktree-gc|gc\.sh"                      "não cita o worktree-gc"                       "$OUT"
+refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
+refute "ExitWorktree"                            "não oferece ExitWorktree direto, sem a prova" "$OUT"
 OUT="$(run squash)"
-check  "já foi MERGEADA — este worktree é lixo"  "squash com tip == head do PR, limpa: lixo"    "$OUT"
+check  "já foi mergeada e está limpo"            "squash com tip == head do PR, limpa: avisa"   "$OUT"
 OUT="$(run mergeada-suja)"
 check  "mergeada.*mudança não commitada"         "mergeada com mudança sem commit: avisa a mudança" "$OUT"
 refute "lixo|ExitWorktree|worktree-gc"           "mergeada suja nunca é chamada de lixo"        "$OUT"
@@ -129,6 +146,16 @@ refute "lixo|ExitWorktree|worktree-gc"           "mergeada suja nunca é chamada
 echo "== trabalho vivo: nada a avisar =="
 calado "commit depois do head do PR mergeado"                           "$(run squash-depois)"
 calado "commit próprio sem merge e sem PR"                              "$(run viva)"
+
+echo "== clone principal fora da main: assunto só de sessão em worktree =="
+G checkout -q -b no-clone
+[ "$(G branch --show-current)" = no-clone ] || { echo "fixture: o clone não saiu da main"; exit 2; }
+calado "sessão no próprio clone, numa feat/x: nada a avisar" \
+  "$(CLAUDE_PROJECT_DIR="$CLONE" PATH="$TMP/bin:$PATH" bash "$SCRIPT" 2>&1)"
+OUT="$(run viva)"
+check  "clone principal .* está em 'no-clone'" "sessão em worktree: avisa o clone fora da main" "$OUT"
+check  "ofereça ao usuário voltar pra main"          "oferece a volta, sem dar ordem"               "$OUT"
+refute "Sua regra|Volte pra main"                    "sem 'sua regra' nem 'volte pra main'"         "$OUT"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi

@@ -96,7 +96,7 @@ check block "git -C \$VAR do próprio comando"         "W=$CLONE; git -C \$W che
 check block "git -C com espaço no path, aspas duplas" "git -C \"$CLONE_ESP\" checkout main" "$FORA"
 check block "git -C com espaço no path, aspas simples" "git -C '$CLONE_ESP' checkout main" "$FORA"
 check block "cd com espaço no path"                   "cd \"$CLONE_ESP\" && git checkout main" "$FORA"
-# A primeira versão do fix acima (no claude-config-team) abriu cinco buracos. A âncora do
+# A primeira versão do fix acima abriu cinco buracos. A âncora do
 # `cd` não conhecia `{`/then/do, e buscar o `-C` por tipo de aspa deixava o `-C "…"` de
 # OUTRO comando vencer o `-C` nu do checkout.
 check block "{ cd clone; git checkout; }"             "{ cd $CLONE; git checkout main; }" "$FORA"
@@ -122,7 +122,7 @@ check block "PARALLEL_OK=1 citado no heredoc não é a escotilha" \
 # 18/09/2026: o anchor aceitava `|` solto, então o `\|` de uma alternação de grep fazia o
 # PADRÃO de busca passar por comando. Tirar `|` da classe abriria buraco pior — `||` é
 # operador de verdade. E o prefixo `rtk` (que reescreve o comando na máquina do kit) escapava
-# o guard aqui: falha ABERTA que a cópia do claude-config-team já cobria.
+# o guard aqui: falha ABERTA que a cópia deste hook no kit do time já cobria.
 check block "|| antes do git ainda bloqueia" \
   'false || git checkout main'                                                        "$CLONE"
 check block "prefixo rtk não escapa o guard"          'rtk git checkout main'        "$CLONE"

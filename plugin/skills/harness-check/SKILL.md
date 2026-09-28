@@ -1,12 +1,11 @@
 ---
 name: harness-check
 description: >-
-  Descobre PARA ONDE seu token está indo e o que dá pra cortar sem perder nada.
-  Mede o que a sessão já carrega antes do seu primeiro prompt (CLAUDE.md, skills,
-  MCPs) e o gasto durante o uso, com rótulo de MEDIDO vs ESTIMADO. Use em
-  "estourei o limite", "por que gastei tanto token", "a sessão nasce cara",
-  "vale desligar esse MCP?", "meu CLAUDE.md está grande demais?", "harness-check".
-  Não é o secscan (segurança) nem o baseline (produção).
+  Mede para onde vão os seus tokens: o que a sessão carrega antes do 1º prompt
+  (CLAUDE.md, skills, MCPs) e o gasto no uso, com rótulo MEDIDO vs ESTIMADO, e o
+  que dá pra cortar sem perder nada. Use quando o limite ou a conta surpreender,
+  a sessão nascer cara ou houver dúvida se um MCP ou o CLAUDE.md pesa. Não é o
+  secscan (segurança) nem o baseline (produção).
 ---
 
 # Harness Check — para onde vai o seu token

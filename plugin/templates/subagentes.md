@@ -1,6 +1,6 @@
 # Diretivas para Sub-Agentes
 
-> Fica em `~/.claude/agents.md`. Vale para todo sub-agente lançado durante o trabalho.
+> Fica em `~/.claude/subagentes.md`. Vale para todo sub-agente lançado durante o trabalho.
 > Sub-agentes tendem a sair do escopo, sobrescrever trabalho um do outro e dizer "passou" sem rodar nada. Estas regras evitam isso.
 
 ## Default: read-only
@@ -8,12 +8,13 @@
 - Edit/Write acontece na conversa principal por padrão — assim você vê cada mudança.
 - Exceção (write em sub-agente permitido): tarefa mecânica e isolada (ex.: renomear em N arquivos, formatar, gerar testes) com escopo explícito.
 
-## Revisor: o que corrige sozinho e o que pergunta
-- Severidade diz a ordem; **natureza** diz se o revisor toca. Se um sênior aplicaria o fix sem discutir, é mecânico e o revisor corrige. Se dois sêniores poderiam discordar, é decisão e o revisor reporta com a correção proposta, sem aplicar.
+## Revisor: quem corrige e o que pergunta
+- Severidade diz a ordem; **natureza** diz quem decide o fix. O revisor não edita nem classifica: reporta cada achado com `arquivo:linha`, confiança (alta/média/baixa), o cenário de falha e a correção proposta, inclusive os de severidade baixa e os que não confirmou. Quem separa mecânico de decisão e aplica é a conversa principal. Mecânico (um sênior aplicaria sem discutir) entra quando você mandar "aplica os mecânicos"; decisão (dois sêniores poderiam discordar) você decide um a um.
 - Mecânico: dead code, variável nunca lida, N+1 sem eager loading, comentário que contradiz o código, número mágico → constante, validação faltando em saída de IA, versão/caminho desatualizado.
 - Decisão: segurança (auth, XSS, injeção), race / ler-e-depois-gravar, remover funcionalidade, mudança de comportamento visível, qualquer fix acima de ~20 linhas.
-- Quatro categorias que revisor costuma pular e entram em todo review: valor novo de enum/status (ler TODOS os consumidores fora do diff), saída de IA que vira dado, ler-e-depois-gravar sem atomicidade, e migration (checklist na skill `baseline`, `references/02-banco.md`).
+- Cinco categorias que revisor costuma pular e entram em todo review: valor novo de enum/status (ler TODOS os consumidores fora do diff), saída de IA que vira dado, ler-e-depois-gravar sem atomicidade, migration (checklist na skill `baseline`, `references/02-banco.md`) e versão de dependência que subiu (é mudança de código: changelog lido, lockfile commitado junto, um pacote por vez; skill `secscan`, C5.2).
 
+## Contrato de escopo (writes em paralelo)
 - Cada agente recebe no prompt:
   - A lista exata de arquivos que pode modificar.
   - O que pode LER mas não alterar.
@@ -31,8 +32,8 @@
 - Reporte só o que foi pedido. Notou um problema fora do escopo? Mencione, mas não mexa.
 
 ## Segurança ao editar
-- Antes de editar: leia o arquivo. Depois de editar: confira pelo `git diff` (o Claude Code avisa se a edição falhou; reler o arquivo inteiro só gasta contexto).
-- No máximo 3 edições no mesmo arquivo sem reler.
+- Antes de editar: leia o arquivo; releia se um hook ou outra sessão pode ter mexido nele (o `eslint --fix` do fim do turno, outro terminal no mesmo clone, edição feita via Bash).
+- Antes de reportar, confira o conjunto pelo `git diff --stat`: é a lista de "Arquivos tocados".
 - Rename: grep separado por chamadas, tipos, strings, imports e testes/mocks.
 - Nunca delete arquivo sem checar quem referencia.
 - Nunca rode `push --force`, `reset --hard` ou ação destrutiva sem autorização explícita do orquestrador.
@@ -40,7 +41,6 @@
 ## Atenção ao contexto
 - Arquivos grandes (>500 linhas): leia em pedaços (offset/limit).
 - Resultados de ferramenta podem truncar. Output que parece cortado → rode de novo com escopo menor.
-- Não confie em leitura antiga depois de muitas operações — releia.
 
 ## Código
 - Código humano, sem comentário robótico nem header desnecessário.

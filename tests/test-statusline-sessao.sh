@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # A barra de status mostra o comprimento da sessão a partir de 600 linhas de transcript
-# (a régua do session-size-guard) e não quebra quando não há transcript. Também cobre o
+# (faixas 600/1.200/2.000, a régua do session-size-guard até a 0.41; ele agora mede o ctx)
+# e não quebra quando não há transcript. Também cobre o
 # ⚡N t/s da última chamada de API e o aviso de troca de modelo no meio da sessão.
 #
 # A barra é o que a pessoa olha o dia inteiro, e o wrapper esconde erro

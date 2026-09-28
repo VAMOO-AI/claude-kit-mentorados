@@ -5,18 +5,12 @@ description: >-
   dev, outro agente, ou você mesmo daqui a três semanas. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
   do que foi verificado versus do que é só crença. Use quando pedirem
-  "/handoff", "monta o handoff", "documenta pro Nicolas assumir", "passa isso
+  "/handoff", "monta o handoff", "documenta pro colega assumir", "passa isso
   pra outra sessão", ou ao encerrar uma frente de trabalho.
 disable-model-invocation: true
 ---
 
-> Derivada de `claude-config-team/skills/handoff`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # handoff
-
-> Origem: num projeto real, três handoffs tinham três estruturas diferentes, e um
-> deles deu três itens como "auditado e PRONTO" — a gravação do cliente mostrou os
-> três quebrados. O template abaixo existe por causa disso.
 
 Só dispara por `/handoff`. O modelo nunca decide sozinho que é hora de escrever
 um; é uma decisão de quem está saindo.
@@ -74,10 +68,11 @@ liga), o passo é curto:
 git status --short .context/memoria/
 ```
 
-Se a sessão rodou **num worktree**, rode no clone principal
-(`git -C <clone-principal> status --short .context/memoria/`) — o worktree tem
-diretório de memória próprio, e o link do clone não serve pra ele; o que você
-escreveu dentro do worktree sai commitado junto com o código.
+Numa sessão em worktree, rode o comando acima dentro dele: o hook
+`memoria-worktree-link.sh` liga a memória do worktree no `.context/memoria/` do
+próprio worktree, e o que aparecer ali entra no commit do código antes do push.
+Rode também no clone principal (`git -C <clone-principal> status --short
+.context/memoria/`): é onde grava a sessão que foi aberta nele.
 
 O que aparecer aí foi escrito nesta sessão e ainda não está no repositório. Antes
 de fechar, passe os olhos em cada arquivo tocado e faça três coisas:

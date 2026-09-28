@@ -35,6 +35,9 @@ skill() {
     local i=0; while [ "$i" -lt "${5:-0}" ]; do printf 'linha de corpo %s\n' "$i"; i=$((i+1)); done
   } > "$d/SKILL.md"
 }
+# O caminho em `rode: bash "<caminho>" .` do aviso. Tem de existir: o Bash do modelo não
+# tem ${CLAUDE_PLUGIN_ROOT}, e o comando com a variável crua não roda em lugar nenhum.
+scan_do_aviso() { printf '%s' "$1" | sed -n 's/.*rode: bash "\([^"]*\)" \..*/\1/p'; }
 roda_hook() { # roda_hook <projeto>
   printf '{"session_id":"s1","hook_event_name":"SessionStart","cwd":"%s"}' "$1" \
     | HOME="$FAKE_HOME" bash "$HOOK" 2>/dev/null
@@ -75,6 +78,8 @@ skill "$CASCA" testes testes "Ajuda com testes." 0
 saida="$(bash "$SCAN" "$CASCA")"; codigo=$?
 check "scan sai 1 com casca"                "$([ $codigo -eq 1 ] && echo ok || echo fail)"
 check "chama a casca pelo nome"             "$(printf '%s' "$saida" | grep -q 'casca' && echo ok || echo fail)"
+check "manda o que não ensina para o AGENTS.md do projeto" \
+  "$(printf '%s' "$saida" | grep -q 'uma linha no AGENTS.md do projeto' && echo ok || echo fail)"
 
 echo "== skill sem description: o modelo não tem como saber quando usar =="
 SEMD="$TMP/sem-description"; d="$SEMD/.claude/skills/orfa"; mkdir -p "$d"
@@ -94,6 +99,9 @@ check "scan sai 1 acima do teto de skills"  "$([ $codigo -eq 1 ] && echo ok || e
 check "nenhuma skill individual foi acusada" "$(printf '%s' "$saida" | grep -q 'cobram sem servir' && echo fail || echo ok)"
 resumo="$(bash "$SCAN" "$MUITAS" --resumo)"
 check "resumo do hook aparece acima do teto" "$(printf '%s' "$resumo" | grep -q 'TODA request' && echo ok || echo fail)"
+check "o resumo não cita \${CLAUDE_PLUGIN_ROOT}" "$(printf '%s' "$resumo" | grep -qF 'CLAUDE_PLUGIN_ROOT' && echo fail || echo ok)"
+cmd_scan="$(scan_do_aviso "$resumo")"
+check "o scan que o resumo manda rodar existe" "$([ -n "$cmd_scan" ] && [ -f "$cmd_scan" ] && echo ok || echo fail)"
 
 echo "== acima do teto de chars, com poucas skills =="
 GORDA="$TMP/gorda"
@@ -147,6 +155,8 @@ s2="$(roda_hook "$MUITAS")"
 s3="$(roda_hook "$MUITAS")"
 check "primeira abertura avisa"             "$(printf '%s' "$s1" | grep -q 'skills deste projeto' && echo ok || echo fail)"
 check "o aviso diz quanto custa por request" "$(printf '%s' "$s1" | grep -q 'TODA request' && echo ok || echo fail)"
+cmd_scan="$(scan_do_aviso "$s1")"
+check "pelo hook, o scan que o aviso cita também existe" "$([ -n "$cmd_scan" ] && [ -f "$cmd_scan" ] && echo ok || echo fail)"
 check "/clear e /compact seguintes calam"   "$([ -z "$s2" ] && [ -z "$s3" ] && echo ok || echo fail)"
 
 echo "== instalou mais uma skill: o hook volta a falar =="
