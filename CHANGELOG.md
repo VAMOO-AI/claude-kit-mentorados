@@ -34,6 +34,10 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   `whsec_` do webhook da Stripe sai com o tipo. Um caso prova que todo prefixo que a Fase 6
   reconhece sai redigido pelo gerador (`tests/test-auditoria-relatorio.sh` e
   `tests/test-auditoria-a4-mascara.sh`).
+- **O default genérico `${VAR:-valor}` saía em claro no relatório.** Agora o gerador o mascara
+  com a régua da A4 (até 12 caracteres só `…`, acima os 4 primeiros + `…`) no trecho, no
+  markdown da issue e no PDF; o `arquivo:linha` continua como evidência, e `"redacao": false`
+  segue valendo só para o trecho (`tests/test-auditoria-relatorio.sh`).
 - **A A4 pulava achado com byte fora de UTF-8.** Arquivo com um byte inválido fazia o grep
   calar a linha e o `sed` do macOS abortar com "illegal byte sequence", e os achados seguintes
   sumiam. Os greps rodam com `-a` e `LC_ALL=C`, e a máscara de defaults e config passou para
