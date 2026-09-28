@@ -189,6 +189,18 @@ check "^nada$"               "…e nada gravado fora da pasta de estado"        
 check ""                     "session_id que começa com ponto (.oculto): silêncio"            "$(run '.oculto' "$(tp ok)")"
 check ""                     "session_id '..': silêncio"                                      "$(run '..' "$(tp ok)")"
 
+echo "== sem node no PATH: sai 0, calado =="
+# O guard lê payload e transcript por node. Sem node (máquina que ainda não instalou), ele
+# não pode quebrar o prompt nem imprimir erro: o UserPromptSubmit mostraria a falha a cada
+# mensagem. O transcript tem 160K de contexto, então com node haveria aviso.
+turno semnode 160000
+mkdir -p "$TMP/sem-node-bin"
+payload="$(SID=semnode TP="$(tp semnode)" node -e 'process.stdout.write(JSON.stringify({session_id:process.env.SID,transcript_path:process.env.TP}))')"
+saida="$(printf '%s' "$payload" | PATH="$TMP/sem-node-bin" "$BASH" "$HOOK" 2>"$TMP/err-semnode")"; rc=$?
+check "^0$"                  "sem node: exit 0"                                               "$rc"
+check ""                     "…sem stdout"                                                    "$saida"
+check ""                     "…e sem stderr"                                                  "$(cat "$TMP/err-semnode")"
+
 echo
 echo "== o aviso vai para a pessoa, em tokens =="
 sem_dinheiro 150 "$a150"

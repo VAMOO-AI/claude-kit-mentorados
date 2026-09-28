@@ -26,7 +26,7 @@ export HOME="$TMP/home"; mkdir -p "$HOME"
 PRINCIPAL="$TMP/repo"
 mkdir -p "$PRINCIPAL"
 git -C "$PRINCIPAL" init -q -b main
-printf '%s\n' '.env' '.env.*' '!.env.example' 'node_modules/' '.npmrc' 'bunfig.toml' > "$PRINCIPAL/.gitignore"
+printf '%s\n' '.env' '.env.*' '!.env.example' 'node_modules/' '.npmrc' 'bunfig.toml' '.bunfig.toml' > "$PRINCIPAL/.gitignore"
 printf 'VITE_SUPABASE_URL=\n' > "$PRINCIPAL/.env.example"
 printf '{}\n' > "$PRINCIPAL/package.json"
 git -C "$PRINCIPAL" add .gitignore .env.example package.json
@@ -37,12 +37,14 @@ printf 'SUPABASE_DB_URL=postgres://exemplo\n' > "$PRINCIPAL/.env"
 printf '//registry.npmjs.org/:_authToken=npm_tokensecreto\n' > "$PRINCIPAL/.npmrc"
 # o bunfig.toml de projeto (sem ponto, como a doc do Bun o chama) também guarda token
 printf '[install.scopes]\n"@x" = { token = "bun_tokensecreto" }\n' > "$PRINCIPAL/bunfig.toml"
+# e o .bunfig.toml (com ponto), o nome do global do Bun, quando alguém o copia para o projeto
+printf '[install.scopes]\n"@y" = { token = "bundot_tokensecreto" }\n' > "$PRINCIPAL/.bunfig.toml"
 chmod 600 "$PRINCIPAL/.env.local"
 
 roda() { ( cd "$1" && bash "$HOOK" ) >"$TMP/out" 2>"$TMP/err" </dev/null; echo $?; }
 sha()  { shasum "$1" | awk '{print $1}'; }
 carimbo() { printf '%s/claude-seed-env' "$(git -C "$1" rev-parse --path-format=absolute --git-dir)"; }
-vazou() { grep -qF -e segredo -e postgres://exemplo -e npm_tokensecreto -e bun_tokensecreto "$TMP/out" "$TMP/err"; }
+vazou() { grep -qF -e segredo -e postgres://exemplo -e npm_tokensecreto -e bun_tokensecreto -e bundot_tokensecreto "$TMP/out" "$TMP/err"; }
 
 WT="$PRINCIPAL/.claude/worktrees/feat-x"
 git -C "$PRINCIPAL" worktree add -q -b feat/x "$WT" main
@@ -72,6 +74,8 @@ echo "== .npmrc com token: citado pelo nome, não copiado =="
 grep -q '.npmrc' "$TMP/out" && ok "…mas o aviso diz que ele existe no clone principal" || falha "não citou o .npmrc: $(cat "$TMP/out")"
 [ -e "$WT/bunfig.toml" ] && falha "copiou o bunfig.toml (token de registry) por padrão" || ok "bunfig.toml não foi copiado"
 grep -q 'bunfig.toml' "$TMP/out" && ok "…mas o aviso cita o bunfig.toml pelo nome" || falha "não citou o bunfig.toml: $(cat "$TMP/out")"
+[ -e "$WT/.bunfig.toml" ] && falha "copiou o .bunfig.toml (token de registry) por padrão" || ok ".bunfig.toml não foi copiado"
+grep -qF '.bunfig.toml' "$TMP/out" && ok "…mas o aviso cita o .bunfig.toml pelo nome" || falha "não citou o .bunfig.toml: $(cat "$TMP/out")"
 
 echo
 echo "== node_modules: avisa, não automatiza =="

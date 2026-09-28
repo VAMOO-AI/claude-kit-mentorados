@@ -217,8 +217,8 @@ git -C "$CLONE" merge -q --no-ff -m "Merge mergeada (#46)" mergeada
 # worktrees abaixo estão mergeados e limpos: só a trava do env pode segurá-los.
 mkdir -p "$CLONE/.git/info"; printf '.env*\n.npmrc\n.bunfig.toml\nbunfig.toml\nvendor/\n' >> "$CLONE/.git/info/exclude"
 printf 'A=clone\n' > "$CLONE/.env.local"; printf 'registry=clone\n' > "$CLONE/.npmrc"
-printf 'exact = true\n' > "$CLONE/bunfig.toml"
-for n in envlocal envnpmrc envapps envbunfig envnpmrcsub envrepo; do
+printf 'exact = true\n' > "$CLONE/bunfig.toml"; printf 'exact = true\n' > "$CLONE/.bunfig.toml"
+for n in envlocal envnpmrc envapps envbunfig envbunfigdot envnpmrcsub envrepo; do
   git -C "$CLONE" worktree add -q -b "$n" "$TMP/wt-$n" origin/main 2>/dev/null
   ( cd "$TMP/wt-$n" && echo "$n" > "$n.txt" && git add "$n.txt" && git commit -qm "$n" )
   git -C "$CLONE" merge -q --no-ff -m "Merge $n" "$n"
@@ -229,6 +229,7 @@ mkdir -p "$TMP/wt-envapps/apps/x"; printf 'B=1\n' > "$TMP/wt-envapps/apps/x/.env
 # o bunfig.toml de projeto (sem ponto), um .npmrc de subpasta e um repo aninhado ignorado,
 # que o remove apagaria com .git e tudo
 printf 'exact = false\n' > "$TMP/wt-envbunfig/bunfig.toml"
+printf 'exact = false\n' > "$TMP/wt-envbunfigdot/.bunfig.toml"   # o .bunfig.toml, com ponto
 mkdir -p "$TMP/wt-envnpmrcsub/apps/y"; printf 'registry=sub\n' > "$TMP/wt-envnpmrcsub/apps/y/.npmrc"
 git init -q "$TMP/wt-envrepo/vendor/lib"
 # 'wtok': squash de PR com head == tip e o .env.local igual ao do clone — é candidato
@@ -258,10 +259,11 @@ check  "keep: .*/wt-envlocal \(envlocal\) — \.env\.local difere do clone princ
 check  "keep: .*/wt-envnpmrc \(envnpmrc\) — \.npmrc difere do clone principal" ".npmrc diferente: keep com o nome do arquivo" "$OUT"
 check  "keep: .*/wt-envapps \(envapps\) — apps/x/\.env\.local difere do clone principal" "env aninhado que só existe no worktree: keep com o nome" "$OUT"
 check  "keep: .*/wt-envbunfig \(envbunfig\) — bunfig\.toml difere do clone principal" "bunfig.toml de projeto diferente: keep com o nome" "$OUT"
+check  "keep: .*/wt-envbunfigdot \(envbunfigdot\) — \.bunfig\.toml difere do clone principal" ".bunfig.toml (com ponto) diferente: keep com o nome" "$OUT"
 check  "keep: .*/wt-envnpmrcsub \(envnpmrcsub\) — apps/y/\.npmrc difere do clone principal" ".npmrc de subpasta: keep com o nome" "$OUT"
 check  "keep: .*/wt-envrepo \(envrepo\) — .*repo aninhado ignorado: vendor/lib/" "repo aninhado ignorado: keep com o caminho" "$OUT"
 OUT="$(run --cleanup-apply)"
-for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps wt-envbunfig wt-envnpmrcsub wt-envrepo; do
+for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps wt-envbunfig wt-envbunfigdot wt-envnpmrcsub wt-envrepo; do
   if [ -d "$TMP/$w" ]; then printf '  ok    %s\n' "$w: sobreviveu ao --cleanup-apply"
   else printf '  FALHA %s\n' "$w: removido pelo --cleanup-apply"; falhas=$((falhas+1)); fi
 done
