@@ -23,13 +23,17 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   saem mascaradas e com o tipo, também quando aparecem como default de variável
   (`tests/test-auditoria-relatorio.sh`, com PDF real quando a máquina tem Chrome e `pdftotext`;
   no CI esse caso é pulado).
-- **A redação do relatório deixava passar chave colada em `_` ou `%20`, senha em URL e o
-  `whsec_`.** O `\b` antes de `sk|rk` falhava em `Bearer%20sk_live_…` e `x_sk_live_…`, e a
-  chave saía inteira. Os prefixos específicos (`sk_live_`, `sk_test_`, `rk_live_`, `rk_test_`,
-  `sk-proj-`, `sk-ant-`, `whsec_`) não levam mais fronteira; o `sk-` genérico mantém a dele,
-  para não redigir "task-list". A senha de `postgres://usuario:senha@host` sai redigida, com o
-  usuário e o host no lugar, e o `whsec_` do webhook da Stripe sai com o tipo
-  (`tests/test-auditoria-relatorio.sh`).
+- **A redação do relatório deixava passar chave colada em `_` ou `%20`, senha em URL, o
+  `whsec_` e parte dos tokens.** O `\b` antes do prefixo falhava em `Bearer%20sk_live_…`,
+  `x_sk_live_…`, `Bearer%20ghp_…` e `x_xoxs-…`, e a chave saía inteira. Os prefixos específicos
+  (`sk_live_`, `sk_test_`, `rk_live_`, `rk_test_`, `sk-proj-`, `sk-ant-`, `whsec_`,
+  `gh[pousr]_`, `github_pat_`, `xox[abprs]-`, `glpat-`, `sbp_`, `AKIA…` e o JWT) não levam mais
+  fronteira; o `sk-` genérico mantém a dele, para não redigir "task-list". `github_pat_`,
+  `xoxa-`, `xoxr-` e `xoxs-` entraram na lista. A senha de `postgres://usuario:senha@host` sai
+  redigida, com o usuário e o host no lugar (`${VAR}` no lugar da senha é referência e fica), e o
+  `whsec_` do webhook da Stripe sai com o tipo. Um caso prova que todo prefixo que a Fase 6
+  reconhece sai redigido pelo gerador (`tests/test-auditoria-relatorio.sh` e
+  `tests/test-auditoria-a4-mascara.sh`).
 - **A A4 pulava achado com byte fora de UTF-8.** Arquivo com um byte inválido fazia o grep
   calar a linha e o `sed` do macOS abortar com "illegal byte sequence", e os achados seguintes
   sumiam. Os greps rodam com `-a` e `LC_ALL=C`, e a máscara de defaults e config passou para
@@ -43,8 +47,9 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   valor reconhecido, com até 60 caracteres antes dele, e um token que o bloco não reconhecia
   saía inteiro nessa janela: `ghp_…`, `xoxb-…` e a senha de `postgres://u:senha@h/db`
   chegavam ao PDF e à issue. O bloco reconhece também `ghp_`/`gho_`/`github_pat_`,
-  `xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha em `scheme://usuario:senha@`, e a janela
-  inteira passa pelos padrões antes de sair. A varredura de bundle da A4 continua com os
+  `xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha em `scheme://usuario:senha@` (menos
+  `${VAR}`), e a janela inteira passa pelos padrões antes de sair, sem reescrever nada: o
+  `--verificar` continua aceitando o trecho como pedaço da linha real. A varredura de bundle da A4 continua com os
   padrões dela (`tests/test-auditoria-a4-mascara.sh`).
 - **`baseline` completa não via arquivo fora do git.** Só o `--diff` lia o untracked não
   ignorado; no modo completo um `.env` novo passava sem finding. Migration com espaço ou
