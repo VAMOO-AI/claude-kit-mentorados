@@ -42,11 +42,13 @@ arquivo:linha na hora; horas de eliminação não.
 
 ## Mudança que toca UI → inspeção visual
 
-Rode o app (skill `run`) e exercite a mudança antes de "pronto", incluindo
-estados interativos (clique, hover, loading, empty) — static check não pega
-blur, layout quebrado nem botão morto. Estado, texto e erro se conferem lendo a
-página como texto (`read_page`, `get_page_text`); screenshot só onde o pixel é
-a evidência (blur, layout, cor). Isso é bug de entrega, não polimento.
+Rode o app (o comando de dev do projeto, na seção `## Comandos` do `AGENTS.md`) e
+exercite a mudança antes de "pronto", incluindo estados interativos (clique,
+hover, loading, empty) — static check não pega blur, layout quebrado nem botão
+morto. Se você tiver o MCP do navegador, estado, texto e erro se conferem lendo
+a página como texto (`read_page`, `get_page_text`); screenshot só onde o pixel é
+a evidência (blur, layout, cor). Sem ele, peça à pessoa que abra a página e diga
+(ou mande o print de) o que viu. Isso é bug de entrega, não polimento.
 
 QA em subagent devolve o veredito no formato de `references/qa-taxonomia.md`:
 severidade (crítico/alto/médio/baixo), categoria, passos e a contagem do que
