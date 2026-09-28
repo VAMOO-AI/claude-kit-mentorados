@@ -351,23 +351,39 @@ fresco vai reler.
 
 ## A4 — Chaves expostas
 
-Quatro superfícies, e a quarta é a que quase ninguém varre. Nas duas últimas o valor
-sai mascarado (arquivo:linha e os 6 primeiros caracteres): o que o comando imprime
-entra na conversa, e dali no relatório e na issue. Para julgar, abra o `arquivo:linha`.
+Quatro superfícies, e a quarta é a que quase ninguém varre. O que o comando imprime
+entra na conversa, e dali no relatório e na issue: por isso nenhuma busca mostra o valor
+inteiro. Sai `arquivo:linha`, o nome (a chave, a variável, o tipo do token) e os 6
+primeiros caracteres. Para julgar um achado, abra o `arquivo:linha`.
 
 ```bash
-command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico
-grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null  # defaults
+command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
+grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null \
+  | sed -E 's/(\$\{[A-Z_]+:-[^}]{6})[^}]+\}/\1…}/g'   # defaults
 grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
   | sed -E "s/(['\"][^'\"]{6})[^'\"]*$/\1…/"
-# 4. o bundle publicado (o segredo que "só existe no servidor" e foi pro browser).
+# 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser).
+#    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto.
 #    Sem build no disco, não rode o build: ele executa script do repo auditado e
 #    grava fora de docs/security-audit/. Peça o build a quem é dono do repo, ou leia
 #    os .js que o domínio serve (leitura em produção pode).
-grep -rnoE "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null \
-  | sed -E 's/^([^:]*:[0-9]+:.{6}).*/\1…/' | sort | uniq -c
+grep -arnoE "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null \
+  | python3 -c '
+import base64, json, sys
+for l in sys.stdin:
+    if l.count(":") < 2: continue
+    arq, lin, v = l.rstrip("\n").rsplit(":", 2)
+    tipo = {"sk-": "chave sk-", "sbp": "token sbp_ do Supabase"}.get(v[:3], "JWT")
+    if tipo == "JWT":
+        p = (v.split(".") + [""])[1]
+        try: tipo += " role=" + str(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["role"])
+        except Exception: tipo += " role=?"
+    print(arq + ":" + lin + ":" + v[:6] + "…  " + tipo)' | sort | uniq -c
 ```
+
+JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
+banco inteiro por cima da RLS.
 
 **Default público é achado, mesmo com a variável sobrescrita em produção hoje.**
 `${JWT_SECRET:-supersecret}` é um segredo real esperando um deploy distraído. O
