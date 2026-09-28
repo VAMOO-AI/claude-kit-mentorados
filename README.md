@@ -34,7 +34,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 |---|---|---|
 | `plugin/skills/` | plugin | **22 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
-| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando a sessão ficou longa demais para continuar barata, quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
@@ -150,7 +150,9 @@ valem no próximo start.
 - **O que é seu em `~/.claude` não é removido se você disser que é seu.** Liste
   em `~/.claude/.keep-local` — um caminho por linha, relativo a `~/.claude`,
   `#` comenta, glob simples (`skills/meu-*`). A limpeza da instalação antiga
-  pula o que está lá; o kit continua instalando e atualizando o que é dele.
+  pula o que está lá; o kit continua instalando e atualizando o que é dele. E um
+  `AGENTS.md` seu em `~/.claude` (o do Codex, por exemplo) fica intocado: o setup
+  só tira o `agents.md` que versões antigas do kit instalavam.
 
 ### Pelo terminal (alternativa)
 
