@@ -21,7 +21,15 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   `gerar-relatorio.py` só casava `sk-`/`rk-` com hífen: `sk_live_…`, `sk_test_…`, `rk_live_…`
   e `rk_test_…` saíam completas no PDF e nas issues prontas. Agora elas, `sk-proj-` e `sk-ant-`
   saem mascaradas e com o tipo, também quando aparecem como default de variável
-  (`tests/test-auditoria-relatorio.sh`, com um PDF real).
+  (`tests/test-auditoria-relatorio.sh`, com PDF real quando a máquina tem Chrome e `pdftotext`;
+  no CI esse caso é pulado).
+- **A redação do relatório deixava passar chave colada em `_` ou `%20`, senha em URL e o
+  `whsec_`.** O `\b` antes de `sk|rk` falhava em `Bearer%20sk_live_…` e `x_sk_live_…`, e a
+  chave saía inteira. Os prefixos específicos (`sk_live_`, `sk_test_`, `rk_live_`, `rk_test_`,
+  `sk-proj-`, `sk-ant-`, `whsec_`) não levam mais fronteira; o `sk-` genérico mantém a dele,
+  para não redigir "task-list". A senha de `postgres://usuario:senha@host` sai redigida, com o
+  usuário e o host no lugar, e o `whsec_` do webhook da Stripe sai com o tipo
+  (`tests/test-auditoria-relatorio.sh`).
 - **A A4 pulava achado com byte fora de UTF-8.** Arquivo com um byte inválido fazia o grep
   calar a linha e o `sed` do macOS abortar com "illegal byte sequence", e os achados seguintes
   sumiam. Os greps rodam com `-a` e `LC_ALL=C`, e a máscara de defaults e config passou para
@@ -31,6 +39,13 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   usar `sed -n`, que levava o valor inteiro para o relatório. Um bloco novo corta a linha no
   valor e aplica a mesma máscara da A4, e o `--verificar` aceita o trecho mascarado
   (`tests/test-auditoria-a4-mascara.sh`).
+- **O trecho da Fase 6 ainda vazava o que vinha antes do corte.** O corte fica no primeiro
+  valor reconhecido, com até 60 caracteres antes dele, e um token que o bloco não reconhecia
+  saía inteiro nessa janela: `ghp_…`, `xoxb-…` e a senha de `postgres://u:senha@h/db`
+  chegavam ao PDF e à issue. O bloco reconhece também `ghp_`/`gho_`/`github_pat_`,
+  `xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha em `scheme://usuario:senha@`, e a janela
+  inteira passa pelos padrões antes de sair. A varredura de bundle da A4 continua com os
+  padrões dela (`tests/test-auditoria-a4-mascara.sh`).
 - **`baseline` completa não via arquivo fora do git.** Só o `--diff` lia o untracked não
   ignorado; no modo completo um `.env` novo passava sem finding. Migration com espaço ou
   acento no nome (`001 init.sql`, `ação.sql`) sumia da checagem de RLS, e o fallback de tabelas
@@ -42,6 +57,11 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   repo, prova o PR mergeado pela API do GitHub com o token que `git config git-sync.tokenVar`
   nomeia (pelo stdin, nunca impresso), e `--no-gh` vale como no `git-sync`. Um worktree
   detached cujo HEAD é o head de um PR mergeado por squash pode sair
+  (`tests/test-worktree-gc.sh`).
+- **`worktree-gc.sh` com o `gh` logado mas cego para o repo, e sem token, parecia negativa
+  provada.** O keep saía só "NÃO mergeada", e as skills `worktrees` e `limpeza-mac` só aceitam a
+  prova do PR à mão quando o motivo diz "sem gh nem token da API". Agora o sufixo sai sempre que
+  a API não foi consultada, também quando o `gh` falhou, no `--verificar` e no laço do gc
   (`tests/test-worktree-gc.sh`).
 
 ### Mudou

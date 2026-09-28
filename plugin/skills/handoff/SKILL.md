@@ -93,8 +93,9 @@ custou horas: isso vira arquivo na memória, com link para o handoff.
 
 Na hora de publicar, confira antes se já há PR aberto com memória — publicar em
 paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos. De dentro
-de um worktree, se o guard recusar o `--jq` multilinha com aspas (skill `worktrees`),
-grave o comando num `.sh` no scratchpad e rode `bash <caminho absoluto>`:
+de um worktree, se o guard recusar o `gh` (skill `worktrees`: os dois gatilhos somados, um
+prefixo de env com `$(…)` e o `--jq` entre aspas), grave o comando num `.sh` no scratchpad e
+rode `bash <caminho absoluto>`:
 
 ```bash
 gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[]
