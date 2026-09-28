@@ -130,8 +130,9 @@ if (totalInput > 0) {
 // Comprimento da SESSÃO em linhas de transcript — outra medida que o ctx. A janela
 // compacta e volta a encher; o transcript só cresce, e é ele que dita o quanto é relido a
 // cada comando: no time, as sessões com 100+ requests fizeram 96,6% do cache read de uma
-// semana. O hook session-size-guard avisa uma vez por faixa e o aviso rola para fora da
-// tela; aqui o número fica. Conta bytes \n em blocos, sem carregar o arquivo (transcript de
+// semana. O hook session-size-guard avisa pelo ctx (150K, 300K e a cada +100K) e o aviso
+// rola para fora da tela; aqui o comprimento fica à vista, nas faixas 600/1.200/2.000 que o
+// hook usava até a 0.41. Conta bytes \n em blocos, sem carregar o arquivo (transcript de
 // sessão longa passa de 100 MB e isto roda a cada turno).
 let sesSeg = '';
 try {

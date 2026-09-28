@@ -124,7 +124,7 @@ jobs:
       - name: O branch-guard avisa só quando a branch mudou entre prompts
         run: bash tests/test-branch-guard.sh
 
-      - name: O session-size-guard avisa uma vez por faixa
+      - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
 
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
