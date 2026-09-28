@@ -13,7 +13,8 @@
 #
 # O que copia: `.env` e `.env.*` da raiz do clone principal que o git ignora nos DOIS lados
 # (clone e branch do worktree) e que não estão no índice. Nunca sobrescreve, nunca imprime
-# conteúdo. `.npmrc` e `.bunfig.toml` ignorados NÃO são copiados, só citados pelo nome: ali
+# conteúdo. `.npmrc`, `bunfig.toml` e `.bunfig.toml` ignorados NÃO são copiados, só citados
+# pelo nome (o `bunfig.toml` sem ponto é o nome de projeto na doc do Bun): ali
 # costuma morar token de registry, que vale para o pacote inteiro e não só para o app — o
 # kit não multiplica essa credencial por conta própria.
 #
@@ -79,7 +80,7 @@ for origem in "$PRINCIPAL"/.env "$PRINCIPAL"/.env.*; do
     falhou="${falhou:+$falhou, }$nome"
   fi
 done
-for nome in .npmrc .bunfig.toml; do
+for nome in .npmrc bunfig.toml .bunfig.toml; do
   [ -f "$PRINCIPAL/$nome" ] && [ ! -e "$RAIZ/$nome" ] && fora_do_git_no_clone "$nome" \
     && ignorado_no_worktree "$nome" && registry="${registry:+$registry, }$nome"
 done

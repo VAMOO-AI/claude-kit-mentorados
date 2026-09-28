@@ -6,8 +6,8 @@
 # Os casos rodam em repos git de verdade, com worktree de verdade — o hook decide tudo por
 # `git rev-parse`, então repo falso não prova nada.
 #
-# Além do que o time prova, aqui entram duas decisões do kit público: `.npmrc` e
-# `.bunfig.toml` (token de registry) não são copiados, só citados; e a cópia só acontece se
+# Além do que o time prova, aqui entram duas decisões do kit público: `.npmrc`,
+# `bunfig.toml` e `.bunfig.toml` (token de registry) não são copiados, só citados; e a cópia só acontece se
 # a branch do WORKTREE também ignora o arquivo — senão o segredo entraria no próximo commit.
 #
 # Uso: bash tests/test-worktree-seed-env.sh [caminho-do-hook]
@@ -26,7 +26,7 @@ export HOME="$TMP/home"; mkdir -p "$HOME"
 PRINCIPAL="$TMP/repo"
 mkdir -p "$PRINCIPAL"
 git -C "$PRINCIPAL" init -q -b main
-printf '%s\n' '.env' '.env.*' '!.env.example' 'node_modules/' '.npmrc' > "$PRINCIPAL/.gitignore"
+printf '%s\n' '.env' '.env.*' '!.env.example' 'node_modules/' '.npmrc' 'bunfig.toml' > "$PRINCIPAL/.gitignore"
 printf 'VITE_SUPABASE_URL=\n' > "$PRINCIPAL/.env.example"
 printf '{}\n' > "$PRINCIPAL/package.json"
 git -C "$PRINCIPAL" add .gitignore .env.example package.json
@@ -35,12 +35,14 @@ git -C "$PRINCIPAL" -c user.email=t@t -c user.name=t commit -q -m init
 printf 'VITE_SUPABASE_URL=https://exemplo.supabase.co\nVITE_KEY=segredo\n' > "$PRINCIPAL/.env.local"
 printf 'SUPABASE_DB_URL=postgres://exemplo\n' > "$PRINCIPAL/.env"
 printf '//registry.npmjs.org/:_authToken=npm_tokensecreto\n' > "$PRINCIPAL/.npmrc"
+# o bunfig.toml de projeto (sem ponto, como a doc do Bun o chama) também guarda token
+printf '[install.scopes]\n"@x" = { token = "bun_tokensecreto" }\n' > "$PRINCIPAL/bunfig.toml"
 chmod 600 "$PRINCIPAL/.env.local"
 
 roda() { ( cd "$1" && bash "$HOOK" ) >"$TMP/out" 2>"$TMP/err" </dev/null; echo $?; }
 sha()  { shasum "$1" | awk '{print $1}'; }
 carimbo() { printf '%s/claude-seed-env' "$(git -C "$1" rev-parse --path-format=absolute --git-dir)"; }
-vazou() { grep -qF -e segredo -e postgres://exemplo -e npm_tokensecreto "$TMP/out" "$TMP/err"; }
+vazou() { grep -qF -e segredo -e postgres://exemplo -e npm_tokensecreto -e bun_tokensecreto "$TMP/out" "$TMP/err"; }
 
 WT="$PRINCIPAL/.claude/worktrees/feat-x"
 git -C "$PRINCIPAL" worktree add -q -b feat/x "$WT" main
@@ -68,6 +70,8 @@ echo
 echo "== .npmrc com token: citado pelo nome, não copiado =="
 [ -e "$WT/.npmrc" ] && falha "copiou o .npmrc (token de registry) por padrão" || ok ".npmrc não foi copiado"
 grep -q '.npmrc' "$TMP/out" && ok "…mas o aviso diz que ele existe no clone principal" || falha "não citou o .npmrc: $(cat "$TMP/out")"
+[ -e "$WT/bunfig.toml" ] && falha "copiou o bunfig.toml (token de registry) por padrão" || ok "bunfig.toml não foi copiado"
+grep -q 'bunfig.toml' "$TMP/out" && ok "…mas o aviso cita o bunfig.toml pelo nome" || falha "não citou o bunfig.toml: $(cat "$TMP/out")"
 
 echo
 echo "== node_modules: avisa, não automatiza =="

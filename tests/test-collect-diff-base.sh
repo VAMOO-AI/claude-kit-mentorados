@@ -132,6 +132,27 @@ roda 7 origin/HEAD
   || falha "JWT consertado só no disco saiu $EXIT (esperado 1) — o commit sobe com o token"
 critico_07 7 && ok "o finding é do pilar 07, CRITICAL" || falha "sem finding CRITICAL do pilar 07"
 
+# 4) .env que entra só na resolução de um merge: sem --diff-merges o `git log` não mostra
+#    diff de commit de merge, e o commit seguinte (que tira o .env) é D — nada acusava
+ramo range-merge-lado
+printf 'lado\n' > "$REPO/lado.txt"
+git -C "$REPO" add lado.txt
+git -C "$REPO" commit -qm lado
+ramo range-merge
+printf 'meu\n' > "$REPO/meu.txt"
+git -C "$REPO" add meu.txt
+git -C "$REPO" commit -qm meu
+git -C "$REPO" merge -q --no-ff --no-commit range-merge-lado >/dev/null 2>&1
+printf 'SEGREDO=1\n' > "$REPO/.env"
+git -C "$REPO" add -f .env
+git -C "$REPO" commit -qm "merge com o .env na resolução"
+git -C "$REPO" rm -q .env
+git -C "$REPO" commit -qm "tira o env"
+roda 8 origin/HEAD
+[ "$EXIT" -eq 1 ] && ok ".env só na resolução do merge: exit 1" \
+  || falha ".env só na resolução do merge saiu $EXIT (esperado 1) — o commit de merge sobe com ele"
+critico_07 8 && ok "o finding é do pilar 07, CRITICAL" || falha "sem finding CRITICAL do pilar 07"
+
 echo "== clone sem origin/HEAD: o mesmo comando sai 3 e diz como consertar =="
 # o caso real: clone feito com init + remote add nunca ganha origin/HEAD — e o .env
 # commitado em feat/x continua no diff, então exit 0 aqui seria um CRITICAL escondido

@@ -215,9 +215,10 @@ git -C "$CLONE" worktree add -q -b mergeada "$TMP/wt-mergeada" origin/main 2>/de
 git -C "$CLONE" merge -q --no-ff -m "Merge mergeada (#46)" mergeada
 # Env ignorado não aparece no `status` e o `git worktree remove` o apaga sem recusar. Os três
 # worktrees abaixo estão mergeados e limpos: só a trava do env pode segurá-los.
-mkdir -p "$CLONE/.git/info"; printf '.env*\n.npmrc\n.bunfig.toml\n' >> "$CLONE/.git/info/exclude"
+mkdir -p "$CLONE/.git/info"; printf '.env*\n.npmrc\n.bunfig.toml\nbunfig.toml\nvendor/\n' >> "$CLONE/.git/info/exclude"
 printf 'A=clone\n' > "$CLONE/.env.local"; printf 'registry=clone\n' > "$CLONE/.npmrc"
-for n in envlocal envnpmrc envapps; do
+printf 'exact = true\n' > "$CLONE/bunfig.toml"
+for n in envlocal envnpmrc envapps envbunfig envnpmrcsub envrepo; do
   git -C "$CLONE" worktree add -q -b "$n" "$TMP/wt-$n" origin/main 2>/dev/null
   ( cd "$TMP/wt-$n" && echo "$n" > "$n.txt" && git add "$n.txt" && git commit -qm "$n" )
   git -C "$CLONE" merge -q --no-ff -m "Merge $n" "$n"
@@ -225,6 +226,11 @@ done
 printf 'A=editado na sessão\n' > "$TMP/wt-envlocal/.env.local"
 printf 'registry=outro\n' > "$TMP/wt-envnpmrc/.npmrc"
 mkdir -p "$TMP/wt-envapps/apps/x"; printf 'B=1\n' > "$TMP/wt-envapps/apps/x/.env.local"
+# o bunfig.toml de projeto (sem ponto), um .npmrc de subpasta e um repo aninhado ignorado,
+# que o remove apagaria com .git e tudo
+printf 'exact = false\n' > "$TMP/wt-envbunfig/bunfig.toml"
+mkdir -p "$TMP/wt-envnpmrcsub/apps/y"; printf 'registry=sub\n' > "$TMP/wt-envnpmrcsub/apps/y/.npmrc"
+git init -q "$TMP/wt-envrepo/vendor/lib"
 # 'wtok': squash de PR com head == tip e o .env.local igual ao do clone — é candidato
 git -C "$CLONE" worktree add -q -b wtok "$TMP/wt-ok" origin/main 2>/dev/null
 ( cd "$TMP/wt-ok" && echo ok > ok.txt && git add ok.txt && git commit -qm "ok" )
@@ -251,8 +257,11 @@ check  "CANDIDATO: .*/wt-ok \(wtok\) \[squash: PR #49 merged, head == tip\]" "sq
 check  "keep: .*/wt-envlocal \(envlocal\) — \.env\.local difere do clone principal" ".env.local editado no worktree: keep com o nome do arquivo" "$OUT"
 check  "keep: .*/wt-envnpmrc \(envnpmrc\) — \.npmrc difere do clone principal" ".npmrc diferente: keep com o nome do arquivo" "$OUT"
 check  "keep: .*/wt-envapps \(envapps\) — apps/x/\.env\.local difere do clone principal" "env aninhado que só existe no worktree: keep com o nome" "$OUT"
+check  "keep: .*/wt-envbunfig \(envbunfig\) — bunfig\.toml difere do clone principal" "bunfig.toml de projeto diferente: keep com o nome" "$OUT"
+check  "keep: .*/wt-envnpmrcsub \(envnpmrcsub\) — apps/y/\.npmrc difere do clone principal" ".npmrc de subpasta: keep com o nome" "$OUT"
+check  "keep: .*/wt-envrepo \(envrepo\) — .*repo aninhado ignorado: vendor/lib/" "repo aninhado ignorado: keep com o caminho" "$OUT"
 OUT="$(run --cleanup-apply)"
-for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps; do
+for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps wt-envbunfig wt-envnpmrcsub wt-envrepo; do
   if [ -d "$TMP/$w" ]; then printf '  ok    %s\n' "$w: sobreviveu ao --cleanup-apply"
   else printf '  FALHA %s\n' "$w: removido pelo --cleanup-apply"; falhas=$((falhas+1)); fi
 done

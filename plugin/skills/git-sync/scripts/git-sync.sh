@@ -178,19 +178,21 @@ sem_commit_proprio() {   # <tip> [branch]
 
 # Env ignorado não aparece no `status --porcelain`, e o `git worktree remove` sem --force o
 # apaga sem recusar: um .env.local editado na sessão sumia com o worktree "limpo". Põe em
-# ENV_DIF os .env* (inclusive de subpasta), .npmrc e .bunfig.toml ignorados do worktree que
-# diferem do clone principal ou só existem no worktree — a trava da "Limpeza no fim" da
-# skill worktrees e do plugin/scripts/worktree-gc.sh. Linha com / no fim é repositório
-# aninhado: pula.
+# ENV_DIF os .env*, .npmrc, bunfig.toml e .bunfig.toml ignorados (de qualquer pasta) que
+# diferem do clone principal ou só existem no worktree, e em ENV_REPO os repositórios
+# aninhados ignorados (linha com / no fim), que o remove apagaria com .git e tudo — a trava
+# da "Limpeza no fim" da skill worktrees e do plugin/scripts/worktree-gc.sh. Fail-closed
+# nos dois.
 env_diverge() {   # <worktree> — 0 = achou algum
   local wt="$1" f
-  ENV_DIF=""
+  ENV_DIF=""; ENV_REPO=""
   while IFS= read -r f; do
-    [[ -z "$f" || "$f" == */ ]] && continue
+    [[ -z "$f" ]] && continue
+    if [[ "$f" == */ ]]; then ENV_REPO="${ENV_REPO:+$ENV_REPO }$f"; continue; fi
     cmp -s "$wt/$f" "$MAIN_WT/$f" || ENV_DIF="${ENV_DIF:+$ENV_DIF }$f"
-  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard \
-             -- ':(glob)**/.env*' .npmrc .bunfig.toml 2>/dev/null)
-  [[ -n "$ENV_DIF" ]]
+  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' \
+             ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml' 2>/dev/null)
+  [[ -n "$ENV_DIF$ENV_REPO" ]]
 }
 
 UPDATED=()
@@ -893,8 +895,11 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
       elif env_diverge "$wt"; then
-        [[ "$ENV_DIF" == *" "* ]] && _v=diferem || _v=difere
-        reason="$ENV_DIF $_v do clone principal (env ignorado: o remove o apagaria)"
+        if [[ -n "$ENV_DIF" ]]; then
+          [[ "$ENV_DIF" == *" "* ]] && _v=diferem || _v=difere
+          reason="$ENV_DIF $_v do clone principal (env ignorado: o remove o apagaria)"
+        fi
+        [[ -n "$ENV_REPO" ]] && reason="${reason:+$reason; }repo aninhado ignorado: $ENV_REPO (o remove o apagaria)"
       elif sem_commit_proprio "$(git -C "$wt" rev-parse --verify -q HEAD 2>/dev/null)" "$wt_branch"; then
         reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then

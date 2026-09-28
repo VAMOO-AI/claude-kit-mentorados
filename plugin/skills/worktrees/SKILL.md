@@ -48,8 +48,8 @@ O kit resolve isso com um hook: no primeiro prompt que você manda dentro de um
 worktree sob `<repo>/.claude/worktrees/` (onde o `EnterWorktree` cria), ele
 copia do clone principal os arquivos `.env*` que o git **ignora e não estão no
 índice** — no clone e também na branch do worktree —, e nunca sobrescreve
-arquivo que já existe no worktree. `.npmrc` e `.bunfig.toml` ficam de fora de
-propósito (costumam guardar token de registry): o kit só avisa que existem, e
+arquivo que já existe no worktree. `.npmrc`, `bunfig.toml` e `.bunfig.toml` ficam de
+fora de propósito (costumam guardar token de registry): o kit só avisa que existem, e
 você copia à mão se o install pedir autenticação. Duas consequências:
 
 - O worktree criado no meio de uma resposta só recebe o env no **prompt
@@ -267,8 +267,9 @@ commit que nunca subiu.
 gh pr list --state merged --head <branch> --json number,headRefOid
 git rev-parse <branch>                # igual ao headRefOid: nenhum commit ficou fora do PR
 git -C <worktree> status --porcelain  # vazio; qualquer linha, inclusive untracked, é trabalho
-git -C <worktree> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' .npmrc .bunfig.toml
+git -C <worktree> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml'
 cmp -s <worktree>/<arquivo> <clone-principal>/<arquivo>   # um por arquivo listado; exit ≠ 0 = difere
+git -C <worktree> status --porcelain --ignored          # o que mais some junto com o worktree
 ```
 
 O `status` não mostra o que o git ignora, e o `git worktree remove` apaga esses
@@ -276,7 +277,10 @@ arquivos sem recusar, mesmo sem `--force`: o `.env.local` que o hook copiou e a
 sessão editou iria junto. Cada arquivo que o `ls-files` listar tem de ser igual ao
 do clone principal (a primeira linha de `git worktree list`); diferente, ou só
 existente no worktree, derruba a prova. Linha com `/` no fim é repositório
-aninhado, não arquivo: pule.
+aninhado ignorado, que o remove apagaria com `.git` e tudo: também derruba, com o
+caminho no motivo. O `--ignored` mostra o resto que some junto (`outputs/`, build,
+`.context/runtime/`: as linhas que começam com dois pontos de exclamação); trabalho
+que só existe ali também derruba a prova.
 
 - Prova completa: `git worktree remove <worktree>` (nunca `--force`),
   `git branch -D <branch>` e `git worktree prune`. Worktree que esta sessão criou
@@ -284,10 +288,12 @@ aninhado, não arquivo: pule.
   commits fora da branch original (é o squash), `discard_changes: true` só com a
   prova completa — ele também apaga o que não foi commitado.
 - Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
-  à pessoa o que faltou — o nome do arquivo, quando é o env.
+  à pessoa o que faltou — o nome do arquivo, quando é o env, ou o caminho do repo
+  aninhado.
 - Vários de uma vez: `git-sync --cleanup-dry-run`, e o `--cleanup-apply` só com o
-  pedido. Ele cobra a mesma prova, env incluído (ou a ancestralidade, quando o
-  merge não foi squash).
+  pedido. Ele cobra a mesma prova, com env e repo aninhado (ou a ancestralidade,
+  quando o merge não foi squash); o resto dos ignorados ele não olha, então rode o
+  `--ignored` antes de pedir o apply.
 
 Depois, `git fetch --prune`. O clone principal fica na `main`; atualize-o com
 `git pull --ff-only`, sem trocar a branch dele — outra sessão pode estar lendo dali.

@@ -190,7 +190,7 @@ Flags:
 | `--voltar-main` | **opt-in.** No fim, devolve o checkout deste clone à branch default (ff-only). Aborta e explica em: working tree suja, detached HEAD, merge/rebase/cherry-pick/bisect em andamento, worktree locked, default divergente da remota. Commit local à frente é preservado e vira aviso de push pendente — nunca reset. Em `--status-only` não toca em HEAD. |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
 | `--cleanup-dry-run` | lista branches `gone`, branches mergeadas por PR fora do `[gone]` (remoto vivo ou sem upstream, que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga). Quando a prova é o PR, é sempre **PR mergeado e head == tip** |
-| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove só o que tem prova, nesta ordem: (1) worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) — mergeado é ancestral de `origin/$DEFAULT` ou PR mergeado com head igual ao `HEAD` do worktree, e clean inclui os env ignorados (`.env*` de qualquer pasta, `.npmrc`, `.bunfig.toml`) iguais aos do clone principal, porque o `remove` os apaga sem recusar: diferente, fica, com o nome do arquivo; (2) branches `gone`: `-d`, e, se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho); (3) branches fora do `[gone]` (remoto vivo ou nunca pushada), com a mesma prova e só a local — o `git push origin --delete <b>` do remoto sai impresso para você decidir. Branch sem commit próprio (tip igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada: é sessão recém-aberta, que o app desktop não trava. Sem PR, sem head para conferir ou sem `gh`, a branch fica. |
+| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove só o que tem prova, nesta ordem: (1) worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) — mergeado é ancestral de `origin/$DEFAULT` ou PR mergeado com head igual ao `HEAD` do worktree, e clean inclui os env ignorados (`.env*`, `.npmrc`, `bunfig.toml` e `.bunfig.toml` de qualquer pasta) iguais aos do clone principal e nenhum repo aninhado ignorado, porque o `remove` apaga os dois sem recusar: diferente, fica, com o nome do arquivo ou o caminho do repo; (2) branches `gone`: `-d`, e, se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho); (3) branches fora do `[gone]` (remoto vivo ou nunca pushada), com a mesma prova e só a local — o `git push origin --delete <b>` do remoto sai impresso para você decidir. Branch sem commit próprio (tip igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada: é sessão recém-aberta, que o app desktop não trava. Sem PR, sem head para conferir ou sem `gh`, a branch fica. |
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
@@ -356,8 +356,9 @@ Candidatos típicos a remoção (só listar no dry-run):
 ```bash
 # worktree candidato (clean + commit próprio mergeado por ancestralidade OU por PR com head == HEAD + sem sessão viva)
 # e env ignorado igual ao do clone: o remove o apaga sem recusar
-git -C <path> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' .npmrc .bunfig.toml
+git -C <path> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml'
 cmp -s <path>/<arquivo> <clone principal>/<arquivo>   # um por arquivo listado; diferente = fica
+# linha com / no fim é repo aninhado ignorado: o remove o apagaria com .git e tudo — fica
 git worktree remove <path>      # falha se dirty — não force
 git worktree prune
 

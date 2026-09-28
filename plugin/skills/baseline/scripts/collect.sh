@@ -388,10 +388,11 @@ if want 07; then
   # No modo --diff o push leva TODOS os commits de base..HEAD, não só o HEAD. O .env que um
   # commit do range trouxe e outro tirou, o que só saiu do índice (`git rm --cached` sem
   # --amend) e o JWT consertado só no disco continuam no histórico que sobe: índice e disco
-  # não bastam, o conteúdo é o de cada commit do range.
+  # não bastam, o conteúdo é o de cada commit do range. Sem --diff-merges o `git log` não
+  # mostra diff de commit de merge, e segredo que entrou só na resolução do merge passava.
   RANGE_FILE="$OUT/.range"; : > "$RANGE_FILE"; RANGE_COMMITS=""; NO_RANGE=""
   if [ $DIFF_MODE -eq 1 ]; then
-    git log --format= --name-only --diff-filter=ACMR "$DIFF_BASE..HEAD" 2>/dev/null \
+    git log --format= --name-only --diff-filter=ACMR --diff-merges=first-parent "$DIFF_BASE..HEAD" 2>/dev/null \
       | grep -v '^$' | sort -u > "$RANGE_FILE"
     RANGE_COMMITS="$(git rev-list "$DIFF_BASE..HEAD" 2>/dev/null)"
     NO_RANGE=" — em commit do range $DIFF_BASE..HEAD, que o push leva mesmo com o HEAD, o índice e o disco limpos"
