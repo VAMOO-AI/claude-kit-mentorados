@@ -56,10 +56,13 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   registre e siga auditando. Vale igual para README, issue e PR do projeto.
 - **Segredo encontrado não é copiado para o entregável.** O `trecho` vai para um
   PDF e para uma issue de GitHub, ambos mais públicos que o repo. O gerador
-  mascara chave, JWT, token e atribuição de segredo automaticamente; a escotilha
-  `"redacao": false` existe só para quando o valor literal **é** a evidência (um
-  default público já versionado). Nunca a use para segredo vivo — esse você
-  descreve, e a issue pede rotação.
+  mascara chave, JWT, token, atribuição de segredo e o default de variável
+  (`${VAR:-valor}`, com a régua da A4, também aninhado: em `${A:-${B:-valor}}` o valor
+  interno é mascarado, e só a referência pura `${A:-${B}}` fica) automaticamente. A escotilha
+  `"redacao": false` vale só para o `trecho` impresso no PDF: a issue, montada dos achados ou
+  escrita em `markdown`, sai mascarada sempre, no corpo e na seção "Issues para o GitHub". Ela
+  existe só para quando o valor literal **é** a evidência (um default público já versionado).
+  Nunca a use para segredo vivo — esse você descreve, e a issue pede rotação.
 - **Percorra tudo nas categorias A1 e A3, e publique DUAS contagens:** quantos
   handlers foram **lidos integralmente** e quantos foram **triados por padrão**
   (grep de gate). As duas somadas têm que dar o total; a primeira sozinha é a
@@ -360,26 +363,41 @@ julgar um achado, abra o `arquivo:linha`.
 
 ```bash
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
-grep -rnE '\$\{[A-Z0-9_]+:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml helm/ .github/ scripts/ 2>/dev/null \
-  | sed -E -e 's/(\$\{[A-Z0-9_]+:-)[^}]{1,12}\}/\1…}/g' -e 's/(\$\{[A-Z0-9_]+:-[^}]{4})[^}]{9,}\}/\1…}/g'   # defaults (Compose v1 e v2)
-grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
-  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
-  | sed -E -e "s/(['\"])[^'\"]{1,12}$/\1…/" -e "s/(['\"][^'\"]{4})[^'\"]{9,}$/\1…/"
+# LC_ALL=C e -a em todo grep: com byte fora de UTF-8 na linha (comentário em Latin-1), o grep
+# do Linux e o do macOS calam a linha, e o default dela some. O python conta caractere, não byte.
+# 2. default de segredo (Compose v1 e v2, helm, CI e scripts)
+LC_ALL=C grep -arnE '\$\{[A-Z_][A-Z0-9_]*:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml \
+  helm/ .github/ scripts/ 2>/dev/null | python3 -c '
+import re
+m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
+for l in open(0, encoding="utf-8", errors="replace"): print(re.sub(r"(\$\{[A-Z_][A-Z0-9_]*:-)([^}]+)\}", lambda g: g[1] + m(g[2]) + "}", l.rstrip("\n")))'
+# 3. atribuição com literal em config
+LC_ALL=C grep -arnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
+  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | LC_ALL=C grep -av node_modules \
+  | python3 -c '
+import re
+m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
+for l in open(0, encoding="utf-8", errors="replace"): print(re.sub(r"([\x27\"])([^\x27\"]+)$", lambda g: g[1] + m(g[2]), l.rstrip("\n")))'
 # 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser).
 #    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto. Sem build
 #    no disco, não rode um: ver abaixo.
-grep -arnoE "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null \
-  | python3 -c '
-import base64, json, sys
-for l in sys.stdin:
+LC_ALL=C grep -arnoE "(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{16,}|[rs]k_(live|test)_[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" \
+  dist/ .next/static/ 2>/dev/null | python3 -c '
+import base64, json
+m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
+for l in open(0, encoding="utf-8", errors="replace"):
     if l.count(":") < 2: continue
     arq, lin, v = l.rstrip("\n").rsplit(":", 2)
-    tipo = {"sk-": "chave sk-", "sbp": "token sbp_ do Supabase"}.get(v[:3], "JWT")
-    if tipo == "JWT":
+    if v.startswith("sk-proj-"): tipo = "chave de projeto OpenAI"
+    elif v.startswith("sk-ant-"): tipo = "chave Anthropic"
+    elif v[:3] in ("sk_", "rk_"): tipo = "chave Stripe " + v[:v.find("_", 3) + 1]
+    elif v.startswith("sk-"): tipo = "chave sk-"
+    elif v.startswith("sbp_"): tipo = "token sbp_ do Supabase"
+    else:
         p = (v.split(".") + [""])[1]
-        try: tipo += " role=" + str(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["role"])
-        except Exception: tipo += " role=?"
-    print(arq + ":" + lin + ":" + (v[:4] if len(v) > 12 else "") + "…  " + tipo)' | sort | uniq -c
+        try: tipo = "JWT role=" + str(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["role"])
+        except Exception: tipo = "JWT role=?"
+    print(arq + ":" + lin + ":" + m(v) + "  " + tipo)' | sort | uniq -c
 ```
 
 JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
@@ -563,6 +581,39 @@ que existe. Ele **falha alto** —
 corrija o JSON, não o contorne. Rodou sem `--raiz`? A saída diz que o código não
 foi conferido, e isso não é "pronto".
 
+**Achado de segredo (A4) não copia a linha.** O `trecho` copiado com `sed -n` traz o valor
+para a conversa, que é o vazamento que o achado denuncia. O achado leva `arquivo`, `linhas`
+e o tipo (no título e no `por_que`), e o `trecho` é a linha cortada no valor, com a máscara
+da A4 e a anotação no fim. O `--verificar` aceita porque o corte é pedaço da linha real e a
+anotação `//` no fim é tolerada:
+
+```bash
+# trecho de achado de segredo: troque <linha> e <arquivo>. Linha sem segredo reconhecido
+# não imprime nada e sai 1; aí o achado fica só com arquivo:linha e o tipo.
+sed -n '<linha>p' <arquivo> | python3 -c '
+import re, sys
+l = open(0, encoding="utf-8", errors="replace").read().rstrip("\n")
+pads = [r"(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{16,}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,}|AKIA[0-9A-Z]{16})",
+        r"((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|whsec_[A-Za-z0-9+/=]{16,})",
+        r"[A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:([^\s@/${][^\s@/]*)@",
+        r"\$\{[A-Z_][A-Z0-9_]*:-([^}]+)\}",
+        r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|senha|private[_-]?key)[\x27\"]?\s*[:=]\s*[\x27\"]?([^\x27\"\s,;]{8,})"]
+achados = sorted((g.start(1), g.group(1)) for p in pads for g in re.finditer(p, l))
+if not achados: sys.exit("nenhum segredo reconhecido nesta linha: o trecho não sai")
+i, v = achados[0]
+ini = max(0, i - 60)
+print(l[ini:i] + ("" if len(v) <= 12 else v[:4]) + "  // valor mascarado")'
+```
+
+`api_key: "sk-proj-…"` na linha 2 vira `api_key: "sk-p  // valor mascarado`. O corte fica
+no primeiro valor da linha, com até 60 caracteres antes dele: num bundle minificado, a
+linha inteira é o arquivo. Por isso a lista cobre também `ghp_`/`gho_`/`github_pat_`,
+`xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha de `scheme://usuario:senha@` (que não
+conta quando é `${VAR}`): token que
+o bloco não reconhece não vira corte, e sai inteiro na janela antes do valor reconhecido. Valor
+reconhecido não cabe na janela, porque o corte é o primeiro da linha. Mascarar no meio da
+janela faria o trecho deixar de ser pedaço da linha real, e o `--verificar` o recusaria.
+
 O PDF imprime **"Rastreabilidade de compliance"** sozinho: cada achado acionável
 é etiquetado nos controles de OWASP 2025/API/LLM/ISO/NIST/SOC2/PCI que viola,
 herdando o default da sua categoria. É etiqueta sobre o achado já provado — não
@@ -622,5 +673,5 @@ verde sozinho não prova regressão nenhuma.
 | Achado que o dono responde "o nginx já trata isso" | Você adivinhou o deploy. Era `a_validar` com o `bloqueio` "config do proxy não está no repo" e o plano do dono |
 | Segunda auditoria repete o falso positivo da primeira | O `falso_positivo` foi apagado do JSON em vez de ficar com `motivo`. Ele é memória, não lixo |
 | `alta` que o juiz derruba em dois minutos | Você leu a query sem ler o caller. O revisor fresco é para isso — rode-o antes do PDF, não depois da reunião |
-| `--verificar` recusa um trecho que "está igual" | Está reescrito: aspas, espaço, nome de variável. Copie do arquivo com `sed -n 'a,bp'` e cole |
+| `--verificar` recusa um trecho que "está igual" | Está reescrito: aspas, espaço, nome de variável. Copie do arquivo com `sed -n 'a,bp'` e cole; achado de segredo sai pelo bloco mascarado da Fase 6, nunca pelo `sed -n` cru |
 | Auditoria de agente de IA "limpa" | Você auditou o prompt. A6 é o handler da tool: com que identidade roda e o que re-checa |

@@ -223,6 +223,9 @@ jobs:
       - name: O pilar 02 da baseline diz quais pastas de migration mediu, e os blocos da skill rodam linha a linha
         run: bash tests/test-baseline-banco.sh
 
+      - name: O modo completo da baseline vê o .env e o JWT untracked fora do .gitignore
+        run: bash tests/test-collect-completo-untracked.sh
+
       - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 

@@ -149,9 +149,231 @@ d["issues"][0]["achados"] = ["F1"]' segredo
 grep -q 'sk-proj-AbCdEf0123456789XyZq' "$TMP/segredo.html" \
   && falha "segredo foi para o relatório sem máscara" \
   || ok "segredo mascarado no trecho"
-[ "$(grep -c 'CHAVE REDIGIDA' "$TMP/segredo.html")" -ge 2 ] \
+[ "$(grep -c 'chave de projeto OpenAI redigida' "$TMP/segredo.html")" -ge 2 ] \
   && ok "máscara vale também no corpo da issue" \
   || falha "issue saiu sem a máscara (o GitHub é mais público que o PDF)"
+
+# 12c. cada tipo de chave, no trecho e no markdown da issue (que não tem escotilha):
+#      nenhum valor inteiro sai. Até a 0.43.0 a redação só casava sk-/rk- com hífen, e as
+#      chaves da Stripe (sk_live_, sk_test_, rk_live_, rk_test_) iam inteiras para o PDF.
+#      A máscara segue a da A4: 4 caracteres + "…", e o tipo num rótulo separado.
+#      Chaves montadas por concatenação: o prefixo inteiro num literal é o que a push
+#      protection do GitHub reconhece.
+rep() { printf "$1%.0s" $(seq 1 "$2"); }
+export CH_SKP="sk-""proj-FALSO$(rep b 30)" CH_SKA="sk-""ant-api03-FALSO$(rep f 40)" \
+       CH_SKL="sk_""live_FALSO$(rep c 24)" CH_SKT="sk_""test_FALSO$(rep d 24)" \
+       CH_RKL="rk_""live_FALSO$(rep e 24)" CH_RKT="rk_""test_FALSO$(rep g 24)" \
+       CH_SK="sk-FALSO$(rep a 30)"
+CHAVES="CH_SKP CH_SKA CH_SKL CH_SKT CH_RKL CH_RKT CH_SK"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/chaves.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+nomes = "CH_SKP CH_SKA CH_SKL CH_SKT CH_RKL CH_RKT CH_SK".split()
+linhas = [f'const k{i} = "{os.environ[n]}";' for i, n in enumerate(nomes)]
+linhas.append(f'api_key = "{os.environ["CH_SKL"]}"')
+d["achados"][0]["trecho"] = "\n".join(linhas)
+d["issues"][0]["achados"] = ["F1"]
+d["issues"][1]["markdown"] = "## Problema\n\n```\n" + "\n".join(linhas) + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/chaves.json" --out "$TMP/chaves.pdf" \
+  --html-only > "$TMP/chaves.log" 2>&1 || { falha "gerador falhou com as chaves"; cat "$TMP/chaves.log"; }
+vazou=""
+for n in $CHAVES; do grep -qF "${!n}" "$TMP/chaves.html" && vazou="$vazou ${!n:0:8}"; done
+[ -z "$vazou" ] && ok "nenhuma chave sai inteira no HTML (trecho e markdown da issue)" \
+  || falha "chave inteira no relatório:$vazou"
+for rot in 'sk-p… [chave de projeto OpenAI redigida]' 'sk-a… [chave Anthropic redigida]' \
+           'sk_l… [chave Stripe sk_live_ redigida]' 'sk_t… [chave Stripe sk_test_ redigida]' \
+           'rk_l… [chave Stripe rk_live_ redigida]' 'rk_t… [chave Stripe rk_test_ redigida]' \
+           'sk-F… [chave sk- redigida]'; do
+  [ "$(grep -cF "$rot" "$TMP/chaves.html")" -ge 2 ] && ok "4 caracteres + tipo: $rot" \
+    || falha "rótulo ausente do trecho ou da issue: $rot"
+done
+grep -qF 'api_key = &quot;sk_l… [chave Stripe sk_live_ redigida]&quot;' "$TMP/chaves.html" \
+  && ok "atribuição com chave mantém o rótulo do tipo" \
+  || falha "a redação da atribuição engoliu o rótulo do tipo"
+
+# 12d. default de compose: a chave da Stripe escrita como default sai mascarada com o tipo, e o
+#      default genérico ${VAR:-valor} também, com a régua da A4 (até 12 caracteres só "…",
+#      acima os 4 primeiros + "…"), no trecho e no markdown da issue. O arquivo:linha continua
+#      como evidência. Referência (${A:-${B}}) não é valor e fica.
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/default.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+linhas = ("      STRIPE_KEY: ${STRIPE_KEY:-" + os.environ["CH_SKL"] + "}\n"
+          "      DB_PASSWORD: ${DB_PASSWORD:-senhaQualquer1}\n"
+          "      CURTA: ${CURTA:-s3nha12}\n"
+          "      REF: ${REF:-${OUTRA}}")
+d["achados"][0]["trecho"] = linhas
+d["issues"][0]["achados"] = [d["achados"][0]["id"]]
+d["issues"][1]["markdown"] = "```\n" + linhas + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/default.json" --out "$TMP/default.pdf" \
+  --html-only > "$TMP/default.log" 2>&1 || { falha "gerador falhou com o default"; cat "$TMP/default.log"; }
+grep -qF "$CH_SKL" "$TMP/default.html" && falha "chave da Stripe no default saiu inteira" \
+  || ok "chave da Stripe escrita como default sai mascarada"
+grep -qF 'STRIPE_KEY:-sk_l… [chave Stripe sk_live_ redigida]}' "$TMP/default.html" \
+  && ok "o default da Stripe leva 4 caracteres e o tipo" || falha "default da Stripe sem o rótulo do tipo"
+grep -qF 'senhaQualquer1' "$TMP/default.html" && falha "default genérico saiu inteiro" \
+  || ok "default genérico não sai inteiro (trecho e issue)"
+[ "$(grep -cF 'DB_PASSWORD:-senh…}' "$TMP/default.html")" -ge 2 ] \
+  && ok "default genérico de 14 caracteres: 4 + … no trecho e na issue" || falha "default genérico sem a régua da A4"
+grep -qF 's3nha12' "$TMP/default.html" && falha "default curto saiu inteiro" || ok "default curto não sai"
+[ "$(grep -cF 'CURTA:-…}' "$TMP/default.html")" -ge 2 ] && ok "default de até 12 caracteres: só …" \
+  || falha "default curto sem a régua da A4"
+[ "$(grep -cF 'REF:-${OUTRA}}' "$TMP/default.html")" -ge 2 ] && ok "referência no default fica como está" \
+  || falha "a redação mexeu na referência \${OUTRA}"
+# a escotilha vale só para o trecho: o markdown da issue é mascarado mesmo assim
+python3 - "$TMP/default.json" "$TMP/default-esc.json" <<'PYC'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["achados"][0]["redacao"] = False
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/default-esc.json" --out "$TMP/default-esc.pdf" \
+  --html-only > "$TMP/default-esc.log" 2>&1 || falha "gerador falhou com a escotilha"
+n_esc="$(grep -cF 'senhaQualquer1' "$TMP/default-esc.html")"; n_md="$(grep -cF 'DB_PASSWORD:-senh…}' "$TMP/default-esc.html")"
+[ "$n_esc" -ge 1 ] && [ "$n_md" -ge 1 ] && ok "redacao: false preserva o default no trecho, e o markdown continua mascarado" \
+  || falha "escotilha: trecho com o valor $n_esc vez(es), markdown mascarado $n_md vez(es)"
+
+# 12e. revisão da 0.43.1: senha em URL (scheme://usuario:senha@), chave com prefixo colado
+#      em _ ou em %20 (o \b antes de sk|rk deixava passar) e o whsec_ do webhook da Stripe.
+#      O sk- genérico continua com fronteira: "task-list-…" é texto, não chave.
+export CH_URLPASS="SenhaFalsa$(rep 7 8)" CH_WHS="wh""sec_FALSO$(rep h 28)" \
+       CH_SKL2="sk_""live_FALSO$(rep j 24)" CH_RKT2="rk_""test_FALSO$(rep k 24)" CH_SKP2="sk-""proj-FALSO$(rep m 30)"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/rev.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+e = os.environ
+linhas = [f'DATABASE_URL=postgres://u:{e["CH_URLPASS"]}@h/db',
+          f'curl -H "Authorization: Bearer%20{e["CH_SKL2"]}" x',
+          f'const x_{e["CH_RKT2"]} = 1; y=_{e["CH_SKP2"]}',
+          f'const w = "{e["CH_WHS"]}";',
+          'const lista = "task-list-of-the-week-items";']
+d["achados"][0]["trecho"] = "\n".join(linhas)
+d["issues"][0]["achados"] = ["F1"]
+d["issues"][1]["markdown"] = "## Problema\n\n```\n" + "\n".join(linhas) + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/rev.json" --out "$TMP/rev.pdf" \
+  --html-only > "$TMP/rev.log" 2>&1 || { falha "gerador falhou com os casos da revisão"; cat "$TMP/rev.log"; }
+for n in CH_URLPASS CH_WHS CH_SKL2 CH_RKT2 CH_SKP2; do
+  [ "$(grep -cF "${!n}" "$TMP/rev.html")" = 0 ] && ok "revisão: $n não sai inteiro (trecho e issue)" \
+    || falha "revisão: $n inteiro no relatório"
+done
+[ "$(grep -cF 'postgres://u:' "$TMP/rev.html")" -ge 2 ] && ok "senha em URL: o usuário e o esquema continuam" \
+  || falha "senha em URL: a redação levou o esquema ou o usuário junto"
+[ "$(grep -cF 'task-list-of-the-week-items' "$TMP/rev.html")" -ge 2 ] && ok "sk- genérico mantém a fronteira: task-list-… intacto" \
+  || falha "a redação comeu o task-list-…"
+[ "$(grep -cF '[chave whsec_ do webhook Stripe redigida]' "$TMP/rev.html")" -ge 2 ] && ok "whsec_ sai com o tipo" \
+  || falha "whsec_ sem o rótulo do tipo"
+
+# Fatia o relatório por destino: "fora" é tudo menos as issues (o trecho do achado está ali),
+# "issue1", "issue2"... é o corpo entre os delimitadores. O achado com "redacao": false mostra o
+# valor no trecho de propósito, então contar no HTML inteiro não separa escotilha de vazamento.
+destinos() {  # $1=arquivo (HTML ou texto do PDF)  $2=literal  → "fora=N issue1=N ..."
+  python3 - "$1" "$2" <<'PYD'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+blocos = re.findall(r"--- ISSUE (\d+) ---(.*?)--- FIM ISSUE \1 ---", t, re.S)
+fora = re.sub(r"--- ISSUE (\d+) ---.*?--- FIM ISSUE \1 ---", "", t, flags=re.S)
+print(" ".join([f"fora={fora.count(sys.argv[2])}"] + [f"issue{i}={b.count(sys.argv[2])}" for i, b in blocos]))
+PYD
+}
+
+# 12f. default aninhado: ${A:-${B:-valor}} saía inteiro no trecho, na issue automática e no
+#      markdown da issue, porque o valor começava com "$" e o default interno nunca era visitado.
+#      Só a referência pura (${A:-${B}}, ${A:-${B:-${C}}}) fica como está.
+export CH_NEST1="Aninhado""FALSO""12345" CH_NEST2="Fundo""FALSO""senha678"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/aninhado.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+e = os.environ
+linhas = ("X: ${A:-${B:-" + e["CH_NEST1"] + "}}\n"
+          "Y: ${A:-${B:-${C:-" + e["CH_NEST2"] + "}}}\n"
+          "R1: ${A:-${B}}\n"
+          "R2: ${A:-${B:-${C}}}")
+d["achados"][0]["trecho"] = linhas
+d["issues"][0]["achados"] = [d["achados"][0]["id"]]
+d["issues"][0].pop("markdown", None)
+d["issues"][1]["markdown"] = "```\n" + linhas + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/aninhado.json" --out "$TMP/aninhado.pdf" \
+  --html-only > "$TMP/aninhado.log" 2>&1 || { falha "gerador falhou com o default aninhado"; cat "$TMP/aninhado.log"; }
+for n in CH_NEST1 CH_NEST2; do
+  d="$(destinos "$TMP/aninhado.html" "${!n}")"
+  [ "$d" = "fora=0 issue1=0 issue2=0 issue3=0" ] && ok "default aninhado: $n não sai no trecho nem nas issues" \
+    || falha "default aninhado: $n inteiro ($d)"
+done
+for alvo in 'X: ${A:-${B:-Anin…}}' 'Y: ${A:-${B:-${C:-Fund…}}}' 'R1: ${A:-${B}}' 'R2: ${A:-${B:-${C}}}'; do
+  d="$(destinos "$TMP/aninhado.html" "$alvo")"
+  case "$d" in fora=[1-9]*' issue1='[1-9]*' issue2='[1-9]*) ok "trecho, issue automática e markdown: $alvo" ;;
+    *) falha "esperado nos três destinos: $alvo ($d)" ;; esac
+done
+
+# 12g. a escotilha "redacao": false vale só para o trecho do PDF. A issue automática usava o
+#      mesmo trecho_redigido, e o corpo saía cru no GitHub e na seção "Issues para o GitHub".
+export CH_ESC_SKL="sk_""live_FALSO$(rep n 24)" CH_ESC_DEF="senha""Escotilha""F2x9"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/esc-issue.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+e = os.environ
+a = d["achados"][0]
+a["trecho"] = ("const s = \"" + e["CH_ESC_SKL"] + "\";\n"
+               "DB_PASSWORD: ${DB_PASSWORD:-" + e["CH_ESC_DEF"] + "}\n"
+               "X: ${A:-${B:-" + e["CH_NEST1"] + "}}")
+a["redacao"] = False
+d["issues"][0]["achados"] = [a["id"]]
+d["issues"][0].pop("markdown", None)
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/esc-issue.json" --out "$TMP/esc-issue.pdf" \
+  --html-only > "$TMP/esc-issue.log" 2>&1 || { falha "gerador falhou com a escotilha na issue"; cat "$TMP/esc-issue.log"; }
+for n in CH_ESC_SKL CH_ESC_DEF CH_NEST1; do
+  d="$(destinos "$TMP/esc-issue.html" "${!n}")"
+  case "$d" in fora=[1-9]*' issue1=0 issue2=0 issue3=0') ok "redacao: false: $n no trecho, fora de toda issue" ;;
+    *) falha "redacao: false: $n ($d; esperado no trecho e em nenhuma issue)" ;; esac
+done
+d="$(destinos "$TMP/esc-issue.html" 'sk_l… [chave Stripe sk_live_ redigida]')"
+case "$d" in *' issue1='[1-9]*) ok "issue automática de achado com escotilha sai mascarada" ;;
+  *) falha "issue automática sem a máscara ($d)" ;; esac
+d="$(destinos "$HTML" 'supersecret-change-me')"
+case "$d" in fora=[1-9]*' issue1=0 issue2=0 issue3=0') ok "exemplo: F3 com escotilha no trecho e mascarado na issue 3" ;;
+  *) falha "exemplo: default do F3 ($d)" ;; esac
+
+# O PDF de verdade, quando a máquina tem Chrome e pdftotext (o CI não tem): texto extraído.
+if python3 -B -c 'import sys; import importlib.util as u
+s = u.spec_from_file_location("g", sys.argv[1] + "/gerar-relatorio.py"); m = u.module_from_spec(s); s.loader.exec_module(m)
+sys.exit(0 if m.achar_chrome() else 1)' "$SKILL/scripts" 2>/dev/null && command -v pdftotext >/dev/null; then
+  python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/chaves.json" --out "$TMP/chaves.pdf" > "$TMP/chaves-pdf.log" 2>&1 \
+    && pdftotext "$TMP/chaves.pdf" "$TMP/chaves.txt" \
+    || falha "PDF com as chaves não foi gerado"
+  vazou=""
+  for n in $CHAVES; do grep -qF "${!n}" "$TMP/chaves.txt" && vazou="$vazou ${!n:0:8}"; done
+  [ -s "$TMP/chaves.txt" ] && [ -z "$vazou" ] && ok "nenhuma chave sai inteira no texto do PDF" \
+    || falha "chave inteira no PDF (ou PDF vazio):$vazou"
+  # default aninhado e escotilha no PDF: o que vem depois de "Issues para o GitHub" não traz
+  # valor nenhum; antes, o trecho com a escotilha traz, e o aninhado sem escotilha não.
+  for caso in aninhado esc-issue; do
+    python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/$caso.json" --out "$TMP/$caso-real.pdf" > /dev/null 2>&1 \
+      && pdftotext "$TMP/$caso-real.pdf" "$TMP/$caso.txt" || falha "PDF $caso não foi gerado"
+  done
+  pdf_issues() { python3 -c 'import sys; t = open(sys.argv[1]).read(); i = t.find("Issues para o GitHub"); print(t[i:] if i >= 0 else "SEM SECAO")' "$1"; }
+  vazou=""
+  for n in CH_NEST1 CH_NEST2; do grep -qF "${!n}" "$TMP/aninhado.txt" && vazou="$vazou $n"; done
+  for n in CH_ESC_SKL CH_ESC_DEF CH_NEST1; do
+    case "$(pdf_issues "$TMP/esc-issue.txt")" in *"${!n}"*|"SEM SECAO") vazou="$vazou $n(issue)";; esac
+  done
+  [ -s "$TMP/aninhado.txt" ] && [ -s "$TMP/esc-issue.txt" ] && [ -z "$vazou" ] \
+    && ok "PDF: default aninhado e issue de achado com escotilha saem mascarados" \
+    || falha "PDF: valor inteiro:$vazou"
+  grep -qF "$CH_ESC_DEF" "$TMP/esc-issue.txt" && ok "PDF: a escotilha continua valendo no trecho" \
+    || falha "PDF: a escotilha sumiu do trecho"
+else
+  echo "  pulado PDF real: sem Chrome ou pdftotext nesta máquina (o HTML acima é a fonte do PDF)"
+fi
 
 # 12b. issue com markdown escrito à mão passa pela mesma máscara — é o mesmo
 #      GitHub, e quem escreve markdown custom é quem colou o trecho na unha

@@ -86,15 +86,18 @@ add_coverage() {
 # Escopo de arquivos. Em --diff, o que mudou mais o untracked; senão, tudo que o git rastreia.
 # Nenhum `git diff` vê arquivo que ainda não entrou no git: o .env e a migration novos, que o
 # próximo `git add -A` leva, passavam pelo gate sem ninguém olhar. O .gitignore decide o que
-# fica fora — arquivo ignorado não entra.
-UNTRACKED_FILE="$OUT/.untracked"; : > "$UNTRACKED_FILE"
+# fica fora — arquivo ignorado não entra. O pilar 07 lê o untracked nos dois modos.
+# Todo git que lista caminho roda com core.quotePath=false: com o padrão, "ação.sql" sai como
+# "a\303\247\303\243o.sql", entre aspas, e vira arquivo que não existe.
+QGIT=(git -c core.quotePath=false)
+UNTRACKED_FILE="$OUT/.untracked"
+"${QGIT[@]}" ls-files --others --exclude-standard 2>/dev/null > "$UNTRACKED_FILE"
 if [ -n "$DIFF_BASE" ]; then
-  SCOPE="$(git diff --name-only --diff-filter=ACMR "$DIFF_BASE"...HEAD 2>/dev/null)"
-  [ -n "$SCOPE" ] || SCOPE="$(git diff --name-only --diff-filter=ACMR "$DIFF_BASE" 2>/dev/null)"
-  git ls-files --others --exclude-standard 2>/dev/null > "$UNTRACKED_FILE"
+  SCOPE="$("${QGIT[@]}" diff --name-only --diff-filter=ACMR "$DIFF_BASE"...HEAD 2>/dev/null)"
+  [ -n "$SCOPE" ] || SCOPE="$("${QGIT[@]}" diff --name-only --diff-filter=ACMR "$DIFF_BASE" 2>/dev/null)"
   SCOPE="$(printf '%s\n' "$SCOPE"; cat "$UNTRACKED_FILE")"
 else
-  SCOPE="$(git ls-files 2>/dev/null)"
+  SCOPE="$("${QGIT[@]}" ls-files 2>/dev/null)"
 fi
 SCOPE_FILE="$OUT/.scope"; printf '%s\n' "$SCOPE" | grep -v '^$' > "$SCOPE_FILE"
 DIFF_MODE=0; [ -n "$DIFF_BASE" ] && DIFF_MODE=1
@@ -220,13 +223,16 @@ if want 02; then
       for d in $MIG_DIRS; do printf '%s\n' "$MIG_LIST" | grep -q "^$d/" || sem_sql="$sem_sql $d"; done
     fi
     n_sql="$(hits "$MIG_LIST")"
-    MIG_FILES="$(printf '%s\n' "$MIG_LIST" | tr '\n' ' ')"
+    # Array, não string: "001 init.sql" sem aspas virava dois caminhos que não existem, e a
+    # tabela sem RLS dele sumia calada.
+    MIG_FILES=()
+    while IFS= read -r f; do [ -n "$f" ] && MIG_FILES+=("$f"); done <<< "$MIG_LIST"
     # [[:space:]]+ e não espaço literal: as migrations alinham as colunas
     # ("ALTER TABLE public.deal_tags     ENABLE ROW LEVEL SECURITY") e um regex
     # com espaço único reporta como desprotegida uma tabela que tem RLS.
-    created="$(grep -rhoiE 'create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+' $MIG_FILES 2>/dev/null \
+    created="$(grep -rhoiE 'create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+' "${MIG_FILES[@]}" 2>/dev/null \
       | grep -oiE '[a-z0-9_]+$' | sort -u)"
-    rls="$(grep -rhoiE 'alter[[:space:]]+table[[:space:]]+(only[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+"?[[:space:]]+enable[[:space:]]+row[[:space:]]+level[[:space:]]+security' $MIG_FILES 2>/dev/null \
+    rls="$(grep -rhoiE 'alter[[:space:]]+table[[:space:]]+(only[[:space:]]+)?([a-z0-9_]+\.)?"?[a-z0-9_]+"?[[:space:]]+enable[[:space:]]+row[[:space:]]+level[[:space:]]+security' "${MIG_FILES[@]}" 2>/dev/null \
       | sed -E 's/.*table[[:space:]]+(only[[:space:]]+)?([a-z0-9_]+\.)?"?([a-z0-9_]+)"?[[:space:]]+enable.*/\3/I' | sort -u)"
     semrls="$(comm -23 <(printf '%s\n' "$created") <(printf '%s\n' "$rls") 2>/dev/null | grep -v '^$')"
     n="$(hits "$semrls")"
@@ -239,8 +245,8 @@ if want 02; then
     add_coverage 02 rls_migrations medido grep "pastas medidas: $MIG ($n_sql .sql, $(hits "$created") CREATE TABLE)${sem_sql:+; sem .sql:$sem_sql}; estático: policy aplicada pelo dashboard não aparece aqui"
 
     # SECURITY DEFINER sem search_path (bloco de função)
-    sd_total="$(grep -rioE 'security definer' $MIG_FILES 2>/dev/null | grep -c . 2>/dev/null; true)"
-    sd_sp="$(grep -rioE 'set search_path' $MIG_FILES 2>/dev/null | grep -c . 2>/dev/null; true)"
+    sd_total="$(grep -rioE 'security definer' "${MIG_FILES[@]}" 2>/dev/null | grep -c . 2>/dev/null; true)"
+    sd_sp="$(grep -rioE 'set search_path' "${MIG_FILES[@]}" 2>/dev/null | grep -c . 2>/dev/null; true)"
     if [ "${sd_total:-0}" -gt "${sd_sp:-0}" ]; then
       add_finding 02 MEDIUM heuristic "SECURITY DEFINER sem SET search_path (aprox. $((sd_total - sd_sp)) de $sd_total)" \
         "$MIG" \
@@ -249,13 +255,13 @@ if want 02; then
     fi
     add_coverage 02 security_definer medido grep "contagem agregada, não por função"
 
-    ut="$(grep -rn 'using (true)' $MIG_FILES 2>/dev/null | grep -c . 2>/dev/null; true)"
+    ut="$(grep -rn 'using (true)' "${MIG_FILES[@]}" 2>/dev/null | grep -c . 2>/dev/null; true)"
     if [ "${ut:-0}" -gt 0 ]; then
       add_finding 02 MEDIUM CONFIRMED "Policies com USING (true) ($ut ocorrências)" "$MIG" \
         "USING (true) libera todas as linhas para o papel da policy. Pode ser intencional — se for, precisa estar nas exceções aceitas do contrato." \
         "grep -rn 'using (true)' $MIG" "lint 0024_rls_policy_always_true"
     fi
-    si="$(grep -rn 'security_invoker *= *false' $MIG_FILES 2>/dev/null | grep -c . 2>/dev/null; true)"
+    si="$(grep -rn 'security_invoker *= *false' "${MIG_FILES[@]}" 2>/dev/null | grep -c . 2>/dev/null; true)"
     if [ "${si:-0}" -gt 0 ]; then
       add_finding 02 MEDIUM heuristic "Views com security_invoker = false ($si)" "$MIG" \
         "View com security_invoker=false roda com o privilégio do dono e fura a RLS de quem consulta. Legítimo para agregação de BI; exige justificativa versionada." \
@@ -416,20 +422,20 @@ if want 07; then
   # mostra diff de commit de merge, e segredo que entrou só na resolução do merge passava.
   RANGE_FILE="$OUT/.range"; : > "$RANGE_FILE"; RANGE_COMMITS=""; NO_RANGE=""
   if [ $DIFF_MODE -eq 1 ]; then
-    git log --format= --name-only --diff-filter=ACMR --diff-merges=first-parent "$DIFF_BASE..HEAD" 2>/dev/null \
+    "${QGIT[@]}" log --format= --name-only --diff-filter=ACMR --diff-merges=first-parent "$DIFF_BASE..HEAD" 2>/dev/null \
       | grep -v '^$' | sort -u > "$RANGE_FILE"
     RANGE_COMMITS="$(git rev-list "$DIFF_BASE..HEAD" 2>/dev/null)"
     NO_RANGE=" — em commit do range $DIFF_BASE..HEAD, que o push leva mesmo com o HEAD, o índice e o disco limpos"
   fi
 
-  envs="$( { git ls-files 2>/dev/null | only_scope_paths; cat "$RANGE_FILE"; } \
+  envs="$( { "${QGIT[@]}" ls-files 2>/dev/null | only_scope_paths; cat "$RANGE_FILE"; } \
           | grep -E '(^|/)\.env' | grep -vE "$ENV_OK" | sort -u)"
   if [ -n "$envs" ]; then
     add_finding 07 CRITICAL CONFIRMED "Arquivo .env versionado" "$(printf '%s' "$envs" | head -1)" \
       "Arquivo de ambiente no git expõe todo segredo do projeto para quem tiver leitura do repositório, e o histórico guarda mesmo depois de removido${NO_RANGE}. Arquivos:$(printf '%s' "$envs" | tr '\n' ' ')" \
       "git ls-files | grep -E '(^|/)\\.env'; git log --oneline --name-only <base>..HEAD | grep -E '(^|/)\\.env'" "pilar 07"
   fi
-  # Untracked fora do .gitignore (só no --diff): nenhum commit tem o arquivo, mas nada o segura
+  # Untracked fora do .gitignore: nenhum commit tem o arquivo, mas nada o segura
   # fora do próximo `git add -A`. HIGH e não CRITICAL: a correção é o .gitignore antes do commit.
   envs_u="$(grep -E '(^|/)\.env' "$UNTRACKED_FILE" 2>/dev/null | grep -vE "$ENV_OK" | sort -u)"
   if [ -n "$envs_u" ]; then
@@ -437,14 +443,14 @@ if want 07; then
       "Ainda não está em commit nenhum, mas nada o segura fora do git: o próximo git add -A o versiona, e o push leva. Ponha no .gitignore (ou tire da pasta do projeto) antes do commit. Arquivos: $(printf '%s' "$envs_u" | tr '\n' ' ')" \
       "git ls-files --others --exclude-standard | grep -E '(^|/)\\.env'" "pilar 07"
   fi
-  add_coverage 07 env_versionado medido git "$([ $DIFF_MODE -eq 1 ] && echo 'índice + commits do range + untracked fora do .gitignore')"
+  add_coverage 07 env_versionado medido git "$([ $DIFF_MODE -eq 1 ] && echo 'índice + commits do range + untracked fora do .gitignore' || echo 'índice + untracked fora do .gitignore')"
 
-  jwt="$(git grep -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null | only_scope_paths)"
+  jwt="$("${QGIT[@]}" grep -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null | only_scope_paths)"
   if [ -n "$RANGE_COMMITS" ]; then
     # `git grep` em cada commit do range devolve "<sha>:<arquivo>"; só conta arquivo que o range tocou
     # shellcheck disable=SC2086
     jwt="$( { printf '%s\n' "$jwt"
-              git grep -lE "$JWT_RE" $RANGE_COMMITS -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
+              "${QGIT[@]}" grep -lE "$JWT_RE" $RANGE_COMMITS -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
                 | sed 's/^[0-9a-f]*://' | grep -Fxf "$RANGE_FILE"; } | grep -v '^$' | sort -u)"
   fi
   nj="$(hits "$jwt")"
@@ -457,7 +463,7 @@ if want 07; then
   # O `git grep` acima só vê arquivo rastreado; o --untracked lê o resto, e o .gitignore vale.
   jwt_u=""
   if [ -s "$UNTRACKED_FILE" ]; then
-    jwt_u="$(git grep --untracked -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
+    jwt_u="$("${QGIT[@]}" grep --untracked -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
               | grep -Fxf "$UNTRACKED_FILE")"
   fi
   nju="$(hits "$jwt_u")"
@@ -467,7 +473,7 @@ if want 07; then
       "Token JWT em arquivo que ainda não está em commit nenhum, e que nada segura fora do git: o próximo commit o versiona, e o push leva. Tire o token do arquivo (variável de ambiente) ou ponha o arquivo no .gitignore antes do commit. Arquivos: $(printf '%s' "$jwt_u" | tr '\n' ' ' | cut -c1-400)" \
       "git grep --untracked -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' -- . ':!*.lock'" "pilar 07"
   fi
-  add_coverage 07 jwt_no_head medido git "$([ $DIFF_MODE -eq 1 ] && echo 'disco + commits do range + untracked fora do .gitignore')"
+  add_coverage 07 jwt_no_head medido git "$([ $DIFF_MODE -eq 1 ] && echo 'disco + commits do range + untracked fora do .gitignore' || echo 'rastreado + untracked fora do .gitignore')"
 
   if command -v gitleaks >/dev/null 2>&1 && global_check; then
     gitleaks detect --no-banner --redact --report-format json \

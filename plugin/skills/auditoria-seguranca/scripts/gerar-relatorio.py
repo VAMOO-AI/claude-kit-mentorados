@@ -160,27 +160,76 @@ ESTADO_SEM_MEDIDA = {"nao_instalado", "falhou"}
 # --------------------------------------------------------------------------- redacao
 # O relatorio copia trecho literal do codigo e a categoria A4 e' sobre segredo
 # exposto: sem isto, o PDF entregue ao cliente vira o vazamento que ele denuncia.
+def _mascarar_chave(m):
+    """Chave de API com a mascara da A4 (ate' 12 caracteres so' "…", acima 4 + "…") e o
+    tipo num rotulo, para o leitor saber o que rotacionar sem ver o valor."""
+    v = m.group(0)
+    if v.startswith("sk-proj-"):
+        tipo = "chave de projeto OpenAI"
+    elif v.startswith("sk-ant-"):
+        tipo = "chave Anthropic"
+    elif v.startswith("whsec_"):
+        tipo = "chave whsec_ do webhook Stripe"
+    elif v[2] == "_":
+        tipo = "chave Stripe " + v[:v.index("_", 3) + 1]
+    else:
+        tipo = "chave " + v[:3]
+    return ("…" if len(v) <= 12 else v[:4] + "…") + f" [{tipo} redigida]"
+
+
 PADROES_SEGREDO = [
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                 re.S), "[CHAVE PRIVADA REDIGIDA]"),
-    (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
+    (re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
      "[JWT REDIGIDO]"),
-    (re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{16,}"), "[CHAVE REDIGIDA]"),
-    (re.compile(r"\b(?:sbp|sbs|ghp|gho|ghu|ghs|ghr|glpat|xoxb|xoxp|xapp|shpat)[-_]"
+    # Senha em URL de conexao (postgres://usuario:senha@host): so' a senha sai. Referencia
+    # (${DB_PASS}) nao e' segredo, e fica.
+    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:)[^\s@/${][^\s@/]*(@)"),
+     r"\1[SENHA REDIGIDA]\2"),
+    # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen. Prefixo especifico nao
+    # leva fronteira, aqui e nos tokens abaixo: colado em _ (x_sk_live_) ou em %20
+    # (Bearer%20ghp_) o \b falhava e a chave saia inteira. So' o sk- generico fica com \b,
+    # senao "task-list-…" vira chave.
+    (re.compile(r"(?:(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|sk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"
+                r"|whsec_[A-Za-z0-9+/=]{16,}|\b(?:sk|rk)-[A-Za-z0-9_-]{16,})"),
+     _mascarar_chave),
+    (re.compile(r"(?:sb[ps]|gh[pousr]|github_pat|glpat|xox[abprs]|xapp|shpat)[-_]"
                 r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[CHAVE AWS REDIGIDA]"),
+    (re.compile(r"AKIA[0-9A-Z]{16}(?![0-9A-Z])"), "[CHAVE AWS REDIGIDA]"),
 ]
 # O prefixo opcional cobre POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET e afins:
 # sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao.
 _CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
           r"(?:api[_-]?key|secret|token|passwd|password|senha|private[_-]?key)")
-# Atribuicao com literal entre aspas: alta precisao, redige sempre.
-_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])([^\"'\n]{8,})\2")
+# Atribuicao com literal entre aspas: alta precisao, redige sempre. O lookahead pula
+# o valor que ja' e' a chave mascarada acima, para nao apagar o rotulo do tipo.
+_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])"
+                          r"(?!(?:[^\"'\n]{4})?… \[[^\]\n]+ redigida\]\2)([^\"'\n]{8,})\2")
 # Mesma atribuicao sem aspas. A classe do valor exclui ., (, $ e { de proposito:
-# req.body.password e ${VAR:-default} sao codigo e referencia, nao segredo -- e o
-# default publico do compose e' justamente a evidencia que precisa aparecer.
+# req.body.password e ${VAR:-default} sao codigo e referencia, nao atribuicao -- o default
+# tem a mascara propria abaixo.
 _ATRIB_NUA = re.compile(
     r"(?i)\b(" + _CHAVE + r"\s*[:=]\s*)([A-Za-z0-9_@#!%^&*+=/~-]{8,})(?=\s|$|[,;])")
+# Default de variavel (${VAR:-valor}) com a regua da A4: ate' 12 caracteres so' "…", acima
+# os 4 primeiros + "…". O arquivo:linha do achado continua sendo a evidencia. Referencia no
+# lugar do valor (${A:-${B}}) e chave ja' mascarada acima ficam como estao. No aninhado
+# (${A:-${B:-valor}}) o [^}] para antes da primeira }, e o grupo 2 e' "${B:-valor": o default
+# interno e' mascarado pela mesma regua, nivel a nivel.
+_DEFAULT = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)([^}\n]+)\}")
+_DEFAULT_INTERNO = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)(.+)")
+
+
+def _mascarar_valor_default(v):
+    if " redigida]" in v:
+        return v
+    if v.startswith("$"):
+        m = _DEFAULT_INTERNO.fullmatch(v)
+        return m.group(1) + _mascarar_valor_default(m.group(2)) if m else v
+    return "…" if len(v) <= 12 else v[:4] + "…"
+
+
+def _mascarar_default(m):
+    return m.group(1) + _mascarar_valor_default(m.group(2)) + "}"
 
 
 def redigir_segredos(texto):
@@ -195,7 +244,14 @@ def redigir_segredos(texto):
     total += n
     texto, n = _ATRIB_NUA.subn(r"\1[SEGREDO REDIGIDO]", texto)
     total += n
-    return texto, total
+    mascarados = []
+    def default(m):
+        r = _mascarar_default(m)
+        if r != m.group(0):
+            mascarados.append(r)
+        return r
+    texto = _DEFAULT.sub(default, texto)
+    return texto, total + len(mascarados)
 
 CHROMES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -368,8 +424,9 @@ def calcular_veredito(achados):
 
 
 def trecho_redigido(a):
-    """Trecho do achado ja' mascarado. 'redacao': false desliga, para o caso em que
-    o valor literal E' a evidencia (default publico versionado, por exemplo)."""
+    """Trecho do achado ja' mascarado, para o PDF. 'redacao': false desliga, para o caso em
+    que o valor literal E' a evidencia (default publico versionado, por exemplo); a issue
+    nao passa por aqui e sai mascarada sempre."""
     trecho = a.get("trecho")
     if not trecho or a.get("redacao") is False:
         return trecho, 0
@@ -945,7 +1002,9 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         nivel = EVIDENCIA[nivel_evidencia(a)][0].lower()
         linhas.append(f"- `{local}` — {a.get('titulo','')} "
                       f"({nivel}, confiança {num(confianca(a))})")
-        texto, n_red = trecho_redigido(a)
+        # sem escotilha aqui: "redacao": false vale para o trecho do PDF, e o GitHub e' mais
+        # publico que ele
+        texto, n_red = redigir_segredos(a.get("trecho"))
         if texto:
             linhas += ["", "```", texto.strip(), "```", ""]
             redacoes[0] += n_red
