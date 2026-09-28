@@ -211,6 +211,38 @@ grep -qF 'STRIPE_KEY:-sk_l… [chave Stripe sk_live_ redigida]}' "$TMP/default.h
 grep -qF 'DB_PASSWORD:-senhaQualquer1}' "$TMP/default.html" \
   && ok "default genérico continua como está" || falha "a redação passou a mexer no default genérico"
 
+# 12e. revisão da 0.43.1: senha em URL (scheme://usuario:senha@), chave com prefixo colado
+#      em _ ou em %20 (o \b antes de sk|rk deixava passar) e o whsec_ do webhook da Stripe.
+#      O sk- genérico continua com fronteira: "task-list-…" é texto, não chave.
+export CH_URLPASS="SenhaFalsa$(rep 7 8)" CH_WHS="wh""sec_FALSO$(rep h 28)" \
+       CH_SKL2="sk_""live_FALSO$(rep j 24)" CH_RKT2="rk_""test_FALSO$(rep k 24)" CH_SKP2="sk-""proj-FALSO$(rep m 30)"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/rev.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+e = os.environ
+linhas = [f'DATABASE_URL=postgres://u:{e["CH_URLPASS"]}@h/db',
+          f'curl -H "Authorization: Bearer%20{e["CH_SKL2"]}" x',
+          f'const x_{e["CH_RKT2"]} = 1; y=_{e["CH_SKP2"]}',
+          f'const w = "{e["CH_WHS"]}";',
+          'const lista = "task-list-of-the-week-items";']
+d["achados"][0]["trecho"] = "\n".join(linhas)
+d["issues"][0]["achados"] = ["F1"]
+d["issues"][1]["markdown"] = "## Problema\n\n```\n" + "\n".join(linhas) + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/rev.json" --out "$TMP/rev.pdf" \
+  --html-only > "$TMP/rev.log" 2>&1 || { falha "gerador falhou com os casos da revisão"; cat "$TMP/rev.log"; }
+for n in CH_URLPASS CH_WHS CH_SKL2 CH_RKT2 CH_SKP2; do
+  [ "$(grep -cF "${!n}" "$TMP/rev.html")" = 0 ] && ok "revisão: $n não sai inteiro (trecho e issue)" \
+    || falha "revisão: $n inteiro no relatório"
+done
+[ "$(grep -cF 'postgres://u:' "$TMP/rev.html")" -ge 2 ] && ok "senha em URL: o usuário e o esquema continuam" \
+  || falha "senha em URL: a redação levou o esquema ou o usuário junto"
+[ "$(grep -cF 'task-list-of-the-week-items' "$TMP/rev.html")" -ge 2 ] && ok "sk- genérico mantém a fronteira: task-list-… intacto" \
+  || falha "a redação comeu o task-list-…"
+[ "$(grep -cF '[chave whsec_ do webhook Stripe redigida]' "$TMP/rev.html")" -ge 2 ] && ok "whsec_ sai com o tipo" \
+  || falha "whsec_ sem o rótulo do tipo"
+
 # O PDF de verdade, quando a máquina tem Chrome e pdftotext (o CI não tem): texto extraído.
 if python3 -B -c 'import sys; import importlib.util as u
 s = u.spec_from_file_location("g", sys.argv[1] + "/gerar-relatorio.py"); m = u.module_from_spec(s); s.loader.exec_module(m)

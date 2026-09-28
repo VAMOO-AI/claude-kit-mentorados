@@ -187,6 +187,46 @@ else
   [ "$X6" -ne 0 ] && [ -z "$T6" ] && ok "linha sem segredo reconhecido: não imprime nada e sai ≠ 0" \
     || falha "linha sem segredo reconhecido saiu $X6 com: $T6"
 
+  # Até 60 caracteres antes do corte saíam crus: um token que o bloco não reconhecia, na mesma
+  # linha e antes da chave reconhecida, ia inteiro para o trecho (e daí para o PDF e a issue).
+  # As três linhas da revisão da 0.43.1, mais os outros prefixos de fornecedor.
+  GHP="gh""p_FALSO$(rep Z 32)"; GHO="gh""o_FALSO$(rep Y 32)"; GPAT="github""_pat_FALSO$(rep X 40)"
+  XOX="xo""xb-FALSO$(rep W 26)"; GLP="gl""pat-FALSO$(rep V 20)"; AWS="AK""IAFALSO$(rep Q 12)"
+  WHS="wh""sec_FALSO$(rep U 28)"; SENHA="SenhaFalsa$(rep 9 6)"
+  printf 'const gh="%s", k="%s";\n' "$GHP" "$SKP" > "$R/dist/revisao.js"
+  printf 'const a="%s"; const b="%s";\n' "$XOX" "$SKL" >> "$R/dist/revisao.js"
+  printf 'DATABASE_URL=postgres://u:%s@h/db API_KEY=%s\n' "$SENHA" "$SKL" >> "$R/dist/revisao.js"
+  printf 'x = ["%s", "%s", "%s", "%s", "%s", "%s"]\n' "$GHO" "$GPAT" "$GLP" "$AWS" "$WHS" "$SKL" >> "$R/dist/revisao.js"
+  GER="$(dirname "$SKILL")/scripts/gerar-relatorio.py"
+  EXE="$(dirname "$SKILL")/references/exemplo-findings.json"
+  verifica_trecho() { # <arquivo> <linha> — o trecho em $T6 passa no --verificar contra o arquivo real
+    T6="$T6" python3 - "$EXE" "$TMP/f6.json" "$1" "$2" <<'PYF'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+a = d["achados"][0]
+a.update(categoria="A4", arquivo=sys.argv[3], linhas=sys.argv[4], trecho=os.environ["T6"])
+d["achados"] = [a]
+d["issues"] = []
+d["recomendacoes"] = []
+json.dump(d, open(sys.argv[2], "w"), ensure_ascii=False)
+PYF
+    python3 "$GER" "$TMP/f6.json" --verificar --raiz "$R" >/dev/null 2>&1
+  }
+  for n in 1 2 3 4; do
+    trecho dist/revisao.js "$n"
+    [ "$X6" -eq 0 ] && [ -n "$T6" ] || falha "revisao.js:$n: o bloco não achou segredo (exit $X6)"
+    vazou=""
+    for v in "$GHP" "$SKP" "$XOX" "$SKL" "$SENHA" "$GHO" "$GPAT" "$GLP" "$AWS" "$WHS"; do
+      case "$T6" in *"$v"*) vazou="$vazou ${v:0:6}";; esac
+    done
+    [ -z "$vazou" ] && ok "revisao.js:$n: nenhum valor sai inteiro" || falha "revisao.js:$n: valor inteiro no trecho:$vazou ($T6)"
+    verifica_trecho dist/revisao.js "$n" && ok "revisao.js:$n: o --verificar aceita o trecho" \
+      || falha "revisao.js:$n: o --verificar recusou: $T6"
+  done
+  trecho dist/revisao.js 3
+  tem "postgres://u:" "$T6" "senha em URL: o corte fica na senha, depois do usuário"
+  nao_tem "SenhaF" "$T6" "senha em URL: não passa dos 4 primeiros"
+
   # o trecho mascarado passa no --verificar do gerador, contra o arquivo de verdade
   GER="$(dirname "$SKILL")/scripts/gerar-relatorio.py"
   EXE="$(dirname "$SKILL")/references/exemplo-findings.json"

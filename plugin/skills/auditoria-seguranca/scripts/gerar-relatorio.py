@@ -168,6 +168,8 @@ def _mascarar_chave(m):
         tipo = "chave de projeto OpenAI"
     elif v.startswith("sk-ant-"):
         tipo = "chave Anthropic"
+    elif v.startswith("whsec_"):
+        tipo = "chave whsec_ do webhook Stripe"
     elif v[2] == "_":
         tipo = "chave Stripe " + v[:v.index("_", 3) + 1]
     else:
@@ -180,8 +182,15 @@ PADROES_SEGREDO = [
                 re.S), "[CHAVE PRIVADA REDIGIDA]"),
     (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
      "[JWT REDIGIDO]"),
-    # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen
-    (re.compile(r"\b(?:sk|rk)(?:-[A-Za-z0-9_-]{16,}|_(?:live|test)_[A-Za-z0-9]{16,})"),
+    # Senha em URL de conexao (postgres://usuario:senha@host): so' a senha sai. Referencia
+    # (${DB_PASS}) nao e' segredo, e fica.
+    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^\s:/@]+:)(?!\$)[^\s/@]+(@)"),
+     r"\1[SENHA REDIGIDA]\2"),
+    # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen. Prefixo especifico nao
+    # leva fronteira: colado em _ (x_sk_live_) ou em %20 (Bearer%20sk_live_) o \b falhava e a
+    # chave saia inteira. So' o sk- generico fica com \b, senao "task-list-…" vira chave.
+    (re.compile(r"(?:(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|sk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"
+                r"|whsec_[A-Za-z0-9+/=]{16,}|\b(?:sk|rk)-[A-Za-z0-9_-]{16,})"),
      _mascarar_chave),
     (re.compile(r"\b(?:sbp|sbs|ghp|gho|ghu|ghs|ghr|glpat|xoxb|xoxp|xapp|shpat)[-_]"
                 r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
