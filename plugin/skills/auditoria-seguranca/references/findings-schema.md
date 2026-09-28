@@ -195,10 +195,26 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
   `data`, `arquivo` (com o ref do commit) e `nota` dizendo quantos achados foram
   reverificados e o destino de cada um. Sem o campo, a capa diz que é a primeira
   auditoria registrada.
-- **`redacao: false`**: desliga a máscara automática de segredo naquele `trecho`.
-  Use só quando o valor literal **é** a evidência — default público versionado,
-  por exemplo. Por padrão o gerador mascara chave, JWT, token e atribuição de
-  segredo antes de escrever o PDF e a issue.
+- **Redação de segredo**: o gerador mascara **todo campo de texto** do relatório,
+  não só o `trecho`. Em `achados[]` e `issues[]`: título, `por_que`, impacto,
+  correção, `bloqueio`, `motivo`, `fonte`, `condicoes`, `plano_validacao`,
+  `caminho`, `problema`, `criterios_aceite` e o `markdown` da issue. Nas listas
+  livres: `pontos_fortes[]` (inclusive a `evidencia`, que ali é texto),
+  `pontos_fracos[]`, `hardening[]` (string solta ou objeto) e o `texto` de
+  `recomendacoes[]`. Ficam de fora só os campos que o `--verificar` e o cálculo
+  leem (`id`, `arquivo`, `linhas`, `categoria`, `severidade`, `status`, os `achados`
+  citados e afins). Os formatos reconhecidos são os da lista `pads` da Fase 6 do
+  `SKILL.md`, a fonte única: chaves e tokens saem com o tipo num rótulo, a senha
+  em URL, o default `${var:-valor}`/`${var-valor}` (4 caracteres + `…` acima de 12,
+  só `…` até 12) e a atribuição a chave de senha ou segredo, com ou sem aspas.
+  Referência (`req.body.password`, `process.env.TOKEN`, `${OUTRA}`, `${A:-${B}}`)
+  fica intacta. Duas paridades travam as pontas no kit: a lista `pads` → gerador
+  (`tests/test-auditoria-relatorio.sh`, caso 12d, que tira amostra de cada padrão
+  da lista) e o gerador → Fase 6 (`tests/test-auditoria-a4-mascara.sh`, a
+  paridade reversa, que reprova padrão do gerador sem amostra).
+- **`redacao: false`**: desliga a máscara naquele `trecho`, e só no trecho do
+  PDF. Use só quando o valor literal **é** a evidência. A issue e todos os demais
+  campos acima saem sempre mascarados, sem escotilha.
 - **`ferramentas[]`**: o que rodou e o que não rodou. `estado` é `executado` ·
   `nao_aplicavel` · `nao_instalado` · `falhou`. Os dois últimos imprimem um aviso
   de superfície não medida no relatório — ausência de achado onde nada rodou não

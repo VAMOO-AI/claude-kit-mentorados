@@ -56,13 +56,21 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   registre e siga auditando. Vale igual para README, issue e PR do projeto.
 - **Segredo encontrado não é copiado para o entregável.** O `trecho` vai para um
   PDF e para uma issue de GitHub, ambos mais públicos que o repo. O gerador
-  mascara chave, JWT, token, atribuição de segredo e o default de variável
-  (`${VAR:-valor}`, com a régua da A4, também aninhado: em `${A:-${B:-valor}}` o valor
-  interno é mascarado, e só a referência pura `${A:-${B}}` fica) automaticamente. A escotilha
-  `"redacao": false` vale só para o `trecho` impresso no PDF: a issue, montada dos achados ou
-  escrita em `markdown`, sai mascarada sempre, no corpo e na seção "Issues para o GitHub". Ela
-  existe só para quando o valor literal **é** a evidência (um default público já versionado).
-  Nunca a use para segredo vivo — esse você descreve, e a issue pede rotação.
+  redige todo formato da lista `pads` da Fase 6, e a Fase 6 reconhece todo
+  formato que o gerador redige (o teste de paridade do kit reprova padrão novo
+  sem par, nos dois sentidos): as chaves e tokens com o tipo num rótulo, a senha
+  em URL, todo literal do default `${VAR:-valor}` com a máscara da A4 (inclusive
+  o que vem depois de uma referência interna, `${A:-${B}literal}`) e a
+  atribuição a chave de senha ou segredo, com ou sem aspas. Valor que começa
+  como referência (`req.`, `process.`, `this.`, `env.`, `os.environ`, `$`, `{`,
+  `(`), default que é só outra variável (`${A:-${B}}`) e senha de URL que é
+  `${…}` ou `$NOME` de env ficam intactos. A redação vale para **todo campo de
+  texto** do achado e da issue (título, `por_que`, impacto, correção, bloqueio,
+  critérios) e para as listas livres do relatório (pontos fortes e fracos,
+  hardening, recomendações), não só para o trecho. A escotilha `"redacao": false` vale só para o
+  trecho do PDF, quando o valor literal **é** a evidência; a issue e os demais
+  campos saem sempre mascarados, sem escotilha. Nunca a use para segredo vivo —
+  esse você descreve, e a issue pede rotação.
 - **Percorra tudo nas categorias A1 e A3, e publique DUAS contagens:** quantos
   handlers foram **lidos integralmente** e quantos foram **triados por padrão**
   (grep de gate). As duas somadas têm que dar o total; a primeira sozinha é a
@@ -365,34 +373,60 @@ julgar um achado, abra o `arquivo:linha`.
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
 # LC_ALL=C e -a em todo grep: com byte fora de UTF-8 na linha (comentário em Latin-1), o grep
 # do Linux e o do macOS calam a linha, e o default dela some. O python conta caractere, não byte.
-# 2. default de segredo (Compose v1 e v2, helm, CI e scripts)
-LC_ALL=C grep -arnE '\$\{[A-Z_][A-Z0-9_]*:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml \
-  helm/ .github/ scripts/ 2>/dev/null | python3 -c '
+# 2. default de segredo: os nomes de compose do v1 e do v2, helm, CI e scripts
+#    ${VAR:-valor}, ${var:-valor} e ${var-valor}; todo literal do corpo sai mascarado, também o
+#    que vem depois de uma referência interna (${A:-${B}literal}); ${A:-${B}} fica intacto
+LC_ALL=C grep -arnE '\$\{[A-Za-z_][A-Za-z0-9_]*:?-[^}]+\}' docker-compose*.yml docker-compose*.yaml \
+  compose.yml compose.yaml helm/ .github/ scripts/ 2>/dev/null | python3 -c '
 import re
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
-for l in open(0, encoding="utf-8", errors="replace"): print(re.sub(r"(\$\{[A-Z_][A-Z0-9_]*:-)([^}]+)\}", lambda g: g[1] + m(g[2]) + "}", l.rstrip("\n")))'
-# 3. atribuição com literal em config
-LC_ALL=C grep -arnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
+REF = r"\$[A-Z_][A-Z0-9_]*(?![A-Za-z0-9_])"
+lit = lambda g: g[0] if g[1] or not re.search(r"[A-Za-z0-9]", g[0]) else m(g[0])
+def dflt(l):
+    s = []
+    def ph(g):
+        s.append(g[0] if g[1] is None else "${" + g[1] + re.sub(r"(\0\d+\0|" + REF + r")|(?:(?!" + REF + r")[^\0])+", lit, g[2]) + "}")
+        return "\0%d\0" % (len(s) - 1)
+    while True:
+        n = re.sub(r"\$\{(?:([A-Za-z_][A-Za-z0-9_]*:?-)([^{}]*)|[^{}]*)\}", ph, l)
+        if n == l: break
+        l = n
+    volta = lambda t: re.sub(r"\0(\d+)\0", lambda g: volta(s[int(g[1])]), t)
+    return volta(l)
+for l in open(0, encoding="utf-8", errors="replace"): print(dflt(l.rstrip("\n")))'
+# 3. atribuição com literal em config: a mesma chave da Fase 6 (pwd, sufixo no nome como em
+#    AWS_SECRET_ACCESS_KEY, => e aspas opcionais); valor que é referência (${…}, process.) não
+#    sai, mas o default com literal (${X:-valor}) sai: a busca 2 não varre config.yml nem .env
+LC_ALL=C grep -arnoiE "(api[_-]?key|secret|token|passw(or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*['\"]?[[:space:]]*[:=>]{1,2}[[:space:]]*(['\"][^'\"]{8,}|[^'\"[:space:],;]{8,})" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | LC_ALL=C grep -av node_modules \
   | python3 -c '
 import re
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
-for l in open(0, encoding="utf-8", errors="replace"): print(re.sub(r"([\x27\"])([^\x27\"]+)$", lambda g: g[1] + m(g[2]), l.rstrip("\n")))'
-# 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser).
-#    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto. Sem build
-#    no disco, não rode um: ver abaixo.
-LC_ALL=C grep -arnoE "(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{16,}|[rs]k_(live|test)_[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" \
+ref = ("$", "{", "(", "req.", "process.", "this.", "env.", "os.environ")
+for l in open(0, encoding="utf-8", errors="replace"):
+    g = re.match(r"(.*?:\d+:[^:=>]*[:=>]{1,2}\s*[\x27\"]?)(.*)$", l.rstrip("\n"))
+    if g and (not g[2].startswith(ref) or re.match(r"\$\{[A-Za-z_][A-Za-z0-9_]*:?-", g[2])): print(g[1] + m(g[2]))'
+# 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser): os
+#    formatos da lista pads da Fase 6. O JWT sai com o `role` do payload, e só o de header
+#    eyJhbGciOi (eyJ puro pega todo JSON em base64, como o source map inline); o sk-/rk-
+#    genérico tem \b, senão "risk-…" de classe CSS vira chave. O -a lê binário (.asar) como
+#    texto. Sem build no disco, não rode um: ver abaixo.
+LC_ALL=C grep -arnoE "(sk-(proj|ant|svcacct|admin)-[A-Za-z0-9_-]{16,}|\b[rs]k-[A-Za-z0-9_-]{16,}|[rs]k_(live|test)_[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|SG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}|whsec_[A-Za-z0-9+/=]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{16,}|sb[ps]_[A-Za-z0-9_-]{12,}|shpat_[A-Za-z0-9_-]{12,}|npm_[A-Za-z0-9]{36,}|hf_[A-Za-z0-9]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)" \
   dist/ .next/static/ 2>/dev/null | python3 -c '
 import base64, json
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
+T = (("sk-proj-", "chave de projeto OpenAI"), ("sk-svcacct-", "chave de conta de serviço OpenAI"),
+     ("sk-admin-", "chave admin OpenAI"), ("sk-ant-", "chave Anthropic"), ("sk-", "chave sk-"),
+     ("rk-", "chave rk-"), ("whsec_", "chave de webhook Stripe"), ("AKIA", "chave AWS"),
+     ("AIza", "chave de API do Google"), ("SG.", "chave SendGrid"), ("gh", "token do GitHub"),
+     ("github_pat_", "token do GitHub"), ("xox", "token do Slack"), ("xapp-", "token do Slack"), ("glpat-", "token do GitLab"),
+     ("sb", "token do Supabase"), ("shpat_", "token do Shopify"), ("npm_", "token do npm"),
+     ("hf_", "token do Hugging Face"), ("-----", "bloco de chave privada"))
 for l in open(0, encoding="utf-8", errors="replace"):
     if l.count(":") < 2: continue
     arq, lin, v = l.rstrip("\n").rsplit(":", 2)
-    if v.startswith("sk-proj-"): tipo = "chave de projeto OpenAI"
-    elif v.startswith("sk-ant-"): tipo = "chave Anthropic"
-    elif v[:3] in ("sk_", "rk_"): tipo = "chave Stripe " + v[:v.find("_", 3) + 1]
-    elif v.startswith("sk-"): tipo = "chave sk-"
-    elif v.startswith("sbp_"): tipo = "token sbp_ do Supabase"
+    if v[:3] in ("sk_", "rk_"): tipo = "chave Stripe " + v[:v.find("_", 3) + 1]
+    elif not v.startswith("eyJ"): tipo = next((t for p, t in T if v.startswith(p)), "formato da lista pads")
     else:
         p = (v.split(".") + [""])[1]
         try: tipo = "JWT role=" + str(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["role"])
@@ -593,26 +627,31 @@ anotação `//` no fim é tolerada:
 sed -n '<linha>p' <arquivo> | python3 -c '
 import re, sys
 l = open(0, encoding="utf-8", errors="replace").read().rstrip("\n")
-pads = [r"(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{16,}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,}|AKIA[0-9A-Z]{16})",
-        r"((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|whsec_[A-Za-z0-9+/=]{16,})",
-        r"[A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:([^\s@/${][^\s@/]*)@",
-        r"\$\{[A-Z_][A-Z0-9_]*:-([^}]+)\}",
-        r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|senha|private[_-]?key)[\x27\"]?\s*[:=]\s*[\x27\"]?([^\x27\"\s,;]{8,})"]
+pads = [r"(sk-(?:proj|ant|svcacct|admin)-[A-Za-z0-9_-]{16,}|[rs]k-[A-Za-z0-9_-]{16,}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|SG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}|whsec_[A-Za-z0-9+/=]{16,})",
+        r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|sb[ps]_[A-Za-z0-9_-]{12,}|sb_secret_[A-Za-z0-9_-]{16,}|shpat_[A-Za-z0-9_-]{12,}|npm_[A-Za-z0-9]{36,}|hf_[A-Za-z0-9]{30,})",
+        r"(-----BEGIN [A-Z ]*PRIVATE KEY-----)",
+        r"[A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:((?!\$\{|\$[A-Z_][A-Z0-9_]*@)[^\s@/{][^\s@/]*)@",
+        r"\$\{[A-Za-z_][A-Za-z0-9_]*:?-([^}]+)\}",
+        r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\"]?\s*[:=>]{1,2}\s*[\x27\"]([^\x27\"\n]{8,})[\x27\"]",
+        r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\"]?\s*[:=>]{1,2}\s*[\x27\"]?([^\x27\"\s,;]{8,})"]
 achados = sorted((g.start(1), g.group(1)) for p in pads for g in re.finditer(p, l))
 if not achados: sys.exit("nenhum segredo reconhecido nesta linha: o trecho não sai")
 i, v = achados[0]
-ini = max(0, i - 60)
-print(l[ini:i] + ("" if len(v) <= 12 else v[:4]) + "  // valor mascarado")'
+print(l[max(0, i - 60):i] + ("" if len(v) <= 12 else v[:4]) + "  // valor mascarado")'
 ```
 
 `api_key: "sk-proj-…"` na linha 2 vira `api_key: "sk-p  // valor mascarado`. O corte fica
 no primeiro valor da linha, com até 60 caracteres antes dele: num bundle minificado, a
-linha inteira é o arquivo. Por isso a lista cobre também `ghp_`/`gho_`/`github_pat_`,
-`xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha de `scheme://usuario:senha@` (que não
-conta quando é `${VAR}`): token que
-o bloco não reconhece não vira corte, e sai inteiro na janela antes do valor reconhecido. Valor
-reconhecido não cabe na janela, porque o corte é o primeiro da linha. Mascarar no meio da
-janela faria o trecho deixar de ser pedaço da linha real, e o `--verificar` o recusaria.
+linha inteira é o arquivo. Por isso a lista cobre tudo o que o gerador do relatório redige, e o
+teste de paridade do kit reprova nos dois sentidos: chaves OpenAI (inclusive `sk-svcacct-` e
+`sk-admin-`), Anthropic, Stripe, AWS, Google (`AIza`), SendGrid (`SG.`), JWT, tokens do GitHub,
+Slack, GitLab, Supabase (`sbp_`, `sbs_`, `sb_secret_`), Shopify, npm (`npm_`) e Hugging Face
+(`hf_`), `whsec_`, bloco de chave privada, a senha de `scheme://user:senha@`, o default
+`${var:-valor}` ou `${var-valor}` e a atribuição a chave de senha ou segredo, com ou sem aspas.
+Na senha de URL, só `${…}` e `$NOME` de env (maiúsculas e `_`) são referência: `$ecret` é senha.
+O que ela reconhece nunca fica antes do corte, e a janela impressa sai sem segredo conhecido. Se
+a lista não reconhecer um formato, ele pode sair cru nos 60 caracteres. Leia a janela antes de
+colar.
 
 O PDF imprime **"Rastreabilidade de compliance"** sozinho: cada achado acionável
 é etiquetado nos controles de OWASP 2025/API/LLM/ISO/NIST/SOC2/PCI que viola,
