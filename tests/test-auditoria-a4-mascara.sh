@@ -57,7 +57,7 @@ nao_tem "$SK"  "$saida" "chave sk- do bundle mascarada"
 nao_tem "$JWT" "$saida" "JWT do bundle mascarado"
 nao_tem "$CFG" "$saida" "valor do api_key em config mascarado"
 nao_tem "$DEF" "$saida" "default do compose mascarado"
-nao_tem ":-$CURTO}" "$saida" "default curto (6 caracteres) também mascarado"
+nao_tem ":-$CURTO" "$saida" "default curto (6 caracteres) também mascarado"   # sem o }: "valor…}" também vaza
 
 echo "== o achado continua achável: arquivo:linha, os 6 primeiros caracteres e o tipo =="
 tem "dist/app.js:2:sk-FAL"            "$saida" "bundle: dist/app.js:2 e sk-FAL"
