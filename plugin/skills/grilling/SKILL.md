@@ -26,9 +26,10 @@ usuário a dispara manualmente com `/grill-with-docs`.)
 
 ## O loop
 
-Interrogue o usuário sem dó sobre cada aspecto do plano até chegarem a
-entendimento compartilhado. Percorra cada ramo da árvore de decisão,
-resolvendo as dependências entre decisões uma a uma.
+Interrogue o usuário até chegarem a entendimento compartilhado sobre cada
+decisão que muda o que vai ser tocado (arquivo, tabela, endpoint,
+comportamento), resolvendo as dependências entre elas uma a uma. Ramo que não
+muda isso não vira pergunta: o limite é o de "Quando parar".
 
 Regras do loop:
 
