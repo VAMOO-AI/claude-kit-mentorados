@@ -13,11 +13,14 @@
 #   worktree-gc.sh            # dry-run (só mostra o que faria) — PADRÃO
 #   worktree-gc.sh --apply    # remove de fato (worktree + branch local mergeada)
 #   worktree-gc.sh --apply --prune-remote   # também deleta a branch remota mergeada
-#   worktree-gc.sh --verificar <caminho>    # um worktree só, sem remover nada: as mesmas
-#       travas, exit 0 + "pode remover" ou exit 1 + "keep: <motivos>"; uso errado ou
-#       caminho que não é worktree do repo sai 2. É o que a skill worktrees roda antes do
-#       ExitWorktree / git worktree remove (a remoção continua só com pedido da pessoa). Aqui
-#       o worktree atual conta, e "sem commit próprio" não segura: não há commit a perder.
+#   worktree-gc.sh --verificar <caminho>    # um worktree só; não remove nada, mas atualiza
+#       as refs remotas com `git fetch --prune`. As mesmas travas, exit 0 + "pode remover"
+#       ou exit 1 + "keep: <motivos>"; uso errado ou caminho que não é worktree do repo sai 2.
+#       É o que a skill worktrees roda antes do ExitWorktree / git worktree remove (a remoção
+#       continua só com pedido da pessoa). Aqui o worktree atual conta, e "sem commit
+#       próprio" não segura: não há commit a perder.
+#   WORKTREE_GC_SKIP_FETCH=1  pula o fetch — para quem chama em série e já buscou uma vez
+#       por repo (o aplicar.sh da limpeza-mac).
 #
 # Seguro por padrão: dry-run, e só remove o que passa em TODAS as travas.
 set -uo pipefail
@@ -56,10 +59,12 @@ SELF="$(git rev-parse --show-toplevel 2>/dev/null && :)"; SELF="$(cd "$SELF" && 
 
 if [ "$VERIFICAR" = 1 ]; then
   [ "$ALVO" != "$PRIMARY" ] || { echo "é o clone principal, não um worktree: $ALVO" >&2; exit 2; }
-  git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "(fetch falhou — seguindo com o que há local)" >&2
+  [ "${WORKTREE_GC_SKIP_FETCH:-0}" = 1 ] \
+    || git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "(fetch falhou — seguindo com o que há local)" >&2
 else
   echo "🧹 worktree-gc  (modo: $([ "$APPLY" = 1 ] && echo APLICAR || echo dry-run))"
-  git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "  (fetch falhou — seguindo com o que há local)"
+  [ "${WORKTREE_GC_SKIP_FETCH:-0}" = 1 ] \
+    || git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "  (fetch falhou — seguindo com o que há local)"
 fi
 
 have_gh=0; command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && have_gh=1
@@ -104,10 +109,11 @@ sem_commit_proprio() {
 # Cache e build que qualquer instalação ou build recria. Casa por segmento de caminho, para
 # apps/web/node_modules/ valer igual a node_modules/. Lista fechada: o que não está aqui é
 # trabalho até prova em contrário. Fora de propósito: *.log (log de sessão pode ser a prova
-# de um incidente, e nenhum build o recria).
+# de um incidente, e nenhum build o recria) e out/ (ferramenta de render, como o Remotion,
+# grava ali o arquivo final).
 eh_regeneravel() {   # <caminho relativo; diretório termina em />
   case "/$1" in
-    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/out/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
+    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
     */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.mypy_cache/*|*/.ruff_cache/*|*/.venv/*) return 0 ;;  # .venv: só diretório
     */.DS_Store|*/.vercel/*|*/target/*|*/.gradle/*) return 0 ;;
     */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo) return 0 ;;
@@ -153,7 +159,8 @@ ignorado_de_valor() {   # <worktree> — 0 = achou algum
   [ -n "$IGN_MOTIVO" ]
 }
 
-# --verificar: as travas do gc para um worktree só, sem remover nada. Junta todos os motivos.
+# --verificar: as travas do gc para um worktree só, sem remover nada (o fetch lá em cima é a
+# única escrita). Junta todos os motivos.
 if [ "$VERIFICAR" = 1 ]; then
   motivos=""; add() { motivos="${motivos:+$motivos; }$1"; }
   branch="$(git -C "$ALVO" symbolic-ref -q --short HEAD 2>/dev/null)"

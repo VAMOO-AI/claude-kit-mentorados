@@ -60,7 +60,7 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 BASE="$(G rev-parse HEAD)"
@@ -128,6 +128,9 @@ git init -q "$WTS/wt-env-repo/vendor/lib"
 # principal (o padrão `.venv` vai sem barra: `.venv/` não casa symlink)
 novo_wt ign-outputs; commit_em ign-outputs o; merge_main ign-outputs
 mkdir -p "$WTS/wt-ign-outputs/outputs"; echo mp4 > "$WTS/wt-ign-outputs/outputs/video.mp4"
+# ign-out: `out/` não é cache — ferramenta de render (Remotion) grava o arquivo final ali
+novo_wt ign-out; commit_em ign-out r; merge_main ign-out
+mkdir -p "$WTS/wt-ign-out/out"; echo mp4 > "$WTS/wt-ign-out/out/video.mp4"
 novo_wt ign-cache; commit_em ign-cache c; merge_main ign-cache
 mkdir -p "$WTS/wt-ign-cache/node_modules" "$WTS/wt-ign-cache/apps/web/.next"
 echo x > "$WTS/wt-ign-cache/node_modules/x"; echo x > "$WTS/wt-ign-cache/apps/web/.next/x"
@@ -202,6 +205,8 @@ check 'removeria: .*wt-ign-cache '      "node_modules/ e apps/web/.next/ são ca
 check 'removeria: .*wt-ign-venv '       "symlink .venv para o clone: candidato"                  "$OUT"
 check 'wt-det-ign .*ignorado.*outputs/' "detached mergeado com outputs/ ignorado: fica"          "$OUT"
 refute 'removeria: .*wt-(ign-outputs|det-ign) ' "nenhum dos dois aparece como candidato"         "$OUT"
+check 'wt-ign-out .*apagaria: out/' "out/ ignorado (render) segura o worktree mergeado" "$OUT"
+refute 'removeria: .*wt-ign-out '       "wt-ign-out não aparece como candidato"                  "$OUT"
 
 echo "== --verificar: um worktree só, sem remover =="
 verif() { # <esperado-exit> <regex> <descrição> <args...>
@@ -211,6 +216,7 @@ verif() { # <esperado-exit> <regex> <descrição> <args...>
   else printf '  FALHA %s (exit %s, esperado %s; saída: %s)\n' "$d" "$rc" "$ex" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"; falhas=$((falhas+1)); fi
 }
 verif 1 'keep: .*wt-ign-outputs .*outputs/'  "outputs/ ignorado: exit 1 e o caminho"   --verificar "$WTS/wt-ign-outputs"
+verif 1 'keep: .*wt-ign-out .*apagaria: out/' "out/video.mp4 ignorado: exit 1 e o caminho" --verificar "$WTS/wt-ign-out"
 verif 0 'pode remover: .*wt-ign-cache'       "só cache: exit 0"                         --verificar "$WTS/wt-ign-cache"
 verif 0 'pode remover: .*wt-ign-venv'        "symlink: exit 0"                          --verificar "$WTS/wt-ign-venv"
 verif 0 'pode remover: .*wt-anc'             "env igual ao do clone: exit 0"            --verificar "$WTS/wt-anc"
@@ -254,6 +260,7 @@ no_disco wt-env-npmrc-sub "apps/y/.npmrc só no worktree"
 no_disco wt-env-repo     "repo aninhado ignorado"
 no_disco wt-dirty        "estava sujo"
 no_disco wt-ign-outputs  "outputs/video.mp4 ignorado"
+no_disco wt-ign-out      "out/video.mp4 ignorado"
 no_disco wt-det-ign      "outputs/video.mp4 ignorado num detached"
 check 'removido: .*wt-ign-cache'        "apply remove o que só tem cache"                        "$OUT"
 check 'removido: .*wt-ign-venv'         "apply remove o que só tem o symlink"                    "$OUT"
@@ -266,6 +273,17 @@ no_disco wt-det          "detached sem commit próprio"
 no_disco wt-det-velho    "detached sem commit próprio"
 G branch --list pr-after | grep -q pr-after && printf '  ok    branch pr-after preservada\n' || { printf '  FALHA branch pr-after deletada\n'; falhas=$((falhas+1)); }
 G branch --list nova | grep -q nova && printf '  ok    branch nova preservada\n' || { printf '  FALHA branch nova deletada\n'; falhas=$((falhas+1)); }
+
+# O --verificar atualiza as refs remotas (fetch --prune). Quem chama em série, como o
+# aplicar.sh da limpeza-mac, busca uma vez por repo e pula o do gc com WORKTREE_GC_SKIP_FETCH=1.
+echo "== WORKTREE_GC_SKIP_FETCH=1: o --verificar não busca =="
+G push -q origin "$BASE:refs/heads/so-no-remoto"
+G update-ref -d refs/remotes/origin/so-no-remoto 2>/dev/null
+tem_ref() { G rev-parse -q --verify refs/remotes/origin/so-no-remoto >/dev/null && echo sim || echo nao; }
+(cd "$CLONE" && WORKTREE_GC_SKIP_FETCH=1 PATH="$TMP/bin:$PATH" bash "$SCRIPT" --verificar "$WTS/wt-nova" >/dev/null 2>&1)
+check '^nao$' "com a variável, a ref remota nova não chega"  "$(tem_ref)"
+run --verificar "$WTS/wt-nova" >/dev/null
+check '^sim$' "sem ela, o --verificar busca"                 "$(tem_ref)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi

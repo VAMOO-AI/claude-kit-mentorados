@@ -219,10 +219,10 @@ git -C "$CLONE" worktree add -q -b mergeada "$TMP/wt-mergeada" origin/main 2>/de
 git -C "$CLONE" merge -q --no-ff -m "Merge mergeada (#46)" mergeada
 # Env ignorado não aparece no `status` e o `git worktree remove` o apaga sem recusar. Os três
 # worktrees abaixo estão mergeados e limpos: só a trava do env pode segurá-los.
-mkdir -p "$CLONE/.git/info"; printf '.env*\n.npmrc\n.bunfig.toml\nbunfig.toml\nvendor/\noutputs/\nnode_modules/\n.next/\n.venv\n' >> "$CLONE/.git/info/exclude"
+mkdir -p "$CLONE/.git/info"; printf '.env*\n.npmrc\n.bunfig.toml\nbunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\n' >> "$CLONE/.git/info/exclude"
 printf 'A=clone\n' > "$CLONE/.env.local"; printf 'registry=clone\n' > "$CLONE/.npmrc"
 printf 'exact = true\n' > "$CLONE/bunfig.toml"; printf 'exact = true\n' > "$CLONE/.bunfig.toml"
-for n in envlocal envnpmrc envapps envbunfig envbunfigdot envnpmrcsub envrepo ignout igncache ignvenv; do
+for n in envlocal envnpmrc envapps envbunfig envbunfigdot envnpmrcsub envrepo ignout ignrender igncache ignvenv; do
   git -C "$CLONE" worktree add -q -b "$n" "$TMP/wt-$n" origin/main 2>/dev/null
   ( cd "$TMP/wt-$n" && echo "$n" > "$n.txt" && git add "$n.txt" && git commit -qm "$n" )
   git -C "$CLONE" merge -q --no-ff -m "Merge $n" "$n"
@@ -238,6 +238,8 @@ mkdir -p "$TMP/wt-envnpmrcsub/apps/y"; printf 'registry=sub\n' > "$TMP/wt-envnpm
 git init -q "$TMP/wt-envrepo/vendor/lib"
 # ignorado de trabalho, cache regenerável e symlink para o clone (padrão `.venv` sem barra)
 mkdir -p "$TMP/wt-ignout/outputs"; echo mp4 > "$TMP/wt-ignout/outputs/video.mp4"
+# out/ não é cache: ferramenta de render (Remotion) grava o arquivo final ali
+mkdir -p "$TMP/wt-ignrender/out"; echo mp4 > "$TMP/wt-ignrender/out/video.mp4"
 mkdir -p "$TMP/wt-igncache/node_modules" "$TMP/wt-igncache/apps/web/.next"
 echo x > "$TMP/wt-igncache/node_modules/x"; echo x > "$TMP/wt-igncache/apps/web/.next/x"
 mkdir -p "$CLONE/.venv"; echo alvo > "$CLONE/.venv/marca"; ln -s "$CLONE/.venv" "$TMP/wt-ignvenv/.venv"
@@ -272,10 +274,12 @@ check  "keep: .*/wt-envbunfigdot \(envbunfigdot\) — \.bunfig\.toml difere do c
 check  "keep: .*/wt-envnpmrcsub \(envnpmrcsub\) — apps/y/\.npmrc difere do clone principal" ".npmrc de subpasta: keep com o nome" "$OUT"
 check  "keep: .*/wt-envrepo \(envrepo\) — .*repo aninhado ignorado: vendor/lib/" "repo aninhado ignorado: keep com o caminho" "$OUT"
 check  "keep: .*/wt-ignout \(ignout\) — .*ignorado.*outputs/" "outputs/ ignorado: keep com o caminho" "$OUT"
+check  "keep: .*/wt-ignrender \(ignrender\) — .*apagaria: out/" "out/ ignorado (render): keep com o caminho" "$OUT"
+refute "CANDIDATO: .*/wt-ignrender "           "out/ ignorado (render): não é candidato"   "$OUT"
 check  "CANDIDATO: .*/wt-igncache \(igncache\)" "node_modules/ e apps/web/.next/: candidato" "$OUT"
 check  "CANDIDATO: .*/wt-ignvenv \(ignvenv\)"   "symlink .venv para o clone: candidato"     "$OUT"
 OUT="$(run --cleanup-apply)"
-for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps wt-envbunfig wt-envbunfigdot wt-envnpmrcsub wt-envrepo wt-ignout; do
+for w in wt-nova wt-antiga wt-detached wt-avancou wt-envlocal wt-envnpmrc wt-envapps wt-envbunfig wt-envbunfigdot wt-envnpmrcsub wt-envrepo wt-ignout wt-ignrender; do
   if [ -d "$TMP/$w" ]; then printf '  ok    %s\n' "$w: sobreviveu ao --cleanup-apply"
   else printf '  FALHA %s\n' "$w: removido pelo --cleanup-apply"; falhas=$((falhas+1)); fi
 done

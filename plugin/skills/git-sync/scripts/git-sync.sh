@@ -187,10 +187,11 @@ sem_commit_proprio() {   # <tip> [branch]
 # Cache e build que qualquer instalação ou build recria. Casa por segmento de caminho, para
 # apps/web/node_modules/ valer igual a node_modules/. Lista fechada: o que não está aqui é
 # trabalho até prova em contrário. Fora de propósito: *.log (log de sessão pode ser a prova
-# de um incidente, e nenhum build o recria). A mesma lista do plugin/scripts/worktree-gc.sh.
+# de um incidente, e nenhum build o recria) e out/ (ferramenta de render, como o Remotion,
+# grava ali o arquivo final). A mesma lista do plugin/scripts/worktree-gc.sh.
 eh_regeneravel() {   # <caminho relativo; diretório termina em />
   case "/$1" in
-    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/out/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
+    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
     */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.mypy_cache/*|*/.ruff_cache/*|*/.venv/*) return 0 ;;  # .venv: só diretório
     */.DS_Store|*/.vercel/*|*/target/*|*/.gradle/*) return 0 ;;
     */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo) return 0 ;;
@@ -479,9 +480,9 @@ resolver_conta_gh() {
   return 0
 }
 # A prova tem dois caminhos: o gh e, onde ele não pode rodar (o AGENTS.md do repo proíbe) ou
-# não enxerga o repo, a API REST do GitHub. Sem nenhum dos dois, em 28/09/2026 num projeto de
-# cliente: 7 branches com PR mergeado e head == tip saíram "sem prova" e um worktree com lock
-# de pid morto ficou "keep" — a limpeza foi provada à mão, PR a PR.
+# não enxerga o repo, a API REST do GitHub. Sem nenhum dos dois, branches com PR mergeado e
+# head == tip saem "sem prova", um worktree com lock de pid morto fica "keep" e a limpeza
+# tem de ser provada à mão, PR a PR.
 #
 # O token da API vem da variável que `git config git-sync.tokenVar` nomeia — do ambiente ou,
 # lida só a linha dela, de ~/.claude/.env.tokens (GIT_SYNC_TOKENS_FILE) —, senão de
@@ -1022,10 +1023,10 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   fi
 
   # Branch que só existe no remoto — a local foi apagada, o remoto sobreviveu ao merge — não
-  # tinha seção: num projeto de cliente, em 28/09/2026, uma dessas com 6 commits já no squash
-  # só apareceu na auditoria manual. "Sua" é nome + e-mail do autor iguais aos do clone: lá
-  # os dois autores commitam com o mesmo e-mail. Só lista — apagar remoto é decisão da
-  # pessoa, então sai o comando, nunca a execução.
+  # tinha seção, e uma dessas, com os commits já no squash, só aparecia numa auditoria manual.
+  # "Sua" é nome + e-mail do autor iguais aos do clone: dois autores podem commitar com o
+  # mesmo e-mail. Só lista — apagar remoto é decisão da pessoa, então sai o comando, nunca a
+  # execução.
   echo "--- branches remotas suas sem cópia local ---"
   _eu="$(git config user.name 2>/dev/null || true) <$(git config user.email 2>/dev/null || true)>"
   _listadas=0
