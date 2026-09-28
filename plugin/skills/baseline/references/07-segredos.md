@@ -33,10 +33,10 @@ deste pilar:
 
 | Segredo | Onde vive | Raio de dano | Rotação | Dono |
 |---|---|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env + n8n cred | **total** — ignora RLS | manual, dashboard | Ruan |
-| `SUPABASE_ANON_KEY` | bundle (por design) | limitado pela RLS | com o projeto | Ruan |
-| `APP_WEBHOOK_SECRET` | Vercel env + n8n cred | permite forjar webhook | manual | Ruan |
-| `OPENAI_API_KEY` | Supabase function secrets | custo | painel OpenAI | Ruan |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env + n8n cred | **total** — ignora RLS | manual, dashboard | dev responsável |
+| `SUPABASE_ANON_KEY` | bundle (por design) | limitado pela RLS | com o projeto | dev responsável |
+| `APP_WEBHOOK_SECRET` | Vercel env + n8n cred | permite forjar webhook | manual | dev responsável |
+| `OPENAI_API_KEY` | Supabase function secrets | custo | painel OpenAI | dev responsável |
 | senha de ERP | 1Password | acesso ao ERP | via fornecedor | cliente |
 
 "Raio de dano" é a coluna que decide a prioridade. `anon` no bundle é esperado;
@@ -48,12 +48,16 @@ mas o inventário exige varrer HEAD e histórico:
 ```bash
 gitleaks detect --no-banner --redact -v                    # histórico completo
 gitleaks dir --no-banner --redact .                        # working tree
-trufflehog git file://. --only-verified --no-update        # confirma se AINDA vive
 ```
 
 `--only-verified` do trufflehog testa a credencial contra a API real. Isso elimina
 falso-positivo por construção — e **faz chamada de rede com a credencial do
-cliente**, então precisa estar autorizado no escopo do contrato.
+cliente**. Só rode com a autorização registrada no contrato ("Autorizações extras
+concedidas"):
+
+```bash
+trufflehog git file://. --only-verified --no-update        # confirma se AINDA vive
+```
 
 Para repo com dívida conhecida, use baseline em vez de desligar o gate:
 
@@ -107,7 +111,7 @@ legítima e precisa virar registro:
 | Motivo | O Code node do n8n não aceita credencial; o valor precisa estar no JSON importado |
 | Mitigação | Repo privado; CODEOWNERS em `/scripts/`; chave sem escopo reduzido disponível |
 | Risco aceito | Leitura do repo = acesso total ao banco, ignorando RLS |
-| Dono | Ruan · Aceito em 2026-08-22 · Revisar em 2026-11-22 |
+| Dono | dev responsável · Aceito em 2026-08-22 · Revisar em 2026-11-22 |
 ```
 
 Sem esse bloco, toda auditoria reabre o assunto e você paga de novo pela mesma
