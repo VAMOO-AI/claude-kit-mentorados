@@ -90,7 +90,8 @@ App em produção. **READ-ONLY é iron rule** — mesma regra do `secscan`.
 > Nunca modifique, mova ou crie código/config no projeto auditado. Nunca faça DDL
 > no banco (os lints rodam como `select`, sem criar schema `lint`). Nunca teste
 > endpoint de terceiro. As únicas escritas permitidas são os artefatos da
-> auditoria: `findings.json`, o report e o contrato.
+> auditoria: `findings.json`, o report, o contrato e o registro de vereditos
+> (`.context/docs/security/vereditos.md`).
 
 Quatro fases. Aplicar correção é **fora** deste modo — vai pro modo CONSTRUIR,
 com contexto de regressão.
@@ -98,7 +99,7 @@ com contexto de regressão.
 | Fase | O que faz | Escreve |
 |---|---|---|
 | **1 Medir** | `doctor.sh` → `collect.sh`. Determinístico, zero julgamento | `findings.json` |
-| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Falso-positivo decidido lendo o `arquivo:linha` e registrado em `.context/docs/security/vereditos.md` | `report.md` |
+| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Falso-positivo decidido lendo o `arquivo:linha` e registrado em `.context/docs/security/vereditos.md` | `report.md`, `vereditos.md` |
 | **3 Propor** | Correção concreta + comando de reconferência, por finding | nada |
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
