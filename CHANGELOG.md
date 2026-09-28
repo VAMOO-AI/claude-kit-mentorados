@@ -13,6 +13,68 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.43.0] — 2026-09-28
+
+### Depois de atualizar
+
+- **Rode `/kit-vamoo:setup`.** A barra de status, o `~/.claude/subagentes.md` e o CLAUDE global
+  mudaram, e esses três só chegam pelo setup (ele faz backup antes). Sem rodar, a barra continua
+  contando linhas e o `subagentes.md` não conhece o agente `executor`.
+
+### Novo
+
+- **Skill `limpeza-mac`** (`/kit-vamoo:limpeza-mac`, só macOS): limpeza profunda de um Mac de dev.
+  Um inventário read-only primeiro (worktrees e branches mergeadas, `node_modules` e `.next` de
+  repo parado, caches e versões velhas de CLI); depois o `aplicar.sh` guarda o SHA de cada branch
+  num ledger antes de apagar. Branch só sai com o head do PR igual ao tip, worktree só sai com o
+  `worktree-gc.sh --verificar` liberando, e `--force`, squash detached e `sudo` ficam com você.
+  As pastas varridas são `~/Developer ~/Projects ~/code ~/Documents`, ou as que você passar
+  (`LIMPEZA_RAIZES`). Você chama; o Claude não aciona sozinho.
+- **`instrucoes-projeto.sh`** migra um projeto que já existia para o `AGENTS.md` como fonte e o
+  `CLAUDE.md` como a ponte `@AGENTS.md`. O `--check` mostra a classe do par (nenhum, só import,
+  cópia duplicada, symlink, divergentes…), o tamanho frente aos 32 KiB que o Codex lê, nome com
+  outra caixa e pares em subpastas, sem gravar; o `--apply` grava só onde não há julgamento a
+  fazer. Peça ao Claude: "roda o instrucoes-projeto do kit com `--check` neste repo".
+- **Agente `executor`**: implementa um lote que a conversa principal despacha, com escopo
+  fechado, teste falhando antes do fix e report com o output real. Ele e o `revisor` rodam em
+  `effort: medium`.
+- **`worktree-gc.sh --verificar <caminho>`**: responde se aquele worktree pode sair (0), ou por
+  que fica (1), sem remover nada. A "Limpeza no fim" da skill `worktrees`, o aviso de worktree
+  mergeado e a `limpeza-mac` passam por ele.
+
+### Mudou
+
+- **A barra de status mede a sessão em tokens**, pela mesma régua do aviso de sessão longa:
+  `ses:` aparece a partir de 150 mil (sessão nova?), 300 mil (`/compact`) e 400 mil (maratona).
+  Antes contava linhas do histórico, que só crescem, e pedia `/compact` logo depois de você
+  compactar.
+- **`git-sync` sem `gh`:** prova PR mergeado pela API do GitHub com um token seu (o nome da
+  variável vai em `git config git-sync.tokenVar`; o token vai pelo stdin e nunca aparece),
+  lista os PRs abertos e mostra a branch remota sua sem cópia local com o `git push origin
+  --delete` pronto, que ele nunca roda. `--no-gh` (ou `git config git-sync.noGh true`) para
+  nunca chamar o `gh`. O run normal lembra o `--cleanup-dry-run`.
+- **`baseline`:** o `--diff` enxerga arquivo novo que ainda não entrou no git (fora do
+  `.gitignore`): `.env` e JWT ali viram HIGH. O RLS lê `supabase/migrations/` e `migrations/` e
+  diz quais pastas mediu, ou "RLS não medido". Os comandos da skill rodam linha a linha, pelo
+  caminho do plugin.
+- **`auditoria-seguranca` (A4):** sem build no disco, pergunta antes de buildar, com o comando
+  pronto e o aviso de que ele grava `dist/`; sem o seu ok, a cobertura registra A4 `parcial`.
+- **`secscan`:** o gitleaks varre também a árvore de trabalho (com `--redact`), não só o
+  histórico; semgrep que falha diz `FALHOU (exit N)` e a última linha do erro; sem git, só o
+  histórico fica sem medir.
+- **Texto:** `grilling` para pelo critério de "Quando parar"; `find-skills` mais curta;
+  `harness-check` diz quando os textos do kit foram auditados pela última vez contra o modelo
+  que você usa; o CLAUDE global perde uma frase redundante.
+
+### Corrigido
+
+- **Limpeza de worktree apagava ignorado de valor:** `outputs/`, build que não se regenera e
+  qualquer outro arquivo ignorado que não é cache agora seguram o worktree no `worktree-gc.sh` e
+  no `git-sync --cleanup-apply`, não só o env e o repositório aninhado
+  (`tests/test-worktree-gc.sh`, `tests/test-git-sync-cleanup.sh`).
+- **O `--apply` do `instrucoes-projeto.sh`** não solta mais erro do awk quando o projeto só tem
+  `AGENTS.md`.
+
 ## [0.42.0] — 2026-09-28
 
 ### Depois de atualizar

@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.43.0|nova skill limpeza-mac para o seu Mac, o executor para lotes de implementação, a barra de status mede a sessão em tokens e a limpeza de worktree não apaga mais outputs nem build ignorados|setup
 0.42.0|as regras de subagente do kit passam para ~/.claude/subagentes.md (um AGENTS.md de outra ferramenta ou seu em ~/.claude fica intocado), o aviso de sessão longa mede o contexto de verdade e as skills pararam de se contradizer|setup
 0.41.1|o guarda do clone compartilhado não deixa mais passar checkout quando há um cd depois dele, dois checkouts na mesma linha ou uma pasta que ele não reconhece
 0.41.0|o bloqueio de publicar no Supabase e na Vercel agora pega também npx, bunx e pnpm, o guarda do clone compartilhado entende pasta com espaço no nome e as skills de memória não abrem PR repetido|setup
