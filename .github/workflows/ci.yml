@@ -202,6 +202,9 @@ jobs:
       - name: A varredura de chaves da auditoria (A4) mostra arquivo:linha, nunca o segredo inteiro
         run: bash tests/test-auditoria-a4-mascara.sh
 
+      - name: O secscan só chama de ausente o scanner que não está instalado
+        run: bash tests/test-secscan-ferramentas.sh
+
       - name: A barra mostra o comprimento da sessão e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 

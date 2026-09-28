@@ -44,12 +44,18 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 
 ```bash
 mkdir -p secscan-reports
-command -v semgrep && semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif . \
-  || echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
-command -v gitleaks && gitleaks detect --no-banner --redact || echo "gitleaks AUSENTE"
-command -v osv-scanner && osv-scanner scan --format json . || echo "osv-scanner AUSENTE (opcional)"
+# AUSENTE é só binário que não existe. Scanner que roda e sai ≠ 0 falhou ou achou algo.
+if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
+elif semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif .; then echo "semgrep OK (achados no SARIF)"
+else echo "semgrep FALHOU (exit $?) → não medido; sem rede o ruleset p/owasp-top-ten não baixa"; fi
+if ! command -v gitleaks >/dev/null; then echo "gitleaks AUSENTE"
+else gitleaks detect --no-banner --redact; echo "gitleaks exit $? (0 limpo · 1 achou segredo · outro falhou)"; fi
+if ! command -v osv-scanner >/dev/null; then echo "osv-scanner AUSENTE (opcional)"
+else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile · outro falhou)"; fi
 ```
-Anote quais rodaram vs faltaram no disclaimer do relatório. Semgrep é o que mais agrega —
+Anote quais rodaram, quais faltaram e quais falharam no disclaimer do relatório. Semgrep
+que falhou não é semgrep ausente: instalar de novo não resolve, e a causa (rede, ruleset)
+vai para o relatório. Semgrep é o que mais agrega —
 mas saiba o que ele corrobora de fato. **Medido em 31/08/2026** num app React + Supabase:
 o ruleset OWASP rodou 255 regras sobre 2.198 arquivos e devolveu 27 findings, **100% em
 `.github/` e `.npmrc`**, zero em `src/`, zero em `supabase/functions/`. Num diretório com
@@ -259,7 +265,9 @@ está tudo limpo. Os estados são **quatro**:
 - **`nenhum problema identificado`** — procurou e não achou. Só sai assim se
   **todas** as provas mínimas daquela linha rodaram.
 - **`não medido (<ferramenta> ausente)`** — nomeie o binário que faltou
-  (`semgrep`, `gitleaks`, `osv-scanner`). **Ferramenta presente com input ausente
+  (`semgrep`, `gitleaks`, `osv-scanner`). Instalado e falhou (a Fase 0.5 imprime
+  `FALHOU` ou um exit fora da legenda) é **`não medido (<ferramenta> falhou: exit N)`**,
+  nunca `ausente`. **Ferramenta presente com input ausente
   também é não medido**, e é o caso que mais engana: `osv-scanner` instalado num projeto
   sem lockfile roda, sai 0 e não lê nada. Escreva o motivo real — `não medido (lockfile
   ausente)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
