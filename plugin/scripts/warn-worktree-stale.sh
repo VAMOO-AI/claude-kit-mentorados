@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # warn-worktree-stale.sh — SessionStart hook.
-# (1) Avisa se a sessão começa num worktree cuja branch JÁ FOI MERGEADA (lixo — pode
-#     remover com worktree-gc.sh --apply, ou ExitWorktree). Branch sem commit próprio
+# (1) Avisa se a sessão começa num worktree cuja branch JÁ FOI MERGEADA (a limpeza é com
+#     pedido da pessoa, pela skill worktrees). Branch sem commit próprio
 #     não conta como mergeada, e worktree com mudança não commitada nunca é lixo.
 # (2) Numa sessão em worktree, avisa se o CLONE PRINCIPAL não está em main (com worktrees,
 #     o clone principal fica na main). Não modifica o git — só lê e avisa. Silencioso
@@ -20,7 +20,7 @@ PRIMARY="$(dirname "$COMMON")"
 br="$(git branch --show-current 2>/dev/null)"
 
 # Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
-# `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, no CRM Multipedidos, o
+# `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, num projeto real, o
 # aviso mandou remover um worktree com o fix inteiro ainda sem commit. Sem commit próprio
 # = o tip não passou do ponto de criação (a 1ª entrada do reflog), ou é commit da linha
 # first-parent da main — a branch que só puxou a base, ou cujo reflog já expirou.
@@ -57,7 +57,7 @@ if [ "$GIT_DIR" != "$COMMON" ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br"
       echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
     else
       gc="$AQUI/worktree-gc.sh"
-      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, ofereça remover: 'ExitWorktree' (nesta sessão) ou 'bash \"$gc\" --apply'."
+      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa e trava de env ignorado). 'bash \"$gc\" --apply' remove todos os worktrees elegíveis que ele listar, não só este."
     fi
   fi
 fi

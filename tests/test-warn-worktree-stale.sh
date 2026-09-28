@@ -2,8 +2,8 @@
 # Prova de regressão do plugin/scripts/warn-worktree-stale.sh (hook de SessionStart).
 #
 # O hook chamava de mergeada toda branch ancestral de origin/main — e a branch recém-criada
-# de origin/main, sem commit nenhum, é ancestral por definição. Em 24/09/2026, no CRM
-# Multipedidos, o aviso saiu num compact com o fix inteiro ainda sem commit no worktree:
+# de origin/main, sem commit nenhum, é ancestral por definição. Em 24/09/2026, num projeto
+# real, o aviso saiu num compact com o fix inteiro ainda sem commit no worktree:
 # "já foi MERGEADA — este worktree é lixo. Remova com 'ExitWorktree'". Agora:
 #   - branch sem commit próprio não é mergeada: o tip não passou do ponto de criação (a 1ª
 #     entrada do reflog) ou é commit da linha first-parent da main (só puxou a base, ou o
@@ -12,7 +12,9 @@
 #   - a prova pelo PR (squash) exige o tip contido no head do PR, como no worktree-gc.
 #
 # Na 0.42.0 o aviso deixou de dar ordem ("Remova", "Volte pra main") e passou a pedir que o
-# Claude ofereça: quem decide apagar ou trocar de branch é o usuário. O comando de limpeza
+# Claude ofereça: quem decide apagar ou trocar de branch é o usuário. E o aviso não oferece
+# mais o ExitWorktree direto: a limpeza segue a skill worktrees (prova completa e trava de
+# env ignorado), e o worktree-gc.sh --apply citado remove todos os elegíveis, não só este. O comando de limpeza
 # aponta para o worktree-gc.sh ao lado do hook, porque o setup não instala
 # ~/.claude/scripts/worktree-gc.sh. E o clone principal fora da main só é assunto numa
 # sessão em worktree: quem trabalha numa feat/x direto no clone não usa worktree, e o aviso
@@ -129,8 +131,11 @@ calado "empilhada numa branch que depois foi mergeada"                  "$(run e
 echo "== mergeada de verdade: continua avisando =="
 OUT="$(run mergeada)"
 check  "já foi mergeada e está limpo"            "commit próprio em origin/main, limpa: avisa"  "$OUT"
-check  "ofereça remover"                         "oferece a remoção ao usuário"                 "$OUT"
+check  "pedir a limpeza"                         "diz que a pessoa pode pedir a limpeza"        "$OUT"
+check  "skill worktrees"                         "aponta o procedimento da skill worktrees"     "$OUT"
+check  "remove todos os worktrees"               "avisa que o --apply limpa todos os elegíveis" "$OUT"
 refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
+refute "ExitWorktree"                            "não oferece ExitWorktree direto, sem a prova" "$OUT"
 gc="$(gc_do_aviso "$OUT")"
 if [ -n "$gc" ] && [ -f "$gc" ]; then printf '  ok    %s\n' "o worktree-gc.sh que o aviso cita existe"
 else printf '  FALHA %s (veio: %s)\n' "o worktree-gc.sh que o aviso cita existe" "${gc:-nada}"; falhas=$((falhas+1)); fi
