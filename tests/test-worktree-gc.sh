@@ -333,6 +333,40 @@ OUTR="$(cd "$CLONE" && env -u GH_TOKEN -u GITHUB_TOKEN -u T3_TOKEN_TESTE GIT_SYN
 check 'keep: .*wt-rest-ok .*NÃO mergeada' "gh cego e sem token: keep" "$OUTR"
 G config --unset git-sync.repo; G config --unset git-sync.tokenVar
 
+echo "== API consultada que respondeu erro: token expirado ou revogado =="
+# Token e slug configurados, o gh cego cai na API e o curl falha. Antes o keep saía sem sufixo,
+# igual a uma negativa provada, e ficava mantido para sempre: as skills recusam a prova à mão.
+# Exit 22 é o do `curl -f` com 401; o exit 2 é o que, sob pipefail, sobe da pipeline e colidiria
+# com um código próprio de "ninguém perguntou"; o 0 com um objeto de erro é a resposta que não é
+# lista.
+mkdir -p "$TMP/bin-erro"
+printf '#!/usr/bin/env bash\ncase "$1" in auth) exit 0 ;; esac\necho "gh: Could not resolve to a Repository" >&2; exit 1\n' > "$TMP/bin-erro/gh"
+cat > "$TMP/bin-erro/curl" <<'CURL'
+#!/usr/bin/env bash
+cat > /dev/null
+[ "$CURL_EXIT" = 0 ] && { echo '{"message":"Bad credentials"}'; exit 0; }
+echo "curl: (22) The requested URL returned error: 401" >&2; exit "$CURL_EXIT"
+CURL
+chmod +x "$TMP/bin-erro/gh" "$TMP/bin-erro/curl"
+G config git-sync.repo dono/x; G config git-sync.tokenVar T3_TOKEN_TESTE
+runerro() { local x="$1"; shift; (cd "$CLONE" && env -u GH_TOKEN -u GITHUB_TOKEN GIT_SYNC_TOKENS_FILE="$TMP/nao-existe" \
+  T3_TOKEN_TESTE="$TOKEN" CURL_EXIT="$x" PATH="$TMP/bin-erro:$PATH" bash "$SCRIPT" "$@" 2>&1); }
+ERRO_TXT='\(a API do GitHub respondeu erro: confira o token\)'
+for x in 22 2 0; do
+  OUTE="$(runerro "$x" --verificar "$WTS/wt-rest-ok")"; rc=$?
+  [ "$rc" = 1 ] && printf '  ok    curl %s: --verificar sai 1\n' "$x" || { printf '  FALHA curl %s: --verificar saiu %s\n' "$x" "$rc"; falhas=$((falhas+1)); }
+  check  "keep: .*wt-rest-ok .*NÃO mergeada $ERRO_TXT" "curl $x: --verificar da branch diz que a API respondeu erro" "$OUTE"
+  refute 'sem gh nem token'                             "curl $x: --verificar não diz que faltou token"               "$OUTE"
+  OUTE="$(runerro "$x" --verificar "$WTS/wt-det-squash")"
+  check  "keep: .*wt-det-squash .*$ERRO_TXT"            "curl $x: --verificar do detached diz que a API respondeu erro" "$OUTE"
+  OUTE="$(runerro "$x")"
+  check  "wt-rest-ok .*NÃO mergeada $ERRO_TXT"          "curl $x: gc da branch diz que a API respondeu erro"           "$OUTE"
+  check  "wt-det-squash .*detached $ERRO_TXT"            "curl $x: gc do detached diz que a API respondeu erro"         "$OUTE"
+  refute 'wt-dirty .*respondeu erro'                    "curl $x: keep por SUJO não leva o sufixo"                     "$OUTE"
+  refute 'removeria: .*wt-(rest-ok|det-squash) '        "curl $x: nada vira candidato sem prova"                       "$OUTE"
+done
+G config --unset git-sync.repo; G config --unset git-sync.tokenVar
+
 echo "== sem commit próprio: sessão recém-aberta, não branch mergeada =="
 check  'wt-nova .*sem commit próprio'               "nova de origin/main, limpa: mantida"                        "$OUT"
 check  'wt-sem-reflog .*sem commit próprio'         "nova com o reflog expirado (linha first-parent): mantida"   "$OUT"

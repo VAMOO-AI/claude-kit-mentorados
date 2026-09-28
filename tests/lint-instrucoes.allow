@@ -1,0 +1,8 @@
+# Exceções do tests/test-lint-instrucoes.sh, uma por linha:
+#   <regra> :: <arquivo> :: <trecho literal da linha> :: <motivo>
+# Entrada que não casa com nada reprova. Tire a linha quando o texto mudar.
+R1 :: plugin/skills/git-sync/SKILL.md :: (Instalação antiga pelo `install.sh`: `bash ~/.claude/skills/git-sync/scripts/git-sync.sh` :: fallback rotulado de quem ainda tem a cópia do instalador antigo em ~/.claude/skills
+R1 :: plugin/skills/git-sync/SKILL.md :: bash ~/.claude/skills/git-sync/scripts/git-sync.sh    # instalação antiga pelo install.sh :: mesmo fallback, no bloco de comandos, com o rótulo no comentário
+R1 :: plugin/skills/git-sync/SKILL.md :: `~/.claude/skills/git-sync/` — é o fallback dos comandos acima :: explica de onde vem o fallback da instalação antiga
+R1 :: plugin/skills/setup/SKILL.md :: a linha "Fica em `~/.claude/agents.md`" do modelo antigo do kit :: cita a linha-assinatura que o kit-setup.sh procura para remover o arquivo antigo
+R3 :: plugin/skills/handoff/SKILL.md :: Ingestão de NF voltou a rodar :: exemplo de item de handoff (estado do sistema da pessoa), não versão do kit

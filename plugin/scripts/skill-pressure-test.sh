@@ -17,6 +17,10 @@
 #   ---
 #   <o cenário, terminando com "Responda só a letra, no formato ESCOLHA: X">
 #
+# Regra que mora num agente, não numa skill (o revisor): `agente: revisor` no lugar de
+# `skill:` injeta plugin/agents/revisor.md no lugar da SKILL.md. PRESSURE_AGENTS_DIR troca
+# a pasta, para medir um agente seu (o de ~/.claude/agents, por exemplo).
+#
 # Uso:
 #   bash plugin/scripts/skill-pressure-test.sh --baseline  tests/skills/verificacao/cenario-01-pronto-sem-rodar.md
 #   bash plugin/scripts/skill-pressure-test.sh --com-skill tests/skills/verificacao/cenario-01-pronto-sem-rodar.md
@@ -40,7 +44,7 @@ while [ $# -gt 0 ]; do
     --n) N="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
     --effort) EFFORT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) ALVOS+=("$1"); shift ;;
   esac
 done
@@ -78,10 +82,14 @@ corpo() { awk '/^---$/{c++; next} c>=2' "$1"; }
 # listava 12 deles, e um baseline pediu para autorizar o do Supabase, que o cenário
 # nem cita. Sem ele, RED e GREEN leem as ferramentas da conta de quem roda.
 SKILLS_DIR="$(cd "$(dirname "$0")/../skills" && pwd)"
+AGENTS_DIR="${PRESSURE_AGENTS_DIR:-$(dirname "$SKILLS_DIR")/agents}"
+case "$AGENTS_DIR" in /*) ;; *) AGENTS_DIR="$PWD/$AGENTS_DIR" ;; esac  # o claude roda em cd "$CWD"
 CWD=$(mktemp -d)
 FALHAS=0; TOTAL=0
 for c in "${CENARIOS[@]}"; do
-  SKILL=$(frontmatter "$c" skill); ESPERADO=$(frontmatter "$c" esperado)
+  SKILL=$(frontmatter "$c" skill); AGENTE=$(frontmatter "$c" agente); ESPERADO=$(frontmatter "$c" esperado)
+  if [ -n "$AGENTE" ]; then REGRA="$AGENTS_DIR/$AGENTE.md"; SKILL="agente:$AGENTE"
+  else REGRA="$SKILLS_DIR/$SKILL/SKILL.md"; fi
   [ -n "$ESPERADO" ] || { echo "$c: sem 'esperado:' no frontmatter"; exit 2; }
   PROMPT=$(corpo "$c")
   for i in $(seq 1 "$N"); do
@@ -93,8 +101,8 @@ for c in "${CENARIOS[@]}"; do
     if [ "$MODO" = "--baseline" ]; then
       ARGS+=(--setting-sources "" --tools "")
     else
-      [ -f "$SKILLS_DIR/$SKILL/SKILL.md" ] || { echo "$c: skill '$SKILL' não está em $SKILLS_DIR"; exit 2; }
-      ARGS+=(--setting-sources project,local --append-system-prompt-file "$SKILLS_DIR/$SKILL/SKILL.md" --tools Skill)
+      [ -f "$REGRA" ] || { echo "$c: '$SKILL' não está em $REGRA"; exit 2; }
+      ARGS+=(--setting-sources project,local --append-system-prompt-file "$REGRA" --tools Skill)
     fi
     RESP=$(cd "$CWD" && printf '%s' "$PROMPT" | claude "${ARGS[@]}" 2>/dev/null)
     LETRA=$(printf '%s' "$RESP" | grep -oE 'ESCOLHA:[[:space:]]*[A-Z]' | tail -1 | grep -oE '[A-Z]$')

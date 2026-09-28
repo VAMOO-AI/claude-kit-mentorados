@@ -102,4 +102,34 @@ check "PRESSURE_MODEL troca o padrão"    "$(valor_de --model)" sonnet
 check "PRESSURE_EFFORT troca o padrão"   "$(valor_de --effort)" high
 
 echo
+echo "== agente: no frontmatter carrega plugin/agents/<nome>.md no lugar da SKILL.md =="
+# O revisor não é skill: a regra dele mora em plugin/agents/revisor.md. Um cenário do
+# revisor que injetasse uma SKILL.md mediria uma paráfrase, não o texto que roda.
+AGENTE_ALVO="$RAIZ/plugin/agents/revisor.md"
+printf -- '---\nagente: revisor\nesperado: A\n---\nDecida. ESCOLHA: <letra>\n' > "$TMP/cenario-02-agente.md"
+roda_agente() { # <modo> <cenario> [env extra] → exit do script, argumentos em $TMP/args
+  local modo="$1" cen="$2"; shift 2
+  rm -f "$TMP/args"
+  env ARGS_OUT="$TMP/args" PATH="$TMP/bin:$PATH" PRESSURE_MODEL="" PRESSURE_EFFORT="" "$@" \
+    bash "$SCRIPT" "$modo" "$cen" >/dev/null 2>&1
+}
+roda_agente --com-skill "$TMP/cenario-02-agente.md"; rc=$?
+check "roda (exit 0)"                    "$rc" 0
+check "injeta o plugin/agents/revisor.md" "$(valor_de --append-system-prompt-file 2>/dev/null)" "$AGENTE_ALVO"
+check "--tools continua por último"      "$(tail -2 "$TMP/args" 2>/dev/null | head -1)" "--tools"
+roda_agente --baseline "$TMP/cenario-02-agente.md"
+check "baseline não injeta o agente"     "$(tem --append-system-prompt-file 2>/dev/null)" nao
+mkdir -p "$TMP/agents"
+printf -- '---\nname: fakeagente\n---\nregra de agente\n' > "$TMP/agents/fakeagente.md"
+printf -- '---\nagente: fakeagente\nesperado: A\n---\nDecida. ESCOLHA: <letra>\n' > "$TMP/cenario-03-fake.md"
+roda_agente --com-skill "$TMP/cenario-03-fake.md" PRESSURE_AGENTS_DIR="$TMP/agents"
+check "PRESSURE_AGENTS_DIR troca a pasta" "$(valor_de --append-system-prompt-file 2>/dev/null)" "$TMP/agents/fakeagente.md"
+( cd "$TMP" && roda_agente --com-skill "$TMP/cenario-03-fake.md" PRESSURE_AGENTS_DIR=agents )
+check "PRESSURE_AGENTS_DIR relativo vira absoluto" "$(valor_de --append-system-prompt-file 2>/dev/null)" "$TMP/agents/fakeagente.md"
+printf -- '---\nagente: naoexiste\nesperado: A\n---\nDecida. ESCOLHA: <letra>\n' > "$TMP/cenario-04-sem-agente.md"
+roda_agente --com-skill "$TMP/cenario-04-sem-agente.md"; rc=$?
+check "agente ausente sai com exit 2"    "$rc" 2
+check "e não chama o claude"             "$([ -f "$TMP/args" ] && echo chamou || echo nao)" nao
+
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

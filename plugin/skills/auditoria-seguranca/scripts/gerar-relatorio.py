@@ -166,10 +166,18 @@ def _mascarar_chave(m):
     v = m.group(0)
     if v.startswith("sk-proj-"):
         tipo = "chave de projeto OpenAI"
+    elif v.startswith("sk-svcacct-"):
+        tipo = "chave de conta de serviço OpenAI"
+    elif v.startswith("sk-admin-"):
+        tipo = "chave admin OpenAI"
     elif v.startswith("sk-ant-"):
         tipo = "chave Anthropic"
     elif v.startswith("whsec_"):
-        tipo = "chave whsec_ do webhook Stripe"
+        tipo = "chave de webhook Stripe"
+    elif v.startswith("AIza"):
+        tipo = "chave de API do Google"
+    elif v.startswith("SG."):
+        tipo = "chave SendGrid"
     elif v[2] == "_":
         tipo = "chave Stripe " + v[:v.index("_", 3) + 1]
     else:
@@ -177,59 +185,123 @@ def _mascarar_chave(m):
     return ("…" if len(v) <= 12 else v[:4] + "…") + f" [{tipo} redigida]"
 
 
+_TIPO_TOKEN = (("gh", "GitHub"), ("github_pat_", "GitHub"), ("xox", "Slack"), ("xapp-", "Slack"),
+               ("glpat-", "GitLab"), ("sb", "Supabase"), ("shpat_", "Shopify"), ("npm_", "npm"),
+               ("hf_", "Hugging Face"))
+
+
+def _mascarar_token(m):
+    """Token de servico com a mesma mascara da chave e o servico no rotulo."""
+    v = m.group(0)
+    servico = next(s for p, s in _TIPO_TOKEN if v.startswith(p))
+    return ("…" if len(v) <= 12 else v[:4] + "…") + f" [token do {servico} redigido]"
+
+
+# Os prefixos sem \b (sb[ps]_, sb_secret_, shpat_, github_pat_, glpat-, xapp-, xox?-) aparecem
+# dentro de nome comum: fetch_sbp_connection_pool, validate_github_pat_format_before_saving,
+# slack-xapp-socket, taskxoxb-queue-handler.
+# Corpo so' de palavras minusculas ligadas por _ ou - e' identificador, nao token. Token real
+# (hex, base62 misto, ou comeca com digito) nao tem essa forma.
+_NAO_PALAVRAS = r"(?![a-z]+(?:[_-][a-z0-9]+)+(?![A-Za-z0-9_-]))"
+
+
+# Referencia a variavel e' ${...} ou $NOME no formato de env (maiusculas, digito e _). O resto
+# que comeca com $ e' literal: "postgres://u:$ecret@h" tem senha, "postgres://u:$DB_PASS@h" nao.
+_REF_ENV = r"\$[A-Z_][A-Z0-9_]*(?![A-Za-z0-9_])"
+
 PADROES_SEGREDO = [
+    # senha em URL (postgres://u:senha@h): ${VAR} ou $VAR no lugar da senha e' referencia
+    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:)(?!\$\{|" + _REF_ENV + r"@)[^\s@/{][^\s@/]*(@)"),
+     r"\1[SEGREDO REDIGIDO]\2"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                 re.S), "[CHAVE PRIVADA REDIGIDA]"),
-    (re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
-     "[JWT REDIGIDO]"),
-    # Senha em URL de conexao (postgres://usuario:senha@host): so' a senha sai. Referencia
-    # (${DB_PASS}) nao e' segredo, e fica.
-    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:)[^\s@/${][^\s@/]*(@)"),
-     r"\1[SENHA REDIGIDA]\2"),
-    # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen. Prefixo especifico nao
-    # leva fronteira, aqui e nos tokens abaixo: colado em _ (x_sk_live_) ou em %20
-    # (Bearer%20ghp_) o \b falhava e a chave saia inteira. So' o sk- generico fica com \b,
-    # senao "task-list-…" vira chave.
-    (re.compile(r"(?:(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|sk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"
-                r"|whsec_[A-Za-z0-9+/=]{16,}|\b(?:sk|rk)-[A-Za-z0-9_-]{16,})"),
-     _mascarar_chave),
-    (re.compile(r"(?:sb[ps]|gh[pousr]|github_pat|glpat|xox[abprs]|xapp|shpat)[-_]"
-                r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
-    (re.compile(r"AKIA[0-9A-Z]{16}(?![0-9A-Z])"), "[CHAVE AWS REDIGIDA]"),
+    # A forma da Fase 6 (eyJ + 20, com ou sem ponto) cobre o JWT de tres segmentos. Sem \b,
+    # que deixava passar "Bearer%20eyJ..."; o lookbehind so' barra letra, para "keyJson..."
+    # nao virar JWT.
+    (re.compile(r"(?<![A-Za-z])eyJ[A-Za-z0-9._-]{20,}"), "[JWT REDIGIDO]"),
+    # Prefixo especifico nao leva \b: em "Bearer%20sk_live_" e "x_ghp_" o caractere antes e'
+    # de palavra, e a fronteira deixava o valor inteiro passar. A classe de cada um e' a da
+    # Fase 6 ou mais larga; gh*_ fica sem _ no corpo, senao "laughs_counter" vira token.
+    (re.compile(r"(?:[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|sk-(?:proj|ant|svcacct|admin)-[A-Za-z0-9_-]{16,}"
+                r"|whsec_[A-Za-z0-9+/=]{16,}|AIza[0-9A-Za-z_-]{35}"
+                r"|SG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,})"), _mascarar_chave),
+    (re.compile(r"(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_" + _NAO_PALAVRAS + r"[A-Za-z0-9_]{20,}"
+                r"|xox[abprs]-" + _NAO_PALAVRAS + r"[A-Za-z0-9-]{10,}"
+                r"|xapp-" + _NAO_PALAVRAS + r"[A-Za-z0-9-]{10,}"
+                r"|glpat-" + _NAO_PALAVRAS + r"[A-Za-z0-9_-]{20,}"
+                r"|sb[ps]_" + _NAO_PALAVRAS + r"[A-Za-z0-9_-]{12,}"
+                r"|sb_secret_" + _NAO_PALAVRAS + r"[A-Za-z0-9_-]{16,}"
+                r"|shpat_" + _NAO_PALAVRAS + r"[A-Za-z0-9_-]{12,}"
+                r"|npm_[A-Za-z0-9]{36,}|hf_[A-Za-z0-9]{30,})"), _mascarar_token),
+    # O sk-/rk- generico mantem a fronteira, senao "risk-..." vira chave.
+    (re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{16,}"), _mascarar_chave),
+    (re.compile(r"AKIA[0-9A-Z]{16}"), "[CHAVE AWS REDIGIDA]"),
 ]
-# O prefixo opcional cobre POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET e afins:
-# sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao.
-_CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
-          r"(?:api[_-]?key|secret|token|passwd|password|senha|private[_-]?key)")
-# Atribuicao com literal entre aspas: alta precisao, redige sempre. O lookahead pula
-# o valor que ja' e' a chave mascarada acima, para nao apagar o rotulo do tipo.
-_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])"
-                          r"(?!(?:[^\"'\n]{4})?… \[[^\]\n]+ redigida\]\2)([^\"'\n]{8,})\2")
-# Mesma atribuicao sem aspas. A classe do valor exclui ., (, $ e { de proposito:
-# req.body.password e ${VAR:-default} sao codigo e referencia, nao atribuicao -- o default
-# tem a mascara propria abaixo.
-_ATRIB_NUA = re.compile(
-    r"(?i)\b(" + _CHAVE + r"\s*[:=]\s*)([A-Za-z0-9_@#!%^&*+=/~-]{8,})(?=\s|$|[,;])")
-# Default de variavel (${VAR:-valor}) com a regua da A4: ate' 12 caracteres so' "…", acima
-# os 4 primeiros + "…". O arquivo:linha do achado continua sendo a evidencia. Referencia no
-# lugar do valor (${A:-${B}}) e chave ja' mascarada acima ficam como estao. No aninhado
-# (${A:-${B:-valor}}) o [^}] para antes da primeira }, e o grupo 2 e' "${B:-valor": o default
-# interno e' mascarado pela mesma regua, nivel a nivel.
-_DEFAULT = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)([^}\n]+)\}")
-_DEFAULT_INTERNO = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)(.+)")
 
 
-def _mascarar_valor_default(v):
-    if " redigida]" in v:
-        return v
-    if v.startswith("$"):
-        m = _DEFAULT_INTERNO.fullmatch(v)
-        return m.group(1) + _mascarar_valor_default(m.group(2)) if m else v
+def _mascara_a4(v):
     return "…" if len(v) <= 12 else v[:4] + "…"
 
 
-def _mascarar_default(m):
-    return m.group(1) + _mascarar_valor_default(m.group(2)) + "}"
+# Default do compose e do shell (${var:-valor}, ${var-valor}): a evidencia e' o arquivo:linha, e
+# todo literal do corpo sai com a mascara da A4 -- tambem o que vem depois de uma referencia
+# interna, ${A:-${B}literal}, que uma regex parada na primeira } deixava cru. Referencia pura
+# (${A:-${B}}, ${A:-${B:-${C}}}, ${A:-$HOME}) fica inteira. As chaves aninhadas se resolvem de
+# dentro para fora: cada ${...} sem chave dentro vira um marcador, ate' nao sobrar nenhum.
+# atalho: ${x-1} de template do JS sai como ${x-…} no PDF (cosmetico, o --verificar le o trecho cru); rever se o falso positivo atrapalhar a leitura de achado em JS
+_NOME_DEFAULT = r"[A-Za-z_][A-Za-z0-9_]*:?-"
+_DEFAULT = re.compile(r"\$\{" + _NOME_DEFAULT)
+_INTERNA = re.compile(r"\$\{(?:(" + _NOME_DEFAULT + r")([^{}\n]*)|[^{}\n]*)\}")
+_PEDACO = re.compile(r"(\0\d+\0|" + _REF_ENV + r")|(?:(?!" + _REF_ENV + r")[^\0])+")
+
+
+def _redigir_defaults(texto):
+    if not _DEFAULT.search(texto):
+        return texto, 0
+    guardados, n = [], [0]
+
+    def literal(m):
+        if m.group(1) or not re.search(r"[A-Za-z0-9]", m.group(0)):
+            return m.group(0)
+        n[0] += 1
+        return _mascara_a4(m.group(0))
+
+    def guardar(m):
+        txt = m.group(0) if m.group(1) is None else "${" + m.group(1) + _PEDACO.sub(literal, m.group(2)) + "}"
+        guardados.append(txt)
+        return f"\0{len(guardados) - 1}\0"
+
+    while True:
+        novo = _INTERNA.sub(guardar, texto)
+        if novo == texto:
+            break
+        texto = novo
+
+    def restaurar(t):
+        return re.sub(r"\0(\d+)\0", lambda m: restaurar(guardados[int(m.group(1))]), t)
+
+    return restaurar(texto), n[0]
+
+
+# O prefixo opcional cobre POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET e afins:
+# sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao. O sufixo cobre
+# AWS_SECRET_ACCESS_KEY e secretAccessKey, em que o [:=] nao vem logo depois da palavra.
+_CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
+          r"(?:api[_-]?key|secret|token|passwd|password|pwd|senha|private[_-]?key)[A-Za-z0-9_]*")
+# Atribuicao com literal entre aspas: alta precisao, redige sempre. O lookahead pula
+# o valor que ja' e' a chave mascarada acima, para nao apagar o rotulo do tipo.
+_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])"
+                          r"(?!(?:[^\"'\n]{4})?… \[[^\]\n]+ redigid[ao]\]\2)([^\"'\n]{8,})\2")
+# Mesma atribuicao sem aspas. O valor pode ter ., (, $ e { no meio (DB_PASSWORD=minha.senha.x);
+# o que fica de fora e' o valor que COMECA como referencia: req.body.password,
+# process.env.TOKEN, ${VAR}, this.x, env.X, os.environ. O default do compose ja' saiu
+# mascarado acima, e a chave logo depois de "${" e' o nome da variavel do compose, nao
+# atribuicao: ${API_TOKEN:-${VAULT_TOKEN}} fica inteiro. Colchete e "…" ficam fora da classe
+# para nao remascarar um rotulo.
+_ATRIB_NUA = re.compile(
+    r"(?i)(?<!\$\{)\b(" + _CHAVE + r"\s*[:=]\s*)"
+    r"(?!req\.|process\.|this\.|env\.|os\.environ|[${(])"
+    r"([^\s\"'`,;\[\]…]{8,})(?=\s|$|[,;])")
 
 
 def redigir_segredos(texto):
@@ -240,18 +312,48 @@ def redigir_segredos(texto):
     for padrao, marca in PADROES_SEGREDO:
         texto, n = padrao.subn(marca, texto)
         total += n
+    texto, n = _redigir_defaults(texto)
+    total += n
     texto, n = _ATRIB_ASPAS.subn(r"\1\2[SEGREDO REDIGIDO]\2", texto)
     total += n
     texto, n = _ATRIB_NUA.subn(r"\1[SEGREDO REDIGIDO]", texto)
     total += n
-    mascarados = []
-    def default(m):
-        r = _mascarar_default(m)
-        if r != m.group(0):
-            mascarados.append(r)
-        return r
-    texto = _DEFAULT.sub(default, texto)
-    return texto, total + len(mascarados)
+    return texto, total
+
+
+# Todo campo de texto do achado e da issue passa pela mascara, sem escotilha: o auditor cola o
+# valor no titulo, no por_que ou na correcao tanto quanto no trecho, e dali ele ia cru para o PDF
+# e para o GitHub. Ficam como estao os campos que o --verificar e o calculo leem, o trecho (que
+# tem a escotilha propria) e o markdown da issue (mascarado em montar_corpo_issue).
+_CAMPOS_ESTRUTURAIS = frozenset({
+    "id", "arquivo", "linhas", "linha", "categoria", "severidade", "evidencia", "status", "tipo",
+    "confianca", "compliance", "desde", "redacao", "achados", "trecho", "markdown"})
+
+
+def _redigir_campos(obj, redacoes):
+    if isinstance(obj, str):
+        texto, n = redigir_segredos(obj)
+        redacoes[0] += n
+        return texto
+    if isinstance(obj, list):
+        return [_redigir_campos(x, redacoes) for x in obj]
+    if isinstance(obj, dict):
+        return {k: v if k in _CAMPOS_ESTRUTURAIS else _redigir_campos(v, redacoes)
+                for k, v in obj.items()}
+    return obj
+
+
+# As listas de texto livre fora de achados e issues. Em pontos_fortes a evidencia e' texto
+# ("api/x.ts:22" e o que mais o auditor colar), nao o nivel do achado, e passa pela mascara.
+# O --verificar le recomendacoes[].achados do dado cru: a redacao so' entra no montar_html.
+def _redigir_livres(d, redacoes):
+    livres = {k: [_redigir_campos(x, redacoes) for x in d[k]]
+              for k in ("pontos_fortes", "pontos_fracos", "hardening", "recomendacoes")
+              if isinstance(d.get(k), list)}
+    for f in livres.get("pontos_fortes", []):
+        if isinstance(f, dict) and isinstance(f.get("evidencia"), str):
+            f["evidencia"] = _redigir_campos(f["evidencia"], redacoes)
+    return livres
 
 CHROMES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -424,9 +526,8 @@ def calcular_veredito(achados):
 
 
 def trecho_redigido(a):
-    """Trecho do achado ja' mascarado, para o PDF. 'redacao': false desliga, para o caso em
-    que o valor literal E' a evidencia (default publico versionado, por exemplo); a issue
-    nao passa por aqui e sai mascarada sempre."""
+    """Trecho do achado ja' mascarado. 'redacao': false desliga, para o caso em que
+    o valor literal E' a evidencia (default publico versionado, por exemplo)."""
     trecho = a.get("trecho")
     if not trecho or a.get("redacao") is False:
         return trecho, 0
@@ -619,6 +720,11 @@ def bloco_a_validar(a):
 
 
 def montar_html(d, redacoes=None):
+    # lista de um elemento para servir de contador compartilhado com as issues
+    redacoes = redacoes if redacoes is not None else [0]
+    d = dict(d, achados=[_redigir_campos(a, redacoes) for a in d.get("achados", [])],
+             issues=[_redigir_campos(i, redacoes) for i in d.get("issues", [])],
+             **_redigir_livres(d, redacoes))
     projeto = d.get("projeto", "projeto")
     titulo = f"Relatório de Auditoria de Segurança — {projeto}"
     todos = d.get("achados", [])
@@ -626,8 +732,6 @@ def montar_html(d, redacoes=None):
     # secao propria. Mistura-lo com os confirmados e' contar hipotese como falha.
     a_validar = [a for a in todos if status_achado(a) == "a_validar"]
     achados = [a for a in todos if status_achado(a) != "a_validar"]
-    # lista de um elemento para servir de contador compartilhado com as issues
-    redacoes = redacoes if redacoes is not None else [0]
     cats = {c["id"]: c.get("nome", c["id"]) for c in d.get("categorias", [])}
 
     contagem = {}
@@ -1002,8 +1106,7 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         nivel = EVIDENCIA[nivel_evidencia(a)][0].lower()
         linhas.append(f"- `{local}` — {a.get('titulo','')} "
                       f"({nivel}, confiança {num(confianca(a))})")
-        # sem escotilha aqui: "redacao": false vale para o trecho do PDF, e o GitHub e' mais
-        # publico que ele
+        # sem escotilha: o "redacao": false vale para o trecho do PDF, nao para o GitHub
         texto, n_red = redigir_segredos(a.get("trecho"))
         if texto:
             linhas += ["", "```", texto.strip(), "```", ""]
