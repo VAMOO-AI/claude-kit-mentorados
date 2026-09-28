@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# O `ses:` da barra mede a sessão como o session-size-guard: o contexto do último turno no
-# transcript (input + cache_read + cache_creation do último usage, sem sidechain, iteração
-# "message" do advisor, usage zerado ignorado, compact_boundary zera), nas faixas
-# 150K/300K/400K+, e não quebra quando não há transcript. Contar linhas mandava /compact
-# depois do /compact, porque o transcript só cresce. Também cobre o
-# ⚡N t/s da última chamada de API e o aviso de troca de modelo no meio da sessão.
+# Uma linha só de contexto na barra. A `ctx:` lê o payload do harness (context_window); a
+# `ses:` lê o transcript (input + cache_read + cache_creation do último usage, sem sidechain,
+# iteração "message" do advisor, usage zerado ignorado, compact_boundary zera) e só aparece
+# quando o payload não traz `context_window`. Nunca as duas juntas: antes as duas mandavam
+# /compact a partir de 300K. A régua é a mesma: verde, amarelo em 150k, vermelho com /compact
+# em 300k. Contar linhas do transcript mandava /compact depois do /compact, porque o
+# transcript só cresce. Também cobre o ⚡N t/s da última chamada de API e o aviso de troca
+# de modelo no meio da sessão.
 #
 # A barra é o que a pessoa olha o dia inteiro, e o wrapper esconde erro
 # (`|| printf '[statusline]'`): quebrar aqui não aparece como erro, aparece como barra
@@ -39,35 +41,73 @@ for (const a of process.env.ARGS.split(" ")) {
   else if (a[0] === "p") for (let i = 0; i < n; i++) L.push({});
 }
 process.stdout.write(L.map((x) => JSON.stringify(x)).join("\n") + "\n");' > "$TMP/tr.jsonl"; }
-render() { TP="${1:-}" node -e 'process.stdout.write(JSON.stringify({transcript_path:process.env.TP||undefined,workspace:{current_dir:process.env.HOME},context_window:{current_usage:{input_tokens:1000}}}))' \
-    | node "$SL" 2>>"$TMP/err" | sed 's/\x1b\[[0-9;]*m//g'; }
+# Sem context_window no payload: a `ses` é o fallback, lida do transcript. Saída crua (com cor).
+render() { TP="${1:-}" node -e 'process.stdout.write(JSON.stringify({transcript_path:process.env.TP||undefined,workspace:{current_dir:process.env.HOME}}))' \
+    | node "$SL" 2>>"$TMP/err"; }
+# Com payload: TOK tokens em current_usage (TOK vazio = current_usage null) e o mesmo transcript.
+render_com() { TP="${1:-}" TOK="${2:-}" node -e 'const t=process.env.TOK; process.stdout.write(JSON.stringify({transcript_path:process.env.TP||undefined,workspace:{current_dir:process.env.HOME},context_window:{current_usage:t?{input_tokens:+t}:null}}))' \
+    | node "$SL" 2>>"$TMP/err"; }
+sem_cor() { sed 's/\x1b\[[0-9;]*m//g'; }
+tem() { printf '%s' "$1" | sem_cor | grep -qF -- "$2"; }
+# Cor de um segmento: o código ANSI colado no texto ("ctx:160k"). A cor é o que a régua diz,
+# e o sem_cor apaga exatamente isso — por isso se testa a saída crua.
+ESC=$(printf '\033')
+cor() { # <saída crua> <texto do segmento>
+  case "$1" in
+    *"${ESC}[31m$2"*) echo vermelho ;;
+    *"${ESC}[38;5;208m$2"*) echo laranja ;;
+    *"${ESC}[33m$2"*) echo amarelo ;;
+    *"${ESC}[32m$2"*) echo verde ;;
+    *) echo nenhuma ;;
+  esac
+}
+DIR="$(basename "$HOME")"
 
-tr p100 u100000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:' && falha "apareceu abaixo de 150K: $s" || ok "100K: sem indicador"
-printf '%s' "$s" | grep -q 'ctx:' && ok "o resto da barra continua saindo" || falha "barra vazia: $s"
+echo "== com payload: só a ctx =="
+tr u320000; out="$(render_com "$TMP/tr.jsonl" 310000)"
+tem "$out" 'ses:' && falha "ses junto da ctx: $(printf '%s' "$out" | sem_cor)" || ok "310k no payload e 320k no transcript: sem ses"
+[ "$(cor "$out" 'ctx:310k')" = vermelho ] && ok "…ctx vermelha" || falha "ctx 310k não saiu vermelha: $(cor "$out" 'ctx:310k')"
+tem "$out" 'ctx:310k /compact' && ok "…e a ctx avisa /compact" || falha "ctx sem /compact: $(printf '%s' "$out" | sem_cor)"
+tr u160000; out="$(render_com "$TMP/tr.jsonl" 160000)"
+tem "$out" 'ses:' && falha "ses junto da ctx em 160k: $(printf '%s' "$out" | sem_cor)" || ok "160k no payload e no transcript: sem ses"
+[ "$(cor "$out" 'ctx:160k')" = amarelo ] && ok "…ctx amarela" || falha "ctx 160k não saiu amarela: $(cor "$out" 'ctx:160k')"
+tem "$out" '/compact' && falha "ctx 160k já manda /compact" || ok "…sem /compact em 160k"
+out="$(render_com "$TMP/tr.jsonl" 50000)"
+[ "$(cor "$out" 'ctx:50k')" = verde ] && ok "50k no payload: ctx verde" || falha "ctx 50k não saiu verde: $(cor "$out" 'ctx:50k')"
+tr u320000; out="$(render_com "$TMP/tr.jsonl")"
+tem "$out" 'ses:' && falha "context_window sem current_usage pintou a ses: $(printf '%s' "$out" | sem_cor)" || ok "context_window presente e current_usage null: sem ses"
+out="$(render_com "$TMP/nao-existe.jsonl" 50000)"
+tem "$out" 'ctx:50k' && ! tem "$out" 'ses:' && ok "payload sem transcript legível: só a ctx" || falha "com payload e sem transcript: $(printf '%s' "$out" | sem_cor)"
 
-tr u160000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:160k sessão nova?' && ok "160K: tokens + sessão nova?" || falha "faixa 150K errada: $s"
-tr u320000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:320k /compact' && ok "320K em transcript curto: /compact" || falha "faixa 300K errada: $s"
-tr u450000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:450k maratona' && ok "450K: faixa das maratonas" || falha "faixa 400K errada: $s"
+echo "== sem payload: a ses é o fallback, com a régua da ctx =="
+tr p100 u100000; out="$(render "$TMP/tr.jsonl")"
+tem "$out" 'ctx:' && falha "ctx sem payload: $(printf '%s' "$out" | sem_cor)" || ok "sem payload: sem ctx"
+[ "$(cor "$out" 'ses:100k')" = verde ] && ok "100K: ses verde com os tokens" || falha "ses 100k não saiu verde: $(cor "$out" 'ses:100k')"
+tr u160000; out="$(render "$TMP/tr.jsonl")"
+[ "$(cor "$out" 'ses:160k')" = amarelo ] && ok "160K: ses amarela" || falha "ses 160k não saiu amarela: $(cor "$out" 'ses:160k')"
+tem "$out" '/compact' && falha "ses 160k já manda /compact" || ok "…sem /compact"
+tr u320000; out="$(render "$TMP/tr.jsonl")"
+[ "$(cor "$out" 'ses:320k')" = vermelho ] && ok "320K: ses vermelha" || falha "ses 320k não saiu vermelha: $(cor "$out" 'ses:320k')"
+tem "$out" 'ses:320k /compact' && ok "…com /compact" || falha "sem /compact em 320K: $(printf '%s' "$out" | sem_cor)"
+tr u450000; out="$(render "$TMP/tr.jsonl")"
+[ "$(cor "$out" 'ses:450k /compact')" = vermelho ] && ok "450K: vermelho com /compact, a mesma régua" || falha "450K fora da régua: $(printf '%s' "$out" | sem_cor)"
+tem "$out" 'maratona' && falha "faixa própria de maratona na ses" || ok "…sem faixa própria de maratona"
 
 tr u350000 p1300 c; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:' && falha "mandou /compact depois do compact: $s" || ok "compact depois do último usage: sem indicador, mesmo com 1.300 linhas"
+tem "$s" 'ses:' && falha "mandou /compact depois do compact: $(printf '%s' "$s" | sem_cor)" || ok "compact depois do último usage: sem ses, mesmo com 1.300 linhas"
 tr u350000 c u60000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:' && falha "valor de antes do compact: $s" || ok "turno de 60K depois do compact: sem indicador"
+tem "$s" 'ses:60k' && ! tem "$s" '350k' && ok "turno depois do compact: vale o 60K" || falha "valor de antes do compact: $(printf '%s' "$s" | sem_cor)"
 tr a340000:170000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:170k' && ok "advisor: vale a iteração message (170k), não a soma" || falha "advisor contou a soma: $s"
+tem "$s" 'ses:170k' && ok "advisor: vale a iteração message (170k), não a soma" || falha "advisor contou a soma: $(printf '%s' "$s" | sem_cor)"
 tr u200000 s500000; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:200k' && ok "sidechain depois não entra" || falha "sidechain contou: $s"
+tem "$s" 'ses:200k' && ok "sidechain depois não entra" || falha "sidechain contou: $(printf '%s' "$s" | sem_cor)"
 tr u320000 z; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:320k' && ok "usage zerado no fim: vale o anterior" || falha "usage zerado apagou a medida: $s"
+tem "$s" 'ses:320k' && ok "usage zerado no fim: vale o anterior" || falha "usage zerado apagou a medida: $(printf '%s' "$s" | sem_cor)"
 
 s="$(render "$TMP/nao-existe.jsonl")"
-printf '%s' "$s" | grep -q 'ctx:' && ok "transcript inexistente: barra normal" || falha "quebrou sem transcript: $s"
+tem "$s" "$DIR" && ! tem "$s" 'ses:' && ok "transcript inexistente: barra normal, sem ses" || falha "quebrou sem transcript: $(printf '%s' "$s" | sem_cor)"
 s="$(render)"
-printf '%s' "$s" | grep -q 'ctx:' && ok "payload sem transcript_path: barra normal" || falha "quebrou sem o campo: $s"
+tem "$s" "$DIR" && ok "payload sem transcript_path: barra normal" || falha "quebrou sem o campo: $(printf '%s' "$s" | sem_cor)"
 
 # ── tokens/s da última chamada e aviso de troca de modelo ──
 # HOME e TMPDIR temporários: a marca do primeiro modelo vai para o tmpdir, e o teste não

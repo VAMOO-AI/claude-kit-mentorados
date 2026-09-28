@@ -118,14 +118,19 @@ if (branch) {
 // Numa janela de 1M, 500k de contexto pinta "50%" e parece saudável — quando na
 // verdade é meio milhão de tokens sendo relidos a cada comando. O que dói é o
 // valor absoluto: é ele que multiplica por request numa sessão longa.
-// Passou de 150k, considere /compact ou uma sessão nova no projeto.
+// Uma linha só de contexto: a `ctx:`, do payload do harness. A `ses:`, lida do transcript
+// mais abaixo, só entra quando o payload não traz context_window — as duas juntas mandavam
+// /compact em dobro. Mesma régua nas duas: verde, amarelo em 150k, vermelho com /compact em 300k.
+const temPayload = !!input.context_window;
+const segCtx = (rotulo, tok) => {
+  const col = tok < 150_000 ? C.green : tok < 300_000 ? C.yellow : C.red;
+  const dica = tok >= 300_000 ? ' /compact' : '';
+  return ` ${C.dim}·${C.reset} ${col}${rotulo}:${Math.round(tok / 1000)}k${dica}${C.reset}`;
+};
 let ctxSeg = '';
-const usage = (input.context_window && input.context_window.current_usage) || {};
+const usage = (temPayload && input.context_window.current_usage) || {};
 const totalInput = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
-if (totalInput > 0) {
-  const col = totalInput < 150_000 ? C.green : totalInput < 300_000 ? C.yellow : C.red;
-  ctxSeg = ` ${C.dim}·${C.reset} ${col}ctx:${Math.round(totalInput / 1000)}k${C.reset}`;
-}
+if (totalInput > 0) ctxSeg = segCtx('ctx', totalInput);
 
 // Os últimos 256 KB do transcript, que passa de 100 MB em sessão longa e é lido a cada turno.
 // "" sem transcript ou sem permissão: a barra não pode quebrar por isto.
@@ -144,14 +149,13 @@ const lerRabo = (tp) => {
 };
 const rabo = lerRabo(input.transcript_path);
 
-// Tamanho da SESSÃO pela régua do hook session-size-guard: input + cache_read +
-// cache_creation do último usage de assistente fora de sidechain. Com o advisor, o usage de
-// cima soma as iterações; vale a última "message" ou "fallback_message". Usage zerado
-// (<synthetic>) não é turno, e compact_boundary depois do último usage zera até o próximo.
-// O aviso do hook rola para fora da tela; aqui o número fica à vista. Contar linhas do
-// transcript, como antes, mandava /compact depois do /compact: o transcript só cresce.
-let sesSeg = '';
-{
+// Fallback da `ctx:` sem context_window no payload: o contexto do último turno no transcript,
+// como o hook session-size-guard mede — input + cache_read + cache_creation do último usage
+// de assistente fora de sidechain. Com o advisor, o usage de cima soma as iterações; vale a
+// última "message" ou "fallback_message". Usage zerado (<synthetic>) não é turno, e
+// compact_boundary depois do último usage zera até o próximo. Contar linhas do transcript
+// mandava /compact depois do /compact: o transcript só cresce.
+if (!temPayload) {
   const n = (v) => Number(v) || 0;
   let ctx = 0;
   for (const linha of rabo.split('\n')) {
@@ -169,12 +173,7 @@ let sesSeg = '';
     const t = n(u.input_tokens) + n(u.cache_read_input_tokens) + n(u.cache_creation_input_tokens);
     if (t > 0) ctx = t;
   }
-  if (ctx >= 150_000) {
-    const col = ctx >= 400_000 ? C.red : ctx >= 300_000 ? C.orange : C.yellow;
-    // 400K+ é a faixa das maratonas: compactar ajuda pouco, o barato é sessão nova.
-    const dica = ctx >= 400_000 ? ' maratona' : ctx >= 300_000 ? ' /compact' : ' sessão nova?';
-    sesSeg = ` ${C.dim}·${C.reset} ${col}ses:${Math.round(ctx / 1000)}k${dica}${C.reset}`;
-  }
+  if (ctx > 0) ctxSeg = segCtx('ses', ctx);
 }
 
 // Tokens/s de saída da ÚLTIMA chamada de API. O transcript não guarda duração por request;
@@ -233,4 +232,4 @@ try {
   }
 } catch {}
 
-process.stdout.write(`${C.cyan}${currentDir}${C.reset}${modeloSeg}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}${tpsSeg}${sesSeg}`);
+process.stdout.write(`${C.cyan}${currentDir}${C.reset}${modeloSeg}${gitSeg}${aheadBehind}${ghSeg}${ctxSeg}${tpsSeg}`);
