@@ -70,6 +70,9 @@ jobs:
       - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
         run: bash tests/test-git-sync-cleanup.sh
 
+      - name: O cleanup do git-sync prova pela API sem gh e lista a remota sua sem cópia local
+        run: bash tests/test-git-sync-cleanup-sem-gh.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 
@@ -84,6 +87,11 @@ jobs:
 
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
+
+      - name: A limpeza-mac só apaga worktree, branch e build seguros por construção, e sai limpa fora do macOS
+        # Aqui é Ubuntu: o teste põe um `uname` de mentira que responde Darwin, e um que
+        # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
+        run: bash tests/test-limpeza-mac.sh
 
       - name: O aviso de worktree mergeado não acusa branch sem commit nem manda remover worktree sujo
         run: bash tests/test-warn-worktree-stale.sh
@@ -126,6 +134,9 @@ jobs:
 
       - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
+
+      - name: O instrucoes-projeto classifica o par CLAUDE.md/AGENTS.md e só grava o que não pede julgamento
+        run: bash tests/test-instrucoes-projeto.sh
 
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
@@ -202,15 +213,23 @@ jobs:
       - name: A varredura de chaves da auditoria (A4) mostra arquivo:linha, nunca o segredo inteiro
         run: bash tests/test-auditoria-a4-mascara.sh
 
-      - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade
+      - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade, separa FALHOU de AUSENTE e varre a árvore com o gitleaks
         run: bash tests/test-secscan-ferramentas.sh
 
       - name: O gate --diff da baseline sai 3 com base que não resolve e acusa segredo em qualquer commit do range
         # Inclui o segredo que entra só na resolução de um merge (--diff-merges=first-parent).
         run: bash tests/test-collect-diff-base.sh
 
-      - name: A barra mostra o comprimento da sessão e não quebra sem transcript
+      - name: O pilar 02 da baseline diz quais pastas de migration mediu, e os blocos da skill rodam linha a linha
+        run: bash tests/test-baseline-banco.sh
+
+      - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
+
+      - name: Os agentes do plugin têm name, description e effort válido, e revisor e executor rodam em medium
+        # Subagente sem effort herda o da sessão: quem trabalha em max pagava max em todo
+        # revisor e todo lote despachado.
+        run: bash tests/test-agentes-frontmatter.sh
 
       - name: O pressure test isola os dois modos do ambiente de quem roda
         # Sem isolar o --com-skill, um "ok" podia vir de outra skill instalada ou do

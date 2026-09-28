@@ -11,7 +11,8 @@
 #
 # E o bloco rodava `npm run build` quando faltava `dist/`: script do repo auditado executando na
 # máquina de quem audita, gravando fora de docs/security-audit/. Sem build no disco, o bloco não
-# chama npm.
+# chama npm: o build vira pergunta, com o comando pronto e o que ele grava, e o bundle que ficou
+# sem varrer aparece na `cobertura[]` da A4.
 #
 # Porte de volta do formato do kit do time: defaults, role do JWT e binário no bundle.
 # O teste roda o bloco do SKILL.md, sem cópia, contra repos de mentira com segredos falsos
@@ -107,6 +108,13 @@ printf '#!/bin/sh\ntouch "$PWD/NPM_RODOU"\n' > "$TMP/bin/npm"; chmod +x "$TMP/bi
 (cd "$S" && PATH="$TMP/bin:/usr/bin:/bin" bash "$TMP/a4.sh" >/dev/null 2>&1)
 [ ! -e "$S/NPM_RODOU" ] && ok "npm não foi chamado" \
   || falha "o bloco chamou npm no repo auditado (build executa script dele e grava fora de docs/security-audit/)"
+
+echo "== sem build, a A4 pergunta com o comando pronto e declara a cobertura =="
+secao=$(awk '/^## A4 /{a=1; next} a && /^## /{exit} a' "$SKILL")
+tem 'Posso rodar `npm run build`'   "$secao" "o build é pergunta, com o comando pronto"
+tem 'grava `dist/`'                  "$secao" "a pergunta diz o que o build grava"
+tem '`npm ci`'                       "$secao" "sem node_modules, a pergunta cita o npm ci e o que ele roda"
+tem '"categoria": "A4"'              "$secao" "o bundle sem varrer entra na cobertura[] da A4"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

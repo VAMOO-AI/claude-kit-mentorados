@@ -4,7 +4,8 @@
 # Remove worktrees em .claude/worktrees/ cuja branch JÁ FOI MERGEADA (ancestral de
 # origin/main OU squash-merge detectado via `gh pr`), e que estejam LIMPOS (sem
 # mudança não-commitada). Nunca toca: clone principal, branch main/master, worktree
-# sujo, env ignorado diferente do clone principal, branch ou detached sem commit
+# sujo, arquivo ignorado de valor (env diferente do clone principal, repo aninhado, ou
+# qualquer ignorado fora da lista de cache/build), branch ou detached sem commit
 # próprio (sessão recém-aberta), ou o worktree de onde o script roda (use ExitWorktree
 # pra esse).
 #
@@ -12,30 +13,59 @@
 #   worktree-gc.sh            # dry-run (só mostra o que faria) — PADRÃO
 #   worktree-gc.sh --apply    # remove de fato (worktree + branch local mergeada)
 #   worktree-gc.sh --apply --prune-remote   # também deleta a branch remota mergeada
+#   worktree-gc.sh --verificar <caminho>    # um worktree só; não remove nada, mas atualiza
+#       as refs remotas com `git fetch --prune`. As mesmas travas, exit 0 + "pode remover"
+#       ou exit 1 + "keep: <motivos>"; uso errado ou caminho que não é worktree do repo sai 2.
+#       É o que a skill worktrees roda antes do ExitWorktree / git worktree remove (a remoção
+#       continua só com pedido da pessoa). Aqui o worktree atual conta, e "sem commit
+#       próprio" não segura: não há commit a perder.
+#   WORKTREE_GC_SKIP_FETCH=1  pula o fetch — para quem chama em série e já buscou uma vez
+#       por repo (o aplicar.sh da limpeza-mac).
 #
 # Seguro por padrão: dry-run, e só remove o que passa em TODAS as travas.
 set -uo pipefail
 
 APPLY=0
 PRUNE_REMOTE=0
-for arg in "$@"; do
-  case "$arg" in
+VERIFICAR=0; ALVO=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --apply) APPLY=1 ;;
     --prune-remote) PRUNE_REMOTE=1 ;;
+    --verificar)
+      VERIFICAR=1
+      case "${2:-}" in ""|--*) ;; *) ALVO="$2"; shift ;; esac ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "arg desconhecido: $arg" >&2; exit 2 ;;
+    *) echo "arg desconhecido: $1" >&2; exit 2 ;;
   esac
+  shift
 done
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "não é um repo git" >&2; exit 1; }
+if [ "$VERIFICAR" = 1 ]; then
+  [ -n "$ALVO" ] || { echo "uso: worktree-gc.sh --verificar <caminho>" >&2; exit 2; }
+  [ "$APPLY$PRUNE_REMOTE" = 00 ] || { echo "--verificar não remove nada: não combina com --apply/--prune-remote" >&2; exit 2; }
+  ALVO="$(cd "$ALVO" 2>/dev/null && pwd -P)" || { echo "não é worktree deste repo: caminho inexistente" >&2; exit 2; }
+  _top="$(git -C "$ALVO" rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$_top" ] && [ "$(cd "$_top" && pwd -P)" = "$ALVO" ] || { echo "não é worktree (nem raiz de um): $ALVO" >&2; exit 2; }
+  cd "$ALVO" || exit 2
+else
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "não é um repo git" >&2; exit 1; }
+fi
 
 COMMON="$(git rev-parse --git-common-dir 2>/dev/null)"
 COMMON="$(cd "$COMMON" && pwd -P)"
 PRIMARY="$(dirname "$COMMON")"                 # raiz do clone principal (contém .git/)
 SELF="$(git rev-parse --show-toplevel 2>/dev/null && :)"; SELF="$(cd "$SELF" && pwd -P)"
 
-echo "🧹 worktree-gc  (modo: $([ "$APPLY" = 1 ] && echo APLICAR || echo dry-run))"
-git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "  (fetch falhou — seguindo com o que há local)"
+if [ "$VERIFICAR" = 1 ]; then
+  [ "$ALVO" != "$PRIMARY" ] || { echo "é o clone principal, não um worktree: $ALVO" >&2; exit 2; }
+  [ "${WORKTREE_GC_SKIP_FETCH:-0}" = 1 ] \
+    || git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "(fetch falhou — seguindo com o que há local)" >&2
+else
+  echo "🧹 worktree-gc  (modo: $([ "$APPLY" = 1 ] && echo APLICAR || echo dry-run))"
+  [ "${WORKTREE_GC_SKIP_FETCH:-0}" = 1 ] \
+    || git -C "$PRIMARY" fetch --prune --quiet origin 2>/dev/null || echo "  (fetch falhou — seguindo com o que há local)"
+fi
 
 have_gh=0; command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && have_gh=1
 
@@ -76,27 +106,79 @@ sem_commit_proprio() {
   [ -n "$ultimo" ] && [ "$(git -C "$PRIMARY" rev-parse --verify -q "$ultimo^1")" = "$tip" ]
 }
 
-# Env ignorado não aparece no `status` e some junto com o worktree. Até 28/09/2026 só o
-# .env.local da raiz era comparado: .npmrc e .env.local de subpasta sumiam no --apply. Põe
-# em ENV_MOTIVO os .env*, .npmrc, bunfig.toml e .bunfig.toml ignorados (de qualquer pasta)
-# que diferem do clone principal ou só existem no worktree, e os repositórios aninhados
-# ignorados (linha com / no fim), que o remove apagaria com .git e tudo — a mesma trava do
-# git-sync e da regra de descarte da vamoo-worktrees. Fail-closed nos dois.
-env_diverge() {   # <worktree> — 0 = achou algum
-  local wt="$1" f dif="" repo=""
-  while IFS= read -r f; do
-    case "$f" in
-      "") continue ;;
-      */) repo="${repo:+$repo }$f"; continue ;;
-    esac
-    cmp -s "$wt/$f" "$PRIMARY/$f" || dif="${dif:+$dif }$f"
-  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' \
-             ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml' 2>/dev/null)
-  ENV_MOTIVO=""
-  case "$dif" in "") ;; *" "*) ENV_MOTIVO="$dif diferem do clone principal" ;; *) ENV_MOTIVO="$dif difere do clone principal" ;; esac
-  [ -n "$repo" ] && ENV_MOTIVO="${ENV_MOTIVO:+$ENV_MOTIVO; }repo aninhado ignorado: $repo"
-  [ -n "$ENV_MOTIVO" ]
+# Cache e build que qualquer instalação ou build recria. Casa por segmento de caminho, para
+# apps/web/node_modules/ valer igual a node_modules/. Lista fechada: o que não está aqui é
+# trabalho até prova em contrário. Fora de propósito: *.log (log de sessão pode ser a prova
+# de um incidente, e nenhum build o recria) e out/ (ferramenta de render, como o Remotion,
+# grava ali o arquivo final).
+eh_regeneravel() {   # <caminho relativo; diretório termina em />
+  case "/$1" in
+    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
+    */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.mypy_cache/*|*/.ruff_cache/*|*/.venv/*) return 0 ;;  # .venv: só diretório
+    */.DS_Store|*/.vercel/*|*/target/*|*/.gradle/*) return 0 ;;
+    */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo) return 0 ;;
+  esac
+  return 1
 }
+
+# Ignorado não aparece no `status` e o `git worktree remove` sem --force o apaga calado: até
+# 28/09/2026 só env era conferido, e um outputs/video.mp4 sumia com o worktree "limpo". Lista
+# os ignorados no nível em que o padrão casa (`status --ignored=matching`: node_modules/ sai
+# inteiro, sem os pais não ignorados que o `ls-files --directory` mistura) e põe em IGN_MOTIVO:
+#   - env (.env*, .npmrc, bunfig.toml, .bunfig.toml) diferente do clone principal ou só aqui;
+#   - repo aninhado (um .git dentro do ignorado), que o remove apagaria com .git e tudo;
+#   - qualquer outro ignorado que não seja symlink (remover o link não apaga o alvo) nem
+#     cache da lista acima — os primeiros IGN_MAX e a contagem.
+# A mesma trava do git-sync e da "Limpeza no fim" da skill worktrees. Fail-closed.
+IGN_MAX=5
+ignorado_de_valor() {   # <worktree> — 0 = achou algum
+  local wt="$1" e f r dif="" repo="" outros="" n=0
+  while IFS= read -r -d '' e; do
+    case "$e" in '!! '*) f="${e#!! }" ;; *) continue ;; esac
+    [ -L "$wt/${f%/}" ] && continue
+    eh_regeneravel "$f" && continue
+    case "$f" in
+      */) r="$(cd "$wt" && find "${f%/}" -name .git -prune 2>/dev/null | sed 's|\.git$||' | tr '\n' ' ')"
+          r="${r% }"
+          [ -n "$r" ] && { repo="${repo:+$repo }$r"; continue; } ;;
+      *) case "${f##*/}" in
+           .env*|.npmrc|bunfig.toml|.bunfig.toml)
+             cmp -s "$wt/$f" "$PRIMARY/$f" || dif="${dif:+$dif }$f"; continue ;;
+         esac ;;
+    esac
+    n=$((n+1)); [ "$n" -le "$IGN_MAX" ] && outros="${outros:+$outros }$f"
+  done < <(git -C "$wt" status --porcelain -z --ignored=matching --untracked-files=all 2>/dev/null)
+  IGN_MOTIVO=""
+  case "$dif" in "") ;; *" "*) IGN_MOTIVO="$dif diferem do clone principal" ;; *) IGN_MOTIVO="$dif difere do clone principal" ;; esac
+  [ -n "$repo" ] && IGN_MOTIVO="${IGN_MOTIVO:+$IGN_MOTIVO; }repo aninhado ignorado: $repo"
+  if [ "$n" -gt 0 ]; then
+    [ "$n" -gt "$IGN_MAX" ] && outros="$outros (+$((n-IGN_MAX)))"
+    [ "$n" = 1 ] && outros="ignorado que o remove apagaria: $outros" || outros="$n ignorados que o remove apagaria: $outros"
+    IGN_MOTIVO="${IGN_MOTIVO:+$IGN_MOTIVO; }$outros"
+  fi
+  [ -n "$IGN_MOTIVO" ]
+}
+
+# --verificar: as travas do gc para um worktree só, sem remover nada (o fetch lá em cima é a
+# única escrita). Junta todos os motivos.
+if [ "$VERIFICAR" = 1 ]; then
+  motivos=""; add() { motivos="${motivos:+$motivos; }$1"; }
+  branch="$(git -C "$ALVO" symbolic-ref -q --short HEAD 2>/dev/null)"
+  tip="$(git -C "$ALVO" rev-parse --verify -q HEAD 2>/dev/null)"
+  case "$branch" in main|master) add "branch '$branch' (nunca removida)" ;; esac
+  [ -z "$(git -C "$ALVO" status --porcelain 2>/dev/null)" ] || add "SUJO (mudança não-commitada)"
+  ignorado_de_valor "$ALVO" && add "$IGN_MOTIVO"
+  if [ -n "$branch" ]; then
+    case "$branch" in main|master) ;; *)
+      sem_commit_proprio "$tip" "$branch" || is_merged "$branch" || add "branch '$branch' NÃO mergeada" ;;
+    esac
+  else
+    sem_commit_proprio "$tip" || git -C "$ALVO" merge-base --is-ancestor HEAD origin/main 2>/dev/null \
+      || add "detached com commit fora de origin/main"
+  fi
+  if [ -z "$motivos" ]; then echo "pode remover: $ALVO"; exit 0; fi
+  echo "keep: $ALVO — $motivos"; exit 1
+fi
 
 removed=0; kept=0; skipped=0
 # Percorre os worktrees (path + branch) do porcelain.
@@ -121,8 +203,8 @@ while IFS= read -r line; do
         tip="$(git -C "$p" rev-parse --verify -q HEAD 2>/dev/null)"
         if [ "$p" != "$SELF" ] && sem_commit_proprio "$tip"; then
           echo "  ⏭️  $p  → detached sem commit próprio (HEAD na linha da main) — mantido"; skipped=$((skipped+1))
-        elif [ "$p" != "$SELF" ] && env_diverge "$p"; then
-          echo "  ✋ $p  → $ENV_MOTIVO — copie/confira antes; mantido"; kept=$((kept+1))
+        elif [ "$p" != "$SELF" ] && ignorado_de_valor "$p"; then
+          echo "  ✋ $p  → $IGN_MOTIVO — copie/confira antes; mantido"; kept=$((kept+1))
         elif [ "$p" != "$SELF" ] && [ -z "$(git -C "$p" status --porcelain 2>/dev/null)" ] \
            && git -C "$p" merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
           if [ "$APPLY" = 1 ]; then
@@ -147,10 +229,10 @@ while IFS= read -r line; do
       if [ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]; then
         echo "  ✋ $p  → SUJO (mudança não-commitada) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
-      # trava 4.5: env ignorado pelo git (invisível no status) some junto com o worktree —
-      # só remove se cada um for igual ao do clone principal.
-      if env_diverge "$p"; then
-        echo "  ✋ $p  → $ENV_MOTIVO — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
+      # trava 4.5: ignorado pelo git (invisível no status) some junto com o worktree — só
+      # remove se for env igual ao do clone principal, symlink ou cache regenerável.
+      if ignorado_de_valor "$p"; then
+        echo "  ✋ $p  → $IGN_MOTIVO — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
       # trava 5: só se mergeada — e branch sem commit próprio nunca foi mergeada
       if sem_commit_proprio "$(git -C "$PRIMARY" rev-parse --verify -q "refs/heads/$branch")" "$branch"; then

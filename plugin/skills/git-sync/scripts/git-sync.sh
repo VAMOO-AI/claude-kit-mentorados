@@ -7,6 +7,7 @@ set -euo pipefail
 
 STATUS_ONLY=0
 NO_PR=0
+NO_GH=0            # --no-gh ou `git config git-sync.noGh true`: o gh nunca é chamado
 CLEANUP_DRY=0
 CLEANUP_APPLY=0
 DEFAULT_BRANCH=""
@@ -22,6 +23,9 @@ Usage: git-sync.sh [options]
   (default)           fetch --prune, report, ff-only eligible checkouts
   --status-only       fetch + report only (no HEAD moves)
   --no-pr             skip gh pr list
+  --no-gh             nunca chama o gh (PR e prova de merge pela API REST, com o
+                      token que `git config git-sync.tokenVar` nomeia); o mesmo
+                      que `git config git-sync.noGh true` no repo
   --team              force team mode (shared repo: who changed what, PR detail,
                       conflict risk vs origin/default)
   --no-team           force team mode off (default is auto-detect: >=2 authors
@@ -30,10 +34,12 @@ Usage: git-sync.sh [options]
   --voltar-main       no fim, devolve o checkout deste clone à branch default
                       (ff-only; aborta em dirty, detached, rebase/merge em
                       andamento, worktree locked ou default divergente)
-  --cleanup-dry-run   list gone branches / removable worktree candidates
-  --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged
-                      confirmado no gh) + remove worktrees clean e mergeados
-                      (nunca --force; lock de sessão morta é destravado)
+  --cleanup-dry-run   list gone branches / removable worktree candidates /
+                      remote-only branches of yours (prints the delete command)
+  --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged e
+                      head == tip, pelo gh ou pela API) + remove worktrees clean,
+                      mergeados e sem ignorado de valor (nunca --force; lock de
+                      sessão morta é destravado). Remoto nunca é apagado.
   --default-branch B  override default branch (else origin/HEAD, main, master)
   --cwd PATH          run from PATH
   -h, --help          this help
@@ -44,6 +50,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --status-only) STATUS_ONLY=1; shift ;;
     --no-pr) NO_PR=1; shift ;;
+    --no-gh) NO_GH=1; shift ;;
     --team) TEAM=1; shift ;;
     --no-team) TEAM=0; shift ;;
     --voltar-main) VOLTAR_MAIN=1; shift ;;
@@ -73,6 +80,7 @@ if [[ "$COMMON" != /* ]]; then
   COMMON="$ROOT/$COMMON"
 fi
 COMMON="$(cd "$COMMON" && pwd)"
+[[ "$(git config --get --type=bool git-sync.noGh 2>/dev/null || true)" == "true" ]] && NO_GH=1
 
 hr() { printf '%s\n' "------------------------------------------------------------"; }
 
@@ -176,23 +184,60 @@ sem_commit_proprio() {   # <tip> [branch]
   [[ -n "$ultimo" && "$(git rev-parse --verify -q "$ultimo^1")" == "$tip" ]]
 }
 
-# Env ignorado não aparece no `status --porcelain`, e o `git worktree remove` sem --force o
-# apaga sem recusar: um .env.local editado na sessão sumia com o worktree "limpo". Põe em
-# ENV_DIF os .env*, .npmrc, bunfig.toml e .bunfig.toml ignorados (de qualquer pasta) que
-# diferem do clone principal ou só existem no worktree, e em ENV_REPO os repositórios
-# aninhados ignorados (linha com / no fim), que o remove apagaria com .git e tudo — a trava
-# da "Limpeza no fim" da skill worktrees e do plugin/scripts/worktree-gc.sh. Fail-closed
-# nos dois.
-env_diverge() {   # <worktree> — 0 = achou algum
-  local wt="$1" f
-  ENV_DIF=""; ENV_REPO=""
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    if [[ "$f" == */ ]]; then ENV_REPO="${ENV_REPO:+$ENV_REPO }$f"; continue; fi
-    cmp -s "$wt/$f" "$MAIN_WT/$f" || ENV_DIF="${ENV_DIF:+$ENV_DIF }$f"
-  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' \
-             ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml' 2>/dev/null)
-  [[ -n "$ENV_DIF$ENV_REPO" ]]
+# Cache e build que qualquer instalação ou build recria. Casa por segmento de caminho, para
+# apps/web/node_modules/ valer igual a node_modules/. Lista fechada: o que não está aqui é
+# trabalho até prova em contrário. Fora de propósito: *.log (log de sessão pode ser a prova
+# de um incidente, e nenhum build o recria) e out/ (ferramenta de render, como o Remotion,
+# grava ali o arquivo final). A mesma lista do plugin/scripts/worktree-gc.sh.
+eh_regeneravel() {   # <caminho relativo; diretório termina em />
+  case "/$1" in
+    */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
+    */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.mypy_cache/*|*/.ruff_cache/*|*/.venv/*) return 0 ;;  # .venv: só diretório
+    */.DS_Store|*/.vercel/*|*/target/*|*/.gradle/*) return 0 ;;
+    */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo) return 0 ;;
+  esac
+  return 1
+}
+
+# Ignorado não aparece no `status --porcelain`, e o `git worktree remove` sem --force o apaga
+# sem recusar: até 28/09/2026 só env era conferido, e um outputs/video.mp4 sumia com o
+# worktree "limpo". Lista os ignorados no nível em que o padrão casa (`--ignored=matching`:
+# node_modules/ sai inteiro, sem os pais não ignorados que o `ls-files --directory` mistura):
+#   - ENV_DIF: .env*, .npmrc, bunfig.toml e .bunfig.toml que diferem do clone principal ou
+#     só existem no worktree;
+#   - ENV_REPO: repositórios aninhados (um .git dentro do ignorado), que o remove apagaria
+#     com .git e tudo;
+#   - IGN_OUTROS: qualquer outro ignorado que não seja symlink (remover o link não apaga o
+#     alvo) nem cache da lista acima — os primeiros IGN_MAX e a contagem.
+# A trava da "Limpeza no fim" da skill worktrees e do plugin/scripts/worktree-gc.sh.
+# Fail-closed.
+IGN_MAX=5
+ignorado_de_valor() {   # <worktree> — 0 = achou algum
+  local wt="$1" e f r n=0
+  ENV_DIF=""; ENV_REPO=""; IGN_OUTROS=""
+  while IFS= read -r -d '' e; do
+    [[ "$e" == '!! '* ]] || continue
+    f="${e#!! }"
+    [[ -L "$wt/${f%/}" ]] && continue
+    eh_regeneravel "$f" && continue
+    if [[ "$f" == */ ]]; then
+      r="$(cd "$wt" && find "${f%/}" -name .git -prune 2>/dev/null | sed 's|\.git$||' | tr '\n' ' ')"
+      r="${r% }"
+      if [[ -n "$r" ]]; then ENV_REPO="${ENV_REPO:+$ENV_REPO }$r"; continue; fi
+    else
+      case "${f##*/}" in
+        .env*|.npmrc|bunfig.toml|.bunfig.toml)
+          cmp -s "$wt/$f" "$MAIN_WT/$f" || ENV_DIF="${ENV_DIF:+$ENV_DIF }$f"; continue ;;
+      esac
+    fi
+    n=$((n+1)); [[ "$n" -le "$IGN_MAX" ]] && IGN_OUTROS="${IGN_OUTROS:+$IGN_OUTROS }$f"
+  done < <(git -C "$wt" status --porcelain -z --ignored=matching --untracked-files=all 2>/dev/null)
+  if [[ "$n" -gt 0 ]]; then
+    [[ "$n" -gt "$IGN_MAX" ]] && IGN_OUTROS="$IGN_OUTROS (+$((n-IGN_MAX)))"
+    if [[ "$n" -eq 1 ]]; then IGN_OUTROS="ignorado que o remove apagaria: $IGN_OUTROS"
+    else IGN_OUTROS="$n ignorados que o remove apagaria: $IGN_OUTROS"; fi
+  fi
+  [[ -n "$ENV_DIF$ENV_REPO$IGN_OUTROS" ]]
 }
 
 UPDATED=()
@@ -405,6 +450,7 @@ GH_CONTA_RESOLVIDA=0
 resolver_conta_gh() {
   [[ "$GH_CONTA_RESOLVIDA" -eq 1 ]] && return 0
   GH_CONTA_RESOLVIDA=1
+  [[ "$NO_GH" -eq 1 ]] && return 0
   if command -v gh >/dev/null 2>&1 \
      && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
     _status="$(gh auth status 2>&1 || true)"
@@ -433,6 +479,100 @@ resolver_conta_gh() {
   fi
   return 0
 }
+# A prova tem dois caminhos: o gh e, onde ele não pode rodar (o AGENTS.md do repo proíbe) ou
+# não enxerga o repo, a API REST do GitHub. Sem nenhum dos dois, branches com PR mergeado e
+# head == tip saem "sem prova", um worktree com lock de pid morto fica "keep" e a limpeza
+# tem de ser provada à mão, PR a PR.
+#
+# O token da API vem da variável que `git config git-sync.tokenVar` nomeia — do ambiente ou,
+# lida só a linha dela, de ~/.claude/.env.tokens (GIT_SYNC_TOKENS_FILE) —, senão de
+# GH_TOKEN/GITHUB_TOKEN. Nunca é impresso e vai ao curl pelo stdin: em argv apareceria no ps.
+# `git config git-sync.repo dono/nome` sobrepõe o slug tirado do origin.
+REST_SLUG="$(git config --get git-sync.repo 2>/dev/null || true)"
+[[ -n "$REST_SLUG" ]] || REST_SLUG="$(git remote get-url origin 2>/dev/null \
+  | sed -nE 's#^.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//' || true)"
+rest_token() {
+  local var tok="" f
+  var="$(git config --get git-sync.tokenVar 2>/dev/null || true)"
+  if [[ -n "$var" && "$var" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    tok="${!var:-}"
+    f="${GIT_SYNC_TOKENS_FILE:-$HOME/.claude/.env.tokens}"
+    if [[ -z "$tok" && -r "$f" ]]; then
+      tok="$(sed -n -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=[\"']?([^\"'[:space:]#]+).*/\2/p" "$f" | head -1)"
+    fi
+  fi
+  [[ -n "$tok" ]] || tok="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  printf '%s' "$tok"
+}
+JSON_TOOL=""
+if command -v jq >/dev/null 2>&1; then JSON_TOOL=jq
+elif command -v python3 >/dev/null 2>&1; then JSON_TOOL=python3
+fi
+REST_OK=0
+if command -v curl >/dev/null 2>&1 && [[ -n "$REST_SLUG" && -n "$JSON_TOOL" && -n "$(rest_token)" ]]; then
+  REST_OK=1
+fi
+rest_get() {   # <caminho> [chave=valor ...] — corpo JSON no stdout; falha = status != 0
+  local p="$1" a; shift
+  local args=()
+  for a in "$@"; do args+=(--data-urlencode "$a"); done
+  printf 'Authorization: Bearer %s\nAccept: application/vnd.github+json\n' "$(rest_token)" \
+    | curl -fsS -G -H @- ${args[@]+"${args[@]}"} "https://api.github.com/repos/$REST_SLUG/$p" 2>/dev/null
+}
+# Resposta que não é lista (erro, credencial ruim) não vira "sem PR": sai vazio com status 1.
+json_pr_mergeado() {   # stdin: lista de pulls → "número<TAB>head.sha" do primeiro mergeado
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er 'if type=="array" then ([.[]|select(.merged_at!=null)][0] // {}) | "\(.number // "")\t\(.head.sha // "")" else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+m=[p for p in d if p.get("merged_at")]
+print("%s\t%s"%(m[0]["number"],m[0]["head"]["sha"]) if m else "\t")' 2>/dev/null
+  fi
+}
+json_prs_abertos() {   # stdin: lista de pulls → "  #n título (branch, autor)"
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er 'if type=="array" then (if length==0 then "  (nenhum PR aberto)" else .[] | "  #\(.number) \(.title) (\(.head.ref), \(.user.login))" end) else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+print("\n".join("  #%s %s (%s, %s)"%(p["number"],p["title"],p["head"]["ref"],p["user"]["login"]) for p in d) or "  (nenhum PR aberto)")' 2>/dev/null
+  fi
+}
+
+# gh | rest | none. A sondagem do gh (`gh repo view`) é rede: só roda quando a prova é
+# pedida, e uma vez. Chame no shell de cima, nunca dentro de $(…) — o subshell perderia o valor.
+PR_BACKEND=""
+detectar_backend_pr() {
+  [[ -n "$PR_BACKEND" ]] && return 0
+  PR_BACKEND=none
+  if [[ "$NO_GH" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
+    resolver_conta_gh
+    gh repo view --json name >/dev/null 2>&1 && { PR_BACKEND=gh; return 0; }
+  fi
+  [[ "$REST_OK" -eq 1 ]] && PR_BACKEND=rest
+  return 0
+}
+
+# PR mergeado com esta head → "número<TAB>headRefOid"; "<TAB>" quando o backend respondeu
+# e não há; status 1 quando não há como perguntar ou a consulta falhou.
+pr_mergeado_consulta() {   # <branch>
+  local b="$1" line
+  case "$PR_BACKEND" in
+    gh)
+      line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
+           --jq '.[0] | "\(.number // "")\t\(.headRefOid // "")"' 2>/dev/null)" || return 1
+      # gh que ignore o template (fake de teste, versão antiga) devolve "número sha"
+      [[ "$line" != *$'\t'* && "$line" == *" "* ]] && line="${line/ /$'\t'}"
+      printf '%s' "${line:-$'\t'}" ;;
+    rest)
+      rest_get pulls state=closed "head=${REST_SLUG%%/*}:$b" per_page=10 | json_pr_mergeado || return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
 if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; fi
 
 # Varredura de TODAS as branches locais (inclusive as não checkoutadas em worktree).
@@ -446,17 +586,13 @@ if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; f
 # (PR mergeado cuja head bate com o tip), com consulta própria: o cache daquele decide
 # -D e não deve servir a um aviso. Só dispara nesse ramo, uma vez por branch.
 #
-# Devolve no stdout: "<numero-do-PR>" quando provado; "" quando o gh respondeu e não há
-# PR; "?" quando não há gh que enxergue o repo. Vazio e "?" são coisas diferentes — o
-# terceiro não autoriza afirmar nem que foi nem que não foi.
+# Devolve no stdout: "<numero-do-PR>" quando provado; "" quando o backend (gh ou API)
+# respondeu e não há PR; "?" quando não há como perguntar. Vazio e "?" são coisas
+# diferentes — o terceiro não autoriza afirmar nem que foi nem que não foi.
 pr_merged_desta_head() {   # <branch> <tip>
   local b="$1" tip="$2" line n oid
-  command -v gh >/dev/null 2>&1 || { printf '?'; return; }
-  gh repo view --json name >/dev/null 2>&1 || { printf '?'; return; }
-  line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
-       --jq '.[0] | "\(.number // "") \(.headRefOid // "")"' 2>/dev/null || true)"
-  n="${line%% *}"; oid=""
-  [[ "$line" == *" "* ]] && oid="${line#* }"
+  line="$(pr_mergeado_consulta "$b")" || { printf '?'; return; }
+  n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
   # head vazia nunca prova nada (gh antigo, API sem o campo); tip diferente = continuou
   # commitando depois do merge, e aí o trabalho novo de fato não subiu.
   if [[ -n "$n" && -n "$oid" && "$oid" == "$tip" ]]; then printf '%s' "$n"; else printf ''; fi
@@ -473,12 +609,12 @@ while IFS='|' read -r lb lup ltrack; do
       lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
         # Com --no-pr a conta não foi resolvida lá em cima; a prova precisa dela.
-        resolver_conta_gh
+        resolver_conta_gh; detectar_backend_pr
         _pr="$(pr_merged_desta_head "$lb" "$(git rev-parse "refs/heads/$lb" 2>/dev/null || true)")"
         if [[ -n "$_pr" && "$_pr" != "?" ]]; then
           WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $ORIGIN_DEFAULT pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
         elif [[ "$_pr" == "?" ]]; then
-          WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s), sem upstream e sem origin/$lb. Sem gh que enxergue o repo não dá para saber se já mergeou — squash apaga a remota e deixa este mesmo estado. Confira o PR antes de pushar.")
+          WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s), sem upstream e sem origin/$lb. Sem gh nem token da API que enxerguem o repo não dá para saber se já mergeou — squash apaga a remota e deixa este mesmo estado. Confira o PR antes de pushar.")
         else
           WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s) e NUNCA foi ao GitHub (nenhum PR mergeado com esta head) — publique: git push -u origin $lb")
         fi
@@ -661,7 +797,18 @@ else
 fi
 hr
 
-if [[ "$NO_PR" -eq 0 ]]; then
+if [[ "$NO_PR" -eq 0 ]] && { [[ "$NO_GH" -eq 1 ]] || ! command -v gh >/dev/null 2>&1; }; then
+  echo "### PRs abertos (API do GitHub)"
+  if [[ "$REST_OK" -eq 1 ]]; then
+    rest_get pulls state=open per_page=30 | json_prs_abertos \
+      || echo "  (a API recusou a consulta — confira o token de 'git config git-sync.tokenVar' e o slug $REST_SLUG)"
+  elif [[ "$NO_GH" -eq 1 ]]; then
+    echo "  (--no-gh e sem token da API — 'git config git-sync.tokenVar <VAR>' com a VAR em ~/.claude/.env.tokens)"
+  else
+    echo "  (gh não instalado — sem visibilidade de PR. Instale: brew install gh && gh auth login; ou 'git config git-sync.tokenVar <VAR>' para a API)"
+  fi
+  hr
+elif [[ "$NO_PR" -eq 0 ]]; then
   echo "### PRs abertos (gh)"
   [[ -n "$GH_CONTA_NOTA" ]] && echo "$GH_CONTA_NOTA"
   if command -v gh >/dev/null 2>&1; then
@@ -694,7 +841,7 @@ if [[ "$TEAM" -eq 1 ]]; then
   ME_NAME="$(git config user.name 2>/dev/null || echo '?')"
   ME_MAIL="$(git config user.email 2>/dev/null || echo '?')"
   GH_LOGIN=""
-  if command -v gh >/dev/null 2>&1; then
+  if [[ "$NO_GH" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
     GH_LOGIN="$(gh api user -q .login 2>/dev/null || true)"
   fi
   echo "eu:       $ME_NAME <$ME_MAIL>${GH_LOGIN:+ | gh: $GH_LOGIN}"
@@ -731,7 +878,7 @@ if [[ "$TEAM" -eq 1 ]]; then
   if [[ -n "$ACTIVE_BR" ]]; then printf '%s\n' "$ACTIVE_BR"; else echo "  (nenhuma)"; fi
   echo
 
-  if [[ "$NO_PR" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
+  if [[ "$NO_PR" -eq 0 && "$NO_GH" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
     echo "--- PRs mergeados nos últimos ${TEAM_SINCE_DAYS}d (explicam por que a $DEFAULT_BRANCH mudou) ---"
     MERGED_JQ=".[] | select((.mergedAt // \"\") != \"\") | select((.mergedAt|fromdateiso8601) >= ${CUTOFF:-0}) | \"  #\(.number) \(.title) — \(.author.login) | \(.headRefName) | merged \(.mergedAt[0:10])\""
     if MERGED_OUT="$(gh pr list --state merged --limit 30 \
@@ -788,11 +935,8 @@ merged_pr_lookup() {
   local b="$1" hit line="" n="" oid=""
   hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3; found=1; exit} END{if(!found) exit 1}' \
          "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
-  if [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
-    line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
-         --jq '.[0] | "\(.number // "") \(.headRefOid // "")"' 2>/dev/null || true)"
-    n="${line%% *}"
-    [[ "$line" == *" "* ]] && oid="${line#* }"
+  if [[ "$GH_CLEANUP_OK" -eq 1 ]] && line="$(pr_mergeado_consulta "$b")"; then
+    n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
   fi
   printf '%s\t%s\t%s\n' "$b" "$n" "$oid" >> "$MERGED_PR_CACHE"
   printf '%s\t%s' "$n" "$oid"
@@ -801,9 +945,9 @@ merged_pr_num() { merged_pr_lookup "$1" | cut -f1; }
 merged_pr_oid() { merged_pr_lookup "$1" | cut -f2; }
 
 GH_CLEANUP_OK=0
-if [[ "$CLEANUP_DRY" -eq 1 ]] && command -v gh >/dev/null 2>&1 \
-   && gh repo view --json name >/dev/null 2>&1; then
-  GH_CLEANUP_OK=1
+if [[ "$CLEANUP_DRY" -eq 1 ]]; then
+  detectar_backend_pr
+  [[ "$PR_BACKEND" != none ]] && GH_CLEANUP_OK=1
 fi
 
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
@@ -837,7 +981,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
         else
-          echo "  $b — (gh indisponível: sem prova, será só skipada)"
+          echo "  $b — (sem prova de PR — nem gh nem token da API: será só skipada)"
         fi
       fi
     done
@@ -875,8 +1019,42 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
     done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads)
     [[ "$_listadas" -eq 0 ]] && echo "  (none)"
   else
-    echo "  (gh indisponível — sem prova de PR, nada a listar)"
+    echo "  (sem prova de PR — nem gh nem token da API: nada a listar)"
   fi
+
+  # Branch que só existe no remoto — a local foi apagada, o remoto sobreviveu ao merge — não
+  # tinha seção, e uma dessas, com os commits já no squash, só aparecia numa auditoria manual.
+  # "Sua" é nome + e-mail do autor iguais aos do clone: dois autores podem commitar com o
+  # mesmo e-mail. Só lista — apagar remoto é decisão da pessoa, então sai o comando, nunca a
+  # execução.
+  echo "--- branches remotas suas sem cópia local ---"
+  _eu="$(git config user.name 2>/dev/null || true) <$(git config user.email 2>/dev/null || true)>"
+  _listadas=0
+  while IFS= read -r rb; do
+    b="${rb#origin/}"
+    [[ -z "$b" || "$rb" == "origin" || "$b" == "HEAD" || "$b" == "$DEFAULT_BRANCH" ]] && continue
+    git show-ref --verify --quiet "refs/heads/$b" && continue
+    _autores="$(git log --no-merges --format='%an <%ae>' "$ORIGIN_DEFAULT..$rb" 2>/dev/null | sort -u)"
+    [[ -n "$_autores" ]] || _autores="$(git log -1 --format='%an <%ae>' "$rb" 2>/dev/null)"
+    [[ "$_autores" == "$_eu" ]] || continue
+    _listadas=1
+    _tip="$(git rev-parse "$rb" 2>/dev/null || true)"
+    if git merge-base --is-ancestor "$rb" "$ORIGIN_DEFAULT" 2>/dev/null; then
+      echo "  $b — já contida em $ORIGIN_DEFAULT → git push origin --delete $b"
+    elif [[ "$GH_CLEANUP_OK" -ne 1 ]]; then
+      echo "  $b — (sem prova de PR — nem gh nem token da API)"
+    else
+      _pr="$(merged_pr_num "$b")"; _oid="$(merged_pr_oid "$b")"
+      if [[ -n "$_pr" && -n "$_oid" && "$_oid" == "$_tip" ]]; then
+        echo "  $b — PR #$_pr merged, head == tip → git push origin --delete $b"
+      elif [[ -n "$_pr" ]]; then
+        echo "  $b — ! PR #$_pr merged, mas a remota avançou depois do head do PR: preservada"
+      else
+        echo "  $b — ! sem PR merged (aberto, fechado ou nunca aberto): confira antes de apagar"
+      fi
+    fi
+  done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin)
+  [[ "$_listadas" -eq 0 ]] && echo "  (none)"
 
   echo "--- worktrees candidatos a remoção (clean + merged em $ORIGIN_DEFAULT + não locked) ---"
   WT_REMOVE=()
@@ -894,12 +1072,13 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="locked (sessão viva)"
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
-      elif env_diverge "$wt"; then
+      elif ignorado_de_valor "$wt"; then
         if [[ -n "$ENV_DIF" ]]; then
           [[ "$ENV_DIF" == *" "* ]] && _v=diferem || _v=difere
           reason="$ENV_DIF $_v do clone principal (env ignorado: o remove o apagaria)"
         fi
         [[ -n "$ENV_REPO" ]] && reason="${reason:+$reason; }repo aninhado ignorado: $ENV_REPO (o remove o apagaria)"
+        [[ -n "$IGN_OUTROS" ]] && reason="${reason:+$reason; }$IGN_OUTROS"
       elif sem_commit_proprio "$(git -C "$wt" rev-parse --verify -q HEAD 2>/dev/null)" "$wt_branch"; then
         reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
@@ -916,7 +1095,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
         else
-          reason="não mergeado em $ORIGIN_DEFAULT (gh indisponível — sem prova de PR)"
+          reason="não mergeado em $ORIGIN_DEFAULT (sem prova de PR — nem gh nem token da API)"
         fi
       fi
       if [[ -z "$reason" ]]; then
@@ -987,7 +1166,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
         else
-          echo "  skip $b (gh indisponível — sem prova de merge, não deleto no escuro)"
+          echo "  skip $b (sem prova de merge — nem gh nem token da API; não deleto no escuro)"
         fi
       done
     fi
@@ -1017,6 +1196,13 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
 fi
 
 echo "### summary"
+if [[ "$CLEANUP_DRY" -eq 0 ]]; then
+  _nb="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -cvxF "$DEFAULT_BRANCH" || true)"
+  _nw=$(( ${#WT_PATHS[@]} - 1 ))
+  if [[ "${_nb:-0}" -gt 0 || "$_nw" -gt 0 ]]; then
+    echo "cleanup: ${_nb:-0} branch(es) local(is) além da $DEFAULT_BRANCH e $_nw worktree(s) — rode --cleanup-dry-run para ver o que já mergeou"
+  fi
+fi
 echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA"
 echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} avisos=${#WARNINGS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
 echo "voltar_main=$VOLTAR_MAIN retorno=$RETURN_ACTION"

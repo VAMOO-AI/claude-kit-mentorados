@@ -112,6 +112,8 @@ a pessoa conclui que o setup não pegou e vai debugar um problema que não exist
 Depois de reiniciar, a barra mostra diretório, branch, alterações não salvas,
 à frente/atrás do remoto, `gh✓`, PR aberto e o contexto em número absoluto.
 
+Projeto que já existia, com `CLAUDE.md` ou `AGENTS.md` próprio, migra para o `AGENTS.md` como fonte com `bash "${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh" --check <repo>` (classe e proposta, só lê) e depois `--apply`, que grava só nas classes seguras e mostra o diff antes.
+
 ## Se algo não estiver funcionando
 
 | Sintoma | Causa | Conserto |

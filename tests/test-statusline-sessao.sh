@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# A barra de status mostra o comprimento da sessão a partir de 600 linhas de transcript
-# (faixas 600/1.200/2.000, a régua do session-size-guard até a 0.41; ele agora mede o ctx)
-# e não quebra quando não há transcript. Também cobre o
+# O `ses:` da barra mede a sessão como o session-size-guard: o contexto do último turno no
+# transcript (input + cache_read + cache_creation do último usage, sem sidechain, iteração
+# "message" do advisor, usage zerado ignorado, compact_boundary zera), nas faixas
+# 150K/300K/400K+, e não quebra quando não há transcript. Contar linhas mandava /compact
+# depois do /compact, porque o transcript só cresce. Também cobre o
 # ⚡N t/s da última chamada de API e o aviso de troca de modelo no meio da sessão.
 #
 # A barra é o que a pessoa olha o dia inteiro, e o wrapper esconde erro
@@ -18,20 +20,49 @@ falhas=0
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 ok()    { printf '  ok    %s\n' "$1"; }
 falha() { printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); }
-linhas() { : > "$TMP/tr.jsonl"; local i=0; while [ "$i" -lt "$1" ]; do echo '{}' >> "$TMP/tr.jsonl"; i=$((i+1)); done; }
+# Transcript sintético: cada argumento vira uma linha. uN = usage de N tokens (repartido em
+# input/cache_read/cache_creation), aN:M = advisor (usage de cima N, iteração message M),
+# sN = sidechain com N, z = usage zerado, c = compact_boundary, pN = N linhas '{}' de enchimento.
+tr() { ARGS="$*" node -e '
+const L = [];
+const us = (n) => ({ input_tokens: 1000, cache_read_input_tokens: n - 3000, cache_creation_input_tokens: 2000, output_tokens: 10 });
+for (const a of process.env.ARGS.split(" ")) {
+  const n = +a.slice(1).split(":")[0];
+  if (a[0] === "u") L.push({ type: "assistant", message: { usage: us(n) } });
+  else if (a[0] === "a") {
+    const m = +a.split(":")[1];
+    L.push({ type: "assistant", message: { usage: { ...us(n), iterations: [{ type: "message", ...us(m) }, { type: "advisor_message", ...us(n - m) }] } } });
+  }
+  else if (a[0] === "s") L.push({ type: "assistant", isSidechain: true, message: { usage: us(n) } });
+  else if (a[0] === "z") L.push({ type: "assistant", message: { model: "<synthetic>", usage: { input_tokens: 0, output_tokens: 0 } } });
+  else if (a[0] === "c") L.push({ type: "system", subtype: "compact_boundary" });
+  else if (a[0] === "p") for (let i = 0; i < n; i++) L.push({});
+}
+process.stdout.write(L.map((x) => JSON.stringify(x)).join("\n") + "\n");' > "$TMP/tr.jsonl"; }
 render() { TP="${1:-}" node -e 'process.stdout.write(JSON.stringify({transcript_path:process.env.TP||undefined,workspace:{current_dir:process.env.HOME},context_window:{current_usage:{input_tokens:1000}}}))' \
     | node "$SL" 2>>"$TMP/err" | sed 's/\x1b\[[0-9;]*m//g'; }
 
-linhas 100; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:' && falha "apareceu abaixo da primeira faixa: $s" || ok "100 linhas: sem indicador"
+tr p100 u100000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:' && falha "apareceu abaixo de 150K: $s" || ok "100K: sem indicador"
 printf '%s' "$s" | grep -q 'ctx:' && ok "o resto da barra continua saindo" || falha "barra vazia: $s"
 
-linhas 700;  s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:700 sessão nova?' && ok "700 linhas: contagem + sessão nova?" || falha "faixa 600 errada: $s"
-linhas 1300; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:1.3k /compact' && ok "1.300 linhas: abreviado + /compact" || falha "faixa 1.200 errada: $s"
-linhas 2500; s="$(render "$TMP/tr.jsonl")"
-printf '%s' "$s" | grep -q 'ses:2.5k maratona' && ok "2.500 linhas: faixa das maratonas" || falha "faixa 2.000 errada: $s"
+tr u160000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:160k sessão nova?' && ok "160K: tokens + sessão nova?" || falha "faixa 150K errada: $s"
+tr u320000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:320k /compact' && ok "320K em transcript curto: /compact" || falha "faixa 300K errada: $s"
+tr u450000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:450k maratona' && ok "450K: faixa das maratonas" || falha "faixa 400K errada: $s"
+
+tr u350000 p1300 c; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:' && falha "mandou /compact depois do compact: $s" || ok "compact depois do último usage: sem indicador, mesmo com 1.300 linhas"
+tr u350000 c u60000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:' && falha "valor de antes do compact: $s" || ok "turno de 60K depois do compact: sem indicador"
+tr a340000:170000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:170k' && ok "advisor: vale a iteração message (170k), não a soma" || falha "advisor contou a soma: $s"
+tr u200000 s500000; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:200k' && ok "sidechain depois não entra" || falha "sidechain contou: $s"
+tr u320000 z; s="$(render "$TMP/tr.jsonl")"
+printf '%s' "$s" | grep -q 'ses:320k' && ok "usage zerado no fim: vale o anterior" || falha "usage zerado apagou a medida: $s"
 
 s="$(render "$TMP/nao-existe.jsonl")"
 printf '%s' "$s" | grep -q 'ctx:' && ok "transcript inexistente: barra normal" || falha "quebrou sem transcript: $s"

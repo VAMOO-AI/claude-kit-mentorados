@@ -366,10 +366,8 @@ grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
   | sed -E -e "s/(['\"])[^'\"]{1,12}$/\1…/" -e "s/(['\"][^'\"]{4})[^'\"]{9,}$/\1…/"
 # 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser).
-#    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto.
-#    Sem build no disco, não rode o build: ele executa script do repo auditado e
-#    grava fora de docs/security-audit/. Peça o build a quem é dono do repo, ou leia
-#    os .js que o domínio serve (leitura em produção pode).
+#    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto. Sem build
+#    no disco, não rode um: ver abaixo.
 grep -arnoE "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null \
   | python3 -c '
 import base64, json, sys
@@ -386,6 +384,17 @@ for l in sys.stdin:
 
 JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
 banco inteiro por cima da RLS.
+
+**Sem build no disco, o build é pergunta, não passo da auditoria.** `npm run build`
+executa o script de build do repo auditado, que esta auditoria trata como código não
+confiável, e grava `dist/` (ou `.next/`) fora de `docs/security-audit/`. Pergunte com o
+comando pronto e o que ele faz: *"Não há build no disco, então o bundle ficou sem varrer.
+Posso rodar `npm run build` aqui? Ele executa o script de build do repo e grava `dist/` na
+pasta do projeto; sem `node_modules/`, precisa antes de `npm ci`, que baixa as dependências
+e roda os scripts de instalação delas."* Sem o ok, a alternativa read-only é ler os `.js`
+que o domínio serve (ler produção pode). Sem nenhum dos dois, a `cobertura[]` diz que o
+bundle ficou de fora:
+`{ "categoria": "A4", "estado": "parcial", "medido": "bundle não varrido: sem build no disco e sem ok para o build" }`.
 
 **Default público é achado, mesmo com a variável sobrescrita em produção hoje.**
 `${JWT_SECRET:-supersecret}` é um segredo real esperando um deploy distraído. O
