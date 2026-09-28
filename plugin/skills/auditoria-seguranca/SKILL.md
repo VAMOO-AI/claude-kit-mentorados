@@ -351,18 +351,22 @@ fresco vai reler.
 
 ## A4 — Chaves expostas
 
-Quatro superfícies, e a quarta é a que quase ninguém varre:
+Quatro superfícies, e a quarta é a que quase ninguém varre. Nas duas últimas o valor
+sai mascarado (arquivo:linha e os 6 primeiros caracteres): o que o comando imprime
+entra na conversa, e dali no relatório e na issue. Para julgar, abra o `arquivo:linha`.
 
 ```bash
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico
 grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null  # defaults
-grep -rnE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
-  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules
+grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
+  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
+  | sed -E "s/(['\"][^'\"]{6})[^'\"]*$/\1…/"
 # 4. o bundle publicado (o segredo que "só existe no servidor" e foi pro browser).
 #    Sem build no disco, não rode o build: ele executa script do repo auditado e
 #    grava fora de docs/security-audit/. Peça o build a quem é dono do repo, ou leia
 #    os .js que o domínio serve (leitura em produção pode).
-grep -rEo "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null | sort -u
+grep -rnoE "(sk-[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,})" dist/ .next/static/ 2>/dev/null \
+  | sed -E 's/^([^:]*:[0-9]+:.{6}).*/\1…/' | sort | uniq -c
 ```
 
 **Default público é achado, mesmo com a variável sobrescrita em produção hoje.**
