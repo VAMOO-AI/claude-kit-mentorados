@@ -204,6 +204,12 @@ jobs:
         # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
         run: bash tests/test-skill-sem-injecao.sh
 
+      - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
+        # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
+        # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo
+        # em tests/lint-instrucoes.allow; entrada órfã reprova.
+        run: bash tests/test-lint-instrucoes.sh
+
       - name: O índice de memória em dois níveis respeita cap e ordem sem perder linha
         run: bash tests/test-memoria-indice.sh
 
