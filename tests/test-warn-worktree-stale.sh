@@ -14,9 +14,10 @@
 # Na 0.42.0 o aviso deixou de dar ordem ("Remova", "Volte pra main") e passou a pedir que o
 # Claude ofereça: quem decide apagar ou trocar de branch é o usuário. E o aviso não oferece
 # mais o ExitWorktree direto: a limpeza segue a skill worktrees (prova completa e trava de
-# env ignorado), e o worktree-gc.sh --apply citado remove todos os elegíveis, não só este. O comando de limpeza
-# aponta para o worktree-gc.sh ao lado do hook, porque o setup não instala
-# ~/.claude/scripts/worktree-gc.sh. E o clone principal fora da main só é assunto numa
+# env ignorado). Para vários de uma vez, o aviso ensina o que a seção "Limpeza no fim"
+# ensina: `git-sync --cleanup-dry-run` antes e o `--cleanup-apply` só com o pedido da
+# pessoa. O worktree-gc.sh --apply, que remove todos os elegíveis sem dry-run, saiu do
+# aviso. E o clone principal fora da main só é assunto numa
 # sessão em worktree: quem trabalha numa feat/x direto no clone não usa worktree, e o aviso
 # em todo início de sessão era ruído.
 #
@@ -118,8 +119,6 @@ GH
 chmod +x "$TMP/bin/gh"
 
 run() { CLAUDE_PROJECT_DIR="$WTS/$1" PATH="$TMP/bin:$PATH" bash "$SCRIPT" 2>&1; }
-# O caminho que o aviso manda rodar em `bash "<caminho>" --apply`.
-gc_do_aviso() { printf '%s' "$1" | sed -n "s/.*'bash \"\([^\"]*\)\" --apply'.*/\1/p"; }
 
 echo "== branch sem commit próprio: nada a avisar =="
 calado "nova de origin/main com mudança sem commit (o caso de 24/09)"   "$(run nova-suja)"
@@ -133,12 +132,11 @@ OUT="$(run mergeada)"
 check  "já foi mergeada e está limpo"            "commit próprio em origin/main, limpa: avisa"  "$OUT"
 check  "pedir a limpeza"                         "diz que a pessoa pode pedir a limpeza"        "$OUT"
 check  "skill worktrees"                         "aponta o procedimento da skill worktrees"     "$OUT"
-check  "remove todos os worktrees"               "avisa que o --apply limpa todos os elegíveis" "$OUT"
+check  "cleanup-dry-run.*cleanup-apply"          "dry-run antes do apply, como na skill"        "$OUT"
+check  "cleanup-apply.* só com o pedido"         "o apply só com o pedido da pessoa"            "$OUT"
+refute "worktree-gc|gc\.sh"                      "não cita o worktree-gc"                       "$OUT"
 refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
 refute "ExitWorktree"                            "não oferece ExitWorktree direto, sem a prova" "$OUT"
-gc="$(gc_do_aviso "$OUT")"
-if [ -n "$gc" ] && [ -f "$gc" ]; then printf '  ok    %s\n' "o worktree-gc.sh que o aviso cita existe"
-else printf '  FALHA %s (veio: %s)\n' "o worktree-gc.sh que o aviso cita existe" "${gc:-nada}"; falhas=$((falhas+1)); fi
 OUT="$(run squash)"
 check  "já foi mergeada e está limpo"            "squash com tip == head do PR, limpa: avisa"   "$OUT"
 OUT="$(run mergeada-suja)"

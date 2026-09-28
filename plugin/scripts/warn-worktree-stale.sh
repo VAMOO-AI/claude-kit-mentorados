@@ -8,8 +8,6 @@
 #     quando está tudo ok.
 set -uo pipefail
 
-# Antes do cd: com $0 relativo, o dirname depois dele apontaria para outra pasta.
-AQUI="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$DIR" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
@@ -56,8 +54,7 @@ if [ "$GIT_DIR" != "$COMMON" ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br"
     if [ "${sujos:-0}" -gt 0 ]; then
       echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
     else
-      gc="$AQUI/worktree-gc.sh"
-      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa e trava de env ignorado). 'bash \"$gc\" --apply' remove todos os worktrees elegíveis que ele listar, não só este."
+      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa e trava de env ignorado). Para vários de uma vez, 'git-sync --cleanup-dry-run' primeiro, e o '--cleanup-apply' só com o pedido dele."
     fi
   fi
 fi
