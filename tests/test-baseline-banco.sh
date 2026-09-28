@@ -152,6 +152,55 @@ presas="$(awk '/^```bash/{b=1; next} b && /^```/{b=0} b' "$SKILL" "$BANCO" \
 [ -z "$presas" ] && ok "cada linha se basta" \
   || falha "linha que lê variável definida em outra linha: $(printf '%s' "$presas" | head -3)"
 
+echo "== 02-banco.md: o fallback de tabelas criadas aceita tab e vários espaços =="
+# Com um espaço literal no regex, `create<TAB>table` nem entrava na lista, e
+# `alter table x<TAB>enable row level security` saía "nunca protegida" mesmo protegida.
+repo banco-espacos
+arquivo supabase/migrations/001_alinhada.sql "$(printf 'create\ttable public.aberta_tab (id int);\ncreate   table   if   not   exists   public.aberta_esp (id int);\ncreate table public.tab_tab (id int);\ncreate table public.espacos (id int);\nalter table public.tab_tab\tenable row level security;\nalter   table   public.espacos   enable   row   level   security;')"
+BLOCO="$(awk '/^# tabelas criadas vs tabelas com RLS/{p=1} p{print} p && /^comm /{exit}' "$BANCO")"
+if [ -z "$BLOCO" ]; then
+  falha "não achei no 02-banco.md o bloco '# tabelas criadas vs tabelas com RLS'"
+else
+  SAIDA="$(cd "$R" && bash -c "$BLOCO" 2>&1)"
+  for t in aberta_tab aberta_esp; do
+    case "$SAIDA" in
+      *"$t"*) ok "acusa $t, criada sem RLS com separador fora do padrão" ;;
+      *) falha "o fallback não acusou $t; saiu: $(printf '%s' "${SAIDA:-<vazio>}" | tr '\n' ' ')" ;;
+    esac
+  done
+  for t in tab_tab espacos; do
+    case "$SAIDA" in
+      *"$t"*) falha "acusou $t, que tem RLS (separador com tab ou vários espaços)" ;;
+      *) ok "não acusa $t, protegida com separador fora do padrão" ;;
+    esac
+  done
+fi
+
+echo "== collect.sh: migration com espaço ou acento no nome é lida =="
+# O `$MIG_FILES` sem aspas partia "001 init.sql" em dois caminhos que não existem, e o
+# git citava "ação.sql" com escape octal: nos dois casos a tabela sem RLS sumia calada.
+repo nomes
+arquivo "supabase/migrations/001 init.sql" 'create table public.aberta_espaco (id int);
+create policy p on public.aberta_espaco using (true);'
+arquivo "supabase/migrations/002 ação.sql" 'create table public.aberta_acento (id int);'
+roda 6
+for t in aberta_espaco aberta_acento; do
+  jq -e --arg t "$t" '[.findings[] | select(.pilar=="02" and .severity=="HIGH" and (.detail | test($t)))] | length > 0' \
+       "$TMP/out-6/findings.json" >/dev/null 2>&1 \
+    && ok "modo completo: o finding cita $t" || falha "modo completo: a tabela sem RLS $t não virou finding"
+done
+jq -e '[.findings[] | select(.pilar=="02" and (.title | test("USING \\(true\\)")))] | length > 0' \
+     "$TMP/out-6/findings.json" >/dev/null 2>&1 \
+  && ok "modo completo: o USING (true) do arquivo com espaço conta" || falha "o USING (true) de '001 init.sql' não contou"
+
+BASE="$(git -C "$R" rev-parse HEAD)"
+printf 'create table public.nova_espaco (id int);\n' > "$R/supabase/migrations/003 nova ação.sql"
+roda 7 --diff "$BASE"
+jq -e '[.findings[] | select(.pilar=="02" and .severity=="HIGH" and (.detail | test("nova_espaco")))] | length > 0' \
+     "$TMP/out-7/findings.json" >/dev/null 2>&1 \
+  && ok "--diff: a migration untracked com espaço e acento vira finding" \
+  || falha "--diff: a tabela de '003 nova ação.sql' não virou finding ($COB)"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
 exit "$falhas"
