@@ -26,9 +26,11 @@ nao_tem() { case "$2" in *"$1"*) falha "$3 (achei '$1')" ;; *) ok "$3" ;; esac; 
 awk '/^## A4 /{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$SKILL" > "$TMP/a4.sh"
 [ -s "$TMP/a4.sh" ] || { echo "bloco bash da A4 não encontrado em $SKILL"; exit 2; }
 
-SK="sk-FALSOabcdefghijklmnopqrstuvwxyz0123"
-JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWxzbyJ9.assinaturafalsa1234567890"
-CFG="valorFALSO1234567890"
+# Montados na hora, como o JWT_FAKE do test-collect-diff-base.sh: literal de segredo no
+# fonte faz o gitleaks do CI reprovar o próprio teste.
+SK="sk-FALSO$(printf 'a%.0s' $(seq 1 30))"
+JWT="eyJhbGciOi$(printf 'x%.0s' $(seq 1 30)).eyJ$(printf 'y%.0s' $(seq 1 20))"
+CFG="valorFALSO$(printf '1%.0s' $(seq 1 10))"
 R="$TMP/repo"; mkdir -p "$R/dist" "$R/.next/static"
 printf 'const a=1;\nconst k="%s";\n' "$SK" > "$R/dist/app.js"
 printf 'var t="%s";\n' "$JWT" > "$R/.next/static/chunk.js"
