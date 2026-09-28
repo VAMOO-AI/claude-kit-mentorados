@@ -213,7 +213,7 @@ A parte de imagem e a regra prática ao gerar ficam no `SKILL.md`.
 
 **Não corte:**
 - Repetições estratégicas de keywords críticos (mandatory, never frozen, no
-  morph) — elas paganham peso na atenção
+  morph) — elas ganham peso na atenção
 - Detalhe granular de hair, environmental motion, preservation — testado e
   validado que entregam melhor resultado
 - Beat-by-beat de timing das ações — controla narrative beats no vídeo
