@@ -9,9 +9,6 @@ description: >-
   colega mexeu?", "tem PR aberto?"). Complementa a skill worktrees (isolamento).
 ---
 
-> Derivada de `claude-config-team/skills/git-sync`. Ao divergir de propósito, diga aqui o quê e por quê.
-> Divergência: o aviso “NUNCA foi ao GitHub” sai da varredura de **todas** as branches locais (no time, só dos checkouts), e a resolução de conta do `gh` roda antes dela, para a prova de PR mergeado não sair pela conta que não enxerga o repo.
-
 # /git-sync — Atualizar local com o GitHub
 
 Objetivo: deixar o clone e os worktrees **em dia com o remoto**, reportar o que a IDE mostra no Source Control, e opcionalmente listar PRs + dry-run de lixo (branches `gone`, worktrees mortos).

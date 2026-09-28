@@ -8,8 +8,6 @@ description: >-
   "hardening", "app novo do zero", "baseline".
 ---
 
-> Derivada de `claude-config-team/skills/vamoo-baseline`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # baseline — Ambiente e Segurança
 
 > Origem: escrito a partir da auditoria de um app real em produção (React + Vite

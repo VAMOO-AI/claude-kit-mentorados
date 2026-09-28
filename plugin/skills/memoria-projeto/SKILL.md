@@ -9,8 +9,6 @@ description: >-
   memória está no repo?".
 ---
 
-> Derivada de `claude-config-team/skills/memoria-projeto`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Memória do projeto dentro do repositório
 
 O Claude Code guarda o que aprende sobre um projeto em

@@ -10,8 +10,6 @@ description: >-
 disable-model-invocation: true
 ---
 
-> Derivada de `claude-config-team/skills/handoff`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # handoff
 
 Só dispara por `/handoff`. O modelo nunca decide sozinho que é hora de escrever

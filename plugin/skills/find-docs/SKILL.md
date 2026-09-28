@@ -7,8 +7,6 @@ description: >-
   Gatilhos: "find-docs", dúvida de API/SDK/CLI, migração.
 ---
 
-> Derivada de `claude-config-team/skills/find-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Documentation Lookup
 
 Retrieve current documentation and code examples for any library using the Context7 CLI.

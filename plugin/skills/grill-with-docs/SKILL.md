@@ -9,8 +9,6 @@ description: >-
 disable-model-invocation: true
 ---
 
-> Derivada de `claude-config-team/skills/grill-with-docs`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Grill with docs — grilling ancorado no projeto
 
 Igual à skill `grilling`, com dois acréscimos que só fazem sentido dentro de um

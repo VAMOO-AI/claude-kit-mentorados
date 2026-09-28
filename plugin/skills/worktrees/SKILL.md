@@ -9,8 +9,6 @@ description: >-
   "outra aba/sessão", "limpar branch".
 ---
 
-> Derivada de `claude-config-team/skills/vamoo-worktrees`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Terminais paralelos & worktrees
 
 ## Por que isso importa

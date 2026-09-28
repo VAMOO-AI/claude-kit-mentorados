@@ -9,8 +9,6 @@ description: >-
   "verificar", "testar antes de entregar", "dry-run", "pode disparar?".
 ---
 
-> Derivada de `claude-config-team/skills/vamoo-verificacao`. Ao divergir de propósito, diga aqui o quê e por quê.
-
 # Verificação e2e — casos de produção
 
 Os **princípios** ("verify don't claim", tsc+eslint antes de pronto, caminho

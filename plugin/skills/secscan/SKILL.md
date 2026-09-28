@@ -7,10 +7,6 @@ description: >-
   Read-only — NUNCA edita o código auditado. Não é pra alvo deployado/produção.
 ---
 
-> Derivada de `claude-config-team/skills/secscan`. Ao divergir de propósito, diga aqui o quê e por quê.
-> Diverge de propósito em um ponto: lá o modo pedagógico é exceção com gatilho;
-> aqui ele é o padrão, porque o público do kit é justamente o iniciante.
-
 # secscan — Revisão de segurança (read-only)
 
 Revisão de segurança **estática e read-only** do projeto local que você está construindo.

@@ -9,8 +9,6 @@ description: >-
 disable-model-invocation: true
 ---
 
-> Derivada de `claude-config-team/skills/find-skills`.
-
 # Achar skill pronta — e não engolir o que vier junto
 
 `npx skills` é o gerenciador do ecossistema aberto de skills; o catálogo fica em
