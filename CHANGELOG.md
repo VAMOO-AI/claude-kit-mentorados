@@ -51,10 +51,12 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - **Escotilhas dos guard-rails só com pedido seu:** a mensagem do bloqueio de commit na `main` e
   a de apagar branch com PR encadeado só oferecem `HOTFIX_MAIN=1`/`DELETE_BRANCH_OK=1` quando
   você pediu isso na conversa. Antes, "se foi proposital" deixava o Claude decidir sozinho.
-- **Aviso de worktree mergeado** oferece remover em vez de mandar; o de clone principal fora da
-  `main` só aparece numa sessão em worktree.
-- **`subagentes.md`:** o revisor não edita, separa o que é mecânico do que é decisão, e a conversa
-  principal aplica; "Arquivos tocados" sai do `git diff --stat`; sai a cota de 3 edições.
+- **Aviso de worktree mergeado** não manda remover nem oferece o `ExitWorktree`: diz que você pode
+  pedir a limpeza, que segue a skill `worktrees` (prova completa e trava de env), e avisa que o
+  `worktree-gc.sh --apply` remove todos os worktrees elegíveis, não só aquele. O de clone
+  principal fora da `main` só aparece numa sessão em worktree.
+- **`subagentes.md`:** o revisor não edita nem classifica: reporta cada achado com confiança e
+  cenário, e a conversa principal separa o que é mecânico do que é decisão e aplica; "Arquivos tocados" sai do `git diff --stat`; sai a cota de 3 edições.
 - **CLAUDE global:** uma frase antes da primeira ferramenta, `git diff` no lugar de reler o
   arquivo, commit na `main` só quando você pede, grilling numa linha.
 - **Template de CI:** semgrep com `p/owasp-top-ten --metrics=off`. O `--config auto` faz login no
@@ -64,8 +66,12 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 - **`ship`**: o teste roda uma vez (sem o `|| npm run test` que rerodava a suíte que falhou); o
   comando de deploy mora na seção `## Deploy` do `AGENTS.md` do projeto; a checklist de migration
-  vem antes do push; merge só com pedido seu.
+  vem antes do push; merge só com pedido seu. Dentro de worktree o Claude Code recusa o
+  `gh pr create` com `(escopo)` no título (lido como subshell): a skill manda gravar o comando
+  num `.sh` e rodar pelo caminho.
 - **`worktrees`**: sessão que escreve entra com o `EnterWorktree`; `--no-verify` só com o seu OK;
+  base velha com arquivo nas duas pontas: `git rebase origin/main` se a branch é só sua,
+  `git merge origin/main` se outra pessoa commita nela (ali o rebase pediria force-push);
   apagar worktree e branch só com o seu pedido e prova completa: PR mergeado, head do PR igual ao
   tip, nada sujo, env ignorado igual ao do clone principal e nenhum repositório aninhado ignorado.
 - **`git-sync`**: o `--cleanup-apply` cobra essa prova. O `-D` de branch `[gone]` e o worktree de
@@ -74,6 +80,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   o PENDENTE.
 - **`handoff`** confere a memória dentro do worktree; **`memoria-projeto`** commita a memória numa
   branch, não na `main`.
+- **`verificacao`**: sai a skill `run`, que o kit não tem (o app roda pelo comando do projeto), e
+  a leitura da página como texto (`read_page`) fica para quem tem o MCP do navegador.
 - **`secscan`**: ruleset fixo e sem métricas, SARIF na pasta do relatório; ferramenta Python pelo
   gerenciador oficial (`pipx`, `uv`, `brew`), SHA-256 só para binário baixado à mão; no terminal,
   todo CRITICAL/HIGH e, dos MEDIUM/LOW, só o que muda a ordem de correção.
@@ -88,7 +96,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   vídeo.
 - **`gerar-imagem`**: a ordem real de onde a chave é lida, o script chamado pelo caminho do plugin
   e o artefato só quando você pede.
-- **`find-docs`**, **`find-skills`**, **`bot-discord`**, **`skills-projeto`**, **`verificacao`**,
+- **`find-docs`**, **`find-skills`**, **`bot-discord`**, **`skills-projeto`**,
   **`harness-check`**, o workflow **`audit-multidim`** e o agente **`revisor`**: passos que se
   contradiziam, descriptions por intenção (a lista de skills ficou menor), juiz × cobertura no
   revisor e `PENDENTE_DECISAO` no workflow, que roda na sua máquina.
@@ -97,18 +105,26 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 ### Corrigido
 
 - **O setup não apaga mais um `AGENTS.md` seu.** No Mac e no Windows, tirar o `agents.md` antigo
-  acertava também o `AGENTS.md` com outra caixa. Agora ele confere o nome exato no disco
-  (`tests/test-kit-setup-subagentes.sh`; porte do #240 do kit do time).
+  acertava também o `AGENTS.md` com outra caixa. Agora ele confere o nome exato no disco e, com
+  outra caixa, só tira o arquivo que tem a linha-assinatura do modelo antigo do kit. O dry-run diz
+  "removeria", e a cópia fica em `~/.claude/backup-agents-md/`, que a rotação dos três backups não
+  apaga (`tests/test-kit-setup-subagentes.sh`; porte do #240 do kit do time).
 - **A A4 da `auditoria-seguranca` imprimia o segredo inteiro** achado no bundle e em config:
-  agora sai `arquivo:linha` e os 6 primeiros caracteres (`tests/test-auditoria-a4-mascara.sh`).
+  agora sai `arquivo:linha` e os 6 primeiros caracteres, inclusive no default do compose
+  (`${VAR:-valor}`); o JWT do bundle sai com o `role` do payload (anon × service_role), e o `-a`
+  lê binário no bundle sem derrubar a varredura (`tests/test-auditoria-a4-mascara.sh`).
 - **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
   ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando
   acham. E a Fase 4 nunca dizia `SEM LOCKFILE`: o exit que valia era o do `head`, que sai 0 sem
-  nada para ler (`tests/test-secscan-ferramentas.sh`).
+  nada para ler; agora ela lê também `yarn.lock`, `bun.lockb` e `npm-shrinkwrap.json`. E o
+  gitleaks fora de repositório git sai 0 sem ler nada: a linha diz `não medido (sem git)` em vez
+  de limpo (`tests/test-secscan-ferramentas.sh`).
 - **O AUDITAR da `baseline`** não listava o `vereditos.md` entre as escritas permitidas, e a fase 2
   mandava registrar nele.
-- **Limpeza de worktree:** `.npmrc` de subpasta, `bunfig.toml` e repositório aninhado ignorado
-  sumiam no `git worktree remove` (porte do #234 do kit do time).
+- **Limpeza de worktree:** `.npmrc` de subpasta, `bunfig.toml`, `.bunfig.toml` e repositório
+  aninhado ignorado sumiam no `git worktree remove` (porte do #234 do kit do time).
+- **Worktree novo:** o `bunfig.toml` (sem ponto, o nome de projeto na doc do Bun) também guarda
+  token de registry e passa a ser só citado, como o `.npmrc` e o `.bunfig.toml`, nunca copiado.
 - **`collect.sh --diff` da `baseline`:** base que não resolve sai 3 (antes: 0 findings e exit 0),
   e segredo em qualquer commit do range reprova, inclusive o que entrou só na resolução de um merge.
 - **README:** o peso da `diretor-imagem`; e "paganham" → "ganham" na referência de vídeo.
@@ -117,8 +133,10 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 - Espelho do kit do time: #233 (0.54.0), #236 (0.55.1), #237 (0.55.3), #234 (0.56.1, `28ba6dc`)
   e #240 (0.56.2, `607fcc7`). Divergências deliberadas e portes em `docs/paridade.md`.
-- Testes novos no CI: `test-kit-setup-subagentes`, `test-auditoria-a4-mascara`,
-  `test-secscan-ferramentas` e `test-collect-diff-base`.
+- Quatro suítes novas no CI: `test-kit-setup-subagentes`, `test-auditoria-a4-mascara`,
+  `test-secscan-ferramentas` e `test-collect-diff-base`. As do `worktree-gc`, do cleanup do
+  `git-sync` e do `worktree-seed-env` ganham o caso `.bunfig.toml`; a do guard de sessão, o caso
+  sem node.
 
 ## [0.41.1] — 2026-09-25
 
