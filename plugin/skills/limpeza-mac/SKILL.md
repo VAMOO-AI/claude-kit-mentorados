@@ -75,7 +75,8 @@ O que o script respeita, e por quê:
   chegou lá. E o `origin/HEAD` local é atualizado (`set-head --auto`) antes, porque ele fica
   velho quando o default muda no GitHub.
 - **Todo worktree passa pelo `worktree-gc.sh --verificar <caminho>` do plugin.** São as
-  mesmas travas do gc: sujo, arquivo ignorado de valor, branch não mergeada. Qualquer saída
+  mesmas travas do gc: sujo, arquivo ignorado de valor, branch não mergeada na branch
+  padrão do origin (sem padrão descoberta, é keep com o motivo). Qualquer saída
   diferente de 0 mantém o worktree. O `--verificar` não remove nada, mas atualiza as refs
   remotas com `git fetch --prune`; o `aplicar.sh` faz esse fetch uma vez por repo e chama o
   `--verificar` sem o dele.
@@ -103,9 +104,13 @@ O que o script respeita, e por quê:
   inventário não desce em `.vercel`.
 - **A idade do repo vem do reflog do HEAD**, não do mtime do índice, que qualquer
   `git status` reescreve.
-- **Worktree detached** sai quando o HEAD é ancestral do default. Squash não é ancestral,
-  e nesse caso o `--verificar` diz "detached com commit fora de origin/main". Aí vale a
-  prova do PR, como na skill `worktrees`:
+- **Worktree detached** sai quando o HEAD é ancestral do default. Squash não é ancestral:
+  o inventário mantém esse worktree, e a decisão é à mão. O `worktree-gc.sh --verificar
+  <caminho>` já prova o caso quando o HEAD é o head de um PR MERGED no default, pelo `gh`
+  ou pela API REST (token de `git config git-sync.tokenVar`, como no git-sync): exit 0 é a
+  sua confirmação antes do remove. Quando ele diz "sem gh nem token da API", a prova não
+  rodou; aí vale a consulta à mão, com uma conta do `gh` que enxergue o repo, como na
+  skill `worktrees`:
 
   ```bash
   gh pr list -R <dono/repo> --state merged --search <sha-do-HEAD> --json number,headRefOid,baseRefName
