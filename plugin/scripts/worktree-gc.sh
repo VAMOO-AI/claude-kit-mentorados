@@ -145,15 +145,23 @@ m=[p for p in d if p.get("merged_at") and (p.get("base") or {}).get("ref")==b an
 print(m[0]["head"]["sha"] if m else "")' "$DEF" "${1:-}" 2>/dev/null
   fi
 }
-# Ninguém perguntou pelo PR: sem gh ou com o gh que falhou (logado, mas a conta não vê o
-# repo), e sem token da API. O keep leva o sufixo, que é o que as skills exigem para aceitar a
-# prova à mão; sem ele, "NÃO mergeada" parecia negativa provada. Zerado a cada worktree.
-NAO_PERGUNTOU=0
-sem_prova() { [ "$NAO_PERGUNTOU" = 1 ] && printf ' (sem gh nem token da API para provar squash)'; }
+# Keep sem ninguém que respondesse não pode sair igual a negativa provada. Antes o sufixo só
+# acendia sem gh: o gh logado que não enxerga o repo, sem token, dava um "NÃO mergeada" seco.
+# SEM_RESPOSTA acende quando a consulta foi tentada e nem o gh nem a API responderam. API_ERRO
+# acende quando a API foi consultada e respondeu erro (token expirado ou revogado, resposta que
+# não é lista): antes esse keep saía sem sufixo e ficava mantido para sempre.
+SEM_PROVA_TXT=" (sem gh nem token da API para provar squash)"
+API_ERRO_TXT=" (a API do GitHub respondeu erro: confira o token)"
+SEM_RESPOSTA=0; API_ERRO=0
+sem_prova() {
+  if [ "$API_ERRO" = 1 ]; then printf '%s' "$API_ERRO_TXT"
+  elif [ "$SEM_RESPOSTA" = 1 ] || { [ "$have_gh" = 0 ] && [ "$REST_OK" = 0 ]; }; then printf '%s' "$SEM_PROVA_TXT"; fi
+}
 
-# head do PR MERGED na padrão cuja head é a branch; status 1 = a API falhou, 2 = ninguém
-# perguntou. O gh que falha (a conta ativa não vê o repo) cai na API; o gh que responde
-# "nenhum" não cai.
+# head do PR MERGED na padrão cuja head é a branch. Status 1 = a API respondeu erro, 2 = ninguém
+# pôde perguntar. O status da pipeline não sobe cru: sob pipefail, um exit 2 do curl se passaria
+# pelo "ninguém perguntou". O gh que falha (a conta ativa não vê o repo) cai na API; o gh que
+# responde "nenhum" não cai.
 head_pr_mergeado() {   # <branch>
   local br="$1" oid
   if [ "$have_gh" = 1 ] && oid="$(cd "$PRIMARY" && gh pr list --head "$br" --base "$DEF" --state merged \
@@ -161,19 +169,19 @@ head_pr_mergeado() {   # <branch>
     printf '%s' "$oid"; return 0
   fi
   [ "$REST_OK" = 1 ] || return 2
-  rest_get pulls state=closed "head=${REST_SLUG%%/*}:$br" "base=$DEF" per_page=10 | json_head_mergeado
+  rest_get pulls state=closed "head=${REST_SLUG%%/*}:$br" "base=$DEF" per_page=10 | json_head_mergeado || return 1
 }
 
 # É mergeada? ancestral da padrão OU tip local contido no head do PR MERGED (squash).
 is_merged() {
-  local br="$1" oid rc
+  local br="$1" oid
   [ -n "$DEF" ] || return 1
   git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$ORIGIN_DEF" 2>/dev/null && return 0
   # o tip LOCAL precisa estar contido no head do PR mergeado — commits feitos
   # DEPOIS do merge (não pushados) deixam de contar como "mergeada".
-  oid="$(head_pr_mergeado "$br")"; rc=$?
-  [ "$rc" = 2 ] && NAO_PERGUNTOU=1
-  [ "$rc" = 0 ] || return 1
+  # subshell: a flag acende aqui, pelo status
+  oid="$(head_pr_mergeado "$br")"
+  case $? in 0) ;; 1) API_ERRO=1; return 1 ;; *) SEM_RESPOSTA=1; return 1 ;; esac
   [ -n "$oid" ] && git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$oid" 2>/dev/null && return 0
   # Fail-closed: sem PR merged, oid vazio ou inexistente localmente → mantém a branch.
   return 1
@@ -183,13 +191,15 @@ is_merged() {
 # o contém, e até 28/09/2026 ficava keep mesmo com a prova a uma consulta. Prova =
 # `commits/{sha}/pulls` com um PR MERGED na padrão cuja head é exatamente esse HEAD.
 squash_do_detached() {   # <sha>
-  local sha="$1" corpo rp="$REST_SLUG"
+  local sha="$1" corpo head rp="$REST_SLUG"
   [ -n "$sha" ] && [ -n "$DEF" ] && [ -n "$JSON_TOOL" ] || return 1
   [ -n "$rp" ] || rp='{owner}/{repo}'
   if [ "$have_gh" = 1 ] && corpo="$(cd "$PRIMARY" && gh api "repos/$rp/commits/$sha/pulls" 2>/dev/null)"; then :
-  elif [ "$REST_OK" = 1 ]; then corpo="$(rest_get "commits/$sha/pulls")" || return 1
-  else NAO_PERGUNTOU=1; return 1; fi
-  [ "$(printf '%s' "$corpo" | json_head_mergeado "$sha")" = "$sha" ]
+  elif [ "$REST_OK" = 1 ] && corpo="$(rest_get "commits/$sha/pulls")"; then :
+  elif [ "$REST_OK" = 1 ]; then API_ERRO=1; return 1
+  else SEM_RESPOSTA=1; return 1; fi
+  head="$(printf '%s' "$corpo" | json_head_mergeado "$sha")" || { API_ERRO=1; return 1; }
+  [ "$head" = "$sha" ]
 }
 
 # Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
@@ -218,7 +228,9 @@ sem_commit_proprio() {
 # apps/web/node_modules/ valer igual a node_modules/. Lista fechada: o que não está aqui é
 # trabalho até prova em contrário. Fora de propósito: *.log (log de sessão pode ser a prova
 # de um incidente, e nenhum build o recria) e out/ (ferramenta de render, como o Remotion,
-# grava ali o arquivo final).
+# grava ali o arquivo final). dist/ e build/ ficam porque são a saída do bundler (vite, tsc,
+# CRA) a partir do código versionado; target/, a do cargo e do maven; e .cache/, cache de
+# ferramenta (parcel, gatsby, babel-loader), que se refaz na próxima execução.
 eh_regeneravel() {   # <caminho relativo; diretório termina em />
   case "/$1" in
     */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
@@ -303,8 +315,8 @@ while IFS= read -r line; do
     worktree\ *) path="${line#worktree }" ;;
     branch\ *)   branch="${line#branch refs/heads/}" ;;
     "")  # fim de um bloco → avalia
-      NAO_PERGUNTOU=0
       [ -z "$path" ] && { path=""; branch=""; continue; }
+      SEM_RESPOSTA=0; API_ERRO=0
       p="$(cd "$path" 2>/dev/null && pwd -P || echo "$path")"
 
       # trava 1: nunca o clone principal
@@ -335,7 +347,8 @@ while IFS= read -r line; do
             echo "  🗑️  [dry-run] removeria: $p  (detached, limpo, $por)"; removed=$((removed+1))
           fi
         else
-          echo "  ⏭️  $p  → detached (mantido)$(sem_prova)"; skipped=$((skipped+1))
+          # só quando o squash foi perguntado: este ramo também pega o sujo e o atual
+          echo "  ⏭️  $p  → detached$({ [ "$API_ERRO" = 1 ] && printf '%s' "$API_ERRO_TXT"; } || { [ "$SEM_RESPOSTA" = 1 ] && printf '%s' "$SEM_PROVA_TXT"; }) (mantido)"; skipped=$((skipped+1))
         fi
         path=""; branch=""; continue
       fi
@@ -357,7 +370,7 @@ while IFS= read -r line; do
         echo "  🔒 $p  → branch '$branch' sem commit próprio (recém-criada ou só puxou a base) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
       if ! is_merged "$branch"; then
-        echo "  🔒 $p  → branch '$branch' NÃO mergeada — mantido$(sem_prova)"; kept=$((kept+1)); path=""; branch=""; continue
+        echo "  🔒 $p  → branch '$branch' NÃO mergeada$(sem_prova) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
 
       if [ "$APPLY" = 1 ]; then
