@@ -40,8 +40,10 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 ### Mudou
 
-- **Modelo de projeto:** o `CLAUDE-projeto.md.exemplo` vira um `AGENTS.md`, com o `CLAUDE.md`
-  de uma linha que o importa. O CLAUDE global, a `grill-with-docs` e os docs seguem a mesma regra.
+- **Modelo de projeto:** o `CLAUDE-projeto.md.exemplo` sai e entra o
+  `AGENTS-projeto.md.exemplo`: o `AGENTS.md` é a fonte, o `CLAUDE.md` do projeto é a linha
+  `@AGENTS.md`, e a seção `## Deploy` vem no formato que a `ship` lê (automático no merge ou
+  comandos manuais). O CLAUDE global, a `grill-with-docs` e os docs seguem a mesma regra.
 - **O aviso de sessão longa mede o contexto de verdade** (porte do kit do time). Ele contava
   linhas do histórico, que só crescem, inclusive depois do `/compact`, e o aviso que manda
   compactar voltava depois dele. Agora lê o contexto do último turno e avisa em 150 mil, 300 mil

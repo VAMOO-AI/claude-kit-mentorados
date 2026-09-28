@@ -311,11 +311,11 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 2. [`docs/testes-e2e-com-playwright.md`](docs/testes-e2e-com-playwright.md) — testar o caminho do usuário de verdade (template em `plugin/templates/playwright/`).
 3. [`docs/programacao-avancada-com-claude.md`](docs/programacao-avancada-com-claude.md) — sub-agentes paralelos, worktrees, hooks, criar suas próprias skills.
 4. Skill **`baseline`** — *"está pronto pra produção?"* nos 8 pilares. Rode antes do primeiro deploy, e de novo depois que o app estiver no ar.
-5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). Edite o passo de deploy com o comando do seu stack.
+5. Skill **`/kit-vamoo:ship`** — pipeline de release com gates (typecheck/lint/test → commit → push → PR). O comando de deploy do seu stack vai na seção `## Deploy` do `AGENTS.md` do projeto (item 9), não na skill.
 6. Skill **`/kit-vamoo:handoff`** — quando for passar o projeto (ou voltar nele daqui a um mês).
 7. [`plugin/templates/ci.yml`](plugin/templates/ci.yml) — CI no GitHub Actions pra travar qualidade no PR.
 8. [`docs/mcps-recomendados.md`](docs/mcps-recomendados.md) — Playwright, GitHub e cia., **sob demanda**.
-9. [`plugin/templates/CLAUDE-projeto.md.exemplo`](plugin/templates/CLAUDE-projeto.md.exemplo) — um `AGENTS.md` por projeto, com o `CLAUDE.md` de uma linha (`@AGENTS.md`) que o importa.
+9. [`plugin/templates/AGENTS-projeto.md.exemplo`](plugin/templates/AGENTS-projeto.md.exemplo) — um `AGENTS.md` por projeto, com o `CLAUDE.md` de uma linha (`@AGENTS.md`) que o importa, e a seção `## Deploy` que a `ship` lê.
 
 ---
 

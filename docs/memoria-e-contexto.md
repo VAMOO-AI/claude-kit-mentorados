@@ -18,7 +18,7 @@ O Claude Code carrega CLAUDE.md de mais de um lugar, em camadas:
 **Por que `AGENTS.md` no projeto:** é o arquivo que Codex, Cursor e outros agentes também
 leem. O `CLAUDE.md` do projeto fica com uma linha, `@AGENTS.md`, mais o que for exclusivo do
 Claude — a regra mora num lugar só, sem cópia e sem symlink. Modelo pronto em
-[`plugin/templates/CLAUDE-projeto.md.exemplo`](../plugin/templates/CLAUDE-projeto.md.exemplo).
+[`plugin/templates/AGENTS-projeto.md.exemplo`](../plugin/templates/AGENTS-projeto.md.exemplo).
 
 **Como eles se combinam:** os arquivos são **concatenados** (somados), não disputados.
 Quando há *conflito* na mesma regra, o **mais específico vence** — projeto ganha do
