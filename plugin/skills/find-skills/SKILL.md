@@ -50,11 +50,8 @@ Checklist de procedência, na ordem:
 
 ## Como procurar
 
-1. **Comece pelo ranking do skills.sh.** Ele ordena por instalação, então o que
-   é conhecido no domínio aparece antes de qualquer busca.
-2. **Depois o `find`**, com termo específico: `npx skills find react
-   performance` acha mais que `npx skills find testing`.
-3. Se o termo não render, tente o sinônimo (`deploy` → `deployment`, `ci-cd`).
+Ranking do skills.sh primeiro, depois `npx skills find <domínio + tarefa>`
+(`--owner` se souber o dono).
 
 | Domínio | Termos que costumam render |
 |---|---|

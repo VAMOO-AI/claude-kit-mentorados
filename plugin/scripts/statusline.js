@@ -127,33 +127,55 @@ if (totalInput > 0) {
   ctxSeg = ` ${C.dim}·${C.reset} ${col}ctx:${Math.round(totalInput / 1000)}k${C.reset}`;
 }
 
-// Comprimento da SESSÃO em linhas de transcript — outra medida que o ctx. A janela
-// compacta e volta a encher; o transcript só cresce, e é ele que dita o quanto é relido a
-// cada comando: no time, as sessões com 100+ requests fizeram 96,6% do cache read de uma
-// semana. O hook session-size-guard avisa pelo ctx (150K, 300K e a cada +100K) e o aviso
-// rola para fora da tela; aqui o comprimento fica à vista, nas faixas 600/1.200/2.000 que o
-// hook usava até a 0.41. Conta bytes \n em blocos, sem carregar o arquivo (transcript de
-// sessão longa passa de 100 MB e isto roda a cada turno).
-let sesSeg = '';
-try {
-  const tp = input.transcript_path;
-  if (tp) {
+// Os últimos 256 KB do transcript, que passa de 100 MB em sessão longa e é lido a cada turno.
+// "" sem transcript ou sem permissão: a barra não pode quebrar por isto.
+const lerRabo = (tp) => {
+  if (!tp) return '';
+  try {
     const fd = fs.openSync(tp, 'r');
     try {
-      const buf = Buffer.allocUnsafe(1 << 16);
-      let linhas = 0, n;
-      while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
-        for (let i = 0; i < n; i++) if (buf[i] === 10) linhas++;
-      }
-      if (linhas >= 600) {
-        const col = linhas >= 2000 ? C.red : linhas >= 1200 ? C.yellow : C.dim;
-        // 2.000+ é a faixa das maratonas: nem adianta compactar, o barato é sessão nova.
-        const dica = linhas >= 2000 ? ' maratona' : linhas >= 1200 ? ' /compact' : ' sessão nova?';
-        sesSeg = ` ${C.dim}·${C.reset} ${col}ses:${linhas >= 1000 ? (linhas / 1000).toFixed(1) + 'k' : linhas}${dica}${C.reset}`;
-      }
+      const size = fs.fstatSync(fd).size;
+      const len = Math.min(size, 256 * 1024);
+      const buf = Buffer.allocUnsafe(len);
+      fs.readSync(fd, buf, 0, len, size - len);
+      return buf.toString('utf8');
     } finally { fs.closeSync(fd); }
+  } catch { return ''; }
+};
+const rabo = lerRabo(input.transcript_path);
+
+// Tamanho da SESSÃO pela régua do hook session-size-guard: input + cache_read +
+// cache_creation do último usage de assistente fora de sidechain. Com o advisor, o usage de
+// cima soma as iterações; vale a última "message" ou "fallback_message". Usage zerado
+// (<synthetic>) não é turno, e compact_boundary depois do último usage zera até o próximo.
+// O aviso do hook rola para fora da tela; aqui o número fica à vista. Contar linhas do
+// transcript, como antes, mandava /compact depois do /compact: o transcript só cresce.
+let sesSeg = '';
+{
+  const n = (v) => Number(v) || 0;
+  let ctx = 0;
+  for (const linha of rabo.split('\n')) {
+    let e;
+    try { e = JSON.parse(linha); } catch { continue; }
+    if (!e || typeof e !== 'object' || e.isSidechain === true) continue;
+    if (e.type === 'system' && e.subtype === 'compact_boundary') { ctx = 0; continue; }
+    if (e.type !== 'assistant') continue;
+    let u = e.message && e.message.usage;
+    if (!u || typeof u !== 'object') continue;
+    if (Array.isArray(u.iterations)) {
+      const it = u.iterations.filter((i) => i && (i.type === 'message' || i.type === 'fallback_message'));
+      if (it.length) u = it[it.length - 1];
+    }
+    const t = n(u.input_tokens) + n(u.cache_read_input_tokens) + n(u.cache_creation_input_tokens);
+    if (t > 0) ctx = t;
   }
-} catch { /* sem transcript, sem permissão: a barra não pode quebrar por isto */ }
+  if (ctx >= 150_000) {
+    const col = ctx >= 400_000 ? C.red : ctx >= 300_000 ? C.orange : C.yellow;
+    // 400K+ é a faixa das maratonas: compactar ajuda pouco, o barato é sessão nova.
+    const dica = ctx >= 400_000 ? ' maratona' : ctx >= 300_000 ? ' /compact' : ' sessão nova?';
+    sesSeg = ` ${C.dim}·${C.reset} ${col}ses:${Math.round(ctx / 1000)}k${dica}${C.reset}`;
+  }
+}
 
 // Tokens/s de saída da ÚLTIMA chamada de API. O transcript não guarda duração por request;
 // a conta é output_tokens ÷ (última linha da resposta − último evento `user` antes dela).
@@ -161,22 +183,11 @@ try {
 // Cada resposta ocupa várias linhas com o mesmo message.id e o mesmo usage (uma por bloco), e
 // com ferramenta rodando durante o streaming os tool_result se intercalam com essas linhas —
 // por isso o fim é a ÚLTIMA linha do id, e o início é o `user` anterior à PRIMEIRA.
-// Lê só os últimos 256 KB: o transcript de sessão longa passa de 100 MB.
 let tpsSeg = '';
 try {
-  const tp = input.transcript_path;
-  if (tp) {
-    const fd = fs.openSync(tp, 'r');
-    let tail = '';
-    try {
-      const size = fs.fstatSync(fd).size;
-      const len = Math.min(size, 256 * 1024);
-      const buf = Buffer.allocUnsafe(len);
-      fs.readSync(fd, buf, 0, len, size - len);
-      tail = buf.toString('utf8');
-    } finally { fs.closeSync(fd); }
+  if (rabo) {
     let ultimoUser = null, atual = null;
-    for (const linha of tail.split('\n')) {
+    for (const linha of rabo.split('\n')) {
       if (!linha.startsWith('{"')) continue;
       let e;
       try { e = JSON.parse(linha); } catch { continue; }
