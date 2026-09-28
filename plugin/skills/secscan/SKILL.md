@@ -42,17 +42,35 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 mkdir -p secscan-reports
 # AUSENTE é só binário que não existe. Scanner que roda e sai ≠ 0 falhou ou achou algo.
 if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
-elif semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif .; then echo "semgrep OK (achados no SARIF)"
-else echo "semgrep FALHOU (exit $?) → não medido; sem rede o ruleset p/owasp-top-ten não baixa"; fi
+else
+  out=$(semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif . 2>&1); rc=$?
+  if [ "$rc" -eq 0 ]; then echo "semgrep OK → achados em secscan-reports/secscan.sarif"
+  else echo "semgrep FALHOU (exit $rc) → não medido; última linha: $(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"; fi
+fi
+# gitleaks em dois modos, sempre --redact (valor de segredo não chega à conversa): o
+# histórico (`detect`) e a árvore de trabalho (`dir`), porque o `detect` não lê o que
+# ainda não foi commitado. Legenda do exit: 0 limpo · 1 achou segredo · outro falhou.
 if ! command -v gitleaks >/dev/null; then echo "gitleaks AUSENTE"
-elif ! git rev-parse --git-dir >/dev/null 2>&1; then echo "gitleaks não medido (sem git): fora de repositório ele sai 0 sem ler nada"
-else gitleaks detect --no-banner --redact; echo "gitleaks exit $? (0 limpo · 1 achou segredo · outro falhou)"; fi
+else
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    out=$(gitleaks detect --no-banner --redact -v 2>&1); rc=$?
+    printf '%s\n' "$out"
+    case "$out" in
+      *"not a git repository"*) echo "gitleaks histórico não medido (sem git)" ;;
+      *) echo "gitleaks histórico exit $rc (0 limpo · 1 achou segredo · outro falhou)" ;;
+    esac
+  else echo "gitleaks histórico não medido (sem git): fora de repositório ele sai 0 sem ler nada"; fi
+  # `dir` existe desde a 8.19; antes dela o equivalente é `detect --no-git`.
+  if gitleaks --help 2>&1 | grep -q '^ *dir '; then gitleaks dir --no-banner --redact -v .
+  else gitleaks detect --no-git --source . --no-banner --redact -v; fi
+  echo "gitleaks árvore exit $? (0 limpo · 1 achou segredo · outro falhou)"
+fi
 if ! command -v osv-scanner >/dev/null; then echo "osv-scanner AUSENTE (opcional)"
-else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile · outro falhou)"; fi
+else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile = não medido · outro falhou)"; fi
 ```
 Anote quais rodaram, quais faltaram e quais falharam no disclaimer do relatório. Semgrep
-que falhou não é semgrep ausente: instalar de novo não resolve, e a causa (rede, ruleset)
-vai para o relatório. Semgrep é o que mais agrega —
+que falhou não é semgrep ausente: instalar de novo não resolve, e a causa (rede, ruleset,
+a última linha do erro) vai para o relatório. Semgrep é o que mais agrega —
 mas saiba o que ele corrobora de fato. **Medido em 31/08/2026** num app React + Supabase:
 o ruleset OWASP rodou 255 regras sobre 2.198 arquivos e devolveu 27 findings, **100% em
 `.github/` e `.npmrc`**, zero em `src/`, zero em `supabase/functions/`. Num diretório com
@@ -271,7 +289,8 @@ está tudo limpo. Os estados são **quatro**:
   `FALHOU` ou um exit fora da legenda) é **`não medido (<ferramenta> falhou: exit N)`**,
   nunca `ausente`. **Ferramenta presente com input ausente
   também é não medido**, e é o caso que mais engana: `osv-scanner` instalado num projeto
-  sem lockfile roda, sai 0 e não lê nada; `gitleaks` fora de repositório git também. Escreva
+  sem lockfile roda, sai 0 e não lê nada; o histórico do `gitleaks` fora de repositório git
+  também (a árvore de trabalho continua medida pelo `gitleaks dir`). Escreva
   o motivo real — `não medido (lockfile ausente)`, `não medido (sem git)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
 - **`não aplicável (<motivo>)`** — a precondição da Fase 0 não existe (projeto sem
   banco não tem RLS; site estático não tem rota de API).
