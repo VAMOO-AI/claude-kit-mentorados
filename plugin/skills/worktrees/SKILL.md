@@ -270,7 +270,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>
 O `status` não mostra o que o git ignora, e o `git worktree remove` apaga esses
 arquivos sem recusar, mesmo sem `--force`: o `.env.local` que o hook copiou e a
 sessão editou, um `outputs/video.mp4`, um repositório clonado dentro do worktree.
-O `--verificar` não remove nada; ele junta as travas num check só e sai 0 com
+O `--verificar` não remove nada (só atualiza as refs remotas com `git fetch --prune`); ele junta as travas num check só e sai 0 com
 `pode remover: <caminho>` ou 1 com `keep: <caminho> — <motivos>`:
 
 - mudança não commitada, inclusive untracked;

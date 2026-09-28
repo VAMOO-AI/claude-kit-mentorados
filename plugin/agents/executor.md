@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Implementa um lote com scope contract (worktree próprio, arquivos permitidos, TDD, PR e CI) em effort medium. Use para os lotes de implementação que a conversa principal despacha; review é do revisor.
+description: Implementa um lote com scope contract (worktree próprio, arquivos permitidos, teste antes do fix e verificação com output real) em effort medium. Use para os lotes de implementação que a conversa principal despacha; review é do revisor.
 effort: medium
 ---
 
