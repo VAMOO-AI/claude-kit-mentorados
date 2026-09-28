@@ -210,7 +210,7 @@ fetch_sbp_connection_pool_settings()
 load_sbs_credentials_from_vault_cache()
 refresh_shpat_token_cache_for_store()
 validate_github_pat_format_before_saving()
-gitlab-glpat-rotation-interval-days
+gitlab-gl''pat-rotation-interval-days
 slack-xapp-socket-mode-handler
 taskxoxb-queue-handler
 DB=postgres://u:$DB_PASS@h/db
