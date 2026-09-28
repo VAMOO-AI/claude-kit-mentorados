@@ -206,10 +206,21 @@ _CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
 _ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])"
                           r"(?!(?:[^\"'\n]{4})?… \[[^\]\n]+ redigida\]\2)([^\"'\n]{8,})\2")
 # Mesma atribuicao sem aspas. A classe do valor exclui ., (, $ e { de proposito:
-# req.body.password e ${VAR:-default} sao codigo e referencia, nao segredo -- e o
-# default publico do compose e' justamente a evidencia que precisa aparecer.
+# req.body.password e ${VAR:-default} sao codigo e referencia, nao atribuicao -- o default
+# tem a mascara propria abaixo.
 _ATRIB_NUA = re.compile(
     r"(?i)\b(" + _CHAVE + r"\s*[:=]\s*)([A-Za-z0-9_@#!%^&*+=/~-]{8,})(?=\s|$|[,;])")
+# Default de variavel (${VAR:-valor}) com a regua da A4: ate' 12 caracteres so' "…", acima
+# os 4 primeiros + "…". O arquivo:linha do achado continua sendo a evidencia. Referencia no
+# lugar do valor (${A:-${B}}) e chave ja' mascarada acima ficam como estao.
+_DEFAULT = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)([^}\n]+)\}")
+
+
+def _mascarar_default(m):
+    v = m.group(2)
+    if v.startswith("$") or " redigida]" in v:
+        return m.group(0)
+    return m.group(1) + ("…" if len(v) <= 12 else v[:4] + "…") + "}"
 
 
 def redigir_segredos(texto):
@@ -224,7 +235,14 @@ def redigir_segredos(texto):
     total += n
     texto, n = _ATRIB_NUA.subn(r"\1[SEGREDO REDIGIDO]", texto)
     total += n
-    return texto, total
+    mascarados = []
+    def default(m):
+        r = _mascarar_default(m)
+        if r != m.group(0):
+            mascarados.append(r)
+        return r
+    texto = _DEFAULT.sub(default, texto)
+    return texto, total + len(mascarados)
 
 CHROMES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",

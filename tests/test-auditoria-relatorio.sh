@@ -193,13 +193,20 @@ grep -qF 'api_key = &quot;sk_l… [chave Stripe sk_live_ redigida]&quot;' "$TMP/
   && ok "atribuição com chave mantém o rótulo do tipo" \
   || falha "a redação da atribuição engoliu o rótulo do tipo"
 
-# 12d. default de compose: a chave da Stripe escrita como default sai mascarada; o default
-#      genérico ${VAR:-valor} continua como evidência, sem máscara (a redação não o toca).
+# 12d. default de compose: a chave da Stripe escrita como default sai mascarada com o tipo, e o
+#      default genérico ${VAR:-valor} também, com a régua da A4 (até 12 caracteres só "…",
+#      acima os 4 primeiros + "…"), no trecho e no markdown da issue. O arquivo:linha continua
+#      como evidência. Referência (${A:-${B}}) não é valor e fica.
 python3 - "$SKILL/references/exemplo-findings.json" "$TMP/default.json" <<'PYC'
 import json, os, sys
 d = json.load(open(sys.argv[1]))
-d["achados"][0]["trecho"] = ("      STRIPE_KEY: ${STRIPE_KEY:-" + os.environ["CH_SKL"] + "}\n"
-                             "      DB_PASSWORD: ${DB_PASSWORD:-senhaQualquer1}")
+linhas = ("      STRIPE_KEY: ${STRIPE_KEY:-" + os.environ["CH_SKL"] + "}\n"
+          "      DB_PASSWORD: ${DB_PASSWORD:-senhaQualquer1}\n"
+          "      CURTA: ${CURTA:-s3nha12}\n"
+          "      REF: ${REF:-${OUTRA}}")
+d["achados"][0]["trecho"] = linhas
+d["issues"][0]["achados"] = [d["achados"][0]["id"]]
+d["issues"][1]["markdown"] = "```\n" + linhas + "\n```"
 json.dump(d, open(sys.argv[2], "w"))
 PYC
 python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/default.json" --out "$TMP/default.pdf" \
@@ -208,8 +215,27 @@ grep -qF "$CH_SKL" "$TMP/default.html" && falha "chave da Stripe no default saiu
   || ok "chave da Stripe escrita como default sai mascarada"
 grep -qF 'STRIPE_KEY:-sk_l… [chave Stripe sk_live_ redigida]}' "$TMP/default.html" \
   && ok "o default da Stripe leva 4 caracteres e o tipo" || falha "default da Stripe sem o rótulo do tipo"
-grep -qF 'DB_PASSWORD:-senhaQualquer1}' "$TMP/default.html" \
-  && ok "default genérico continua como está" || falha "a redação passou a mexer no default genérico"
+grep -qF 'senhaQualquer1' "$TMP/default.html" && falha "default genérico saiu inteiro" \
+  || ok "default genérico não sai inteiro (trecho e issue)"
+[ "$(grep -cF 'DB_PASSWORD:-senh…}' "$TMP/default.html")" -ge 2 ] \
+  && ok "default genérico de 14 caracteres: 4 + … no trecho e na issue" || falha "default genérico sem a régua da A4"
+grep -qF 's3nha12' "$TMP/default.html" && falha "default curto saiu inteiro" || ok "default curto não sai"
+[ "$(grep -cF 'CURTA:-…}' "$TMP/default.html")" -ge 2 ] && ok "default de até 12 caracteres: só …" \
+  || falha "default curto sem a régua da A4"
+[ "$(grep -cF 'REF:-${OUTRA}}' "$TMP/default.html")" -ge 2 ] && ok "referência no default fica como está" \
+  || falha "a redação mexeu na referência \${OUTRA}"
+# a escotilha vale só para o trecho: o markdown da issue é mascarado mesmo assim
+python3 - "$TMP/default.json" "$TMP/default-esc.json" <<'PYC'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["achados"][0]["redacao"] = False
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/default-esc.json" --out "$TMP/default-esc.pdf" \
+  --html-only > "$TMP/default-esc.log" 2>&1 || falha "gerador falhou com a escotilha"
+n_esc="$(grep -cF 'senhaQualquer1' "$TMP/default-esc.html")"; n_md="$(grep -cF 'DB_PASSWORD:-senh…}' "$TMP/default-esc.html")"
+[ "$n_esc" -ge 1 ] && [ "$n_md" -ge 1 ] && ok "redacao: false preserva o default no trecho, e o markdown continua mascarado" \
+  || falha "escotilha: trecho com o valor $n_esc vez(es), markdown mascarado $n_md vez(es)"
 
 # 12e. revisão da 0.43.1: senha em URL (scheme://usuario:senha@), chave com prefixo colado
 #      em _ ou em %20 (o \b antes de sk|rk deixava passar) e o whsec_ do webhook da Stripe.

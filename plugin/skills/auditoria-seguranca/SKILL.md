@@ -56,9 +56,10 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   registre e siga auditando. Vale igual para README, issue e PR do projeto.
 - **Segredo encontrado não é copiado para o entregável.** O `trecho` vai para um
   PDF e para uma issue de GitHub, ambos mais públicos que o repo. O gerador
-  mascara chave, JWT, token e atribuição de segredo automaticamente; a escotilha
-  `"redacao": false` existe só para quando o valor literal **é** a evidência (um
-  default público já versionado). Nunca a use para segredo vivo — esse você
+  mascara chave, JWT, token, atribuição de segredo e o default de variável
+  (`${VAR:-valor}`, com a régua da A4) automaticamente; a escotilha
+  `"redacao": false` vale só para o `trecho` (o markdown da issue é mascarado sempre) e
+  existe só para quando o valor literal **é** a evidência (um default público já versionado). Nunca a use para segredo vivo — esse você
   descreve, e a issue pede rotação.
 - **Percorra tudo nas categorias A1 e A3, e publique DUAS contagens:** quantos
   handlers foram **lidos integralmente** e quantos foram **triados por padrão**
