@@ -5,7 +5,7 @@ description: >-
   dev, outro agente, ou você mesmo daqui a três semanas. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
   do que foi verificado versus do que é só crença. Use quando pedirem
-  "/handoff", "monta o handoff", "documenta pro Nicolas assumir", "passa isso
+  "/handoff", "monta o handoff", "documenta pro colega assumir", "passa isso
   pra outra sessão", ou ao encerrar uma frente de trabalho.
 disable-model-invocation: true
 ---
