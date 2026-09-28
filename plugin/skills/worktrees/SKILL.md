@@ -286,7 +286,8 @@ aninhado, não arquivo: pule.
 - Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
   à pessoa o que faltou — o nome do arquivo, quando é o env.
 - Vários de uma vez: `git-sync --cleanup-dry-run`, e o `--cleanup-apply` só com o
-  pedido.
+  pedido. Ele cobra a mesma prova, env incluído (ou a ancestralidade, quando o
+  merge não foi squash).
 
 Depois, `git fetch --prune`. O clone principal fica na `main`; atualize-o com
 `git pull --ff-only`, sem trocar a branch dele — outra sessão pode estar lendo dali.
