@@ -18,10 +18,12 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 ### Depois de atualizar
 
 - **Rode `/kit-vamoo:setup`.** As regras de subagente do kit saem de `~/.claude/agents.md` e
-  vão para `~/.claude/subagentes.md`. O setup instala o novo e tira o antigo, com cópia no
-  backup. Um `AGENTS.md` seu em `~/.claude` (o do Codex, por exemplo) fica intocado: o setup só
-  tira o arquivo gravado como `agents.md`, em minúsculas. Se o seu `CLAUDE.md` ainda cita
-  `agents.md`, o setup avisa e não mexe nele.
+  vão para `~/.claude/subagentes.md`. O setup instala o novo e tira o antigo, com cópia em
+  `~/.claude/backup-agents-md/`, fora da rotação dos três backups. Um `AGENTS.md` em
+  `~/.claude`, de outra ferramenta ou escrito por você, fica intocado: o setup só tira o
+  arquivo gravado como `agents.md`, em minúsculas, e o `AGENTS.md` que tem a linha "Fica em
+  `~/.claude/agents.md`" do modelo antigo do kit (setup antigo que gravou por cima). Se o seu
+  `CLAUDE.md` ainda cita `agents.md`, o setup avisa e não mexe nele.
 
 ### Por quê
 

@@ -8,8 +8,11 @@
 # subagentes.md e tira o agents.md antigo, com backup.
 #
 # O risco mora no mesmo disco: `[ -e ~/.claude/agents.md ]`, `cp` e `rm` também acertam um
-# AGENTS.md que a pessoa escreveu (o do Codex, por exemplo). O setup só remove o arquivo
-# gravado com o nome exato `agents.md`, o que ele mesmo instalava. O caso (b) só existe em
+# AGENTS.md de outra ferramenta ou escrito pela pessoa. O setup remove o arquivo gravado com
+# o nome exato `agents.md`, o que ele mesmo instalava, e o AGENTS.md que traz a linha-assinatura
+# do template antigo do kit ("Fica em `~/.claude/agents.md`"); sem ela, fica. O backup do
+# agents.md removido vai para ~/.claude/backup-agents-md/, fora da rotação dos 3
+# backup-kit-*: sem isso, três setups depois a cópia sumia. O caso (b) só existe em
 # disco que não diferencia maiúscula (o Mac); o (d), em disco que diferencia (o ubuntu do
 # CI). Porte do test-update-subagentes.sh do kit do time: lá quem diz o que o kit instalou
 # é o manifesto; aqui o setup nunca registrou o agents.md, e o .keep-local faz o papel do
@@ -59,10 +62,25 @@ else
   SEM_CAIXA=0; echo "disco diferencia maiúscula: rodam (a), (c) e (d); o (b) só existe no Mac"
 fi
 
+ASSINATURA='> Fica em `~/.claude/agents.md`. Vale para todo sub-agente lançado durante o trabalho.'
+
+echo "== (a0) dry-run: diz que removeria, não que removeu =="
+A0="$TMP/a0"
+mkdir -p "$A0/.claude"
+echo "regras antigas do kit" > "$A0/.claude/agents.md"
+roda_setup "$A0" --dry-run
+grep -q "removeria" "$A0.log" \
+  && ok "o dry-run diz que removeria o agents.md" || falha "o dry-run não diz que removeria"
+grep -q "agents.md antigo removido" "$A0.log" \
+  && falha "o dry-run diz '✓ removido' sem remover" || ok "o dry-run não diz que removeu"
+tem "$A0/.claude" agents.md && ok "o dry-run não tocou no agents.md" || falha "o dry-run apagou o agents.md"
+
 echo "== (a) agents.md que o kit instalou sai, com backup, e o subagentes.md entra =="
 A="$TMP/a"
 mkdir -p "$A/.claude"
 echo "regras antigas do kit" > "$A/.claude/agents.md"
+# três backups mais novos que o desta execução: a rotação apaga o backup-kit-<agora>
+mkdir -p "$A/.claude/backup-kit-99990101-000001" "$A/.claude/backup-kit-99990101-000002" "$A/.claude/backup-kit-99990101-000003"
 roda_setup "$A"
 if tem "$A/.claude" subagentes.md && cmp -s "$TPL/subagentes.md" "$A/.claude/subagentes.md"; then
   ok "subagentes.md instalado, igual ao do kit"
@@ -70,10 +88,10 @@ else falha "subagentes.md não foi instalado"; fi
 if tem "$A/.claude" agents.md || tem "$A/.claude" AGENTS.md; then
   falha "o agents.md do kit continua em ~/.claude"
 else ok "o agents.md do kit saiu de ~/.claude"; fi
-bk="$(ls -d "$A/.claude"/backup-kit-* 2>/dev/null | head -1)"
-if [ -n "$bk" ] && tem "$bk" agents.md && [ "$(conteudo "$bk/agents.md")" = "regras antigas do kit" ]; then
-  ok "o agents.md removido está no backup"
-else falha "o agents.md removido não está no backup"; fi
+bk="$(ls "$A/.claude"/backup-agents-md/* 2>/dev/null | head -1)"
+if [ -n "$bk" ] && [ "$(conteudo "$bk")" = "regras antigas do kit" ]; then
+  ok "o agents.md removido está no backup fora da rotação, mesmo com a rotação apagando o backup-kit desta execução"
+else falha "o agents.md removido sumiu na rotação dos backups"; fi
 grep -q "agents.md antigo removido" "$A.log" \
   && ok "o setup diz que tirou o agents.md" || falha "o setup tirou o agents.md calado (ou não tirou)"
 roda_setup "$A"
@@ -81,7 +99,7 @@ grep -qi "agents.md" "$A.log" \
   && falha "a 2ª execução ainda mexe no agents.md" || ok "a 2ª execução não mexe mais no agents.md"
 
 if [ "$SEM_CAIXA" = 1 ]; then
-  echo "== (b) AGENTS.md que a pessoa escreveu fica =="
+  echo "== (b) AGENTS.md sem a assinatura do kit (da pessoa ou de outra ferramenta) fica =="
   B="$TMP/b"
   mkdir -p "$B/.claude"
   echo "minhas regras" > "$B/.claude/AGENTS.md"
@@ -96,6 +114,22 @@ if [ "$SEM_CAIXA" = 1 ]; then
     && ok "o setup avisa que deixou o AGENTS.md, que não é dele" || falha "o setup não disse nada sobre o AGENTS.md"
   grep -q "agents.md antigo removido" "$B.log" \
     && falha "o setup diz que removeu o agents.md" || ok "o setup não diz que removeu nada"
+
+  echo "== (b2) AGENTS.md com a assinatura do template antigo do kit sai, com backup =="
+  B2="$TMP/b2"
+  mkdir -p "$B2/.claude"
+  printf '# Diretivas para Sub-Agentes\n\n%s\n' "$ASSINATURA" > "$B2/.claude/AGENTS.md"
+  roda_setup "$B2"
+  if tem "$B2/.claude" AGENTS.md || tem "$B2/.claude" agents.md; then
+    falha "o AGENTS.md do template antigo do kit continua em ~/.claude"
+  else ok "o AGENTS.md do template antigo do kit saiu"; fi
+  bk="$(ls "$B2/.claude"/backup-agents-md/* 2>/dev/null | head -1)"
+  [ -n "$bk" ] && grep -qF 'Fica em `~/.claude/agents.md`' "$bk" \
+    && ok "a cópia está no backup fora da rotação" || falha "o AGENTS.md removido não está no backup"
+  grep -q "setup antigo do kit" "$B2.log" \
+    && ok "o setup diz por que removeu" || falha "o setup removeu sem dizer por quê"
+  grep -q "não foi instalado pelo kit" "$B2.log" \
+    && falha "o setup diz 'mantido' para o que removeu" || ok "sem a mensagem de mantido"
 fi
 
 echo "== (c) agents.md listado no .keep-local fica como está =="

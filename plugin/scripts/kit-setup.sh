@@ -147,22 +147,38 @@ fi
 # O nome antigo, agents.md, em disco que não diferencia maiúscula (macOS, Windows) é o
 # ~/.claude/AGENTS.md que o Claude Code lê em toda sessão: as regras de subagente
 # entravam em toda conversa. Ele sai com backup; o .keep-local segura, como segura
-# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só. Só sai o que
-# está gravado como `agents.md`, o nome que o setup instalava: um AGENTS.md é da pessoa
-# (o do Codex, por exemplo) e fica.
+# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só. Sai o que está
+# gravado como `agents.md`, o nome que o setup instalava, e o AGENTS.md com a linha-assinatura
+# do template antigo (setup antigo gravou por cima de um AGENTS.md que já existia). Sem
+# ela, o AGENTS.md é de outra ferramenta ou escrito pela pessoa, e fica.
+# A cópia vai para backup-agents-md/, fora da rotação dos backup-kit-*: três setups
+# depois ela ainda está lá.
+ASSINATURA_AGENTS='Fica em `~/.claude/agents.md`'
+tira_agents_antigo() { # <nome gravado no disco> <motivo>
+  local nome="$1" dest="$CLAUDE_DIR/backup-agents-md/agents-$STAMP.md"
+  if [ "$DRY" -eq 1 ]; then
+    echo "  [dry-run] removeria ~/.claude/$nome ($2), com cópia em $dest"
+    return 0
+  fi
+  mkdir -p "$CLAUDE_DIR/backup-agents-md"
+  cp "$CLAUDE_DIR/$nome" "$dest"
+  rm -f "$CLAUDE_DIR/$nome"
+  ok "agents.md antigo removido ($2) — as regras agora ficam em subagentes.md; cópia em $dest"
+}
 backup "subagentes.md"
 run cp "$TPL/subagentes.md" "$CLAUDE_DIR/subagentes.md"
 ok "subagentes.md instalado"
 if [ -e "$CLAUDE_DIR/agents.md" ]; then
-  if ! nome_exato "$CLAUDE_DIR/agents.md"; then
-    outro="$(ls -A "$CLAUDE_DIR" | grep -Fxi -- agents.md | head -n 1 || true)"
-    warn "mantido: ~/.claude/${outro:-AGENTS.md} não foi instalado pelo kit (o setup só tira o agents.md antigo, escrito em minúsculas)."
-  elif protegido "agents.md" || protegido "AGENTS.md"; then
-    warn "mantido (está no .keep-local): agents.md — em disco que não diferencia maiúscula, o Claude Code o lê como AGENTS.md em toda sessão."
+  outro="agents.md"
+  nome_exato "$CLAUDE_DIR/agents.md" || outro="$(ls -A "$CLAUDE_DIR" | grep -Fxi -- agents.md | head -n 1 || true)"
+  if protegido "agents.md" || protegido "AGENTS.md"; then
+    warn "mantido (está no .keep-local): ${outro:-agents.md} — em disco que não diferencia maiúscula, o Claude Code o lê como AGENTS.md em toda sessão."
+  elif [ "$outro" = "agents.md" ]; then
+    tira_agents_antigo "agents.md" "o nome que o setup instalava"
+  elif [ -n "$outro" ] && grep -qF -- "$ASSINATURA_AGENTS" "$CLAUDE_DIR/$outro" 2>/dev/null; then
+    tira_agents_antigo "$outro" "é o template de um setup antigo do kit, com a linha 'Fica em ~/.claude/agents.md'"
   else
-    backup "agents.md"
-    run rm -f "$CLAUDE_DIR/agents.md"
-    ok "agents.md antigo removido — as regras agora ficam em subagentes.md (cópia no backup)"
+    warn "mantido: ~/.claude/${outro:-AGENTS.md} não foi instalado pelo kit (não tem a linha 'Fica em ~/.claude/agents.md' do template antigo)."
   fi
 fi
 

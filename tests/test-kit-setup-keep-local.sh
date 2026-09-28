@@ -76,7 +76,7 @@ HOME="$H7" bash "$SETUP" >"$TMP/saida7" 2>&1; codigo=$?
 check "setup termina com exit 0"                        "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
 check "subagentes.md instalado"                         "$(existe "$H7/.claude/subagentes.md")"
 check "agents.md antigo removido"                       "$(sumiu "$H7/.claude/agents.md")"
-check "o agents.md antigo foi pro backup"               "$([ "$(cat "$H7"/.claude/backup-kit-*/agents.md 2>/dev/null)" = "agents do kit antigo" ] && echo ok || echo fail)"
+check "o agents.md antigo foi pro backup fora da rotação" "$([ "$(cat "$H7"/.claude/backup-agents-md/* 2>/dev/null)" = "agents do kit antigo" ] && echo ok || echo fail)"
 check "CLAUDE.md instalado agora: manda preencher os <campos>" "$(grep -q 'preencha os campos' "$TMP/saida7" && echo ok || echo fail)"
 
 echo "== agents.md listado no .keep-local fica, com aviso =="
@@ -110,7 +110,7 @@ printf 'Subagentes: ver ~/.claude/agents.md\n' > "$H11/.claude/CLAUDE.md"
 HOME="$H11" bash "$SETUP" --dry-run >"$TMP/saida11" 2>&1
 check "dry-run não remove o agents.md"                  "$([ "$(cat "$H11/.claude/agents.md" 2>/dev/null)" = "agents antigo" ] && echo ok || echo fail)"
 check "dry-run não instala o subagentes.md"             "$(sumiu "$H11/.claude/subagentes.md")"
-check "dry-run mostra a remoção do agents.md"           "$(grep -q 'dry-run.*rm .*agents\.md' "$TMP/saida11" && echo ok || echo fail)"
+check "dry-run mostra a remoção do agents.md"           "$(grep -q 'dry-run.*removeria .*agents\.md' "$TMP/saida11" && echo ok || echo fail)"
 check "dry-run mostra o aviso do CLAUDE.md"             "$(grep -q 'cita agents.md' "$TMP/saida11" && echo ok || echo fail)"
 
 echo "== com .keep-local: o que está lá fica, o resto sai =="

@@ -151,8 +151,10 @@ valem no próximo start.
   em `~/.claude/.keep-local` — um caminho por linha, relativo a `~/.claude`,
   `#` comenta, glob simples (`skills/meu-*`). A limpeza da instalação antiga
   pula o que está lá; o kit continua instalando e atualizando o que é dele. E um
-  `AGENTS.md` seu em `~/.claude` (o do Codex, por exemplo) fica intocado: o setup
-  só tira o `agents.md` que versões antigas do kit instalavam.
+  `AGENTS.md` em `~/.claude`, de outra ferramenta ou escrito por você, fica
+  intocado: o setup só tira o `agents.md` que versões antigas do kit instalavam
+  (o gravado em minúsculas, ou o que tem a linha "Fica em `~/.claude/agents.md`"
+  do modelo antigo), com cópia em `~/.claude/backup-agents-md/`.
 
 ### Pelo terminal (alternativa)
 
