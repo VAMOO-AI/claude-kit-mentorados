@@ -29,8 +29,11 @@ AGORA=$(date +%s)
 # GNU primeiro: no Linux `stat -f` é outra coisa e não falha
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
 
-find "$@" -maxdepth 5 -name .git -type d -not -path '*/node_modules/*' 2>/dev/null \
-  | sed 's#/\.git$##' | sort > "$OUT/repos.txt"
+# -H: raiz que é symlink (~/Developer apontando para outro disco) entra; sem ele o BSD find
+# para no link e o inventário sai vazio. O repo vai pelo caminho físico, que é o que o
+# `worktree list` devolve: com o do link, toda worktree registrada pareceria órfã.
+find -H "$@" -maxdepth 5 -name .git -type d -not -path '*/node_modules/*' 2>/dev/null \
+  | sed 's#/\.git$##' | while read -r r; do (cd "$r" && pwd -P); done | sort -u > "$OUT/repos.txt"
 echo "repos: $(wc -l < "$OUT/repos.txt" | tr -d ' ')" >&2
 
 # fetch em paralelo; sem `timeout` no macOS, o lowSpeedTime corta remote pendurado
@@ -147,7 +150,7 @@ while read -r d; do
   [ -z "$t" ] && t=$(git -C "$root" log -1 --format=%ct 2>/dev/null)
   [ -z "$t" ] && t=$(mtime "$root")
   printf '%s\t%s\t%s\n' $(( (AGORA - t) / 86400 )) "$(du -sk "$d" | cut -f1)" "$d"
-done < <(find "$@" -maxdepth 6 -type d \( -name .vercel -prune -o \( -name node_modules -o -name .next \) -print -prune \) 2>/dev/null) \
+done < <(find -H "$@" -maxdepth 6 -type d \( -name .vercel -prune -o \( -name node_modules -o -name .next \) -print -prune \) 2>/dev/null) \
   | sort -n > "$OUT/builds.tsv"
 
 for p in \

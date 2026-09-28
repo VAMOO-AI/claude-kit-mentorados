@@ -17,7 +17,6 @@
 set -uo pipefail
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 SCR="$RAIZ/plugin/skills/limpeza-mac/scripts"
-GC_REAL="$RAIZ/plugin/scripts/worktree-gc.sh"
 UNAME_REAL="$(uname -s)"
 
 falhas=0
@@ -57,6 +56,7 @@ echo Darwin > "$TMP/uname-s"
 cat > "$TMP/gc-stub" <<STUB
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >> "$TMP/gc.log"
+printf '%s\n' "\${WORKTREE_GC_SKIP_FETCH:-}" >> "$TMP/gc-env.log"
 [ "\$1" = --verificar ] || { echo "arg desconhecido: \$1" >&2; exit 2; }
 if [ -f "$TMP/gc-keep" ] && grep -qxF "\$2" "$TMP/gc-keep"; then echo "keep: \$2 — stub"; exit 1; fi
 echo "pode remover: \$2"; exit 0
@@ -92,6 +92,11 @@ check "LIMPEZA_RAIZES (separada por :) troca as raízes" \
   "$([ "$(wc -l < "$TMP/plano-env/repos.txt" | tr -d ' ')" = 2 ] && grep -q proj-outra "$TMP/plano-env/repos.txt" && echo ok || echo fail)"
 LIMPEZA_RAIZES="$HOME/outra" bash "$SCR/inventario.sh" "$TMP/plano-arg" "$HOME/code" >/dev/null 2>&1
 check "raiz na linha de comando vence a variável"  "$(grep -qx "$HOME/code/proj-code" "$TMP/plano-arg/repos.txt" && ! grep -q proj-outra "$TMP/plano-arg/repos.txt" && echo ok || echo fail)"
+# raiz que é symlink (~/Developer apontando para outro disco): o BSD find sem -H não entra
+ln -s "$HOME/Developer" "$HOME/link-dev"; mkdir -p "$HOME/Developer/proj-Developer/.next"
+bash "$SCR/inventario.sh" "$TMP/plano-link" "$HOME/link-dev" >/dev/null 2>&1
+check "raiz symlink: acha o repo"                  "$(grep -q proj-Developer "$TMP/plano-link/repos.txt" && echo ok || echo fail)"
+check "raiz symlink: acha o .next"                 "$(grep -q 'proj-Developer/\.next$' "$TMP/plano-link/builds.tsv" && echo ok || echo fail)"
 
 echo "== limpeza =="
 git init -q --bare -b main "$TMP/origin.git"
@@ -119,6 +124,11 @@ printf 'feat-squash main 8 %s\nfeat-empilhada feat-base 7 %s\nfeat-atras-do-pr m
   "$(git -C "$R" rev-parse feat-squash)" "$(git -C "$R" rev-parse feat-empilhada)" "$head_pr" > "$TMP/prs"
 echo .env.local >> "$R/.git/info/exclude"; echo A=1 > "$R/.env.local"
 mkdir -p "$R/node_modules/x"
+# repo parado: a última entrada do reflog é de janeiro, e o node_modules e o .next dele saem
+P="$TMP/ws/parado"
+git init -q "$P"
+GIT_AUTHOR_DATE=2026-01-01T00:00:00 GIT_COMMITTER_DATE=2026-01-01T00:00:00 git -C "$P" commit -q --allow-empty -m base
+mkdir -p "$P/.next/cache" "$P/node_modules/y"
 
 velho() { # velho <worktree> — joga o índice para 3 dias atrás
   local idx; idx=$(git -C "$1" rev-parse --git-path index)
@@ -140,6 +150,8 @@ git -C "$R" worktree add -q -b wt-espaco "$WT/wt com espaço" main; velho "$WT/w
 # o --verificar diz keep: o inventário acha mergeada, mas a trava do gc manda
 git -C "$R" worktree add -q -b wt-gc-keep "$WT/gckeep" main;      velho "$WT/gckeep"
 echo "$WT/gckeep" > "$TMP/gc-keep"
+# develop mergeada num worktree: o worktree sai, a branch não (a mesma exclusão do branches.tsv)
+git -C "$R" worktree add -q -b develop "$WT/develop" main;          velho "$WT/develop"
 # lock de pid morto + gc keep: o lock volta como estava
 git -C "$R" worktree add -q -b wt-gc-keep-lock "$WT/gckeeplock" main; velho "$WT/gckeeplock"
 git -C "$R" worktree lock --reason "claude session z (pid 999998 start ontem)" "$WT/gckeeplock"
@@ -158,6 +170,8 @@ check "inventário marca detached no default como merged" \
   "$(grep -F "$WT/detached" "$TMP/plano/worktrees.tsv" | cut -f6 | grep -q '^merged' && echo ok || echo fail)"
 check "inventário não chama de merged a branch atrás do head do PR" \
   "$(awk -F'\t' '$2=="feat-atras-do-pr"{print $4}' "$TMP/plano/branches.tsv" | grep -q '^merged' && echo fail || echo ok)"
+check "inventário dá mais de 7 dias ao .next do repo parado" \
+  "$(awk -F'\t' -v d="$P/.next" '$3==d && $1>=7' "$TMP/plano/builds.tsv" | grep -q . && echo ok || echo fail)"
 cp "$TMP/plano/branches.tsv" "$TMP/branches-antes.tsv"
 DRY=1 bash "$SCR/aplicar.sh" "$TMP/plano" "$TMP/ledger-dry" > "$TMP/dry.out" 2>&1
 check "DRY=1 não apaga nada"                   "$(existe "$WT/velha")"
@@ -168,11 +182,19 @@ check "DRY=1 mostra qual branch sairia"        "$(grep -q 'branch -D mergeada' "
 # commit na detached DEPOIS do inventário: nenhuma branch segura esse commit
 git -C "$WT/detached" commit -q --allow-empty -m "trabalho novo"
 
-: > "$TMP/gc.log"
-bash "$SCR/aplicar.sh" "$TMP/plano" "$TMP/ledger" > "$TMP/aplicar.out" 2>&1
+: > "$TMP/gc.log"; : > "$TMP/gc-env.log"
+# shim do git: conta os fetch do aplicar (um por repo, e o do gc pulado)
+GIT_REAL="$(command -v git)"; mkdir -p "$TMP/shim"
+printf '#!/usr/bin/env bash\ncase " $* " in *" fetch "*) echo "$*" >> "%s/fetch.log";; esac\nexec "%s" "$@"\n' "$TMP" "$GIT_REAL" > "$TMP/shim/git"
+chmod +x "$TMP/shim/git"; : > "$TMP/fetch.log"
+PATH="$TMP/shim:$PATH" bash "$SCR/aplicar.sh" "$TMP/plano" "$TMP/ledger" > "$TMP/aplicar.out" 2>&1
 check "worktree velha e mergeada sai"          "$(sumiu "$WT/velha")"
 check "o gc foi chamado com --verificar <caminho>" "$(grep -qxF -- "--verificar $WT/velha" "$TMP/gc.log" && echo ok || echo fail)"
 check "a branch dela sai junto"                "$(sem_branch wt-velha-merged)"
+check "um fetch só para o repo com N worktrees" "$([ "$(wc -l < "$TMP/fetch.log" | tr -d ' ')" = 1 ] && echo ok || echo fail)"
+check "o --verificar é chamado sem o fetch dele" "$([ -s "$TMP/gc-env.log" ] && [ "$(sort -u "$TMP/gc-env.log")" = 1 ] && echo ok || echo fail)"
+check "worktree em develop mergeada sai"       "$(sumiu "$WT/develop")"
+check "a branch develop fica"                  "$(tem_branch develop)"
 check "worktree recém-criada fica"             "$(existe "$WT/nova")"
 check "worktree suja fica"                     "$(existe "$WT/suja")"
 check "worktree com lock de pid vivo fica"     "$(existe "$WT/lockviva")"
@@ -186,7 +208,9 @@ check "branch com commit local fica"           "$(tem_branch local-com-commit)"
 check "branch só ancestral do head do PR fica" "$(tem_branch feat-atras-do-pr)"
 check "órfã só com build sai"                  "$(sumiu "$WT/orfa-build")"
 check "órfã com código fica"                   "$(existe "$WT/orfa-codigo/src/a.ts")"
-check ".next solto sai"                        "$(sumiu "$R/.next")"
+check ".next de repo com atividade recente fica" "$(existe "$R/.next")"
+check ".next de repo parado sai"               "$(sumiu "$P/.next")"
+check "node_modules de repo parado sai"        "$(sumiu "$P/node_modules")"
 check ".next do prebuilt da Vercel fica"       "$(existe "$R/.vercel/output/functions/x.func/.next")"
 sha=$(awk -F'\t' '$2=="mergeada"{print $3}' "$TMP/ledger/branches.tsv")
 check "detached com commit novo fica"         "$(existe "$WT/detached")"
@@ -206,17 +230,16 @@ check "gc que recusa --verificar (exit 2) mantém o worktree" "$(existe "$WT/gca
 check "e a branch"                             "$(tem_branch wt-gc-antigo)"
 check "e diz por quê"                          "$(grep -q 'mantida (worktree-gc --verificar' "$TMP/antigo.out" && echo ok || echo fail)"
 
-echo "== sem LIMPEZA_WORKTREE_GC: usa o worktree-gc.sh do plugin =="
-# O resultado tem que bater com o que o script do plugin responde para esse caminho, com
-# ou sem o --verificar (sem ele, sai 2 e o worktree fica).
-( cd "$WT/gcantigo" && bash "$GC_REAL" --verificar "$WT/gcantigo" >/dev/null 2>&1 ); gc_rc=$?
+echo "== sem LIMPEZA_WORKTREE_GC: usa o worktree-gc.sh vizinho, do plugin =="
+# Cópia do aplicar.sh numa árvore de plugin falsa, com um gc vizinho que só diz keep: se o
+# worktree fica e o log tem a chamada, foi esse gc que decidiu
+mkdir -p "$TMP/fake/skills/limpeza-mac/scripts" "$TMP/fake/scripts"
+cp "$SCR/aplicar.sh" "$TMP/fake/skills/limpeza-mac/scripts/"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s/gc-vizinho.log"\necho "keep: $2 — vizinho"; exit 1\n' "$TMP" > "$TMP/fake/scripts/worktree-gc.sh"
 bash "$SCR/inventario.sh" "$TMP/plano3" "$TMP/ws" 2>/dev/null
-env -u LIMPEZA_WORKTREE_GC bash "$SCR/aplicar.sh" "$TMP/plano3" "$TMP/ledger3" > "$TMP/real.out" 2>&1
-if [ "$gc_rc" = 0 ]; then
-  check "worktree-gc.sh do plugin diz pode remover, e o worktree sai" "$(sumiu "$WT/gcantigo")"
-else
-  check "worktree-gc.sh do plugin sai $gc_rc, e o worktree fica" "$(existe "$WT/gcantigo")"
-fi
+env -u LIMPEZA_WORKTREE_GC bash "$TMP/fake/skills/limpeza-mac/scripts/aplicar.sh" "$TMP/plano3" "$TMP/ledger3" > "$TMP/real.out" 2>&1
+check "o gc vizinho foi chamado para o worktree" "$(grep -qxF -- "--verificar $WT/gcantigo" "$TMP/gc-vizinho.log" 2>/dev/null && echo ok || echo fail)"
+check "e o keep dele segurou o worktree"       "$(existe "$WT/gcantigo")"
 
 echo "== uname de verdade =="
 if [ "$UNAME_REAL" = Darwin ]; then
