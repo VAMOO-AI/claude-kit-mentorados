@@ -130,14 +130,16 @@ grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
 ## Fase 4 — Dependências (SCA)
 
 ```bash
-ls package-lock.json pnpm-lock.yaml bun.lock 2>/dev/null | head -1 \
+f=$(ls package-lock.json pnpm-lock.yaml bun.lock 2>/dev/null | head -1)
+[ -n "$f" ] && echo "lockfile: $f" \
   || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
 test -f package-lock.json && npm audit || true
 test -f pnpm-lock.yaml && pnpm audit || true
 ```
-A primeira linha não é decoração: os `|| true` são exatamente o modo de falha que esta
-skill acusa nos outros — sem lockfile, tudo falha em silêncio e C5 sairia limpa sem ter
-lido uma linha. `osv-scanner` tem o mesmo defeito: não lê `package.json` puro, roda, sai 0
+O teste do lockfile é o resultado do `ls`, não o exit do pipe: o `head` sai 0 mesmo sem
+nada para ler, e aí o aviso nunca saía. E ele não é decoração: os `|| true` são exatamente
+o modo de falha que esta skill acusa nos outros — sem lockfile, tudo falha em silêncio e
+C5 sairia limpa sem ter lido uma linha. `osv-scanner` tem o mesmo defeito: não lê `package.json` puro, roda, sai 0
 e não mede nada (medido em 31/08/2026: zero achado, e as vulnerabilidades estavam lá).
 
 Sinalize versão com CVE conhecido e **pacote alucinado** (importado mas não existe no registry — comum em código gerado por IA).

@@ -7,7 +7,11 @@
 # que saem com 1 justamente quando ACHAM algo: segredo encontrado virava "gitleaks
 # AUSENTE", e a linha da tabela ia para `não medido (gitleaks ausente)`.
 #
-# O teste roda o bloco do SKILL.md, sem cópia, com binários falsos no PATH.
+# Na Fase 4 era o mesmo tipo de silêncio: `ls … | head -1 || echo "SEM LOCKFILE"` nunca
+# imprimia, porque o exit do pipe é o do `head`, que sai 0 mesmo sem nada para ler. Projeto
+# sem lockfile seguia sem o aviso, e a C5 podia sair limpa sem ter lido uma dependência.
+#
+# O teste roda os blocos do SKILL.md, sem cópia, com binários falsos (ou nenhum) no PATH.
 #
 # Uso: bash tests/test-secscan-ferramentas.sh [caminho-do-SKILL.md]
 set -uo pipefail
@@ -66,6 +70,21 @@ falso osv1 osv-scanner 1
 out=$(roda osv1)
 nao_tem "osv-scanner AUSENTE" "$out" "vulnerabilidade encontrada não vira osv-scanner ausente"
 tem "osv-scanner exit 1"      "$out" "…a saída diz o código"
+
+echo "== Fase 4: projeto sem lockfile diz SEM LOCKFILE =="
+awk '/^## Fase 4/{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$SKILL" > "$TMP/fase4.sh"
+[ -s "$TMP/fase4.sh" ] || { echo "bloco bash da Fase 4 não encontrado em $SKILL"; exit 2; }
+# PATH só com ls e head: sem npm nem pnpm, o bloco ainda tem de dizer o que falta.
+mkdir -p "$TMP/binmin"
+for c in ls head; do ln -s "$(command -v "$c")" "$TMP/binmin/$c"; done
+fase4() { (cd "$1" && PATH="$TMP/binmin" "$BASH" "$TMP/fase4.sh" 2>&1); }
+mkdir -p "$TMP/f4-vazio" "$TMP/f4-lock"
+out=$(fase4 "$TMP/f4-vazio")
+tem "SEM LOCKFILE"           "$out" "sem lockfile: a Fase 4 diz SEM LOCKFILE"
+printf '{}\n' > "$TMP/f4-lock/package-lock.json"
+out=$(fase4 "$TMP/f4-lock")
+tem "package-lock.json"      "$out" "com package-lock.json: diz qual lockfile achou"
+nao_tem "SEM LOCKFILE"       "$out" "…e não diz SEM LOCKFILE"
 
 echo "== a regra de estado da Fase 1 conhece o scanner que falhou =="
 grep -q 'não medido (<ferramenta> falhou' "$SKILL" \

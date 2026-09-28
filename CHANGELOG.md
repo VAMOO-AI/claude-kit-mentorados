@@ -99,7 +99,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   agora sai `arquivo:linha` e os 6 primeiros caracteres (`tests/test-auditoria-a4-mascara.sh`).
 - **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
   ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando
-  acham (`tests/test-secscan-ferramentas.sh`).
+  acham. E a Fase 4 nunca dizia `SEM LOCKFILE`: o exit que valia era o do `head`, que sai 0 sem
+  nada para ler (`tests/test-secscan-ferramentas.sh`).
 - **O AUDITAR da `baseline`** não listava o `vereditos.md` entre as escritas permitidas, e a fase 2
   mandava registrar nele.
 - **Limpeza de worktree:** `.npmrc` de subpasta, `bunfig.toml` e repositório aninhado ignorado
@@ -111,7 +112,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 ### Para quem mantém
 
 - Espelho do kit do time: #233 (0.54.0), #236 (0.55.1), #237 (0.55.3), #234 (0.56.1, `28ba6dc`)
-  e #240 (aberto quando portado). Divergências deliberadas e portes em `docs/paridade.md`.
+  e #240 (0.56.2, `607fcc7`). Divergências deliberadas e portes em `docs/paridade.md`.
 - Testes novos no CI: `test-kit-setup-subagentes`, `test-auditoria-a4-mascara`,
   `test-secscan-ferramentas` e `test-collect-diff-base`.
 
