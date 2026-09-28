@@ -163,7 +163,7 @@ tira_agents_antigo() { # <nome gravado no disco> <motivo>
   mkdir -p "$CLAUDE_DIR/backup-agents-md"
   cp "$CLAUDE_DIR/$nome" "$dest"
   rm -f "$CLAUDE_DIR/$nome"
-  ok "agents.md antigo removido ($2) — as regras agora ficam em subagentes.md; cópia em $dest"
+  ok "$nome antigo removido ($2) — as regras agora ficam em subagentes.md; cópia em $dest"
 }
 backup "subagentes.md"
 run cp "$TPL/subagentes.md" "$CLAUDE_DIR/subagentes.md"
@@ -177,8 +177,9 @@ if [ -e "$CLAUDE_DIR/agents.md" ]; then
     tira_agents_antigo "agents.md" "o nome que o setup instalava"
   elif [ -n "$outro" ] && grep -qF -- "$ASSINATURA_AGENTS" "$CLAUDE_DIR/$outro" 2>/dev/null; then
     tira_agents_antigo "$outro" "é o template de um setup antigo do kit, com a linha 'Fica em ~/.claude/agents.md'"
-  else
-    warn "mantido: ~/.claude/${outro:-AGENTS.md} não foi instalado pelo kit (não tem a linha 'Fica em ~/.claude/agents.md' do template antigo)."
+  elif [ "$DRY" -eq 1 ]; then
+    # O arquivo é da pessoa: fora do dry-run, nada a dizer sobre ele.
+    echo "  [dry-run] manteria ~/.claude/${outro:-AGENTS.md}: não foi instalado pelo kit (não tem a linha 'Fica em ~/.claude/agents.md' do template antigo)."
   fi
 fi
 

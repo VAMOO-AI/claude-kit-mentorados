@@ -106,12 +106,16 @@ if [ "$SEM_CAIXA" = 1 ]; then
   roda_setup "$B" --dry-run
   grep -q 'dry-run.*rm .*agents\.md' "$B.log" \
     && falha "o dry-run anuncia a remoção do AGENTS.md alheio" || ok "o dry-run não anuncia remoção nenhuma"
+  grep -q "dry-run.*manteria.*AGENTS.md.*não foi instalado pelo kit" "$B.log" \
+    && ok "o dry-run diz que deixaria o AGENTS.md, que não é do kit" || falha "o dry-run não diz o que faria com o AGENTS.md"
   roda_setup "$B"
   if tem "$B/.claude" AGENTS.md && [ "$(conteudo "$B/.claude/AGENTS.md")" = "minhas regras" ]; then
     ok "o AGENTS.md alheio continua lá, com o mesmo conteúdo"
   else falha "o AGENTS.md alheio foi apagado ou sobrescrito"; fi
-  grep -q "AGENTS.md" "$B.log" && grep -q "não foi instalado pelo kit" "$B.log" \
-    && ok "o setup avisa que deixou o AGENTS.md, que não é dele" || falha "o setup não disse nada sobre o AGENTS.md"
+  # O arquivo é da pessoa: fora do dry-run, o setup não fala dele (o aviso saía em toda execução).
+  grep -qi "agents.md" "$B.log" \
+    && falha "o setup fala do AGENTS.md que é da pessoa: $(grep -i 'agents.md' "$B.log" | head -n 1)" \
+    || ok "o setup não diz nada sobre o AGENTS.md da pessoa"
   grep -q "agents.md antigo removido" "$B.log" \
     && falha "o setup diz que removeu o agents.md" || ok "o setup não diz que removeu nada"
 
@@ -128,6 +132,9 @@ if [ "$SEM_CAIXA" = 1 ]; then
     && ok "a cópia está no backup fora da rotação" || falha "o AGENTS.md removido não está no backup"
   grep -q "setup antigo do kit" "$B2.log" \
     && ok "o setup diz por que removeu" || falha "o setup removeu sem dizer por quê"
+  grep -q "AGENTS.md antigo removido" "$B2.log" && ! grep -q "agents.md antigo removido" "$B2.log" \
+    && ok "a mensagem usa o nome gravado no disco (AGENTS.md)" \
+    || falha "a mensagem não diz o nome real: $(grep 'antigo removido' "$B2.log" | head -n 1)"
   grep -q "não foi instalado pelo kit" "$B2.log" \
     && falha "o setup diz 'mantido' para o que removeu" || ok "sem a mensagem de mantido"
 fi
