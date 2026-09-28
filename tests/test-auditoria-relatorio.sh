@@ -149,9 +149,82 @@ d["issues"][0]["achados"] = ["F1"]' segredo
 grep -q 'sk-proj-AbCdEf0123456789XyZq' "$TMP/segredo.html" \
   && falha "segredo foi para o relatório sem máscara" \
   || ok "segredo mascarado no trecho"
-[ "$(grep -c 'CHAVE REDIGIDA' "$TMP/segredo.html")" -ge 2 ] \
+[ "$(grep -c 'chave de projeto OpenAI redigida' "$TMP/segredo.html")" -ge 2 ] \
   && ok "máscara vale também no corpo da issue" \
   || falha "issue saiu sem a máscara (o GitHub é mais público que o PDF)"
+
+# 12c. cada tipo de chave, no trecho e no markdown da issue (que não tem escotilha):
+#      nenhum valor inteiro sai. Até a 0.43.0 a redação só casava sk-/rk- com hífen, e as
+#      chaves da Stripe (sk_live_, sk_test_, rk_live_, rk_test_) iam inteiras para o PDF.
+#      A máscara segue a da A4: 4 caracteres + "…", e o tipo num rótulo separado.
+#      Chaves montadas por concatenação: o prefixo inteiro num literal é o que a push
+#      protection do GitHub reconhece.
+rep() { printf "$1%.0s" $(seq 1 "$2"); }
+export CH_SKP="sk-""proj-FALSO$(rep b 30)" CH_SKA="sk-""ant-api03-FALSO$(rep f 40)" \
+       CH_SKL="sk_""live_FALSO$(rep c 24)" CH_SKT="sk_""test_FALSO$(rep d 24)" \
+       CH_RKL="rk_""live_FALSO$(rep e 24)" CH_RKT="rk_""test_FALSO$(rep g 24)" \
+       CH_SK="sk-FALSO$(rep a 30)"
+CHAVES="CH_SKP CH_SKA CH_SKL CH_SKT CH_RKL CH_RKT CH_SK"
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/chaves.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+nomes = "CH_SKP CH_SKA CH_SKL CH_SKT CH_RKL CH_RKT CH_SK".split()
+linhas = [f'const k{i} = "{os.environ[n]}";' for i, n in enumerate(nomes)]
+linhas.append(f'api_key = "{os.environ["CH_SKL"]}"')
+d["achados"][0]["trecho"] = "\n".join(linhas)
+d["issues"][0]["achados"] = ["F1"]
+d["issues"][1]["markdown"] = "## Problema\n\n```\n" + "\n".join(linhas) + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/chaves.json" --out "$TMP/chaves.pdf" \
+  --html-only > "$TMP/chaves.log" 2>&1 || { falha "gerador falhou com as chaves"; cat "$TMP/chaves.log"; }
+vazou=""
+for n in $CHAVES; do grep -qF "${!n}" "$TMP/chaves.html" && vazou="$vazou ${!n:0:8}"; done
+[ -z "$vazou" ] && ok "nenhuma chave sai inteira no HTML (trecho e markdown da issue)" \
+  || falha "chave inteira no relatório:$vazou"
+for rot in 'sk-p… [chave de projeto OpenAI redigida]' 'sk-a… [chave Anthropic redigida]' \
+           'sk_l… [chave Stripe sk_live_ redigida]' 'sk_t… [chave Stripe sk_test_ redigida]' \
+           'rk_l… [chave Stripe rk_live_ redigida]' 'rk_t… [chave Stripe rk_test_ redigida]' \
+           'sk-F… [chave sk- redigida]'; do
+  [ "$(grep -cF "$rot" "$TMP/chaves.html")" -ge 2 ] && ok "4 caracteres + tipo: $rot" \
+    || falha "rótulo ausente do trecho ou da issue: $rot"
+done
+grep -qF 'api_key = &quot;sk_l… [chave Stripe sk_live_ redigida]&quot;' "$TMP/chaves.html" \
+  && ok "atribuição com chave mantém o rótulo do tipo" \
+  || falha "a redação da atribuição engoliu o rótulo do tipo"
+
+# 12d. default de compose: a chave da Stripe escrita como default sai mascarada; o default
+#      genérico ${VAR:-valor} continua como evidência, sem máscara (a redação não o toca).
+python3 - "$SKILL/references/exemplo-findings.json" "$TMP/default.json" <<'PYC'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+d["achados"][0]["trecho"] = ("      STRIPE_KEY: ${STRIPE_KEY:-" + os.environ["CH_SKL"] + "}\n"
+                             "      DB_PASSWORD: ${DB_PASSWORD:-senhaQualquer1}")
+json.dump(d, open(sys.argv[2], "w"))
+PYC
+python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/default.json" --out "$TMP/default.pdf" \
+  --html-only > "$TMP/default.log" 2>&1 || { falha "gerador falhou com o default"; cat "$TMP/default.log"; }
+grep -qF "$CH_SKL" "$TMP/default.html" && falha "chave da Stripe no default saiu inteira" \
+  || ok "chave da Stripe escrita como default sai mascarada"
+grep -qF 'STRIPE_KEY:-sk_l… [chave Stripe sk_live_ redigida]}' "$TMP/default.html" \
+  && ok "o default da Stripe leva 4 caracteres e o tipo" || falha "default da Stripe sem o rótulo do tipo"
+grep -qF 'DB_PASSWORD:-senhaQualquer1}' "$TMP/default.html" \
+  && ok "default genérico continua como está" || falha "a redação passou a mexer no default genérico"
+
+# O PDF de verdade, quando a máquina tem Chrome e pdftotext (o CI não tem): texto extraído.
+if python3 -c 'import sys; import importlib.util as u
+s = u.spec_from_file_location("g", sys.argv[1] + "/gerar-relatorio.py"); m = u.module_from_spec(s); s.loader.exec_module(m)
+sys.exit(0 if m.achar_chrome() else 1)' "$SKILL/scripts" 2>/dev/null && command -v pdftotext >/dev/null; then
+  python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/chaves.json" --out "$TMP/chaves.pdf" > "$TMP/chaves-pdf.log" 2>&1 \
+    && pdftotext "$TMP/chaves.pdf" "$TMP/chaves.txt" \
+    || falha "PDF com as chaves não foi gerado"
+  vazou=""
+  for n in $CHAVES; do grep -qF "${!n}" "$TMP/chaves.txt" && vazou="$vazou ${!n:0:8}"; done
+  [ -s "$TMP/chaves.txt" ] && [ -z "$vazou" ] && ok "nenhuma chave sai inteira no texto do PDF" \
+    || falha "chave inteira no PDF (ou PDF vazio):$vazou"
+else
+  echo "  pulado PDF real: sem Chrome ou pdftotext nesta máquina (o HTML acima é a fonte do PDF)"
+fi
 
 # 12b. issue com markdown escrito à mão passa pela mesma máscara — é o mesmo
 #      GitHub, e quem escreve markdown custom é quem colou o trecho na unha
