@@ -170,7 +170,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 22 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 23 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
