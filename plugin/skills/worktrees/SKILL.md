@@ -21,10 +21,13 @@ perceber no lugar errado. Duas formas de se proteger:
 
 ## Isolamento (o jeito seguro)
 
-- Sessão que vai **escrever**: crie um *worktree* próprio (pasta separada com
-  branch própria) sempre que outra sessão puder estar ativa no mesmo repo. O
-  clone principal fica na `main`, só pra leitura.
-  `git worktree add ../meu-worktree -b feat/minha-tarefa`.
+- Sessão que vai **escrever**: entre num *worktree* próprio (pasta separada com
+  branch própria) sempre que outra sessão puder estar ativa no mesmo repo — no
+  Claude Code, com a ferramenta `EnterWorktree`: ela cria em
+  `<repo>/.claude/worktrees/`, põe a sessão lá dentro, e é ali que o kit copia o
+  `.env.local` e liga a memória. O clone principal fica na `main`, só pra leitura.
+  Fora do Claude Code: `git worktree add ../meu-worktree -b feat/minha-tarefa`
+  (sem esses dois hooks — seção abaixo).
 - **NUNCA** faça `git checkout`/`switch`/`stash`/`reset` num clone que outra
   sessão está usando sem avisar — ela pode ter trabalho em andamento.
 - Um worktree branca da versão do `origin`. Pra restaurar um arquivo
@@ -139,10 +142,13 @@ Heredoc curto (10–15 linhas, sem `&&` depois) costuma passar. O sinal de que
 você está insistindo é a **segunda recusa idêntica**: pare e troque de
 ferramenta em vez de reescrever o mesmo comando.
 
-Uma pegadinha relacionada: worktree criado fora de `<repo>/.claude/worktrees/`
-**não pode ser habitado** pelo `EnterWorktree` ("switching is limited to
-worktrees managed by Claude Code"). Se você já está num worktree e precisa de
-outra branch, o barato é `git checkout -b <nova> origin/main` no worktree que
+Uma pegadinha relacionada: da pasta onde a sessão abriu, o `EnterWorktree` com
+`path:` entra em qualquer worktree que apareça em `git worktree list` (fora de
+`.claude/worktrees/` o Claude Code pode pedir permissão); de dentro de um
+worktree, só troca para outro sob `<repo>/.claude/worktrees/` do mesmo repo. O
+`ExitWorktree` não remove worktree em que a sessão só entrou por `path:` — a
+limpeza dele é a manual ("Limpeza no fim"). Se você já está num worktree e precisa
+de outra branch, o barato é `git checkout -b <nova> origin/main` no worktree que
 você já tem — desde que o trabalho anterior já esteja mergeado ou pusheado.
 
 ## Base velha: o que ela custa (e o que NÃO custa)
@@ -170,9 +176,11 @@ para "o que existe lá e não aqui", nunca para prever um merge.
 
 - **O verde do CI é do seu commit, não da `main` de agora.** Conflito
   semântico (sua branch e a que entrou no meio mexeram no mesmo comportamento
-  por caminhos diferentes) passa nos dois CIs e quebra depois do merge. Só
-  rebase prova. Conflito textual não é problema: o GitHub acusa e recusa o
-  merge.
+  por caminhos diferentes) passa nos dois CIs e quebra depois do merge. Só o
+  CI rodando sobre a `main` nova prova: `git rebase origin/main` se a branch é
+  só sua, `git merge origin/main` se outra pessoa também commita nela (rebase
+  ali pede force-push, que a `git-sync` proíbe). Conflito textual não é
+  problema: o GitHub acusa e recusa o merge.
 - **Trabalho duplicado.** Duas sessões no mesmo escopo escrevem o mesmo código
   e a segunda só descobre no PR. O git não resolve — resolve escopo disjunto
   combinado antes (skill `orquestracao`).
@@ -186,10 +194,10 @@ git diff --name-only origin/main...HEAD     # o que o SEU PR mexe (três pontos)
 git log --name-only --oneline HEAD..origin/main   # o que entrou desde a sua base
 ```
 
-Arquivo nas duas → `git rebase origin/main`, rode os testes de novo e só então
-abra ou mergeie o PR. Sem sobreposição, mergeie como está: rebase por higiene,
-com merges alheios a cada poucos minutos, vira esteira — você rebaseia, o CI
-roda, a base envelhece de novo.
+Arquivo nas duas → traga a `main` (rebase ou merge, como acima), rode os testes
+de novo e só então abra ou mergeie o PR. Sem sobreposição, mergeie como está:
+rebase por higiene, com merges alheios a cada poucos minutos, vira esteira —
+você rebaseia, o CI roda, a base envelhece de novo.
 
 **A branch é de outra sessão viva (worktree em uso, commit recente)?** Não
 rebase por baixo dela — reescrever o histórico debaixo de uma sessão ativa lhe
@@ -235,9 +243,11 @@ O que fazer, nessa ordem:
 1. **`git fetch && git log HEAD..origin/main`.** Quase sempre o trabalho do
    outro worktree já foi mergeado. Traga a `main` para a sua branch — as
    tabelas "estranhas" viram legitimamente suas e o gate fica verde sozinho.
-2. Se ainda não foi mergeado: pule o hook no push (`--no-verify`), **desde que**
-   o gate completo tenha passado antes do drift aparecer, e **diga isso** na
-   resposta. Quem cobre é o CI, que roda contra um banco limpo.
+2. Se ainda não foi mergeado: pular o hook no push (`--no-verify`) é decisão da
+   pessoa — a `ship` só pula hook com pedido explícito. Proponha só se o gate
+   completo passou antes do drift aparecer: mostre o que ele acusou, que as
+   tabelas vêm das migrations do outro worktree e que o CI roda contra um banco
+   limpo. Com o OK, pushe e diga no PR que o hook foi pulado e por quê.
 3. **Nunca resete o banco para "limpar".** `db reset` apaga as migrations do
    outro worktree junto: você desbloqueia o seu push destruindo o ambiente de
    quem está trabalhando ao lado.
@@ -248,7 +258,35 @@ criou** — não com um reset.
 
 ## Limpeza no fim
 
-Ao terminar o trabalho num worktree: remova worktrees órfãos
-(`git worktree remove`), delete branches já mergeadas e rode `git fetch --prune`.
-O clone principal já fica na `main`; atualize-o com `git pull --ff-only`, sem
-trocar a branch dele — outra sessão pode estar lendo dali.
+Apagar worktree e branch é com pedido da pessoa ("pode limpar") e com prova de
+que o trabalho está na `main`. A prova vem do PR: squash merge quebra a
+ancestralidade, então o `git branch -d` recusa, e um `-D` sem prova apaga também
+commit que nunca subiu.
+
+```bash
+gh pr list --state merged --head <branch> --json number,headRefOid
+git rev-parse <branch>                # igual ao headRefOid: nenhum commit ficou fora do PR
+git -C <worktree> status --porcelain  # vazio; qualquer linha, inclusive untracked, é trabalho
+git -C <worktree> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' .npmrc .bunfig.toml
+cmp -s <worktree>/<arquivo> <clone-principal>/<arquivo>   # um por arquivo listado; exit ≠ 0 = difere
+```
+
+O `status` não mostra o que o git ignora, e o `git worktree remove` apaga esses
+arquivos sem recusar, mesmo sem `--force`: o `.env.local` que o hook copiou e a
+sessão editou iria junto. Cada arquivo que o `ls-files` listar tem de ser igual ao
+do clone principal (a primeira linha de `git worktree list`); diferente, ou só
+existente no worktree, derruba a prova. Linha com `/` no fim é repositório
+aninhado, não arquivo: pule.
+
+- Prova completa: `git worktree remove <worktree>` (nunca `--force`),
+  `git branch -D <branch>` e `git worktree prune`. Worktree que esta sessão criou
+  com o `EnterWorktree`: `ExitWorktree` com `action: "remove"`; se ele recusar por
+  commits fora da branch original (é o squash), `discard_changes: true` só com a
+  prova completa — ele também apaga o que não foi commitado.
+- Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
+  à pessoa o que faltou — o nome do arquivo, quando é o env.
+- Vários de uma vez: `git-sync --cleanup-dry-run`, e o `--cleanup-apply` só com o
+  pedido.
+
+Depois, `git fetch --prune`. O clone principal fica na `main`; atualize-o com
+`git pull --ff-only`, sem trocar a branch dele — outra sessão pode estar lendo dali.

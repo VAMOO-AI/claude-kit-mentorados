@@ -29,7 +29,7 @@ Responda em **PT-BR**, direto. Cole output real dos comandos.
 - Fim de sessão, se você quer o clone principal de volta em `main`: acrescente
   `--voltar-main`. Não é o padrão de propósito — trocar a branch de um checkout no fim de
   um comando de leitura surpreende, e com duas sessões no mesmo clone a última a rodar
-  decidiria em que branch a outra está (issue claude-config-team#175).
+  decidiria em que branch a outra está.
 - **Repo compartilhado — SEMPRE ao abrir e ao fechar a sessão** (ver “Modo time”).
 
 ## Modo time (2+ pessoas no mesmo repo)
@@ -95,8 +95,10 @@ Leia nesta ordem e não comece a codar antes de zerar:
    e o que está em revisão. Se há PR aberto tocando sua área, fale com ele antes.
 5. `--- branches remotas ativas ---` — antes de criar `feat/x`, veja se já existe.
 
-**Ao fechar:** rode de novo. Nenhum aviso de *“commit(s) sem push”* / *“NUNCA foi ao
-GitHub”* pode sobrar — trabalho que não subiu não existe para o outro.
+**Ao fechar:** rode de novo. Aviso de *“commit(s) sem push”* / *“NUNCA foi ao
+GitHub”* vai para o `PENDENTE:` do relatório — trabalho que não subiu não existe
+para o outro. O git-sync não sobe nada (regra 4): o push é do fluxo da tarefa
+(a `ship`, por exemplo), não daqui.
 
 Branch sem upstream e sem `origin/<branch>` é também o que o squash merge deixa (o GitHub
 apaga a remota). Por isso o aviso consulta o `gh` antes de mandar `git push -u`: com PR
