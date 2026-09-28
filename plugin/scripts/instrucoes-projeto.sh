@@ -20,7 +20,8 @@
 #   so-agents  cria o CLAUDE.md com @AGENTS.md
 #   symlink    CLAUDE.md -> AGENTS.md vira arquivo com @AGENTS.md, e o AGENTS.md não muda;
 #              AGENTS.md -> CLAUDE.md vira arquivo com o conteúdo, e o CLAUDE.md a ponte
-#   so-claude  o conteúdo vai para o AGENTS.md, e o CLAUDE.md fica com @AGENTS.md
+#   so-claude  o conteúdo vai para o AGENTS.md, sem o @AGENTS.md (em linha própria ou no
+#              meio da frase), e o CLAUDE.md fica com @AGENTS.md
 # Nas outras classes imprime a proposta e não grava nada: o que cita hook, skill, /comando
 # ou ferramenta do Claude Code fica no CLAUDE.md, o resto vai para o AGENTS.md, e quem
 # decide é quem migra. Não faz commit e não toca nada além do CLAUDE.md e do AGENTS.md da
@@ -96,12 +97,37 @@ linha_import() {
     END { exit !achou }' "$1"
 }
 
-sem_import() { # sem_import <origem> <destino>
-  awk '
-    { t = $0; sub(/\r$/, "", t); sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t) }
-    t == "@AGENTS.md" || t == "@./AGENTS.md" { next }
-    { print }' "$1" > "$2"
+# O CLAUDE.md sem os `@AGENTS.md`: a linha que é só o import sai, e o token no meio da frase
+# sai da frase, fora de crase e de bloco de código. `conta` só diz se há o que tirar (1 ou 0).
+read -r -d '' AWK_SEM_IMPORT <<'AWK'
+function tira(seg,    out, p, antes, nx, nx2) {
+  out = ""
+  while (match(seg, /@(\.\/)?AGENTS\.md/)) {
+    antes = RSTART > 1 ? substr(seg, RSTART - 1, 1) : ""
+    nx = substr(seg, RSTART + RLENGTH, 1); nx2 = substr(seg, RSTART + RLENGTH + 1, 1)
+    if ((antes == "" || antes ~ /[ \t(]/) && nx !~ /[A-Za-z0-9_\/-]/ && !(nx == "." && nx2 ~ /[A-Za-z0-9_]/)) {
+      p = substr(seg, 1, RSTART - 1)
+      if (antes ~ /[ \t]/) sub(/[ \t]+$/, "", p)
+      out = out p; n++
+    } else out = out substr(seg, 1, RSTART + RLENGTH - 1)
+    seg = substr(seg, RSTART + RLENGTH)
+  }
+  return out seg
 }
+{ cr = sub(/\r$/, ""); t = $0; sub(/^[ \t]+/, "", t); sub(/[ \t]+$/, "", t) }
+t == "@AGENTS.md" || t == "@./AGENTS.md" { n++; next }
+/^[ \t]*(```|~~~)/ { cerca = !cerca }
+!cerca {
+  k = split($0, pt, "`"); l = ""
+  for (i = 1; i <= k; i++) l = l (i > 1 ? "`" : "") (i % 2 ? tira(pt[i]) : pt[i])
+  $0 = l
+}
+modo != "conta" { print $0 (cr ? "\r" : "") }
+END { if (modo == "conta") print (n > 0) }
+AWK
+
+sem_import() { awk -v modo=grava "$AWK_SEM_IMPORT" "$1" > "$2"; }  # sem_import <origem> <destino>
+tem_token() { [ "$(awk -v modo=conta "$AWK_SEM_IMPORT" "$1")" = 1 ]; }
 
 vazio() { awk '{ sub(/\r$/, "") } NF { achou = 1; exit } END { exit achou }' "$1"; }
 
@@ -166,11 +192,20 @@ function significativa(t) {
 # Para dizer "já está no AGENTS.md" vale qualquer linha igual, régua e separador de tabela
 # inclusive; só a cerca fica de fora, que partiria um bloco de código ao meio.
 function comparavel(t) { return t != "" && t !~ /^(```|~~~)/ }
-function tag_claude(s,    l, r, cmd, nx) {
+# Hook, skill e /comando são palavras comuns (hook do React, skill de gente, rota /login):
+# só contam com o que é do Claude Code junto.
+function evento(s) {
+  return (" " s " ") ~ /[^A-Za-z](PreToolUse|PostToolUse|SessionStart|Stop|SubagentStop|UserPromptSubmit|PreCompact)[^A-Za-z]/
+}
+function eh_comando(cmd, l) {
+  if (cmd ~ /^\/(tmp|dev|etc|usr|opt|var|bin|sbin|lib|home|private|proc|sys|mnt|root|api|app|src)$/) return 0
+  return index(cmd, ":") || l ~ /claude|slash|comando/
+}
+function tag_claude(s,    l, r, cmd, nx, ini) {
   l = tolower(s)
   gsub(/webhooks?/, "", l)
-  if (index(l, "hook")) return "hook"
-  if (index(l, "skill")) return "skill"
+  if (index(l, "hook") && (index(l, "settings.json") || index(l, "hook do claude code") || evento(s))) return "hook"
+  if (index(l, "skill") && (index(l, "skill.md") || index(l, ".claude/skills") || l ~ /skills? do claude/)) return "skill"
   if (index(l, "claude code")) return "Claude Code"
   if (index(l, "subagent")) return "subagente"
   if ((" " l " ") ~ /[^a-z0-9]mcp[^a-z0-9]/) return "MCP"
@@ -179,14 +214,17 @@ function tag_claude(s,    l, r, cmd, nx) {
   if (index(l, "claude.md")) return "CLAUDE.md"
   if (l ~ /pretooluse|posttooluse|userpromptsubmit|sessionstart|precompact/) return "evento de hook"
   if (l ~ /plan mode|modo plano|statusline|slash command/) return "Claude Code"
-  r = " " s
-  while (match(r, /[ \t("'`]\/[a-z][a-z0-9:_-]*/)) {
-    cmd = substr(r, RSTART + 1, RLENGTH - 1)
-    nx = substr(r, RSTART + RLENGTH, 1)
+  # /comando: no começo da linha (marcador de lista não conta) ou sozinho entre crases.
+  ini = s; sub(/^([-*+]|[0-9]+\.)[ \t]+/, "", ini)
+  if (match(ini, /^\/[a-z][a-z0-9:_-]*/)) {
+    cmd = substr(ini, 1, RLENGTH); nx = substr(ini, RLENGTH + 1, 1)
+    if (nx != "/" && eh_comando(cmd, l)) return cmd
+  }
+  r = s
+  while (match(r, /`\/[a-z][a-z0-9:_-]*[` ]/)) {
+    cmd = substr(r, RSTART + 1, RLENGTH - 2)
     r = substr(r, RSTART + RLENGTH)
-    if (nx == "/") continue
-    if (cmd ~ /^\/(tmp|dev|etc|usr|opt|var|bin|sbin|lib|home|private|proc|sys|mnt|root|api|app|src)$/) continue
-    return cmd
+    if (eh_comando(cmd, l)) return cmd
   }
   r = " " s " "
   if (match(r, /[^A-Za-z0-9_](EnterWorktree|ExitWorktree|TodoWrite|NotebookEdit|WebFetch|WebSearch|ToolSearch|AskUserQuestion|ExitPlanMode|SendMessage)[^A-Za-z0-9_]/))
@@ -310,7 +348,9 @@ case "$E_CLASSE" in
       echo "ação: o CLAUDE.md só importa um AGENTS.md que não existe; crie o AGENTS.md (modelo em $MODELO); o --apply não grava aqui"
     else
       nota=""
-      linha_import "$E_C" && nota=", sem a linha @AGENTS.md (no AGENTS.md ela importaria o próprio arquivo)"
+      if linha_import "$E_C"; then nota=", sem a linha @AGENTS.md (no AGENTS.md ela importaria o próprio arquivo)"
+      elif tem_token "$E_C"; then nota=", sem o @AGENTS.md do meio da frase (no AGENTS.md ele importaria o próprio arquivo)"
+      fi
       echo "ação: --apply move o conteúdo do CLAUDE.md para o AGENTS.md$nota e deixa o CLAUDE.md com @AGENTS.md"
       linhas "$E_C" "" so-fica "proposta: depois do --apply, isto parece exclusivo do Claude Code e pode voltar para baixo do @AGENTS.md"
     fi ;;
@@ -378,10 +418,16 @@ TMPD="$(mktemp -d "${TMPDIR:-/tmp}/instrucoes.XXXXXX")" || { echo "mktemp falhou
 trap 'rm -rf "$TMPD"' EXIT
 PONTE="$TMPD/ponte"
 printf '@AGENTS.md\n' > "$PONTE"
-# O que vai para o AGENTS.md: o CLAUDE.md byte a byte, ou sem as linhas `@AGENTS.md`.
+# O que vai para o AGENTS.md: o CLAUDE.md byte a byte, ou sem os `@AGENTS.md`.
 FONTE="$E_C"
-# so-agents não tem CLAUDE.md: o awk do linha_import reclamaria do arquivo que falta
-if [ -f "$E_C" ] && linha_import "$E_C"; then FONTE="$TMPD/fonte"; sem_import "$E_C" "$FONTE"; fi
+# so-agents não tem CLAUDE.md: o awk reclamaria do arquivo que falta
+if [ -f "$E_C" ] && tem_token "$E_C"; then
+  FONTE="$TMPD/fonte"; sem_import "$E_C" "$FONTE"
+  if tem_import "$FONTE"; then
+    echo "nada gravado: sobrou @AGENTS.md no conteúdo, e no AGENTS.md ele importaria o próprio arquivo; mova à mão pela proposta acima"
+    exit 0
+  fi
+fi
 
 mostra() { diff -u --label "$1" --label "$3" "$2" "$4"; return 0; }  # mostra <rótulo> <antigo> <rótulo> <novo>
 # Nunca através de symlink: `cp` e `>` escrevem no alvo, e o alvo aqui é a fonte das regras.

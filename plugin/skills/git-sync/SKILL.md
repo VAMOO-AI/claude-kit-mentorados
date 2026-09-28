@@ -153,7 +153,9 @@ git config git-sync.tokenVar MEU_GH_TOKEN   # a variável, no ambiente ou em ~/.
 PRs abertos e a prova do cleanup passam a sair da API REST do GitHub. O token é lido só na
 linha dele, nunca impresso, e vai ao `curl` pelo stdin. `git config git-sync.repo dono/nome`
 sobrepõe o slug tirado do `origin`. Sem token, o cleanup diz "sem prova" e não apaga nada.
-Com o `gh` instalado mas cego para o repo, a API entra sozinha quando há token.
+Com o `gh` instalado mas cego para o repo, só a prova de merge do cleanup cai sozinha na API
+quando há token. A lista de PRs abertos continua no `gh` e só avisa que ele falhou; para ela
+também sair da API, use `git config git-sync.noGh true`.
 
 ## Regras duras (nunca violar)
 

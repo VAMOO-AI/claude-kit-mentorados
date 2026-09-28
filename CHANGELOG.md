@@ -28,6 +28,9 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   repo parado, caches e versões velhas de CLI); depois o `aplicar.sh` guarda o SHA de cada branch
   num ledger antes de apagar. Branch só sai com o head do PR igual ao tip, worktree só sai com o
   `worktree-gc.sh --verificar` liberando, e `--force`, squash detached e `sudo` ficam com você.
+  `.next` só sai de repo parado, com o mesmo filtro de idade do `node_modules`. `develop`, `dev`,
+  `staging` e `production` não são mais puladas pelo nome nas branches de worktree. Pasta raiz
+  que é symlink é varrida (`find -H`), e o `aplicar.sh` faz um fetch por repo.
   As pastas varridas são `~/Developer ~/Projects ~/code ~/Documents`, ou as que você passar
   (`LIMPEZA_RAIZES`). Você chama; o Claude não aciona sozinho.
 - **`instrucoes-projeto.sh`** migra um projeto que já existia para o `AGENTS.md` como fonte e o
@@ -39,8 +42,9 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   fechado, teste falhando antes do fix e report com o output real. Ele e o `revisor` rodam em
   `effort: medium`.
 - **`worktree-gc.sh --verificar <caminho>`**: responde se aquele worktree pode sair (0), ou por
-  que fica (1), sem remover nada. A "Limpeza no fim" da skill `worktrees`, o aviso de worktree
-  mergeado e a `limpeza-mac` passam por ele.
+  que fica (1). Não remove nada, mas atualiza as refs remotas com `git fetch --prune` antes de
+  responder. A "Limpeza no fim" da skill `worktrees`, o aviso de worktree mergeado e a
+  `limpeza-mac` passam por ele.
 
 ### Mudou
 
@@ -62,16 +66,28 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - **`secscan`:** o gitleaks varre também a árvore de trabalho (com `--redact`), não só o
   histórico; semgrep que falha diz `FALHOU (exit N)` e a última linha do erro; sem git, só o
   histórico fica sem medir.
+- **`revisor` no modo juiz** (o que a `auditoria-seguranca` usa por achado): o report é só o
+  veredito, `mantido` ou `refutado`, com o motivo em uma frase e o `arquivo:linha` que o
+  sustenta, sem as 4 seções.
 - **Texto:** `grilling` para pelo critério de "Quando parar"; `find-skills` mais curta;
   `harness-check` diz quando os textos do kit foram auditados pela última vez contra o modelo
   que você usa; o CLAUDE global perde uma frase redundante.
 
 ### Corrigido
 
-- **Limpeza de worktree apagava ignorado de valor:** `outputs/`, build que não se regenera e
-  qualquer outro arquivo ignorado que não é cache agora seguram o worktree no `worktree-gc.sh` e
-  no `git-sync --cleanup-apply`, não só o env e o repositório aninhado
+- **Limpeza de worktree apagava ignorado de valor.** No `worktree-gc.sh` e no
+  `git-sync --cleanup-apply`, o arquivo ignorado agora só passa numa lista fechada: env
+  (`.env*`, `.npmrc`, `bunfig.toml`) igual ao do clone principal, symlink, `node_modules`,
+  `.next`, `dist`, `build`, `target`, `.cache` e o resto do cache que qualquer instalação ou
+  build recria (`.turbo`, `coverage`, `.venv`, `__pycache__` e afins). Qualquer outro ignorado
+  segura o worktree, e a saída diz o motivo: `outputs/`, `out/` (ferramentas de render, como o
+  Remotion, gravam o arquivo final ali), env diferente do clone principal, repositório
+  aninhado. Antes só o env e o repositório aninhado seguravam
   (`tests/test-worktree-gc.sh`, `tests/test-git-sync-cleanup.sh`).
+- **O `--check` do `instrucoes-projeto.sh`** não manda mais para o CLAUDE.md frase que só
+  parece do Claude Code ("fica em /login", "React hooks", "skill em SQL"): hook, skill e
+  `/comando` contam só com o que é do Claude Code junto. E o `--apply` tira o `@AGENTS.md` do
+  meio da frase antes de mover o conteúdo, para o AGENTS.md novo não importar a si mesmo.
 - **O `--apply` do `instrucoes-projeto.sh`** não solta mais erro do awk quando o projeto só tem
   `AGENTS.md`.
 
