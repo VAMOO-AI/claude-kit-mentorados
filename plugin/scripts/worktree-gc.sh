@@ -145,28 +145,35 @@ m=[p for p in d if p.get("merged_at") and (p.get("base") or {}).get("ref")==b an
 print(m[0]["head"]["sha"] if m else "")' "$DEF" "${1:-}" 2>/dev/null
   fi
 }
-SEM_PROVA=""; [ "$have_gh" = 0 ] && [ "$REST_OK" = 0 ] && SEM_PROVA=" (sem gh nem token da API para provar squash)"
+# Ninguém perguntou pelo PR: sem gh ou com o gh que falhou (logado, mas a conta não vê o
+# repo), e sem token da API. O keep leva o sufixo, que é o que as skills exigem para aceitar a
+# prova à mão; sem ele, "NÃO mergeada" parecia negativa provada. Zerado a cada worktree.
+NAO_PERGUNTOU=0
+sem_prova() { [ "$NAO_PERGUNTOU" = 1 ] && printf ' (sem gh nem token da API para provar squash)'; }
 
-# head do PR MERGED na padrão cuja head é a branch; status 1 = não houve como perguntar. O gh
-# que falha (a conta ativa não vê o repo) cai na API; o gh que responde "nenhum" não cai.
+# head do PR MERGED na padrão cuja head é a branch; status 1 = a API falhou, 2 = ninguém
+# perguntou. O gh que falha (a conta ativa não vê o repo) cai na API; o gh que responde
+# "nenhum" não cai.
 head_pr_mergeado() {   # <branch>
   local br="$1" oid
   if [ "$have_gh" = 1 ] && oid="$(cd "$PRIMARY" && gh pr list --head "$br" --base "$DEF" --state merged \
        --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null)"; then
     printf '%s' "$oid"; return 0
   fi
-  [ "$REST_OK" = 1 ] || return 1
+  [ "$REST_OK" = 1 ] || return 2
   rest_get pulls state=closed "head=${REST_SLUG%%/*}:$br" "base=$DEF" per_page=10 | json_head_mergeado
 }
 
 # É mergeada? ancestral da padrão OU tip local contido no head do PR MERGED (squash).
 is_merged() {
-  local br="$1" oid
+  local br="$1" oid rc
   [ -n "$DEF" ] || return 1
   git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$ORIGIN_DEF" 2>/dev/null && return 0
   # o tip LOCAL precisa estar contido no head do PR mergeado — commits feitos
   # DEPOIS do merge (não pushados) deixam de contar como "mergeada".
-  oid="$(head_pr_mergeado "$br")" || return 1
+  oid="$(head_pr_mergeado "$br")"; rc=$?
+  [ "$rc" = 2 ] && NAO_PERGUNTOU=1
+  [ "$rc" = 0 ] || return 1
   [ -n "$oid" ] && git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$oid" 2>/dev/null && return 0
   # Fail-closed: sem PR merged, oid vazio ou inexistente localmente → mantém a branch.
   return 1
@@ -180,8 +187,8 @@ squash_do_detached() {   # <sha>
   [ -n "$sha" ] && [ -n "$DEF" ] && [ -n "$JSON_TOOL" ] || return 1
   [ -n "$rp" ] || rp='{owner}/{repo}'
   if [ "$have_gh" = 1 ] && corpo="$(cd "$PRIMARY" && gh api "repos/$rp/commits/$sha/pulls" 2>/dev/null)"; then :
-  elif [ "$REST_OK" = 1 ] && corpo="$(rest_get "commits/$sha/pulls")"; then :
-  else return 1; fi
+  elif [ "$REST_OK" = 1 ]; then corpo="$(rest_get "commits/$sha/pulls")" || return 1
+  else NAO_PERGUNTOU=1; return 1; fi
   [ "$(printf '%s' "$corpo" | json_head_mergeado "$sha")" = "$sha" ]
 }
 
@@ -275,10 +282,10 @@ if [ "$VERIFICAR" = 1 ]; then
     add "$SEM_PADRAO"
   elif [ -n "$branch" ]; then
     [ "$protegida" = 1 ] || sem_commit_proprio "$tip" "$branch" || is_merged "$branch" \
-      || add "branch '$branch' NÃO mergeada$SEM_PROVA"
+      || add "branch '$branch' NÃO mergeada$(sem_prova)"
   else
     sem_commit_proprio "$tip" || git -C "$ALVO" merge-base --is-ancestor HEAD "$ORIGIN_DEF" 2>/dev/null \
-      || squash_do_detached "$tip" || add "detached com commit fora de $ORIGIN_DEF, sem PR mergeado com head == HEAD$SEM_PROVA"
+      || squash_do_detached "$tip" || add "detached com commit fora de $ORIGIN_DEF, sem PR mergeado com head == HEAD$(sem_prova)"
   fi
   if [ -z "$motivos" ]; then echo "pode remover: $ALVO"; exit 0; fi
   echo "keep: $ALVO — $motivos"; exit 1
@@ -296,6 +303,7 @@ while IFS= read -r line; do
     worktree\ *) path="${line#worktree }" ;;
     branch\ *)   branch="${line#branch refs/heads/}" ;;
     "")  # fim de um bloco → avalia
+      NAO_PERGUNTOU=0
       [ -z "$path" ] && { path=""; branch=""; continue; }
       p="$(cd "$path" 2>/dev/null && pwd -P || echo "$path")"
 
@@ -327,7 +335,7 @@ while IFS= read -r line; do
             echo "  🗑️  [dry-run] removeria: $p  (detached, limpo, $por)"; removed=$((removed+1))
           fi
         else
-          echo "  ⏭️  $p  → detached (mantido)"; skipped=$((skipped+1))
+          echo "  ⏭️  $p  → detached (mantido)$(sem_prova)"; skipped=$((skipped+1))
         fi
         path=""; branch=""; continue
       fi
@@ -349,7 +357,7 @@ while IFS= read -r line; do
         echo "  🔒 $p  → branch '$branch' sem commit próprio (recém-criada ou só puxou a base) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
       if ! is_merged "$branch"; then
-        echo "  🔒 $p  → branch '$branch' NÃO mergeada — mantido"; kept=$((kept+1)); path=""; branch=""; continue
+        echo "  🔒 $p  → branch '$branch' NÃO mergeada — mantido$(sem_prova)"; kept=$((kept+1)); path=""; branch=""; continue
       fi
 
       if [ "$APPLY" = 1 ]; then

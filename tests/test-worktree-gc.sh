@@ -400,6 +400,28 @@ verifm 1 'keep: .*wt-solta-m .*NÃO mergeada' "não mergeada em master: exit 1" 
 ARGS=(); OUTM="$(runm env)"
 check  'removeria: .*wt-feat-m '           "dry-run em repo master: a mergeada é candidata"      "$OUTM"
 refute 'removeria: .*wt-solta-m '          "dry-run em repo master: a não mergeada fica"         "$OUTM"
+refute 'sem gh nem token'                  "gh que responde 'nenhum PR': a negativa sai sem o sufixo" "$OUTM$(ARGS=(--verificar "$WTS_M/wt-solta-m"); runm env)"
+
+# gh logado (o auth status passa) mas cego para o repo, e sem token da API: ninguém perguntou
+# pelo PR. Sem o sufixo, "NÃO mergeada" parecia negativa provada, e as skills só aceitam a
+# prova à mão quando o motivo diz "sem gh nem token da API".
+GM worktree add -q --detach "$WTS_M/wt-det-m" origin/master
+g -C "$WTS_M/wt-det-m" commit -q --allow-empty -m d
+mkdir -p "$TMP/bin-cego"
+printf '#!/usr/bin/env bash\ncase "$1" in auth) exit 0 ;; esac\necho "gh: Could not resolve to a Repository" >&2; exit 1\n' > "$TMP/bin-cego/gh"
+chmod +x "$TMP/bin-cego/gh"
+runcego() { (cd "$CLONE_M" && env -u GH_TOKEN -u GITHUB_TOKEN GIT_SYNC_TOKENS_FILE="$TMP/nao-existe" \
+  PATH="$TMP/bin-cego:$PATH" bash "$SCRIPT" "$@" 2>&1); }
+OUTC="$(runcego --verificar "$WTS_M/wt-solta-m")"; rc=$?
+[ "$rc" = 1 ] && check 'keep: .*wt-solta-m .*NÃO mergeada.*sem gh nem token da API' "gh cego e sem token, branch: keep com o sufixo" "$OUTC" \
+  || { printf '  FALHA gh cego e sem token, branch: exit %s\n' "$rc"; falhas=$((falhas+1)); }
+OUTC="$(runcego --verificar "$WTS_M/wt-det-m")"; rc=$?
+[ "$rc" = 1 ] && check 'keep: .*wt-det-m .*detached.*sem gh nem token da API' "gh cego e sem token, detached: keep com o sufixo" "$OUTC" \
+  || { printf '  FALHA gh cego e sem token, detached: exit %s\n' "$rc"; falhas=$((falhas+1)); }
+OUTC="$(runcego)"
+check 'wt-solta-m .*NÃO mergeada.*sem gh nem token da API' "gc com gh cego: a branch sai com o sufixo"   "$OUTC"
+check 'wt-det-m .*detached.*sem gh nem token da API'       "gc com gh cego: o detached sai com o sufixo" "$OUTC"
+refute 'removeria: .*wt-(solta|det)-m '                    "gc com gh cego: nada vira candidato"        "$OUTC"
 # git >= 2.48 recria o origin/HEAD no fetch que o gc faz: sem isto o fallback nem roda
 GM config remote.origin.followRemoteHEAD never
 GM remote set-head origin -d
