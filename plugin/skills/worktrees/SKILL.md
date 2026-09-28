@@ -283,7 +283,8 @@ O `--verificar` não remove nada (só atualiza as refs remotas com `git fetch --
 - branch não mergeada na branch padrão do origin (sem padrão descoberta, é keep com o
   motivo). O squash é provado pelo PR, pelo `gh` ou, se a conta dele não enxerga o repo,
   pela API REST com o token de `git config git-sync.tokenVar`, como no git-sync. Só
-  quando o motivo diz "sem gh nem token da API" vale a prova do PR acima à mão, e os
+  quando o motivo diz "sem gh nem token da API" vale a prova do PR acima à mão, com uma
+  conta do `gh` que enxergue o repo, e os
   outros motivos continuam valendo.
 
 Exit 2 é uso errado (o clone principal, caminho que não é raiz de worktree).
