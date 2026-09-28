@@ -22,7 +22,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   `~/.claude/backup-agents-md/`, fora da rotação dos três backups. Um `AGENTS.md` em
   `~/.claude`, de outra ferramenta ou escrito por você, fica intocado: o setup só tira o
   arquivo gravado como `agents.md`, em minúsculas, e o `AGENTS.md` que tem a linha "Fica em
-  `~/.claude/agents.md`" do modelo antigo do kit (setup antigo que gravou por cima). Se o seu
+  `~/.claude/agents.md`" do modelo antigo do kit (setup antigo que gravou por cima). Sobre o
+  `AGENTS.md` que é seu o setup não diz nada; só o `--dry-run` conta que o deixaria. Se o seu
   `CLAUDE.md` ainda cita `agents.md`, o setup avisa e não mexe nele.
 
 ### Por quê
@@ -52,9 +53,9 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   a de apagar branch com PR encadeado só oferecem `HOTFIX_MAIN=1`/`DELETE_BRANCH_OK=1` quando
   você pediu isso na conversa. Antes, "se foi proposital" deixava o Claude decidir sozinho.
 - **Aviso de worktree mergeado** não manda remover nem oferece o `ExitWorktree`: diz que você pode
-  pedir a limpeza, que segue a skill `worktrees` (prova completa e trava de env), e avisa que o
-  `worktree-gc.sh --apply` remove todos os worktrees elegíveis, não só aquele. O de clone
-  principal fora da `main` só aparece numa sessão em worktree.
+  pedir a limpeza, que segue a skill `worktrees` (prova completa e trava de env); para vários de
+  uma vez, `git-sync --cleanup-dry-run` primeiro e o `--cleanup-apply` só com o seu pedido. O de
+  clone principal fora da `main` só aparece numa sessão em worktree.
 - **`subagentes.md`:** o revisor não edita nem classifica: reporta cada achado com confiança e
   cenário, e a conversa principal separa o que é mecânico do que é decisão e aplica; "Arquivos tocados" sai do `git diff --stat`; sai a cota de 3 edições.
 - **CLAUDE global:** uma frase antes da primeira ferramenta, `git diff` no lugar de reler o
@@ -110,9 +111,12 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   "removeria", e a cópia fica em `~/.claude/backup-agents-md/`, que a rotação dos três backups não
   apaga (`tests/test-kit-setup-subagentes.sh`; porte do #240 do kit do time).
 - **A A4 da `auditoria-seguranca` imprimia o segredo inteiro** achado no bundle e em config:
-  agora sai `arquivo:linha` e os 6 primeiros caracteres, inclusive no default do compose
-  (`${VAR:-valor}`, que com até 8 caracteres sai todo mascarado); o JWT do bundle sai com o `role` do payload (anon × service_role), e o `-a`
-  lê binário no bundle sem derrubar a varredura (`tests/test-auditoria-a4-mascara.sh`).
+  agora sai `arquivo:linha` e, do valor, só `…` quando ele tem até 12 caracteres, ou os 4
+  primeiros + `…` quando é maior, inclusive no default do compose (`${VAR:-valor}`); o tipo vai
+  em rótulo separado, e o JWT do bundle sai com o `role` do payload (anon × service_role). O
+  default é procurado também em `compose.yaml`, `compose.yml` e `docker-compose*.yaml`, os nomes
+  do Compose v2, e o `-a` lê binário no bundle sem derrubar a varredura
+  (`tests/test-auditoria-a4-mascara.sh`).
 - **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
   ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando
   acham. E a Fase 4 nunca dizia `SEM LOCKFILE`: o exit que valia era o do `head`, que sai 0 sem

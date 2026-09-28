@@ -11,8 +11,10 @@
 >
 > ⚠️ **O que vai aqui:** regra de comportamento e fato do projeto que o agente não tem como
 > adivinhar lendo o código. Nada de changelog nem documentação de implementação: este
-> arquivo entra inteiro no contexto de toda sessão, e o Codex lê só até 32 KiB. Histórico e
-> doc vão para `docs/` (ou `.context/docs/`). Apague estas linhas de citação ao preencher.
+> arquivo entra inteiro no contexto de toda sessão, e o Codex CLI corta em silêncio o que
+> passar de 32 KiB, somando os `AGENTS.md` do projeto (o padrão do `project_doc_max_bytes`).
+> Histórico e doc vão para `docs/` (ou `.context/docs/`). Apague estas linhas de citação ao
+> preencher.
 
 ## Stack
 - <ex.: Next.js 15 (App Router) + React + TypeScript>
