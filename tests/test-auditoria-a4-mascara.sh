@@ -135,11 +135,15 @@ L="$TMP/latin1"; mkdir -p "$L/dist"
 printf 'services:\n  a:\n    environment:\n      DB_PASSWORD: ${DB_PASSWORD:-senhaValida12345} # caf\351\n      Z: ${Z:-outroDefaultDepois1}\n' > "$L/compose.yaml"
 printf 'password: "valor\351ruim12345"\ntoken: "tokenDepoisDoByte99" # caf\351\nsecret: "segredoDepoisDoByte"\n' > "$L/cfg.yml"
 printf '/* caf\351 */ const k="%s";\n' "$SK" > "$L/dist/app.js"
-sl=$(cd "$L" && LC_ALL=en_US.UTF-8 PYTHONIOENCODING=utf-8:strict PATH=/usr/bin:/bin bash "$TMP/a4.sh" 2>&1)
+# O locale UTF-8 que a máquina tem: sem ele a glibc cai para C e o cenário passa até no código antigo.
+U=$(locale -a 2>/dev/null | grep -iE '^(en_US|C)\.utf-?8$' | head -1)
+sl=$(cd "$L" && LC_ALL="${U:-en_US.UTF-8}" PYTHONIOENCODING=utf-8:strict PATH=/usr/bin:/bin bash "$TMP/a4.sh" 2>&1)
 nao_tem "Traceback"                   "$sl" "byte fora de UTF-8: sem Traceback"
 nao_tem "illegal byte sequence"       "$sl" "byte fora de UTF-8: o sed não aborta"
 tem "compose.yaml:4:"                 "$sl" "byte fora de UTF-8: a linha do byte continua achada"
 tem "compose.yaml:5:"                 "$sl" "byte fora de UTF-8: o default seguinte não some"
+tem "cfg.yml:1:"                      "$sl" "byte fora de UTF-8 dentro do valor: a config continua achada"
+nao_tem "ruim12345"                   "$sl" "byte fora de UTF-8 dentro do valor: o valor continua mascarado"
 tem "cfg.yml:2:"                      "$sl" "byte fora de UTF-8: a config com byte continua achada"
 tem "cfg.yml:3:"                      "$sl" "byte fora de UTF-8: a config seguinte não some"
 tem "dist/app.js:1:sk-F…"             "$sl" "byte fora de UTF-8: a chave do bundle continua achada"

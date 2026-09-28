@@ -370,7 +370,7 @@ m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
 for l in open(0, encoding="utf-8", errors="replace"): print(re.sub(r"(\$\{[A-Z_][A-Z0-9_]*:-)([^}]+)\}", lambda g: g[1] + m(g[2]) + "}", l.rstrip("\n")))'
 # 3. atribuição com literal em config
 LC_ALL=C grep -arnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
-  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -av node_modules \
+  --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | LC_ALL=C grep -av node_modules \
   | python3 -c '
 import re
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
