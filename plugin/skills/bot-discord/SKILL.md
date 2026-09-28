@@ -66,7 +66,7 @@ O que você decide sozinho, sem perguntar: Node 22 + TypeScript rodando por `tsx
 5. **Slash sem `deferReply()`** → interaction expira em 3 s e o usuário vê "a aplicação não respondeu".
 6. **Cron sem `timezone`** → o container roda em UTC e o relatório das 8h sai às 5h.
 7. **Sem gate de idempotência** → mensagem editada, restart e reação re-disparam alerta/DM.
-   Gravar dado é idempotente por upsert; **avisar gente precisa de gate** (`references/02`).
+   Gravar dado é idempotente por upsert; **avisar gente precisa de gate** (`references/02-codigo-base.md`).
 
 ## Fase 9 — Verificação (obrigatória, é ela que fecha o trabalho)
 

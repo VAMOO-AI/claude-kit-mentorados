@@ -77,8 +77,8 @@ de `&&` com heredoc, laço artesanal com `for`/`comm`/`jq`, e qualquer coisa com
 
 **A detecção é por texto, não por semântica.** É por isso que ela pega comando
 sem nada de git. Casos medidos no Claude Code 2.1.258 (02/09/2026), salvo onde
-o item diz outra versão; as recusas de `source` e do `gh` com `-q` voltaram a
-aparecer na 2.1.277 e na 2.1.278 (19/09/2026):
+o item diz outra versão; as recusas de `source` e do `gh` com `-q` também
+foram vistas na 2.1.277 e na 2.1.278 (19/09/2026):
 
 - **a substring `git` dentro de outra palavra conta** — um script Python que lia
   a chave JSON `githubCommitSha` da API da Vercel foi recusado como se fosse

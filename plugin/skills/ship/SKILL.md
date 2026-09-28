@@ -102,7 +102,7 @@ merge.
 **O PR toca `supabase/migrations/` (ou qualquer DDL)?** A segunda lista acima
 responde. Com deploy manual ou automático no merge, passe antes do push pela
 checklist "Migration que não derruba produção" da skill `baseline`
-(`references/02-banco.md`): NOT NULL só depois do backfill, índice em tabela viva
+(`baseline/references/02-banco.md`): NOT NULL só depois do backfill, índice em tabela viva
 com CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar. Migration que
 reprova num item não sobe inteira: vira dois ou três PRs.
 
