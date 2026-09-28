@@ -4,8 +4,10 @@
 # O bloco da A4 é o que o modelo roda como está escrito, e a saída entra na conversa: vai para o
 # transcript e costuma acabar colada no relatório e na issue. Até a 0.41 o `grep -rEo` do
 # bundle devolvia a chave inteira, e os greps de atribuição e de default em config devolviam a
-# linha com o valor. Agora cada achado sai como arquivo:linha e os 6 primeiros caracteres; o
-# JWT do bundle sai com o `role` do payload, que é o que separa a anon key da service_role.
+# linha com o valor. Agora cada achado sai como arquivo:linha e um prefixo curto: valor de até
+# 12 caracteres sai só como `…`, valor maior com os 4 primeiros + `…`. O tipo vai em rótulo
+# separado: o JWT do bundle sai com o `role` do payload, que separa a anon key da service_role.
+# O default é procurado nos nomes do Compose v1 e v2 (docker-compose*.y*ml, compose.y*ml).
 #
 # E o bloco rodava `npm run build` quando faltava `dist/`: script do repo auditado executando na
 # máquina de quem audita, gravando fora de docs/security-audit/. Sem build no disco, o bloco não
@@ -40,6 +42,10 @@ JWT="$(b64url '{"alg":"HS256","typ":"JWT"}').$(b64url '{"role":"service_role","i
 CFG="valorFALSO$(printf '1%.0s' $(seq 1 10))"
 DEF="padraoFALSO$(printf '2%.0s' $(seq 1 10))"
 CURTO="s3cr$(printf 'e%.0s' 1)t"   # default de 6 caracteres: o corte dos "6 primeiros" o mostrava inteiro
+# Os limites da política: 9 e 12 saem só como …, 13 sai com os 4 primeiros.
+V9="n4pW$(printf 'y%.0s' $(seq 1 5))"
+V12="r7tX$(printf 'w%.0s' $(seq 1 8))"
+V13="k9mQ$(printf 'z%.0s' $(seq 1 9))"
 
 R="$TMP/com-build"; mkdir -p "$R/dist" "$R/.next/static"
 printf 'const a=1;\nconst k="%s";\nconst j="%s";\n' "$SK" "$JWT" > "$R/dist/app.js"
@@ -47,8 +53,12 @@ printf 'const a=1;\nconst k="%s";\nconst j="%s";\n' "$SK" "$JWT" > "$R/dist/app.
 # no stdout, e o python do bloco quebrava levando junto os achados dos outros arquivos
 printf 'ASAR\000\000\000cabecalho\nconst k="%s";\n' "$SK" > "$R/dist/app.asar"
 printf 'var t="%s";\n' "$JWT" > "$R/.next/static/chunk.js"
-printf 'nome: app\napi_key: "%s"\n' "$CFG" > "$R/config.yml"
-printf 'services:\n  api:\n    environment:\n      JWT_SECRET: ${JWT_SECRET:-%s}\n      DB_PASS: ${DB_PASS:-%s}\n' "$DEF" "$CURTO" > "$R/docker-compose.yml"
+printf 'nome: app\napi_key: "%s"\nsecret: "%s"\npassword: "%s"\ntoken: "%s"\n' "$CFG" "$V9" "$V12" "$V13" > "$R/config.yml"
+printf 'services:\n  api:\n    environment:\n      JWT_SECRET: ${JWT_SECRET:-%s}\n      DB_PASS: ${DB_PASS:-%s}\n      DNOVE: ${DNOVE:-%s}\n      DDOZE: ${DDOZE:-%s}\n      DTREZE: ${DTREZE:-%s}\n' \
+  "$DEF" "$CURTO" "$V9" "$V12" "$V13" > "$R/docker-compose.yml"
+# Compose v2: compose.yaml é o nome padrão, e o .yaml vale também para o docker-compose
+printf 'services:\n  db:\n    environment:\n      ADMIN_PASS: ${ADMIN_PASS:-%s}\n' "$DEF" > "$R/compose.yaml"
+printf 'services:\n  db:\n    environment:\n      PROD_PASS: ${PROD_PASS:-%s}\n' "$DEF" > "$R/docker-compose.prod.yaml"
 
 saida=$(cd "$R" && PATH=/usr/bin:/bin bash "$TMP/a4.sh" 2>&1)
 
@@ -59,18 +69,32 @@ nao_tem "$CFG" "$saida" "valor do api_key em config mascarado"
 nao_tem "$DEF" "$saida" "default do compose mascarado"
 nao_tem ":-$CURTO" "$saida" "default curto (6 caracteres) também mascarado"   # sem o }: "valor…}" também vaza
 
-echo "== o achado continua achável: arquivo:linha, os 6 primeiros caracteres e o tipo =="
-tem "dist/app.js:2:sk-FAL"            "$saida" "bundle: dist/app.js:2 e sk-FAL"
-tem "dist/app.js:3:eyJhbG"            "$saida" "bundle: dist/app.js:3 e eyJhbG"
-tem ".next/static/chunk.js:1:eyJhbG"  "$saida" "bundle: .next/static/chunk.js:1 e eyJhbG"
-tem "dist/app.asar:2:sk-FAL"          "$saida" "bundle: a chave dentro do binário vira achado"
+echo "== o achado continua achável: arquivo:linha, no máximo 4 caracteres e o tipo =="
+tem "dist/app.js:2:sk-F…"             "$saida" "bundle: dist/app.js:2 e sk-F…"
+nao_tem ":sk-FA"                      "$saida" "bundle: não passa dos 4 primeiros da chave"
+tem "dist/app.js:3:eyJh…"             "$saida" "bundle: dist/app.js:3 e eyJh…"
+tem ".next/static/chunk.js:1:eyJh…"   "$saida" "bundle: .next/static/chunk.js:1 e eyJh…"
+nao_tem "eyJhb"                       "$saida" "bundle: não passa dos 4 primeiros do JWT"
+tem "dist/app.asar:2:sk-F…"           "$saida" "bundle: a chave dentro do binário vira achado"
 nao_tem "Traceback"                   "$saida" "bundle: binário não quebra o bloco"
 tem "role=service_role"               "$saida" "bundle: o JWT sai com o role do payload"
-tem "config.yml:2:"                   "$saida" "config: config.yml:2"
-tem "\"valorF"                        "$saida" "config: os 6 primeiros caracteres do valor"
+tem "config.yml:2:api_key: \"valo…"   "$saida" "config: 20 caracteres saem com os 4 primeiros"
+nao_tem "\"valor"                     "$saida" "config: não passa dos 4 primeiros"
+tem "config.yml:3:secret: \"…"        "$saida" "config: 9 caracteres saem só como …"
+tem "config.yml:4:password: \"…"      "$saida" "config: 12 caracteres saem só como …"
+tem "config.yml:5:token: \"k9mQ…"     "$saida" "config: 13 caracteres saem com os 4 primeiros"
 tem "docker-compose.yml:4:"           "$saida" "default: docker-compose.yml:4"
-tem ":-padrao"                        "$saida" "default: os 6 primeiros caracteres do default"
-tem "docker-compose.yml:5:"           "$saida" "default curto: docker-compose.yml:5"
+tem "JWT_SECRET:-padr…}"              "$saida" "default: 21 caracteres saem com os 4 primeiros"
+nao_tem ":-padra"                     "$saida" "default: não passa dos 4 primeiros"
+tem "DB_PASS:-…}"                     "$saida" "default curto: 6 caracteres saem só como …"
+tem "DNOVE:-…}"                       "$saida" "default: 9 caracteres saem só como …"
+tem "DDOZE:-…}"                       "$saida" "default: 12 caracteres saem só como …"
+tem "DTREZE:-k9mQ…}"                  "$saida" "default: 13 caracteres saem com os 4 primeiros"
+nao_tem "n4pW"                        "$saida" "9 caracteres: nenhum caractere do valor sai"
+nao_tem "r7tX"                        "$saida" "12 caracteres: nenhum caractere do valor sai"
+nao_tem "k9mQz"                       "$saida" "13 caracteres: não passa dos 4 primeiros"
+tem "compose.yaml:4:      ADMIN_PASS: \${ADMIN_PASS:-padr…}" "$saida" "Compose v2: compose.yaml é varrido"
+tem "docker-compose.prod.yaml:4:"     "$saida" "Compose: docker-compose*.yaml é varrido"
 
 echo "== sem build no disco, o bloco não roda o build do repo auditado =="
 # npm falso no PATH: se o bloco chamar npm, a marca aparece na pasta do repo

@@ -116,7 +116,7 @@ Sem isto, a auditoria vira busca por `dangerouslySetInnerHTML` num projeto Vue.
 ls package.json requirements.txt pyproject.toml go.mod Gemfile composer.json Cargo.toml 2>/dev/null
 [ -f package.json ] && cat package.json | head -60
 ls -d supabase/ prisma/ drizzle/ migrations/ app/ pages/ src/ api/ 2>/dev/null
-ls docker-compose*.yml Dockerfile* .github/workflows/ helm/ terraform/ vercel.json 2>/dev/null
+ls docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml Dockerfile* .github/workflows/ helm/ terraform/ vercel.json 2>/dev/null
 ```
 
 Preencha, e **escreva na nota metodológica do PDF**:
@@ -353,18 +353,18 @@ fresco vai reler.
 
 Quatro superfícies, e a quarta é a que quase ninguém varre. O que o comando imprime
 entra na conversa, e dali no relatório e na issue: por isso nenhuma busca mostra o valor
-inteiro. Sai `arquivo:linha`, o nome (a chave, a variável, o tipo do token) e os 6
-primeiros caracteres; default de até 8 caracteres (`${DB_PASS:-secret}`) sai todo
-mascarado, porque os 6 primeiros seriam ele quase inteiro. Para julgar um achado, abra o
-`arquivo:linha`.
+inteiro. Sai `arquivo:linha`, o nome (a chave, a variável) e o tipo do token em rótulo
+separado. Do valor, só um prefixo: até 12 caracteres sai só `…` (`${DB_PASS:-…}`), porque
+qualquer pedaço de um valor curto é boa parte dele; acima disso, os 4 primeiros + `…`. Para
+julgar um achado, abra o `arquivo:linha`.
 
 ```bash
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
-grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null \
-  | sed -E -e 's/(\$\{[A-Z_]+:-)[^}]{1,8}\}/\1…}/g' -e 's/(\$\{[A-Z_]+:-[^}]{6})[^}]{3,}\}/\1…}/g'   # defaults; curto sai todo mascarado
+grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml helm/ .github/ scripts/ 2>/dev/null \
+  | sed -E -e 's/(\$\{[A-Z_]+:-)[^}]{1,12}\}/\1…}/g' -e 's/(\$\{[A-Z_]+:-[^}]{4})[^}]{9,}\}/\1…}/g'   # defaults (Compose v1 e v2)
 grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
-  | sed -E "s/(['\"][^'\"]{6})[^'\"]*$/\1…/"
+  | sed -E -e "s/(['\"])[^'\"]{1,12}$/\1…/" -e "s/(['\"][^'\"]{4})[^'\"]{9,}$/\1…/"
 # 4. o bundle já buildado (o segredo que "só existe no servidor" e foi pro browser).
 #    O JWT sai com o `role` do payload; o -a lê binário (.asar) como texto.
 #    Sem build no disco, não rode o build: ele executa script do repo auditado e
@@ -381,7 +381,7 @@ for l in sys.stdin:
         p = (v.split(".") + [""])[1]
         try: tipo += " role=" + str(json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))["role"])
         except Exception: tipo += " role=?"
-    print(arq + ":" + lin + ":" + v[:6] + "…  " + tipo)' | sort | uniq -c
+    print(arq + ":" + lin + ":" + (v[:4] if len(v) > 12 else "") + "…  " + tipo)' | sort | uniq -c
 ```
 
 JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
