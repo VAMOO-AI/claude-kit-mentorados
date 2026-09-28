@@ -19,6 +19,12 @@
 # do reflog) ou é commit da linha first-parent da main. Vale também para o detached no
 # tip ou num commit antigo da main.
 #
+# Até 28/09/2026 a trava só olhava env: um `outputs/video.mp4` ignorado sumia no --apply
+# e o porcelain saía vazio. Agora todo ignorado é keep, menos env igual ao do clone,
+# symlink e cache/build da lista fechada (node_modules, .next...). O `--verificar <caminho>`
+# aplica as mesmas travas a um worktree só, sem remover nada: é o que roda antes do
+# ExitWorktree.
+#
 # O `gh` é falso (PATH): responde às duas formas de consulta — a antiga (`length`) e a
 # nova (`headRefOid`) — para que o mesmo teste rode contra as duas versões do script.
 #
@@ -54,7 +60,7 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 BASE="$(G rev-parse HEAD)"
@@ -117,6 +123,18 @@ mkdir -p "$WTS/wt-env-npmrc-sub/apps/y"; echo "registry=sub" > "$WTS/wt-env-npmr
 novo_wt env-repo; commit_em env-repo r; merge_main env-repo
 git init -q "$WTS/wt-env-repo/vendor/lib"
 
+# ign-*: mergeadas e limpas, cada uma com um tipo de ignorado. `outputs/` é trabalho (o
+# remove o apagaria calado); node_modules/.next são cache; o .venv é symlink para o clone
+# principal (o padrão `.venv` vai sem barra: `.venv/` não casa symlink)
+novo_wt ign-outputs; commit_em ign-outputs o; merge_main ign-outputs
+mkdir -p "$WTS/wt-ign-outputs/outputs"; echo mp4 > "$WTS/wt-ign-outputs/outputs/video.mp4"
+novo_wt ign-cache; commit_em ign-cache c; merge_main ign-cache
+mkdir -p "$WTS/wt-ign-cache/node_modules" "$WTS/wt-ign-cache/apps/web/.next"
+echo x > "$WTS/wt-ign-cache/node_modules/x"; echo x > "$WTS/wt-ign-cache/apps/web/.next/x"
+novo_wt ign-venv; commit_em ign-venv v; merge_main ign-venv
+mkdir -p "$CLONE/.venv"; echo alvo > "$CLONE/.venv/marca"
+ln -s "$CLONE/.venv" "$WTS/wt-ign-venv/.venv"
+
 # dirty: mergeada de verdade, mas suja
 novo_wt dirty; commit_em dirty d; merge_main dirty
 echo x > "$WTS/wt-dirty/sujo.txt"
@@ -133,6 +151,9 @@ G worktree add -q --detach "$WTS/wt-det-mergeado" "$OID_ANC"
 # det-env: o mesmo commit mergeado, mas com .env.local diferente do clone — fica, e diz qual
 G worktree add -q --detach "$WTS/wt-det-env" "$OID_ANC"
 echo "ENV=det" > "$WTS/wt-det-env/.env.local"
+# det-ign: o mesmo, com um ignorado de trabalho em vez de env
+G worktree add -q --detach "$WTS/wt-det-ign" "$OID_ANC"
+mkdir -p "$WTS/wt-det-ign/outputs"; echo mp4 > "$WTS/wt-det-ign/outputs/video.mp4"
 
 # --- gh falso: quem tem PR mergeado, e em qual head ----------------------------------
 mkdir -p "$TMP/bin"
@@ -176,6 +197,40 @@ check 'wt-dirty .*SUJO'                 "worktree mergeado e sujo é mantido"   
 check 'removeria: .*wt-det-mergeado .*detached' "detached limpo num commit mergeado é lixo"      "$OUT"
 check 'wt-det-env .*\.env\.local difere' "detached mergeado com .env.local divergente: fica e diz o arquivo" "$OUT"
 
+check 'wt-ign-outputs .*ignorado.*outputs/' "outputs/ ignorado segura o worktree mergeado, com o caminho" "$OUT"
+check 'removeria: .*wt-ign-cache '      "node_modules/ e apps/web/.next/ são cache: candidato"   "$OUT"
+check 'removeria: .*wt-ign-venv '       "symlink .venv para o clone: candidato"                  "$OUT"
+check 'wt-det-ign .*ignorado.*outputs/' "detached mergeado com outputs/ ignorado: fica"          "$OUT"
+refute 'removeria: .*wt-(ign-outputs|det-ign) ' "nenhum dos dois aparece como candidato"         "$OUT"
+
+echo "== --verificar: um worktree só, sem remover =="
+verif() { # <esperado-exit> <regex> <descrição> <args...>
+  local ex="$1" re="$2" d="$3" out rc; shift 3
+  out="$(run "$@")"; rc=$?
+  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep -qE "$re"; then printf '  ok    %s\n' "$d"
+  else printf '  FALHA %s (exit %s, esperado %s; saída: %s)\n' "$d" "$rc" "$ex" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"; falhas=$((falhas+1)); fi
+}
+verif 1 'keep: .*wt-ign-outputs .*outputs/'  "outputs/ ignorado: exit 1 e o caminho"   --verificar "$WTS/wt-ign-outputs"
+verif 0 'pode remover: .*wt-ign-cache'       "só cache: exit 0"                         --verificar "$WTS/wt-ign-cache"
+verif 0 'pode remover: .*wt-ign-venv'        "symlink: exit 0"                          --verificar "$WTS/wt-ign-venv"
+verif 0 'pode remover: .*wt-anc'             "env igual ao do clone: exit 0"            --verificar "$WTS/wt-anc"
+verif 1 'keep: .*wt-env .*\.env\.local difere' "env diferente: exit 1 e o arquivo"      --verificar "$WTS/wt-env"
+verif 1 'keep: .*wt-env-bunfigdot .*\.bunfig\.toml difere' ".bunfig.toml diferente: exit 1" --verificar "$WTS/wt-env-bunfigdot"
+verif 1 'keep: .*wt-env-repo .*repo aninhado ignorado: vendor/lib/' "repo aninhado: exit 1" --verificar "$WTS/wt-env-repo"
+verif 1 'keep: .*wt-dirty .*SUJO'            "sujo: exit 1"                             --verificar "$WTS/wt-dirty"
+verif 1 'keep: .*wt-pr-after .*NÃO mergeada' "commit depois do PR: exit 1"              --verificar "$WTS/wt-pr-after"
+verif 0 'pode remover: .*wt-nova'            "sem commit próprio: nada a perder, exit 0" --verificar "$WTS/wt-nova"
+verif 1 'keep: .*wt-det-ign .*outputs/'      "detached com outputs/: exit 1"            --verificar "$WTS/wt-det-ign"
+verif 0 'pode remover: .*wt-det-mergeado'    "detached limpo e mergeado: exit 0"        --verificar "$WTS/wt-det-mergeado"
+verif 2 'clone principal'                    "o clone principal: exit 2"                --verificar "$CLONE"
+verif 2 'não é worktree'                     "pasta fora do repo: exit 2"               --verificar "$TMP/bin"
+verif 2 'verificar'                          "--verificar com --apply: exit 2"          --verificar "$WTS/wt-anc" --apply
+verif 2 'verificar'                          "--verificar sem caminho: exit 2"          --verificar
+OUTV="$(cd "$WTS/wt-ign-outputs" && PATH="$TMP/bin:$PATH" bash "$SCRIPT" --verificar . 2>&1)"
+check 'keep: .*wt-ign-outputs'               "de dentro do próprio worktree também avalia"  "$OUTV"
+no_disco wt-ign-cache "o --verificar não remove nada"
+no_disco wt-anc       "o --verificar não remove nada"
+
 echo "== sem commit próprio: sessão recém-aberta, não branch mergeada =="
 check  'wt-nova .*sem commit próprio'               "nova de origin/main, limpa: mantida"                        "$OUT"
 check  'wt-sem-reflog .*sem commit próprio'         "nova com o reflog expirado (linha first-parent): mantida"   "$OUT"
@@ -198,7 +253,12 @@ no_disco wt-env-bunfig   "bunfig.toml divergente"
 no_disco wt-env-npmrc-sub "apps/y/.npmrc só no worktree"
 no_disco wt-env-repo     "repo aninhado ignorado"
 no_disco wt-dirty        "estava sujo"
-no_disco wt-nova         "branch sem commit próprio"
+no_disco wt-ign-outputs  "outputs/video.mp4 ignorado"
+no_disco wt-det-ign      "outputs/video.mp4 ignorado num detached"
+check 'removido: .*wt-ign-cache'        "apply remove o que só tem cache"                        "$OUT"
+check 'removido: .*wt-ign-venv'         "apply remove o que só tem o symlink"                    "$OUT"
+[ -f "$CLONE/.venv/marca" ] && printf '  ok    alvo do symlink .venv intacto\n' || { printf '  FALHA alvo do symlink .venv apagado\n'; falhas=$((falhas+1)); }
+no_disco wt-nova        "branch sem commit próprio"
 no_disco wt-sem-reflog   "branch sem commit próprio"
 no_disco wt-sincronizada "branch sem commit próprio"
 no_disco wt-empilhada    "branch sem commit próprio"

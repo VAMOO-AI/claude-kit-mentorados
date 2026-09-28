@@ -17,7 +17,9 @@
 # env ignorado). Para vários de uma vez, o aviso ensina o que a seção "Limpeza no fim"
 # ensina: `git-sync --cleanup-dry-run` antes e o `--cleanup-apply` só com o pedido da
 # pessoa. O worktree-gc.sh --apply, que remove todos os elegíveis sem dry-run, saiu do
-# aviso. E o clone principal fora da main só é assunto numa
+# aviso; na 0.43.0 volta só o `worktree-gc.sh --verificar <caminho>`, que não remove nada e
+# diz o que segura o worktree (env diferente, repo aninhado, ignorado de valor como
+# `outputs/`) — o check que a "Limpeza no fim" manda rodar antes. E o clone principal fora da main só é assunto numa
 # sessão em worktree: quem trabalha numa feat/x direto no clone não usa worktree, e o aviso
 # em todo início de sessão era ruído.
 #
@@ -134,7 +136,8 @@ check  "pedir a limpeza"                         "diz que a pessoa pode pedir a 
 check  "skill worktrees"                         "aponta o procedimento da skill worktrees"     "$OUT"
 check  "cleanup-dry-run.*cleanup-apply"          "dry-run antes do apply, como na skill"        "$OUT"
 check  "cleanup-apply.* só com o pedido"         "o apply só com o pedido da pessoa"            "$OUT"
-refute "worktree-gc|gc\.sh"                      "não cita o worktree-gc"                       "$OUT"
+check  "worktree-gc\.sh --verificar '?[^ ]*/worktrees/mergeada" "cita o --verificar com o caminho do worktree" "$OUT"
+refute "gc\.sh --apply|--prune-remote"           "nunca o gc que remove"                        "$OUT"
 refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
 refute "ExitWorktree"                            "não oferece ExitWorktree direto, sem a prova" "$OUT"
 OUT="$(run squash)"

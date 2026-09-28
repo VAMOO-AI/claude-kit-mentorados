@@ -264,34 +264,39 @@ commit que nunca subiu.
 ```bash
 gh pr list --state merged --head <branch> --json number,headRefOid
 git rev-parse <branch>                # igual ao headRefOid: nenhum commit ficou fora do PR
-git -C <worktree> status --porcelain  # vazio; qualquer linha, inclusive untracked, é trabalho
-git -C <worktree> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml'
-cmp -s <worktree>/<arquivo> <clone-principal>/<arquivo>   # um por arquivo listado; exit ≠ 0 = difere
-git -C <worktree> status --porcelain --ignored          # o que mais some junto com o worktree
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>
 ```
 
 O `status` não mostra o que o git ignora, e o `git worktree remove` apaga esses
 arquivos sem recusar, mesmo sem `--force`: o `.env.local` que o hook copiou e a
-sessão editou iria junto. Cada arquivo que o `ls-files` listar tem de ser igual ao
-do clone principal (a primeira linha de `git worktree list`); diferente, ou só
-existente no worktree, derruba a prova. Linha com `/` no fim é repositório
-aninhado ignorado, que o remove apagaria com `.git` e tudo: também derruba, com o
-caminho no motivo. O `--ignored` mostra o resto que some junto (`outputs/`, build,
-`.context/runtime/`: as linhas que começam com dois pontos de exclamação); trabalho
-que só existe ali também derruba a prova.
+sessão editou, um `outputs/video.mp4`, um repositório clonado dentro do worktree.
+O `--verificar` não remove nada; ele junta as travas num check só e sai 0 com
+`pode remover: <caminho>` ou 1 com `keep: <caminho> — <motivos>`:
 
-- Prova completa: `git worktree remove <worktree>` (nunca `--force`),
-  `git branch -D <branch>` e `git worktree prune`. Worktree que esta sessão criou
-  com o `EnterWorktree`: `ExitWorktree` com `action: "remove"`; se ele recusar por
-  commits fora da branch original (é o squash), `discard_changes: true` só com a
-  prova completa — ele também apaga o que não foi commitado.
+- mudança não commitada, inclusive untracked;
+- env ignorado (`.env*`, `.npmrc`, `bunfig.toml`, `.bunfig.toml`, de qualquer
+  pasta) diferente do clone principal ou que só existe no worktree;
+- repositório aninhado ignorado, que o remove apagaria com `.git` e tudo;
+- qualquer outro ignorado de valor (`outputs/`, `.context/runtime/`), com os
+  caminhos. Passam só symlink (remover o link não apaga o alvo) e cache/build que
+  uma instalação recria (`node_modules`, `.next`, `dist`, `build`, `.venv`...);
+- branch não mergeada. Sem `gh` que enxergue o repo, um squash sai como "NÃO
+  mergeada": aí vale a prova do PR acima, e os outros motivos continuam valendo.
+
+Exit 2 é uso errado (o clone principal, caminho que não é raiz de worktree).
+
+- Prova completa (PR mergeado, head == tip e o `--verificar` sem outro motivo):
+  `git worktree remove <worktree>` (nunca `--force`), `git branch -D <branch>` e
+  `git worktree prune`. Worktree que esta sessão criou com o `EnterWorktree`:
+  `ExitWorktree` com `action: "remove"`; se ele recusar por commits fora da branch
+  original (é o squash), `discard_changes: true` só com a prova completa — ele
+  também apaga o que não foi commitado.
 - Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
-  à pessoa o que faltou — o nome do arquivo, quando é o env, ou o caminho do repo
-  aninhado.
+  à pessoa o que faltou — a linha `keep:` do `--verificar` já traz o arquivo, o repo
+  aninhado ou os caminhos ignorados.
 - Vários de uma vez: `git-sync --cleanup-dry-run`, e o `--cleanup-apply` só com o
-  pedido. Ele cobra a mesma prova, com env e repo aninhado (ou a ancestralidade,
-  quando o merge não foi squash); o resto dos ignorados ele não olha, então rode o
-  `--ignored` antes de pedir o apply.
+  pedido. Ele cobra a mesma prova e as mesmas travas de ignorado (ou a
+  ancestralidade, quando o merge não foi squash).
 
 Depois, `git fetch --prune`. O clone principal fica na `main`; atualize-o com
 `git pull --ff-only`, sem trocar a branch dele — outra sessão pode estar lendo dali.
