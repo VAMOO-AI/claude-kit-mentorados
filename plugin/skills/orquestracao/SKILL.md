@@ -19,6 +19,8 @@ description: >-
   trabalho recém-feito — revisor é pra PR/branch, não pra auto-conferência.
 - Escolha de modelo: deixa o harness decidir por tarefa. Haiku via subagent
   explícito só pra lote mecânico real (ex: 20 renames).
+- Qual subagente: lote de implementação despachado → agente `executor` do
+  kit; review → `revisor`. Os dois rodam em `effort: medium`.
 - Effort em `agent()`: `effort: 'low'` em estágio mecânico (extrair,
   renomear, formatar), que não depende de raciocínio; omitido no resto, e aí
   o agente herda o esforço da sessão; `'high'` só no judge/verify que errou
