@@ -354,12 +354,14 @@ fresco vai reler.
 Quatro superfícies, e a quarta é a que quase ninguém varre. O que o comando imprime
 entra na conversa, e dali no relatório e na issue: por isso nenhuma busca mostra o valor
 inteiro. Sai `arquivo:linha`, o nome (a chave, a variável, o tipo do token) e os 6
-primeiros caracteres. Para julgar um achado, abra o `arquivo:linha`.
+primeiros caracteres; default de até 8 caracteres (`${DB_PASS:-secret}`) sai todo
+mascarado, porque os 6 primeiros seriam ele quase inteiro. Para julgar um achado, abra o
+`arquivo:linha`.
 
 ```bash
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
 grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml helm/ .github/ scripts/ 2>/dev/null \
-  | sed -E 's/(\$\{[A-Z_]+:-[^}]{6})[^}]+\}/\1…}/g'   # defaults
+  | sed -E -e 's/(\$\{[A-Z_]+:-)[^}]{1,8}\}/\1…}/g' -e 's/(\$\{[A-Z_]+:-[^}]{6})[^}]{3,}\}/\1…}/g'   # defaults; curto sai todo mascarado
 grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
   | sed -E "s/(['\"][^'\"]{6})[^'\"]*$/\1…/"

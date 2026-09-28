@@ -39,6 +39,7 @@ SK="sk-FALSO$(printf 'a%.0s' $(seq 1 30))"
 JWT="$(b64url '{"alg":"HS256","typ":"JWT"}').$(b64url '{"role":"service_role","iss":"supabase"}').$(printf 's%.0s' $(seq 1 30))"
 CFG="valorFALSO$(printf '1%.0s' $(seq 1 10))"
 DEF="padraoFALSO$(printf '2%.0s' $(seq 1 10))"
+CURTO="s3cr$(printf 'e%.0s' 1)t"   # default de 6 caracteres: o corte dos "6 primeiros" o mostrava inteiro
 
 R="$TMP/com-build"; mkdir -p "$R/dist" "$R/.next/static"
 printf 'const a=1;\nconst k="%s";\nconst j="%s";\n' "$SK" "$JWT" > "$R/dist/app.js"
@@ -47,7 +48,7 @@ printf 'const a=1;\nconst k="%s";\nconst j="%s";\n' "$SK" "$JWT" > "$R/dist/app.
 printf 'ASAR\000\000\000cabecalho\nconst k="%s";\n' "$SK" > "$R/dist/app.asar"
 printf 'var t="%s";\n' "$JWT" > "$R/.next/static/chunk.js"
 printf 'nome: app\napi_key: "%s"\n' "$CFG" > "$R/config.yml"
-printf 'services:\n  api:\n    environment:\n      JWT_SECRET: ${JWT_SECRET:-%s}\n' "$DEF" > "$R/docker-compose.yml"
+printf 'services:\n  api:\n    environment:\n      JWT_SECRET: ${JWT_SECRET:-%s}\n      DB_PASS: ${DB_PASS:-%s}\n' "$DEF" "$CURTO" > "$R/docker-compose.yml"
 
 saida=$(cd "$R" && PATH=/usr/bin:/bin bash "$TMP/a4.sh" 2>&1)
 
@@ -56,6 +57,7 @@ nao_tem "$SK"  "$saida" "chave sk- do bundle mascarada"
 nao_tem "$JWT" "$saida" "JWT do bundle mascarado"
 nao_tem "$CFG" "$saida" "valor do api_key em config mascarado"
 nao_tem "$DEF" "$saida" "default do compose mascarado"
+nao_tem ":-$CURTO}" "$saida" "default curto (6 caracteres) também mascarado"
 
 echo "== o achado continua achável: arquivo:linha, os 6 primeiros caracteres e o tipo =="
 tem "dist/app.js:2:sk-FAL"            "$saida" "bundle: dist/app.js:2 e sk-FAL"
@@ -68,6 +70,7 @@ tem "config.yml:2:"                   "$saida" "config: config.yml:2"
 tem "\"valorF"                        "$saida" "config: os 6 primeiros caracteres do valor"
 tem "docker-compose.yml:4:"           "$saida" "default: docker-compose.yml:4"
 tem ":-padrao"                        "$saida" "default: os 6 primeiros caracteres do default"
+tem "docker-compose.yml:5:"           "$saida" "default curto: docker-compose.yml:5"
 
 echo "== sem build no disco, o bloco não roda o build do repo auditado =="
 # npm falso no PATH: se o bloco chamar npm, a marca aparece na pasta do repo
