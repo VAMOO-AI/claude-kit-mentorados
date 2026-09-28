@@ -84,14 +84,14 @@ Regras do projeto para qualquer agente que abrir este repo.
 CY='# Projeto Y
 
 - Rode `npm test` antes de abrir PR.
-- O hook de pre-push roda o lint.
+- O hook SessionStart roda o lint.
 '
 
 # ── fixtures ─────────────────────────────────────────────────────────────────
 S1="$(novo so-import)";      printf '%s' "$AG" > "$S1/AGENTS.md"; printf '\n  @AGENTS.md  \n\n' > "$S1/CLAUDE.md"
 S2="$(novo so-import-crlf)"; printf '%s' "$AG" > "$S2/AGENTS.md"; printf '@AGENTS.md\r\n' > "$S2/CLAUDE.md"
 IC="$(novo import-conteudo)"; printf '%s' "$AG" > "$IC/AGENTS.md"
-printf '@AGENTS.md\n\n## Comandos\n- O hook do kit bloqueia commit direto em main.\n' > "$IC/CLAUDE.md"
+printf '@AGENTS.md\n\n## Comandos\n- O hook do kit (PreToolUse) bloqueia commit direto em main.\n' > "$IC/CLAUDE.md"
 II="$(novo import-inline)";  printf '%s' "$AG" > "$II/AGENTS.md"
 printf 'Leia @AGENTS.md antes de qualquer tarefa.\n' > "$II/CLAUDE.md"
 BT="$(novo import-crase)";   printf '%s' "$AG" > "$BT/AGENTS.md"
@@ -107,7 +107,7 @@ Regras do projeto para qualquer agente que abrir este repo.
 - Rode `npm run check` antes de dizer que terminou.
 - Migrations novas entram em supabase/migrations com timestamp.
 - Nunca rode supabase db reset no banco compartilhado.
-- Use a skill ship para abrir o PR.
+- Use a skill ship (.claude/skills/ship/SKILL.md) para abrir o PR.
 EOF
 SA="$(novo so-agents)";      printf '%s' "$AG" > "$SA/AGENTS.md"
 SC="$(novo so-claude)";      printf '%s' "$CY" > "$SC/CLAUDE.md"
@@ -122,8 +122,8 @@ cat > "$DV/CLAUDE.md" <<'EOF'
 # Projeto X
 
 - Rode `npm test` antes de abrir PR.
-- O hook do projeto bloqueia commit em main.
-- Use /handoff no fim da sessão.
+- O hook do projeto, no settings.json, bloqueia commit em main.
+- Rode o comando `/handoff` no fim da sessão.
 EOF
 LF="$(novo link-claude)";    printf '%s' "$AG" > "$LF/AGENTS.md"; ln -s AGENTS.md "$LF/CLAUDE.md"
 LR="$(novo link-agents)";    printf '%s' "$CY" > "$LR/CLAUDE.md"; ln -s CLAUDE.md "$LR/AGENTS.md"
@@ -132,6 +132,29 @@ ln -s .context/regras.md "$LO/CLAUDE.md"
 LQ="$(novo link-quebrado)";  printf '%s' "$AG" > "$LQ/AGENTS.md"; ln -s nao-existe.md "$LQ/CLAUDE.md"
 LB="$(novo link-dois)";      mkdir -p "$LB/.context"; printf '%s' "$AG" > "$LB/.context/regras.md"
 ln -s .context/regras.md "$LB/AGENTS.md"; ln -s AGENTS.md "$LB/CLAUDE.md"
+# Frases que só parecem do Claude Code: rota web, hook do React, skill de gente.
+HF="$(novo heuristica)";     printf '%s' "$AG" > "$HF/AGENTS.md"
+cat > "$HF/CLAUDE.md" <<'EOF'
+# Projeto H
+
+- A tela de entrada fica em /login.
+- Use React hooks nos componentes novos.
+- O time tem skill em SQL e revisa as queries.
+- A rota `/login` exige sessão.
+- Rode o comando `/revisar` antes de abrir o PR.
+- /handoff do Claude fecha a sessão.
+- O hook PreToolUse bloqueia push direto em main.
+- A skill de deploy mora em .claude/skills/deploy/SKILL.md.
+EOF
+# Import no meio da frase, sem AGENTS.md: movido como está, o AGENTS.md importaria a si mesmo.
+SCM="$(novo so-claude-import-inline)"
+cat > "$SCM/CLAUDE.md" <<'EOF'
+# Projeto M
+
+Veja @AGENTS.md para as regras gerais.
+As regras comuns também estão em @./AGENTS.md.
+- Rode `npm test` antes de abrir PR.
+EOF
 NH="$(novo nenhum)";         printf '# leia-me\n' > "$NH/README.md"
 CX="$(novo caixa-agents)";   printf '%s' "$AG" > "$CX/agents.md"
 CX2="$(novo caixa-claude)";  printf '%s' "$AG" > "$CX2/AGENTS.md"; printf 'conteudo proprio do projeto\n' > "$CX2/Claude.md"
@@ -180,6 +203,8 @@ esperado "$LO"  symlink
 esperado "$LQ"  symlink
 esperado "$LB"  symlink
 esperado "$NH"  nenhum
+esperado "$HF"  divergentes
+esperado "$SCM" so-claude
 esperado "$CX"  nenhum
 esperado "$CX2" so-agents
 esperado "$LM"  so-import
@@ -217,14 +242,29 @@ check "CLAUDE.md vazio: a ação diz isso"            "$(sim tem "$out" '^ação
 
 out="$(roda "$DV")"
 check "divergentes: o hook fica no CLAUDE.md"       "$(sim na_secao "$out" '^proposta: fica no CLAUDE.md' '^  L4 .*\[hook\] - O hook do projeto')"
-check "divergentes: o /comando fica no CLAUDE.md"   "$(sim na_secao "$out" '^proposta: fica no CLAUDE.md' '^  L5 .*\[/handoff\] - Use /handoff')"
+check "divergentes: o /comando fica no CLAUDE.md"   "$(sim na_secao "$out" '^proposta: fica no CLAUDE.md' '^  L5 .*\[/handoff\] - Rode o comando `/handoff`')"
 check "divergentes: a regra comum vai para o AGENTS.md" \
   "$(sim na_secao "$out" '^proposta: vai para o AGENTS.md' '^  L3 .*- Rode `npm test`')"
 check "divergentes: mostra o diff (linha que só o AGENTS.md tem)" "$(sim tem "$out" '^-- Rode `npm run check`')"
 check "divergentes: mostra o diff (linha que só o CLAUDE.md tem)" "$(sim tem "$out" '^+- Rode `npm test`')"
 
+out="$(roda "$HF")"
+F_FICA='^proposta: fica no CLAUDE.md'; F_VAI='^proposta: vai para o AGENTS.md'
+check "heurística: /login solto no meio da frase vai para o AGENTS.md"  "$(sim na_secao "$out" "$F_VAI" 'fica em /login')"
+check "heurística: React hooks vai para o AGENTS.md"                   "$(sim na_secao "$out" "$F_VAI" 'Use React hooks')"
+check "heurística: skill de gente vai para o AGENTS.md"                "$(sim na_secao "$out" "$F_VAI" 'skill em SQL')"
+check "heurística: rota entre crases sem contexto vai para o AGENTS.md" "$(sim na_secao "$out" "$F_VAI" 'A rota `/login`')"
+check "heurística: nenhum falso positivo fica no CLAUDE.md" \
+  "$(sim nao_tem "$(printf '%s\n' "$out" | grep -E 'fica em /login|React hooks|skill em SQL|A rota `/login`' | grep '\[')" .)"
+check "heurística: comando entre crases fica no CLAUDE.md"     "$(sim na_secao "$out" "$F_FICA" '\[/revisar\] - Rode o comando')"
+check "heurística: /comando no começo da linha fica"           "$(sim na_secao "$out" "$F_FICA" '\[/handoff\] - /handoff do Claude')"
+check "heurística: hook com evento fica no CLAUDE.md"          "$(sim na_secao "$out" "$F_FICA" '\[hook\] - O hook PreToolUse')"
+check "heurística: skill com SKILL.md fica no CLAUDE.md"       "$(sim na_secao "$out" "$F_FICA" '\[skill\] - A skill de deploy')"
+out="$(roda "$SCM")"
+check "so-claude com import no meio da frase: avisa que o token não vai junto" "$(sim tem "$out" '^ação: --apply move .*sem o @AGENTS.md')"
+
 out="$(roda "$SC")"
-check "so-claude: aponta o que parece só do Claude" "$(sim tem "$out" '\[hook\] - O hook de pre-push')"
+check "so-claude: aponta o que parece só do Claude" "$(sim tem "$out" '\[hook\] - O hook SessionStart')"
 
 out="$(roda "$CX")"
 check "caixa: acusa o agents.md minúsculo"          "$(sim tem "$out" '^caixa: agents.md')"
@@ -304,9 +344,18 @@ check "AGENTS.md não importa a si mesmo"             "$(sim nao_tem "$(cat "$SC
 check "CLAUDE.md é exatamente @AGENTS.md"            "$(sim ponte_ok "$SCI/CLAUDE.md")"
 check "depois do --apply é so-import"                "$(sim mesmo "$(classe_de "$(roda "$SCI")")" so-import)"
 
+echo "== --apply: so-claude com import no meio da frase tira o token =="
+out="$(roda --apply "$SCM")"
+check "AGENTS.md tem a regra"                        "$(sim grep -q '^- Rode `npm test`' "$SCM/AGENTS.md")"
+check "AGENTS.md sem @AGENTS.md (grep vazio)"        "$(sim mesmo "$(grep '@AGENTS.md' "$SCM/AGENTS.md")" "")"
+check "AGENTS.md sem @./AGENTS.md"                   "$(sim mesmo "$(grep '@\./AGENTS\.md' "$SCM/AGENTS.md")" "")"
+check "a frase fica, sem o token"                    "$(sim grep -q '^Veja para as regras gerais\.$' "$SCM/AGENTS.md")"
+check "CLAUDE.md é exatamente @AGENTS.md"            "$(sim ponte_ok "$SCM/CLAUDE.md")"
+check "depois do --apply é so-import"                "$(sim mesmo "$(classe_de "$(roda "$SCM")")" so-import)"
+
 # ── --apply nas outras classes: nada muda ───────────────────────────────────
 echo "== --apply não grava onde é preciso julgar =="
-for d in "$S1" "$S2" "$IC" "$II" "$BT" "$CD" "$DV" "$DVE" "$SCO" "$LRO" "$LO" "$LQ" "$LB" "$NH" "$CX" "$CX2" "$LM" "$NG" "$NF"; do
+for d in "$S1" "$S2" "$IC" "$II" "$BT" "$CD" "$DV" "$DVE" "$SCO" "$LRO" "$LO" "$LQ" "$LB" "$NH" "$HF" "$CX" "$CX2" "$LM" "$NG" "$NF"; do
   f0="$(foto "$d")"; out="$(roda --apply "$d")"; rc=$?; f1="$(foto "$d")"
   check "$(basename "$d"): --apply sai 0 e não grava nada" "$(sim mesmo "$rc|$f0" "0|$f1")"
   check "$(basename "$d"): --apply diz que não gravou"     "$(sim tem "$out" '^nada gravado')"
