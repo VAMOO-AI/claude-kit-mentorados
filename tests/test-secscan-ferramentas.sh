@@ -10,6 +10,8 @@
 # Na Fase 4 era o mesmo tipo de silêncio: `ls … | head -1 || echo "SEM LOCKFILE"` nunca
 # imprimia, porque o exit do pipe é o do `head`, que sai 0 mesmo sem nada para ler. Projeto
 # sem lockfile seguia sem o aviso, e a C5 podia sair limpa sem ter lido uma dependência.
+# E fora de repositório git o gitleaks imprime "not a git repository" e sai 0, que a legenda
+# lia como limpo: sem git, a linha é "não medido (sem git)".
 #
 # O teste roda os blocos do SKILL.md, sem cópia, com binários falsos (ou nenhum) no PATH.
 #
@@ -61,9 +63,25 @@ nao_tem "semgrep FALHOU"   "$out" "…nem como falhou"
 
 echo "== gitleaks que acha segredo (sai 1) =="
 falso gl1 gitleaks 1
+mkdir -p "$TMP/gl1/proj"; git -C "$TMP/gl1/proj" init -q
 out=$(roda gl1)
 nao_tem "gitleaks AUSENTE" "$out" "segredo encontrado não vira gitleaks ausente"
 tem "gitleaks exit 1"      "$out" "…a saída diz o código, que a legenda lê como achado"
+
+echo "== gitleaks fora de repositório git (imprime 'not a git repository' e sai 0) =="
+mkdir -p "$TMP/glsemgit/bin"
+printf '#!/bin/sh\necho "fatal: not a git repository"\nexit 0\n' > "$TMP/glsemgit/bin/gitleaks"
+chmod +x "$TMP/glsemgit/bin/gitleaks"
+out=$(roda glsemgit)
+tem "gitleaks não medido (sem git)" "$out" "sem git: sai 'não medido (sem git)'"
+nao_tem "gitleaks exit 0"           "$out" "…e não vira 'exit 0', que a legenda lê como limpo"
+
+echo "== gitleaks dentro de repositório git que sai 0 =="
+falso glgit gitleaks 0
+mkdir -p "$TMP/glgit/proj"; git -C "$TMP/glgit/proj" init -q
+out=$(roda glgit)
+tem "gitleaks exit 0"               "$out" "com git: o exit 0 continua sendo lido"
+nao_tem "sem git"                   "$out" "…e não diz sem git"
 
 echo "== osv-scanner que acha vulnerabilidade (sai 1) =="
 falso osv1 osv-scanner 1
@@ -85,6 +103,12 @@ printf '{}\n' > "$TMP/f4-lock/package-lock.json"
 out=$(fase4 "$TMP/f4-lock")
 tem "package-lock.json"      "$out" "com package-lock.json: diz qual lockfile achou"
 nao_tem "SEM LOCKFILE"       "$out" "…e não diz SEM LOCKFILE"
+for lf in yarn.lock bun.lockb npm-shrinkwrap.json; do
+  mkdir -p "$TMP/f4-$lf"; : > "$TMP/f4-$lf/$lf"
+  out=$(fase4 "$TMP/f4-$lf")
+  tem "lockfile: $lf"        "$out" "com $lf: diz qual lockfile achou"
+  nao_tem "SEM LOCKFILE"     "$out" "…e não diz SEM LOCKFILE"
+done
 
 echo "== a regra de estado da Fase 1 conhece o scanner que falhou =="
 grep -q 'não medido (<ferramenta> falhou' "$SKILL" \

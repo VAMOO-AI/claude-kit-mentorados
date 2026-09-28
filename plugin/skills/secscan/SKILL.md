@@ -45,6 +45,7 @@ if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança me
 elif semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif .; then echo "semgrep OK (achados no SARIF)"
 else echo "semgrep FALHOU (exit $?) → não medido; sem rede o ruleset p/owasp-top-ten não baixa"; fi
 if ! command -v gitleaks >/dev/null; then echo "gitleaks AUSENTE"
+elif ! git rev-parse --git-dir >/dev/null 2>&1; then echo "gitleaks não medido (sem git): fora de repositório ele sai 0 sem ler nada"
 else gitleaks detect --no-banner --redact; echo "gitleaks exit $? (0 limpo · 1 achou segredo · outro falhou)"; fi
 if ! command -v osv-scanner >/dev/null; then echo "osv-scanner AUSENTE (opcional)"
 else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile · outro falhou)"; fi
@@ -130,12 +131,15 @@ grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
 ## Fase 4 — Dependências (SCA)
 
 ```bash
-f=$(ls package-lock.json pnpm-lock.yaml bun.lock 2>/dev/null | head -1)
+f=$(ls package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb 2>/dev/null | head -1)
 [ -n "$f" ] && echo "lockfile: $f" \
   || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
 test -f package-lock.json && npm audit || true
 test -f pnpm-lock.yaml && pnpm audit || true
 ```
+Com `yarn.lock` ou `bun.lockb`, o `npm audit` não serve: rode `yarn npm audit` (Yarn 2+) ou
+`yarn audit` (Yarn 1), ou leia o `osv-scanner` da Fase 0.5, que entende `yarn.lock` (o
+`bun.lockb` é binário e ele não lê: C5 fica `não medido` sem outro scanner).
 O teste do lockfile é o resultado do `ls`, não o exit do pipe: o `head` sai 0 mesmo sem
 nada para ler, e aí o aviso nunca saía. E ele não é decoração: os `|| true` são exatamente
 o modo de falha que esta skill acusa nos outros — sem lockfile, tudo falha em silêncio e
@@ -267,8 +271,8 @@ está tudo limpo. Os estados são **quatro**:
   `FALHOU` ou um exit fora da legenda) é **`não medido (<ferramenta> falhou: exit N)`**,
   nunca `ausente`. **Ferramenta presente com input ausente
   também é não medido**, e é o caso que mais engana: `osv-scanner` instalado num projeto
-  sem lockfile roda, sai 0 e não lê nada. Escreva o motivo real — `não medido (lockfile
-  ausente)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
+  sem lockfile roda, sai 0 e não lê nada; `gitleaks` fora de repositório git também. Escreva
+  o motivo real — `não medido (lockfile ausente)`, `não medido (sem git)` —, nunca "nenhum problema identificado" com a ferramenta na coluna Base.
 - **`não aplicável (<motivo>)`** — a precondição da Fase 0 não existe (projeto sem
   banco não tem RLS; site estático não tem rota de API).
 
