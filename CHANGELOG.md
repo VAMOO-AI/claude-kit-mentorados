@@ -111,7 +111,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   apaga (`tests/test-kit-setup-subagentes.sh`; porte do #240 do kit do time).
 - **A A4 da `auditoria-seguranca` imprimia o segredo inteiro** achado no bundle e em config:
   agora sai `arquivo:linha` e os 6 primeiros caracteres, inclusive no default do compose
-  (`${VAR:-valor}`); o JWT do bundle sai com o `role` do payload (anon × service_role), e o `-a`
+  (`${VAR:-valor}`, que com até 8 caracteres sai todo mascarado); o JWT do bundle sai com o `role` do payload (anon × service_role), e o `-a`
   lê binário no bundle sem derrubar a varredura (`tests/test-auditoria-a4-mascara.sh`).
 - **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
   ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando
