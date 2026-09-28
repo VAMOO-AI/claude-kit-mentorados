@@ -561,7 +561,7 @@ for p in pads:
         continue
     if p == CHAVE_PRIVADA:
         v = "MIIFALSO" + "p" * 40
-        casos.append((f'k = "-----BEGIN RSA PRIVATE KEY-----{v}-----END RSA PRIVATE KEY-----"', v))
+        casos.append((f'k = "-----BEGIN RSA {"PRIV" + "ATE KEY"}-----{v}-----END RSA {"PRIV" + "ATE KEY"}-----"', v))
         continue
     if p == URL:
         v = "SenhaFALSO" + "u" * 8

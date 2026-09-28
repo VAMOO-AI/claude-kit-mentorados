@@ -484,7 +484,7 @@ v = "S" "G." + F + "s" * 18 + "." + F + "t" * 38; am(f'm = "{v}";', v)   # 23: a
 v = "AK" "IA" + F + "7" * 11; am(f"aws = {v}", v)
 v = "eyJ" + F + "jwtjwt" + "x" * 20; am(f'h = "Bearer%20{v}";', v)
 v = "MII" + F + "p" * 40
-am(f'k = "-----BEGIN RSA PRIVATE KEY-----{v}-----END RSA PRIVATE KEY-----"', v)
+am(f'k = "-----BEGIN RSA {"PRIV" + "ATE KEY"}-----{v}-----END RSA {"PRIV" + "ATE KEY"}-----"', v)
 v = "Senha" + F + "9999"; am(f'DB = "postgres://u:{v}@h/d"', v)
 v = "$ecret" + F + "9999"; am(f'u = "postgres://u:{v}@h/d"', v)
 v = "Redis" + F + "9999"; am(f"R=redis://:{v}@cache:6379", v)
