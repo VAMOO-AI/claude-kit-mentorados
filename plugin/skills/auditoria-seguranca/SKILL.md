@@ -360,8 +360,8 @@ julgar um achado, abra o `arquivo:linha`.
 
 ```bash
 command -v gitleaks && gitleaks detect --no-banner --redact -v   # HEAD + histórico, valor redigido
-grep -rnE '\$\{[A-Z_]+:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml helm/ .github/ scripts/ 2>/dev/null \
-  | sed -E -e 's/(\$\{[A-Z_]+:-)[^}]{1,12}\}/\1…}/g' -e 's/(\$\{[A-Z_]+:-[^}]{4})[^}]{9,}\}/\1…}/g'   # defaults (Compose v1 e v2)
+grep -rnE '\$\{[A-Z0-9_]+:-[^}]+\}' docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml helm/ .github/ scripts/ 2>/dev/null \
+  | sed -E -e 's/(\$\{[A-Z0-9_]+:-)[^}]{1,12}\}/\1…}/g' -e 's/(\$\{[A-Z0-9_]+:-[^}]{4})[^}]{9,}\}/\1…}/g'   # defaults (Compose v1 e v2)
 grep -rnoE "(api[_-]?key|secret|token|password|passwd|private[_-]key) *[:=] *['\"][^'\"]{8,}" \
   --include='*.yml' --include='*.yaml' --include='*.env*' --include='*.md' . | grep -v node_modules \
   | sed -E -e "s/(['\"])[^'\"]{1,12}$/\1…/" -e "s/(['\"][^'\"]{4})[^'\"]{9,}$/\1…/"

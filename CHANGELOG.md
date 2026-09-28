@@ -115,7 +115,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   primeiros + `…` quando é maior, inclusive no default do compose (`${VAR:-valor}`); o tipo vai
   em rótulo separado, e o JWT do bundle sai com o `role` do payload (anon × service_role). O
   default é procurado também em `compose.yaml`, `compose.yml` e `docker-compose*.yaml`, os nomes
-  do Compose v2, e o `-a` lê binário no bundle sem derrubar a varredura
+  do Compose v2, e em variável com dígito no nome (`${S3_SECRET:-…}`), e o `-a` lê binário no bundle sem derrubar a varredura
   (`tests/test-auditoria-a4-mascara.sh`).
 - **A `secscan` chamava de ausente o scanner que falhou** (semgrep sem rede para baixar o
   ruleset), e também o gitleaks e o osv-scanner que acharam algo, porque os dois saem com 1 quando

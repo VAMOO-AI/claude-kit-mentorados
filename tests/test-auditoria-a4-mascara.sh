@@ -46,6 +46,7 @@ CURTO="s3cr$(printf 'e%.0s' 1)t"   # default de 6 caracteres: o corte dos "6 pri
 V9="n4pW$(printf 'y%.0s' $(seq 1 5))"
 V12="r7tX$(printf 'w%.0s' $(seq 1 8))"
 V13="k9mQ$(printf 'z%.0s' $(seq 1 9))"
+VS3="q2wE$(printf 'x%.0s' $(seq 1 9))"   # nome de variável com dígito: ${S3_SECRET:-…}
 
 R="$TMP/com-build"; mkdir -p "$R/dist" "$R/.next/static"
 printf 'const a=1;\nconst k="%s";\nconst j="%s";\n' "$SK" "$JWT" > "$R/dist/app.js"
@@ -58,7 +59,7 @@ printf 'services:\n  api:\n    environment:\n      JWT_SECRET: ${JWT_SECRET:-%s}
   "$DEF" "$CURTO" "$V9" "$V12" "$V13" > "$R/docker-compose.yml"
 # Compose v2: compose.yaml é o nome padrão, e o .yaml vale também para o docker-compose
 printf 'services:\n  db:\n    environment:\n      ADMIN_PASS: ${ADMIN_PASS:-%s}\n' "$DEF" > "$R/compose.yaml"
-printf 'services:\n  db:\n    environment:\n      PROD_PASS: ${PROD_PASS:-%s}\n' "$DEF" > "$R/docker-compose.prod.yaml"
+printf 'services:\n  db:\n    environment:\n      PROD_PASS: ${PROD_PASS:-%s}\n      S3_SECRET: ${S3_SECRET:-%s}\n' "$DEF" "$VS3" > "$R/docker-compose.prod.yaml"
 
 saida=$(cd "$R" && PATH=/usr/bin:/bin bash "$TMP/a4.sh" 2>&1)
 
@@ -93,6 +94,8 @@ tem "DTREZE:-k9mQ…}"                  "$saida" "default: 13 caracteres saem co
 nao_tem "n4pW"                        "$saida" "9 caracteres: nenhum caractere do valor sai"
 nao_tem "r7tX"                        "$saida" "12 caracteres: nenhum caractere do valor sai"
 nao_tem "k9mQz"                       "$saida" "13 caracteres: não passa dos 4 primeiros"
+tem "S3_SECRET:-q2wE…}"               "$saida" "default: nome de variável com dígito também é achado"
+nao_tem "q2wEx"                       "$saida" "default com dígito no nome: não passa dos 4 primeiros"
 tem "compose.yaml:4:      ADMIN_PASS: \${ADMIN_PASS:-padr…}" "$saida" "Compose v2: compose.yaml é varrido"
 tem "docker-compose.prod.yaml:4:"     "$saida" "Compose: docker-compose*.yaml é varrido"
 
