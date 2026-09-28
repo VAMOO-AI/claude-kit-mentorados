@@ -212,7 +212,7 @@ grep -qF 'DB_PASSWORD:-senhaQualquer1}' "$TMP/default.html" \
   && ok "default genérico continua como está" || falha "a redação passou a mexer no default genérico"
 
 # O PDF de verdade, quando a máquina tem Chrome e pdftotext (o CI não tem): texto extraído.
-if python3 -c 'import sys; import importlib.util as u
+if python3 -B -c 'import sys; import importlib.util as u
 s = u.spec_from_file_location("g", sys.argv[1] + "/gerar-relatorio.py"); m = u.module_from_spec(s); s.loader.exec_module(m)
 sys.exit(0 if m.achar_chrome() else 1)' "$SKILL/scripts" 2>/dev/null && command -v pdftotext >/dev/null; then
   python3 "$SKILL/scripts/gerar-relatorio.py" "$TMP/chaves.json" --out "$TMP/chaves.pdf" > "$TMP/chaves-pdf.log" 2>&1 \
