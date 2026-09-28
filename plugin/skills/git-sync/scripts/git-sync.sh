@@ -538,8 +538,8 @@ if [[ ${#MURAL_LINHAS[@]} -gt 0 ]]; then
 fi
 
 # --- retorno à branch principal (opt-in: --voltar-main) ----------------------
-# Veio da linhagem de 10/09 que rodava fora do repo (issue claude-config-team#175). Lá
-# era comportamento PADRÃO, e é por isso que volta como flag: trocar a branch do
+# Numa versão anterior do script (10/09), voltar para a branch principal no fim era
+# comportamento PADRÃO, e é por isso que volta como flag: trocar a branch do
 # checkout de alguém no fim de um comando que a pessoa chamou para LER estado é ação que
 # ninguém pediu — e, com duas sessões no mesmo clone, a que roda por último decide em que
 # branch a outra está. Como opt-in, quem termina o dia e quer o clone de volta em main

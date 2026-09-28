@@ -1,6 +1,6 @@
 # Testar skill de disciplina como se fosse código
 
-Vindo do `claude-config-team` (PR #107), adaptado ao plugin: a SKILL.md é resolvida em `plugin/skills/<skill>/`.
+Adaptado ao plugin: a SKILL.md é resolvida em `plugin/skills/<skill>/`.
 
 Uma skill de disciplina (`verificacao`, `worktrees`, `grilling`) é
 uma regra que o agente tem incentivo pra furar: verificar custa tempo, worktree
