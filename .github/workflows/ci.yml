@@ -206,7 +206,7 @@ jobs:
         run: bash tests/test-secscan-ferramentas.sh
 
       - name: O gate --diff da baseline sai 3 com base que não resolve e acusa segredo em qualquer commit do range
-        # Inclui o segredo que entra só na resolução de um merge (--diff-merges=first-parent) e o untracked fora do .gitignore.
+        # Inclui o segredo que entra só na resolução de um merge (--diff-merges=first-parent).
         run: bash tests/test-collect-diff-base.sh
 
       - name: O pilar 02 da baseline diz quais pastas de migration mediu, e os blocos da skill rodam linha a linha
