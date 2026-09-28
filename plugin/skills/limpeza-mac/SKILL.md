@@ -4,8 +4,8 @@ description: >-
   Limpeza profunda de um Mac de desenvolvimento (só macOS). Cobre worktrees órfãs e
   mergeadas, branches já mergeadas, node_modules e .next de repo parado, caches de
   npm/uv/bun/yarn, versões velhas de CLIs de IA, a VM do Claude Desktop e os restos do
-  OrbStack. Primeiro um inventário read-only; o SHA de cada branch vai para um ledger
-  antes de apagar. Só manual: "/kit-vamoo:limpeza-mac".
+  OrbStack. Primeiro um inventário que não apaga nada; o SHA de cada branch vai para um
+  ledger antes de apagar. Só manual: "/kit-vamoo:limpeza-mac".
 disable-model-invocation: true
 ---
 
@@ -20,25 +20,30 @@ Só roda no macOS: em outro sistema os dois scripts dizem isso e saem sem fazer 
 caminhos de `~/Library` abaixo também são só do Mac.
 
 ```bash
-S="${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts"
-PLANO="$HOME/backups/limpeza-$(date +%F)/plano"; LEDGER="$HOME/backups/limpeza-$(date +%F)"
+echo "$HOME/backups/limpeza-$(date +%F)"   # o ledger desta limpeza
 df -h /System/Volumes/Data | tail -1     # o `df /` mostra o volume do sistema, não o seu
 ```
+
+Cada bloco roda num shell novo, sem as variáveis do anterior. Anote o caminho que o `echo`
+imprimiu e escreva-o por extenso nos comandos seguintes, no lugar de `<ledger>`: a data sai
+uma vez só, e uma limpeza que passa da meia-noite continua no mesmo ledger. O plano fica em
+`<ledger>/plano`.
 
 O ledger vai para `~/backups`, não para o scratchpad: quando a sessão acaba, o scratchpad
 some, e o SHA iria junto.
 
-## 1. Inventário (read-only)
+## 1. Inventário (não apaga nada)
 
 Pergunte à pessoa onde ficam os repos dela. Sem raiz na linha de comando, o inventário usa
 `LIMPEZA_RAIZES` (pastas separadas por `:`), e sem ela procura em `~/Developer`,
 `~/Projects`, `~/code` e `~/Documents`. Pasta que não existe é ignorada.
 
 ```bash
-bash "$S/inventario.sh" "$PLANO" ~/pasta-dos-repos ~/outra-pasta
+bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/inventario.sh" <ledger>/plano ~/pasta-dos-repos ~/outra-pasta
 ```
 
-A rodada leva alguns minutos, porque faz fetch em todos os repos e um `gh pr list` por
+A rodada leva alguns minutos, porque faz `git fetch --prune` em todos os repos (a única
+escrita, e é nas refs remotas) e um `gh pr list` por
 branch que não é ancestral do default. Não rode `du` em `~` inteiro: demora demais, e o
 inventário já mede o que importa em `pocos.tsv` e `builds.tsv`.
 
@@ -55,8 +60,11 @@ Antes de apagar, mostre à pessoa só o que exige decisão dela:
 ## 2. Git, builds e órfãs
 
 ```bash
-DRY=1 bash "$S/aplicar.sh" "$PLANO" "$LEDGER"   # mostre a saída à pessoa
-bash "$S/aplicar.sh" "$PLANO" "$LEDGER"         # só com o OK dela
+DRY=1 bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/aplicar.sh" <ledger>/plano <ledger>   # mostre a saída à pessoa
+```
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/aplicar.sh" <ledger>/plano <ledger>   # só com o OK dela
 ```
 
 O que o script respeita, e por quê:
@@ -68,8 +76,11 @@ O que o script respeita, e por quê:
   velho quando o default muda no GitHub.
 - **Todo worktree passa pelo `worktree-gc.sh --verificar <caminho>` do plugin.** São as
   mesmas travas do gc: sujo, arquivo ignorado de valor, branch não mergeada. Qualquer saída
-  diferente de 0 mantém o worktree, inclusive quando o `worktree-gc.sh` instalado ainda não
-  tem esse modo.
+  diferente de 0 mantém o worktree. O `--verificar` não remove nada, mas atualiza as refs
+  remotas com `git fetch --prune`; o `aplicar.sh` faz esse fetch uma vez por repo e chama o
+  `--verificar` sem o dele.
+- **A branch de um worktree removido sai com ele**, menos `main`, `master`, `develop`,
+  `dev`, `staging` e `production`, que ficam como no `branches.tsv`.
 - **Arquivo ignorado conta como sujeira.** O `worktree remove` sem `--force` apaga ignorado
   sem avisar (`.env.local`, sqlite, dump), e o ledger não restaura isso. Só passa ignorado
   de build ou cópia byte a byte do mesmo arquivo no clone principal (o `.env` semeado).
@@ -86,13 +97,23 @@ O que o script respeita, e por quê:
   `--no-optional-locks` para o próprio `status` não reescrever o índice e apagar esse sinal.
   Qualquer `git status` comum (IDE, git-sync, você) reescreve o índice e faz tudo virar
   `ativa` por 24h. O erro é para o lado de manter.
+- **`.next` e `node_modules` saem só de repo parado há `DIAS_NM` dias (padrão 7).** O de um
+  repo em uso é o build que o dev server está servindo.
 - **`.next` dentro de `.vercel/output` não é build solto.** É o prebuilt do deploy, e o
   inventário não desce em `.vercel`.
 - **A idade do repo vem do reflog do HEAD**, não do mtime do índice, que qualquer
   `git status` reescreve.
-- **Worktree detached** sai quando o HEAD é ancestral do default. Squash não é ancestral:
-  se `git diff --stat <sha> <commit-do-squash>` sair vazio, rode o `--verificar` nele e
-  remova só com o OK da pessoa.
+- **Worktree detached** sai quando o HEAD é ancestral do default. Squash não é ancestral,
+  e nesse caso o `--verificar` diz "detached com commit fora de origin/main". Aí vale a
+  prova do PR, como na skill `worktrees`:
+
+  ```bash
+  gh pr list --state merged --search <sha-do-HEAD> --json number,headRefOid,baseRefName
+  ```
+
+  O PR tem de estar mergeado no default, com `headRefOid` igual ao HEAD do worktree. A
+  prova cobre só esse motivo: qualquer outro da linha `keep:` continua valendo. Com ela,
+  `git worktree remove <caminho>`, sem `--force`, e só com o OK da pessoa.
 
 Não rode `git gc --prune=now` nem `--aggressive` depois. O ledger restaura com
 `git -C <repo> branch <branch> <sha>` enquanto os objetos soltos existirem, o que dura
@@ -115,7 +136,7 @@ que existirem na máquina:
   do Homebrew, todas as versões dali são lixo.
 - `~/.local/share/cursor-agent/versions/*`: a versão ativa é o alvo de `~/.local/bin/cursor-agent`.
 - `~/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions/*`:
-  cerca de 600 MB por versão. A ativa é o alvo do link em `agent-cli/.local/bin/cursor-agent`.
+  pode passar de centenas de MB por versão. A ativa é o alvo do link em `agent-cli/.local/bin/cursor-agent`.
   Os `cursor-agent-worker-*.log/.spec/.owner.json` com mais de 7 dias também saem.
 - `~/Library/Caches/ms-playwright/*`: só a revisão mais antiga de cada navegador. Um
   projeto que fixa uma versão velha baixa de novo.
@@ -123,11 +144,11 @@ que existirem na máquina:
 Estes precisam do app fechado. Rode `pgrep -fl` antes; se o app estiver aberto, o item vira
 PENDENTE:
 - **Claude Desktop**: `~/Library/Application Support/Claude/vm_bundles/claudevm.bundle`
-  (cerca de 10 GB, recriado quando o Cowork sobe). Se esta sessão roda dentro do Desktop,
+  (pode passar de GBs, recriado quando o Cowork sobe). Se esta sessão roda dentro do Desktop,
   não toque.
 - **Cursor**: `logs/*` e `CachedData/*`. O `state.vscdb` inchado se resolve com `DELETE FROM
   cursorDiskKV` + `VACUUM`. O VACUUM sozinho não resolve, porque a freelist fica vazia.
-- **Chrome**: `OptGuideOnDeviceModel` (cerca de 4 GB, modelo on-device). Ele volta sozinho
+- **Chrome**: `OptGuideOnDeviceModel` (modelo on-device, pode passar de GBs). Ele volta sozinho
   se o recurso estiver ligado. Para de voltar desligando
   `chrome://flags/#optimization-guide-on-device-model`.
 
