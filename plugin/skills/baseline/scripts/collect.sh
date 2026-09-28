@@ -34,6 +34,9 @@ cd "$ROOT" 2>/dev/null || { echo "root inválido: $ROOT" >&2; exit 2; }
 ROOT="$PWD"
 [ -n "$OUT" ] || OUT="/tmp/baseline-$(basename "$ROOT")"
 mkdir -p "$OUT"
+# O relatório da passada anterior não pode sobrar: com exit 3, quem lê o --out depois o
+# tomaria por desta passada.
+rm -f "$OUT/findings.json"
 
 # Pré-condição: isto é um projeto? "Não achei CSP" num diretório sem projeto não
 # é medição, é ausência de alvo — e sairia como relatório limpo. Invariante 2.
@@ -44,6 +47,15 @@ done
 if [ $is_project -eq 0 ]; then
   echo "ERRO: $ROOT não parece um projeto (sem package.json, .git, src/, supabase/...)." >&2
   echo "Medir aqui produziria um relatório limpo por ausência de alvo, não por conformidade." >&2
+  exit 3
+fi
+
+# Base do --diff que não resolve não é diff vazio. O `git diff` falharia calado, o escopo
+# sairia vazio e todo check "mediria" nada: o gate aprovava assim (exit 0, 0 findings).
+if [ -n "$DIFF_BASE" ] && ! git rev-parse --verify --quiet "${DIFF_BASE}^{commit}" >/dev/null 2>&1; then
+  echo "ERRO: --diff $DIFF_BASE não resolve para um commit em $ROOT." >&2
+  echo "Sem base não há diff para medir, e um escopo vazio sairia como gate limpo." >&2
+  echo "origin/HEAD ausente? git remote set-head origin --auto — ou passe a branch padrão (origin/main)." >&2
   exit 3
 fi
 
@@ -371,23 +383,45 @@ fi
 
 # ─────────────────────────────────────────── 07 · segredos
 if want 07; then
-  envs="$(git ls-files 2>/dev/null | grep -E '(^|/)\.env' | grep -vE '\.env\.example$|\.env\.1password$|\.env\.template$' | only_scope_paths)"
+  ENV_OK='\.env\.example$|\.env\.1password$|\.env\.template$'
+  JWT_RE='eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}'
+  # No modo --diff o push leva TODOS os commits de base..HEAD, não só o HEAD. O .env que um
+  # commit do range trouxe e outro tirou, o que só saiu do índice (`git rm --cached` sem
+  # --amend) e o JWT consertado só no disco continuam no histórico que sobe: índice e disco
+  # não bastam, o conteúdo é o de cada commit do range.
+  RANGE_FILE="$OUT/.range"; : > "$RANGE_FILE"; RANGE_COMMITS=""; NO_RANGE=""
+  if [ $DIFF_MODE -eq 1 ]; then
+    git log --format= --name-only --diff-filter=ACMR "$DIFF_BASE..HEAD" 2>/dev/null \
+      | grep -v '^$' | sort -u > "$RANGE_FILE"
+    RANGE_COMMITS="$(git rev-list "$DIFF_BASE..HEAD" 2>/dev/null)"
+    NO_RANGE=" — em commit do range $DIFF_BASE..HEAD, que o push leva mesmo com o HEAD, o índice e o disco limpos"
+  fi
+
+  envs="$( { git ls-files 2>/dev/null | only_scope_paths; cat "$RANGE_FILE"; } \
+          | grep -E '(^|/)\.env' | grep -vE "$ENV_OK" | sort -u)"
   if [ -n "$envs" ]; then
     add_finding 07 CRITICAL CONFIRMED "Arquivo .env versionado" "$(printf '%s' "$envs" | head -1)" \
-      "Arquivo de ambiente no git expõe todo segredo do projeto para quem tiver leitura do repositório, e o histórico guarda mesmo depois de removido. Arquivos:$(printf '%s' "$envs" | tr '\n' ' ')" \
-      "git ls-files | grep -E '(^|/)\\.env'" "pilar 07"
+      "Arquivo de ambiente no git expõe todo segredo do projeto para quem tiver leitura do repositório, e o histórico guarda mesmo depois de removido${NO_RANGE}. Arquivos:$(printf '%s' "$envs" | tr '\n' ' ')" \
+      "git ls-files | grep -E '(^|/)\\.env'; git log --oneline --name-only <base>..HEAD | grep -E '(^|/)\\.env'" "pilar 07"
   fi
-  add_coverage 07 env_versionado medido git ""
+  add_coverage 07 env_versionado medido git "$([ $DIFF_MODE -eq 1 ] && echo 'índice + commits do range')"
 
-  jwt="$(git grep -lE 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}' -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null | only_scope_paths)"
+  jwt="$(git grep -lE "$JWT_RE" -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null | only_scope_paths)"
+  if [ -n "$RANGE_COMMITS" ]; then
+    # `git grep` em cada commit do range devolve "<sha>:<arquivo>"; só conta arquivo que o range tocou
+    # shellcheck disable=SC2086
+    jwt="$( { printf '%s\n' "$jwt"
+              git grep -lE "$JWT_RE" $RANGE_COMMITS -- . ':!*.lock' ':!*.snap' ':!node_modules' 2>/dev/null \
+                | sed 's/^[0-9a-f]*://' | grep -Fxf "$RANGE_FILE"; } | grep -v '^$' | sort -u)"
+  fi
   nj="$(hits "$jwt")"
   if [ "${nj:-0}" -gt 0 ]; then
-    add_finding 07 CRITICAL CONFIRMED "JWT versionado no HEAD ($nj arquivos)" \
+    add_finding 07 CRITICAL CONFIRMED "JWT versionado ($nj arquivos)" \
       "$(printf '%s' "$jwt" | head -1)" \
-      "Token JWT em arquivo rastreado. Se for service_role, é acesso total ao banco ignorando RLS. Gate de secret scan que só varre o diff nunca encontra isto. Arquivos: $(printf '%s' "$jwt" | tr '\n' ' ' | cut -c1-400)" \
-      "git grep -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' -- . ':!*.lock'" "pilar 07"
+      "Token JWT em arquivo rastreado${NO_RANGE}. Se for service_role, é acesso total ao banco ignorando RLS. Gate de secret scan que só varre o diff nunca encontra isto. Arquivos: $(printf '%s' "$jwt" | tr '\n' ' ' | cut -c1-400)" \
+      "git grep -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' -- . ':!*.lock'; git grep -lE 'eyJ[A-Za-z0-9_-]+\\.eyJ' \$(git rev-list <base>..HEAD)" "pilar 07"
   fi
-  add_coverage 07 jwt_no_head medido git ""
+  add_coverage 07 jwt_no_head medido git "$([ $DIFF_MODE -eq 1 ] && echo 'disco + commits do range')"
 
   if command -v gitleaks >/dev/null 2>&1 && global_check; then
     gitleaks detect --no-banner --redact --report-format json \
@@ -436,7 +470,7 @@ jq -n \
   '{meta:{project:$project,root:$root,generated_at:$at,git_sha:$sha,branch:$br,mode:$mode,
           checks_run:$checks,checks_measured:$measured},
     coverage:$c, findings:$f}' > "$OUT/findings.json" || { echo "falha ao montar findings.json" >&2; exit 4; }
-rm -f "$F" "$C" "$SCOPE_FILE"
+rm -f "$F" "$C" "$SCOPE_FILE" "$OUT/.range"
 
 nf="$(jq '.findings | length' "$OUT/findings.json")"
 echo "checks: $CHECKS_RUN (medidos: $MEASURED) · findings: $nf · $OUT/findings.json"
