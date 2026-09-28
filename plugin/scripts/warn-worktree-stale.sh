@@ -54,7 +54,11 @@ if [ "$GIT_DIR" != "$COMMON" ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br"
     if [ "${sujos:-0}" -gt 0 ]; then
       echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
     else
-      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa e trava de env ignorado). Para vários de uma vez, 'git-sync --cleanup-dry-run' primeiro, e o '--cleanup-apply' só com o pedido dele."
+      # O --verificar só lê: diz se o worktree pode sair ou o que o segura (env diferente do
+      # clone, repo aninhado, ignorado de valor como outputs/), que o `status` não mostra.
+      gc="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/worktree-gc.sh"
+      wt="$(git rev-parse --show-toplevel 2>/dev/null)"
+      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa; antes de remover, bash $gc --verificar '$wt' diz o que ainda segura o worktree: env diferente do clone, repo aninhado ou ignorado de valor como outputs/). Para vários de uma vez, 'git-sync --cleanup-dry-run' primeiro, e o '--cleanup-apply' só com o pedido dele."
     fi
   fi
 fi
