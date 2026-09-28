@@ -180,21 +180,22 @@ def _mascarar_chave(m):
 PADROES_SEGREDO = [
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                 re.S), "[CHAVE PRIVADA REDIGIDA]"),
-    (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
+    (re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
      "[JWT REDIGIDO]"),
     # Senha em URL de conexao (postgres://usuario:senha@host): so' a senha sai. Referencia
     # (${DB_PASS}) nao e' segredo, e fica.
-    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^\s:/@]+:)(?!\$)[^\s/@]+(@)"),
+    (re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:)[^\s@/${][^\s@/]*(@)"),
      r"\1[SENHA REDIGIDA]\2"),
     # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen. Prefixo especifico nao
-    # leva fronteira: colado em _ (x_sk_live_) ou em %20 (Bearer%20sk_live_) o \b falhava e a
-    # chave saia inteira. So' o sk- generico fica com \b, senao "task-list-…" vira chave.
+    # leva fronteira, aqui e nos tokens abaixo: colado em _ (x_sk_live_) ou em %20
+    # (Bearer%20ghp_) o \b falhava e a chave saia inteira. So' o sk- generico fica com \b,
+    # senao "task-list-…" vira chave.
     (re.compile(r"(?:(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|sk-(?:proj|ant)-[A-Za-z0-9_-]{16,}"
                 r"|whsec_[A-Za-z0-9+/=]{16,}|\b(?:sk|rk)-[A-Za-z0-9_-]{16,})"),
      _mascarar_chave),
-    (re.compile(r"\b(?:sbp|sbs|ghp|gho|ghu|ghs|ghr|glpat|xoxb|xoxp|xapp|shpat)[-_]"
+    (re.compile(r"(?:sb[ps]|gh[pousr]|github_pat|glpat|xox[abprs]|xapp|shpat)[-_]"
                 r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[CHAVE AWS REDIGIDA]"),
+    (re.compile(r"AKIA[0-9A-Z]{16}(?![0-9A-Z])"), "[CHAVE AWS REDIGIDA]"),
 ]
 # O prefixo opcional cobre POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET e afins:
 # sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao.

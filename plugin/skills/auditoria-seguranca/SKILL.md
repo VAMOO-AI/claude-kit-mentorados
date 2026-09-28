@@ -592,7 +592,7 @@ import re, sys
 l = open(0, encoding="utf-8", errors="replace").read().rstrip("\n")
 pads = [r"(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{16,}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|sbp_[a-z0-9]{20,}|AKIA[0-9A-Z]{16})",
         r"((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|whsec_[A-Za-z0-9+/=]{16,})",
-        r"[A-Za-z][A-Za-z0-9+.-]*://[^\s:/@]+:([^\s/@]+)@",
+        r"[A-Za-z][A-Za-z0-9+.-]*://[^:/\s@]*:([^\s@/${][^\s@/]*)@",
         r"\$\{[A-Z_][A-Z0-9_]*:-([^}]+)\}",
         r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|senha|private[_-]?key)[\x27\"]?\s*[:=]\s*[\x27\"]?([^\x27\"\s,;]{8,})"]
 achados = sorted((g.start(1), g.group(1)) for p in pads for g in re.finditer(p, l))
@@ -606,7 +606,8 @@ print(l[ini:i] + ("" if len(v) <= 12 else v[:4]) + "  // valor mascarado")'
 `api_key: "sk-proj-…"` na linha 2 vira `api_key: "sk-p  // valor mascarado`. O corte fica
 no primeiro valor da linha, com até 60 caracteres antes dele: num bundle minificado, a
 linha inteira é o arquivo. Por isso a lista cobre também `ghp_`/`gho_`/`github_pat_`,
-`xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha de `scheme://usuario:senha@`: token que
+`xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha de `scheme://usuario:senha@` (que não
+conta quando é `${VAR}`): token que
 o bloco não reconhece não vira corte, e sai inteiro na janela antes do valor reconhecido. A
 janela também passa pelos padrões, e um valor reconhecido dentro dela empurra o início para
 depois dele. Mascarar no meio da janela faria o trecho deixar de ser pedaço da linha real, e

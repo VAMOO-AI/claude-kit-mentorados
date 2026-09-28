@@ -191,7 +191,7 @@ else
   # linha e antes da chave reconhecida, ia inteiro para o trecho (e daí para o PDF e a issue).
   # As três linhas da revisão da 0.43.1, mais os outros prefixos de fornecedor.
   GHP="gh""p_FALSO$(rep Z 32)"; GHO="gh""o_FALSO$(rep Y 32)"; GPAT="github""_pat_FALSO$(rep X 40)"
-  XOX="xo""xb-FALSO$(rep W 26)"; GLP="gl""pat-FALSO$(rep V 20)"; AWS="AK""IAFALSO$(rep Q 12)"
+  XOX="xo""xb-FALSO$(rep W 26)"; GLP="gl""pat-FALSO$(rep V 20)"; AWS="AK""IAFALSO$(rep Q 11)"
   WHS="wh""sec_FALSO$(rep U 28)"; SENHA="SenhaFalsa$(rep 9 6)"
   printf 'const gh="%s", k="%s";\n' "$GHP" "$SKP" > "$R/dist/revisao.js"
   printf 'const a="%s"; const b="%s";\n' "$XOX" "$SKL" >> "$R/dist/revisao.js"
@@ -226,6 +226,57 @@ PYF
   trecho dist/revisao.js 3
   tem "postgres://u:" "$T6" "senha em URL: o corte fica na senha, depois do usuário"
   nao_tem "SenhaF" "$T6" "senha em URL: não passa dos 4 primeiros"
+  printf 'u = "postgres://u:${DB_PASSWORD}@h/db"\n' > "$R/ref-url.txt"
+  trecho ref-url.txt 1
+  [ "$X6" -ne 0 ] && ok "senha em URL que é \${VAR}: referência, não achado" || falha "\${VAR} na URL virou achado: $T6"
+
+  # Todo prefixo que a Fase 6 reconhece sai redigido pelo gerador, também colado em %20 e em _
+  # (o \b dos prefixos específicos deixava passar Bearer%20ghp_… e x_xoxs-…). Cada amostra
+  # passa antes pelo bloco da Fase 6: amostra que ele não reconhece não prova nada aqui.
+  B64='{"alg":"HS256"}'; JWT2="$(b64url "$B64").$(b64url '{"role":"anon"}').$(rep t 30)"
+  AMOSTRAS=("sk-""proj-FALSO$(rep b 30)" "sk-""ant-api03-FALSO$(rep f 30)" "sk-FALSO$(rep a 30)"
+    "sk_""live_FALSO$(rep c 24)" "rk_""test_FALSO$(rep e 24)" "$JWT2" "sb""p_$(rep 0 30)" "AK""IAFALSO$(rep Q 11)"
+    "gh""p_FALSO$(rep Z 32)" "gh""o_FALSO$(rep Z 32)" "gh""u_FALSO$(rep Z 32)" "gh""s_FALSO$(rep Z 32)"
+    "gh""r_FALSO$(rep Z 32)" "github""_pat_FALSO$(rep X 40)" "xo""xa-FALSO$(rep W 26)" "xo""xb-FALSO$(rep W 26)"
+    "xo""xp-FALSO$(rep W 26)" "xo""xr-FALSO$(rep W 26)" "xo""xs-FALSO$(rep W 26)" "gl""pat-FALSO$(rep V 20)"
+    "wh""sec_FALSO$(rep U 28)")
+  : > "$R/prefixos.txt"
+  for v in "${AMOSTRAS[@]}"; do printf 'k = "%s"\n' "$v" >> "$R/prefixos.txt"; done
+  n=0; fora=""
+  for v in "${AMOSTRAS[@]}"; do n=$((n+1)); trecho prefixos.txt "$n"; [ "$X6" -eq 0 ] || fora="$fora ${v:0:6}"; done
+  [ -z "$fora" ] && ok "as ${#AMOSTRAS[@]} amostras são prefixos que a Fase 6 reconhece" || falha "a Fase 6 não reconhece:$fora"
+  AMOSTRAS+=("postgres://u:SenhaFalsa$(rep 8 6)@h/db")
+  # o sk- genérico fica com a fronteira (senão "task-list-…" vira chave): só no contexto puro.
+  # Função, e não o laço dentro do $(…): no bash 3.2 do macOS o ")" do case fecha a substituição.
+  amostras_txt() {
+    local v
+    for v in "${AMOSTRAS[@]}"; do
+      printf 'a = "%s"\n' "$v"
+      case "$v" in
+        sk-FALSO*) ;;
+        *) printf 'b = "Bearer%%20%s"\nc = x_%s\n' "$v" "$v" ;;
+      esac
+    done
+  }
+  AMOSTRAS_TXT="$(amostras_txt)" \
+  python3 - "$EXE" "$TMP/pref.json" <<'PYP'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+d["achados"][0]["trecho"] = os.environ["AMOSTRAS_TXT"]
+d["issues"][0]["achados"] = [d["achados"][0]["id"]]
+d["issues"][1]["markdown"] = "```\n" + os.environ["AMOSTRAS_TXT"] + "\n```"
+json.dump(d, open(sys.argv[2], "w"))
+PYP
+  python3 "$GER" "$TMP/pref.json" --out "$TMP/pref.pdf" --html-only >/dev/null 2>&1 || falha "gerador falhou com as amostras"
+  [ "$(grep -c 'Bearer%20' "$TMP/pref.json")" -ge 1 ] && [ "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["achados"][0]["trecho"].splitlines()))' "$TMP/pref.json")" -ge 60 ] \
+    && ok "as amostras entram no trecho nos três contextos" || falha "as amostras não chegaram ao trecho do gerador"
+  vazou=""
+  for v in "${AMOSTRAS[@]}"; do
+    s="${v#postgres://u:}"; s="${s%@h/db}"
+    grep -qF "$s" "$TMP/pref.html" && vazou="$vazou ${v:0:6}"
+  done
+  [ -z "$vazou" ] && ok "gerador: todo prefixo da Fase 6 sai redigido, puro, depois de %20 e depois de _ (sk- genérico só puro)" \
+    || falha "gerador deixou passar inteiro:$vazou"
 
   # o trecho mascarado passa no --verificar do gerador, contra o arquivo de verdade
   GER="$(dirname "$SKILL")/scripts/gerar-relatorio.py"
