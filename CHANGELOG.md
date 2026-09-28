@@ -13,6 +13,48 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.43.1] — 2026-09-28
+
+### Corrigido
+
+- **Chave da Stripe ia inteira para o relatório da `auditoria-seguranca`.** A redação do
+  `gerar-relatorio.py` só casava `sk-`/`rk-` com hífen: `sk_live_…`, `sk_test_…`, `rk_live_…`
+  e `rk_test_…` saíam completas no PDF e nas issues prontas. Agora elas, `sk-proj-` e `sk-ant-`
+  saem mascaradas e com o tipo, também quando aparecem como default de variável
+  (`tests/test-auditoria-relatorio.sh`, com um PDF real).
+- **A A4 pulava achado com byte fora de UTF-8.** Arquivo com um byte inválido fazia o grep
+  calar a linha e o `sed` do macOS abortar com "illegal byte sequence", e os achados seguintes
+  sumiam. Os greps rodam com `-a` e `LC_ALL=C`, e a máscara de defaults e config passou para
+  python com `errors="replace"`. O bundle reconhece `sk-proj-`, `sk-ant-` e as chaves da
+  Stripe, cada uma com o tipo num rótulo separado.
+- **Trecho de achado de segredo na Fase 6 copiava a linha crua.** A seção Armadilhas mandava
+  usar `sed -n`, que levava o valor inteiro para o relatório. Um bloco novo corta a linha no
+  valor e aplica a mesma máscara da A4, e o `--verificar` aceita o trecho mascarado
+  (`tests/test-auditoria-a4-mascara.sh`).
+- **`baseline` completa não via arquivo fora do git.** Só o `--diff` lia o untracked não
+  ignorado; no modo completo um `.env` novo passava sem finding. Migration com espaço ou
+  acento no nome (`001 init.sql`, `ação.sql`) sumia da checagem de RLS, e o fallback de tabelas
+  do `02-banco.md` não achava `create table` separado por tab
+  (`tests/test-collect-completo-untracked.sh`, novo, e `tests/test-baseline-banco.sh`).
+- **`worktree-gc.sh --verificar` supunha `origin/main`.** Em repo cuja branch padrão é
+  `master` (ou outra), toda branch saía "não mergeada". Agora ele descobre a branch padrão do
+  origin; sem descobrir, mantém e diz por quê, sem remover nada. Quando o `gh` não enxerga o
+  repo, prova o PR mergeado pela API do GitHub com o token que `git config git-sync.tokenVar`
+  nomeia (pelo stdin, nunca impresso), e `--no-gh` vale como no `git-sync`. Um worktree
+  detached cujo HEAD é o head de um PR mergeado por squash pode sair
+  (`tests/test-worktree-gc.sh`).
+
+### Mudou
+
+- **`worktrees`:** o texto do `discard_changes: true` diz que ele apaga também o que o git
+  ignora, sem listar, e por isso o `--verificar` roda de novo logo antes de re-invocar o
+  `ExitWorktree`.
+- **`handoff`:** a tabela de módulos tem uma linha por módulo que quem assume vai tocar, não
+  um número fixo; e, de dentro de um worktree, o `gh pr list --jq` multilinha que o guard
+  recusa vai num `.sh` no scratchpad, rodado pelo caminho absoluto.
+- **`limpeza-mac`:** o worktree detached de squash continua à mão, com o `--verificar` saindo 0
+  como confirmação antes do `git worktree remove`, sem `--force` e com o seu OK.
+
 ## [0.43.0] — 2026-09-28
 
 ### Depois de atualizar
