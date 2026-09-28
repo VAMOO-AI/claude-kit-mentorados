@@ -213,7 +213,7 @@ jobs:
       - name: A varredura de chaves da auditoria (A4) mostra arquivo:linha, nunca o segredo inteiro
         run: bash tests/test-auditoria-a4-mascara.sh
 
-      - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade
+      - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade, separa FALHOU de AUSENTE e varre a árvore com o gitleaks
         run: bash tests/test-secscan-ferramentas.sh
 
       - name: O gate --diff da baseline sai 3 com base que não resolve e acusa segredo em qualquer commit do range
@@ -223,7 +223,7 @@ jobs:
       - name: O pilar 02 da baseline diz quais pastas de migration mediu, e os blocos da skill rodam linha a linha
         run: bash tests/test-baseline-banco.sh
 
-      - name: A barra mostra o comprimento da sessão e não quebra sem transcript
+      - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 
       - name: Os agentes do plugin têm name, description e effort válido, e revisor e executor rodam em medium

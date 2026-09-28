@@ -9,6 +9,7 @@
 - Exceção (write em sub-agente permitido): tarefa mecânica e isolada (ex.: renomear em N arquivos, formatar, gerar testes) com escopo explícito.
 
 ## Revisor: quem corrige e o que pergunta
+- Lote de implementação que a conversa principal despacha vai para o agente `executor` do plugin; review vai para o `revisor`. Os dois rodam em `effort: medium`.
 - Severidade diz a ordem; **natureza** diz quem decide o fix. O revisor não edita nem classifica: reporta cada achado com `arquivo:linha`, confiança (alta/média/baixa), o cenário de falha e a correção proposta, inclusive os de severidade baixa e os que não confirmou. Quem separa mecânico de decisão e aplica é a conversa principal. Mecânico (um sênior aplicaria sem discutir) entra quando você mandar "aplica os mecânicos"; decisão (dois sêniores poderiam discordar) você decide um a um.
 - Mecânico: dead code, variável nunca lida, N+1 sem eager loading, comentário que contradiz o código, número mágico → constante, validação faltando em saída de IA, versão/caminho desatualizado.
 - Decisão: segurança (auth, XSS, injeção), race / ler-e-depois-gravar, remover funcionalidade, mudança de comportamento visível, qualquer fix acima de ~20 linhas.
