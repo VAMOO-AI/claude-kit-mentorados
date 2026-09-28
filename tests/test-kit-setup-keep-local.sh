@@ -13,6 +13,13 @@
 # que é dele; 5 execuções deixam exatamente 3 backups — os 3 mais novos; e num
 # ~/.claude do kit do time (com .team-manifest) o setup não toca em nada sem --force.
 #
+# As regras de subagente mudaram de nome: em disco que não diferencia maiúscula
+# (macOS, Windows), o ~/.claude/agents.md é o AGENTS.md que o Claude Code lê em toda
+# sessão. O setup instala subagentes.md e tira o agents.md antigo, com backup (o
+# .keep-local segura, como segura qualquer remoção). CLAUDE.md da pessoa que ainda
+# cita agents.md ganha aviso, e o fim da saída só manda preencher os <campos> quando
+# o setup instalou o CLAUDE.md — o que já existia é da pessoa.
+#
 # Uso: bash tests/test-kit-setup-keep-local.sh [caminho-do-kit-setup.sh]
 set -uo pipefail
 SETUP="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/scripts/kit-setup.sh}"
@@ -61,6 +68,50 @@ check "script do manifesto removido"                    "$(sumiu "$H1/.claude/sc
 check "skill fora do manifesto nunca é tocada"          "$(existe "$H1/.claude/skills/so-minha/SKILL.md")"
 check "o que saiu está no backup"                       "$([ "$(cat "$H1"/.claude/backup-kit-*/skills/minha-skill/SKILL.md 2>/dev/null)" = "editei" ] && echo ok || echo fail)"
 check "manifesto apagado (a limpeza rodou)"             "$(sumiu "$H1/.claude/.kit-manifest")"
+
+echo "== agents.md antigo sai com backup, e as regras vão para subagentes.md =="
+H7="$TMP/h7"; mkdir -p "$H7/.claude"
+echo "agents do kit antigo" > "$H7/.claude/agents.md"
+HOME="$H7" bash "$SETUP" >"$TMP/saida7" 2>&1; codigo=$?
+check "setup termina com exit 0"                        "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
+check "subagentes.md instalado"                         "$(existe "$H7/.claude/subagentes.md")"
+check "agents.md antigo removido"                       "$(sumiu "$H7/.claude/agents.md")"
+check "o agents.md antigo foi pro backup"               "$([ "$(cat "$H7"/.claude/backup-kit-*/agents.md 2>/dev/null)" = "agents do kit antigo" ] && echo ok || echo fail)"
+check "CLAUDE.md instalado agora: manda preencher os <campos>" "$(grep -q 'preencha os campos' "$TMP/saida7" && echo ok || echo fail)"
+
+echo "== agents.md listado no .keep-local fica, com aviso =="
+H8="$TMP/h8"; mkdir -p "$H8/.claude"
+echo "meu agents" > "$H8/.claude/agents.md"
+printf 'agents.md\n' > "$H8/.claude/.keep-local"
+HOME="$H8" bash "$SETUP" >"$TMP/saida8" 2>&1
+check "o agents.md protegido continua lá, intacto"      "$([ "$(cat "$H8/.claude/agents.md" 2>/dev/null)" = "meu agents" ] && echo ok || echo fail)"
+check "a saída diz que ele foi mantido"                 "$(grep -q 'mantido (está no .keep-local): agents.md' "$TMP/saida8" && echo ok || echo fail)"
+check "subagentes.md é instalado mesmo assim"           "$(existe "$H8/.claude/subagentes.md")"
+
+echo "== CLAUDE.md da pessoa que ainda cita agents.md: aviso, sem mexer nele =="
+H9="$TMP/h9"; mkdir -p "$H9/.claude"
+printf '# minhas regras\nSubagentes: ver ~/.claude/agents.md\n' > "$H9/.claude/CLAUDE.md"
+cp "$H9/.claude/CLAUDE.md" "$TMP/claude9-antes"
+HOME="$H9" bash "$SETUP" >"$TMP/saida9" 2>&1
+check "CLAUDE.md da pessoa intacto"                     "$(cmp -s "$H9/.claude/CLAUDE.md" "$TMP/claude9-antes" && echo ok || echo fail)"
+check "avisa que ele ainda cita agents.md"              "$(grep -q 'cita agents.md' "$TMP/saida9" && echo ok || echo fail)"
+check "não manda preencher os <campos> de um CLAUDE.md que não instalou" "$(grep -q 'preencha os campos' "$TMP/saida9" && echo fail || echo ok)"
+check "o fim da saída aponta o CLAUDE.kit.md"           "$(tail -n 3 "$TMP/saida9" | grep -q 'CLAUDE.kit.md' && echo ok || echo fail)"
+# o aviso é pelo nome antigo exato: AGENTS.md de projeto e subagentes.md não contam
+H10="$TMP/h10"; mkdir -p "$H10/.claude"
+printf '# minhas regras\nNo projeto, o AGENTS.md; subagentes em ~/.claude/subagentes.md\n' > "$H10/.claude/CLAUDE.md"
+HOME="$H10" bash "$SETUP" >"$TMP/saida10" 2>&1
+check "AGENTS.md e subagentes.md não disparam o aviso"  "$(grep -q 'cita agents.md' "$TMP/saida10" && echo fail || echo ok)"
+
+echo "== --dry-run mostra a remoção e o aviso, sem fazer =="
+H11="$TMP/h11"; mkdir -p "$H11/.claude"
+echo "agents antigo" > "$H11/.claude/agents.md"
+printf 'Subagentes: ver ~/.claude/agents.md\n' > "$H11/.claude/CLAUDE.md"
+HOME="$H11" bash "$SETUP" --dry-run >"$TMP/saida11" 2>&1
+check "dry-run não remove o agents.md"                  "$([ "$(cat "$H11/.claude/agents.md" 2>/dev/null)" = "agents antigo" ] && echo ok || echo fail)"
+check "dry-run não instala o subagentes.md"             "$(sumiu "$H11/.claude/subagentes.md")"
+check "dry-run mostra a remoção do agents.md"           "$(grep -q 'dry-run.*rm .*agents\.md' "$TMP/saida11" && echo ok || echo fail)"
+check "dry-run mostra o aviso do CLAUDE.md"             "$(grep -q 'cita agents.md' "$TMP/saida11" && echo ok || echo fail)"
 
 echo "== com .keep-local: o que está lá fica, o resto sai =="
 H2="$TMP/h2"; monta_home "$H2"

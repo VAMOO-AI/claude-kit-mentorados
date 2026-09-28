@@ -29,7 +29,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh" --dry-run
 do time (tem o `.team-manifest`), e quem manda nele é o instalador de lá. Não siga
 para os passos 2 e 3 e não edite o `~/.claude/CLAUDE.md`, que é o do time. Explique
 isso à pessoa. Não contorne com `--force`, a não ser que ela peça explicitamente:
-ele troca o `agents.md` e a barra de status do time pelos daqui.
+ele tira o `agents.md` do time e instala o `subagentes.md` e a barra de status daqui.
 
 Confirmado, rode de verdade:
 
@@ -42,11 +42,16 @@ mexer (ficam os 3 mais recentes). Se a pessoa tem algo próprio em `~/.claude`
 que a limpeza da instalação antiga poderia levar — uma skill do kit que ela
 editou, um script com nome igual —, liste em `~/.claude/.keep-local` (um
 caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
-`--dry-run`. Duas decisões já vêm tomadas nele, e vale dizer em voz alta:
+`--dry-run`. Estas decisões já vêm tomadas nele, e vale dizer em voz alta:
 
 - **`CLAUDE.md` que já existir não é sobrescrito.** O modelo do kit fica em
   `~/.claude/CLAUDE.kit.md` pra comparar. Só troca com `--force`, e só se a
   pessoa pedir.
+- **As regras de subagente ficam em `~/.claude/subagentes.md`.** O `agents.md`
+  que versões anteriores do kit instalavam sai, com cópia no backup: em disco que
+  não diferencia maiúscula de minúscula (o padrão no macOS e no Windows), o Claude
+  Code o lia como `AGENTS.md` em toda sessão. Listado no `.keep-local`, ele fica, e
+  a saída avisa.
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
@@ -62,6 +67,14 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 
 O template vem com campos `<entre-colchetes>`. Um CLAUDE.md com os colchetes
 ainda lá é pior que nenhum: o modelo lê `<sua stack>` como instrução literal.
+
+Se o setup disse "Você já tem um CLAUDE.md — não mexi nele", o arquivo é da
+pessoa: não edite. Mostre o que o modelo do kit traz de diferente
+(`diff ~/.claude/CLAUDE.md ~/.claude/CLAUDE.kit.md`) e pergunte o que ela quer
+trazer. Se ele também avisou que esse CLAUDE.md ainda cita `agents.md`, mostre a
+linha (`grep -n 'agents\.md' ~/.claude/CLAUDE.md`) e proponha trocar o nome por
+`subagentes.md`; edite só com o OK dela. O resto deste passo vale quando o setup
+instalou o CLAUDE.md.
 
 Leia `~/.claude/CLAUDE.md`, colete o que falta **numa pergunta só** e edite o
 arquivo:

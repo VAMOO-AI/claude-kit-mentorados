@@ -52,10 +52,10 @@ warn() { printf '\033[1;33m!\033[0m %s\n' "$1"; }
 run() { if [ "$DRY" -eq 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
 
 # Máquina com o kit do time: o update.sh de lá grava o .team-manifest, e este script
-# nunca grava. Rodar por cima trocaria o agents.md e a barra de status do time pelos
-# daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
+# nunca grava. Rodar por cima tiraria o agents.md do time, poria o subagentes.md e a
+# barra de status daqui e misturaria o settings.json dos dois kits — já aconteceu uma vez.
 if [ -f "$CLAUDE_DIR/.team-manifest" ] && [ "$FORCE" -eq 0 ]; then
-  warn "~/.claude é do kit do time: o setup dos mentorados sobrescreveria agents.md e statusline e mexeria no settings. Nada feito."
+  warn "~/.claude é do kit do time: o setup dos mentorados tiraria o agents.md de lá, instalaria o subagentes.md e a statusline daqui e mexeria no settings. Nada feito."
   exit 0
 fi
 
@@ -116,20 +116,41 @@ say "Kit v$KIT_VERSION — completando a instalação em $CLAUDE_DIR"
 run mkdir -p "$CLAUDE_DIR" "$CLAUDE_DIR/scripts"
 
 # ── CLAUDE.md: é SEU arquivo. Não sobrescreve sem mandado explícito ──────────
+INSTALOU_CLAUDE=0
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ "$FORCE" -eq 0 ]; then
   run cp "$TPL/CLAUDE-global.md" "$CLAUDE_DIR/CLAUDE.kit.md"
   warn "Você já tem um CLAUDE.md — não mexi nele."
   warn "  O modelo do kit ficou em ~/.claude/CLAUDE.kit.md pra você comparar."
   warn "  Pra trocar pelo do kit: bash kit-setup.sh --force"
+  # O nome antigo das regras de subagente ficou para trás no CLAUDE.md da pessoa. O
+  # arquivo é dela: o setup aponta, não edita. Sem -i: AGENTS.md no texto é o do projeto.
+  if grep -q 'agents\.md' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+    warn "  Ele ainda cita agents.md: as regras de subagente agora ficam em ~/.claude/subagentes.md."
+  fi
 else
   backup "CLAUDE.md"
   run cp "$TPL/CLAUDE-global.md" "$CLAUDE_DIR/CLAUDE.md"
   ok "CLAUDE.md instalado  (preencha os <campos> com os seus dados)"
+  INSTALOU_CLAUDE=1
 fi
 
-backup "agents.md"
-run cp "$TPL/agents.md" "$CLAUDE_DIR/agents.md"
-ok "agents.md instalado"
+# ── Regras dos subagentes: subagentes.md ────────────────────────────────────
+# O nome antigo, agents.md, em disco que não diferencia maiúscula (macOS, Windows) é o
+# ~/.claude/AGENTS.md que o Claude Code lê em toda sessão: as regras de subagente
+# entravam em toda conversa. Ele sai com backup; o .keep-local segura, como segura
+# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só.
+backup "subagentes.md"
+run cp "$TPL/subagentes.md" "$CLAUDE_DIR/subagentes.md"
+ok "subagentes.md instalado"
+if [ -e "$CLAUDE_DIR/agents.md" ]; then
+  if protegido "agents.md" || protegido "AGENTS.md"; then
+    warn "mantido (está no .keep-local): agents.md — em disco que não diferencia maiúscula, o Claude Code o lê como AGENTS.md em toda sessão."
+  else
+    backup "agents.md"
+    run rm -f "$CLAUDE_DIR/agents.md"
+    ok "agents.md antigo removido — as regras agora ficam em subagentes.md (cópia no backup)"
+  fi
+fi
 
 # ── Barra de status ─────────────────────────────────────────────────────────
 # Cópia, não link: a barra continua funcionando quando o plugin for atualizado
@@ -211,5 +232,9 @@ echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"
-say "Agora abra ~/.claude/CLAUDE.md e preencha os campos <entre-colchetes>."
+if [ "$INSTALOU_CLAUDE" -eq 1 ]; then
+  say "Agora abra ~/.claude/CLAUDE.md e preencha os campos <entre-colchetes>."
+else
+  say "Seu CLAUDE.md ficou como estava; o do kit está em ~/.claude/CLAUDE.kit.md para comparar."
+fi
 say "Reinicie o Claude Code pra barra de status aparecer."
