@@ -35,7 +35,7 @@ Você pode invocar de propósito: *"usa a skill verificacao antes de fechar"*.
 Pra tarefas independentes (ex.: revisar 8 arquivos, renomear em vários módulos), o Claude
 pode disparar **sub-agentes em paralelo**. Eles trabalham isolados e reportam de volta.
 
-Regras (estão no seu `~/.claude/agents.md`):
+Regras (estão no seu `~/.claude/subagentes.md`):
 - Sub-agentes são **read-only por padrão** (exploração). Edit/Write fica na conversa principal.
 - Para writes paralelos, cada agente recebe um **contrato de escopo** (arquivos que pode tocar).
 - Eles não podem dizer "passou" sem rodar e colar o output.
@@ -100,8 +100,8 @@ skill com o comando do seu projeto.
 
 Além do `init the context`, em projetos grandes:
 - Documente decisões de arquitetura em `.context/docs/` — vira contexto permanente.
-- Mantenha um `AGENTS.md` na raiz como ponto de entrada (Claude/Codex/Cursor leem).
-- `.context/` é fonte única — não duplique contexto espalhado pelo repo.
+- Regras do projeto no `AGENTS.md` da raiz (Claude/Codex/Cursor leem o mesmo arquivo); o `CLAUDE.md` do projeto só importa, com a linha `@AGENTS.md`.
+- Cada coisa num lugar só: regra no `AGENTS.md`, conhecimento em `.context/` — sem cópia espalhada pelo repo.
 
 ---
 

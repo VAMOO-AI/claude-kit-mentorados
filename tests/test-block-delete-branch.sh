@@ -143,6 +143,15 @@ case "$msg" in
   *"(feat/base): #99"*) printf '  ok    %s\n' "mensagem lista os filhos como #N" ;;
   *) printf '  FALHA %s (veio: %s)\n' "mensagem lista os filhos como #N" "$(printf '%s' "$msg" | head -1)"; falhas=$((falhas+1)) ;;
 esac
+# A escotilha é do usuário. "Override consciente" deixava o modelo decidir sozinho que estava consciente.
+case "$msg" in
+  *"só com pedido explícito do usuário"*) printf '  ok    %s\n' "DELETE_BRANCH_OK=1 só com pedido do usuário" ;;
+  *) printf '  FALHA %s\n' "DELETE_BRANCH_OK=1 só com pedido do usuário"; falhas=$((falhas+1)) ;;
+esac
+case "$msg" in
+  *"Override consciente"*) printf '  FALHA %s\n' "a mensagem não deixa o modelo julgar o próprio override"; falhas=$((falhas+1)) ;;
+  *) printf '  ok    %s\n' "a mensagem não deixa o modelo julgar o próprio override" ;;
+esac
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

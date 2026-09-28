@@ -162,7 +162,7 @@ Faça nesta ordem:
   3. gh pr edit <filho> --base main
   4. git push origin --delete $head       # agora sim
 
-Override consciente: prefixe DELETE_BRANCH_OK=1.
+Override: só com pedido explícito do usuário nesta conversa, depois de mostrar a ele os PRs que fecham — aí prefixe DELETE_BRANCH_OK=1.
 MSG
   exit 2
 done <<ALVOS

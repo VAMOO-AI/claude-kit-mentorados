@@ -88,7 +88,7 @@ skills/meu-projeto-*
 scripts/deploy-cliente.sh
 ```
 
-Protege contra remoção, não contra instalação: `agents.md`, a barra de status e os
+Protege contra remoção, não contra instalação: `subagentes.md`, a barra de status e os
 scripts do kit continuam sendo atualizados a cada setup, mesmo listados. E o setup
 guarda só os 3 `backup-kit-<data>/` mais recentes — antes acumulava um por execução.
 

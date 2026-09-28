@@ -70,8 +70,8 @@ bash plugin/scripts/skill-pressure-test.sh --baseline tests/skills/verificacao/
 # GREEN — só a SKILL.md no system prompt, no mesmo isolamento do RED
 bash plugin/scripts/skill-pressure-test.sh --com-skill tests/skills/verificacao/
 
-# taxa: 3 execuções por cenário, modelo explícito
-bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 --model sonnet --effort high tests/skills/
+# taxa: 3 execuções por cenário, no modelo de produção (opus/medium; troque com --model/--effort)
+bash plugin/scripts/skill-pressure-test.sh --com-skill --n 3 tests/skills/
 ```
 
 Cada execução é uma chamada `claude -p` sem ferramentas de execução (só `Skill`

@@ -1,13 +1,17 @@
-# CLAUDE.md — <NOME DO PROJETO>
+# AGENTS.md — <NOME DO PROJETO>
 
-> Este arquivo fica na **raiz do projeto** (não no ~/.claude).
+> Salve este arquivo como `AGENTS.md` na **raiz do projeto** (não no ~/.claude). É a
+> fonte das regras do projeto: Claude, Codex e Cursor leem o mesmo arquivo.
+> Ao lado dele, crie um `CLAUDE.md` cuja primeira linha é `@AGENTS.md` (sem as crases):
+> é a ponte que faz o Claude Code carregar este arquivo. Abaixo dela, só o que for
+> exclusivo do Claude. Sem cópia e sem symlink: a regra mora num lugar só.
 > Ele vale SÓ pra este projeto e **soma** com as suas regras globais (o mais
 > específico vence em conflito). Veja docs/memoria-e-contexto.md.
-> Use pra contar ao Claude as coisas específicas daqui que ele não tem como adivinhar.
+> Use pra contar ao agente as coisas específicas daqui que ele não tem como adivinhar.
 >
 > ⚠️ **O que vai aqui:** regras de comportamento e fatos do projeto. NÃO coloque
 > changelog nem doc de implementação — isso entra inteiro no contexto toda sessão.
-> Documentação de implementação vai em `docs/`. CLAUDE.md cresce com regra, não com histórico.
+> Documentação de implementação vai em `docs/` (ou `.context/docs/`). O AGENTS.md cresce com regra, não com histórico.
 
 ## O que é
 <Uma a duas frases: o que esse projeto faz e pra quem.>
