@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **22 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **23 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -44,6 +44,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
+| `plugin/scripts/instrucoes-projeto.sh` | — | **Migra um projeto que já existia** para o `AGENTS.md` como fonte e o `CLAUDE.md` como a ponte `@AGENTS.md`. Peça ao Claude: "roda o instrucoes-projeto do kit com `--check` neste repo". Ele mostra a classe do par (só import, cópia duplicada, symlink, divergentes…), o tamanho frente ao limite de 32 KiB do Codex e a proposta, sem gravar; depois, com `--apply`, grava só nas classes que não pedem julgamento e mostra o diff antes. |
 | `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
@@ -59,7 +60,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 22. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 23. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -83,6 +84,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) e segura o `npx skills add` de um pacote com dezenas. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
 | **find-skills** | `/kit-vamoo:find-skills` — procura skill pronta no ecossistema aberto (`npx skills`, skills.sh) e verifica procedência antes de recomendar. Você chama; o Claude não aciona sozinho, então ela não pesa nas suas requests. | `npx` disponível |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
+| **limpeza-mac** | `/kit-vamoo:limpeza-mac` — limpeza profunda de um Mac de dev: worktrees e branches já mergeadas, node_modules e .next de repo parado, caches e versões velhas de CLI. Faz um inventário read-only primeiro e guarda o SHA de cada branch num ledger antes de apagar; worktree só sai com o `worktree-gc.sh --verificar` liberando. Você chama; o Claude não aciona sozinho. | macOS; `gh` (opcional — sem ele, branch mergeada por squash fica) |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 

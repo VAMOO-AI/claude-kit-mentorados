@@ -88,6 +88,11 @@ jobs:
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
+      - name: A limpeza-mac só apaga worktree, branch e build seguros por construção, e sai limpa fora do macOS
+        # Aqui é Ubuntu: o teste põe um `uname` de mentira que responde Darwin, e um que
+        # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
+        run: bash tests/test-limpeza-mac.sh
+
       - name: O aviso de worktree mergeado não acusa branch sem commit nem manda remover worktree sujo
         run: bash tests/test-warn-worktree-stale.sh
 
@@ -129,6 +134,9 @@ jobs:
 
       - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
+
+      - name: O instrucoes-projeto classifica o par CLAUDE.md/AGENTS.md e só grava o que não pede julgamento
+        run: bash tests/test-instrucoes-projeto.sh
 
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
