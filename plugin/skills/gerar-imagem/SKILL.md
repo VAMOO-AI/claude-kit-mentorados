@@ -1,6 +1,6 @@
 ---
 name: gerar-imagem
-description: EXECUTA a geração de imagem pela API da OpenAI (gpt-image-*) e entrega o JPEG pronto para a web ou publicado dentro de um artefato. Use em "gera essa imagem", "cria uma foto para a landing", "precisa de imagem aqui", ou quando uma página/deck/proposta pede foto e não há banco de imagens. Para ESCREVER o prompt (luz, lente, direção de arte), carregue antes a skill diretor-imagem — esta aqui roda o comando, não dirige a foto.
+description: EXECUTA a geração de imagem pela API da OpenAI (gpt-image-*, paga por imagem) e entrega o JPEG pronto para a web ou para um artefato. Use quando pedirem uma imagem gerada, ou quando uma página/deck pede foto sem banco de imagens e a pessoa topa pagar a geração. Para ESCREVER o prompt (luz, lente, direção de arte), carregue antes a skill diretor-imagem — esta aqui roda o comando, não dirige a foto.
 ---
 
 # Gerar imagem
@@ -16,21 +16,24 @@ imagens, chamada pelo script desta skill.
 2. **Gerar**:
 
 ```bash
-python3 scripts/gerar-imagem.py --prompt-file /tmp/p.txt --out hero.jpg
-python3 scripts/gerar-imagem.py --listar-modelos     # antes de assumir o modelo
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/gerar-imagem/scripts/gerar-imagem.py" --prompt-file /tmp/p.txt --out hero.jpg
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/gerar-imagem/scripts/gerar-imagem.py" --listar-modelos     # antes de assumir o modelo
 ```
 
-3. **Conferir com os olhos.** Leia o arquivo gerado. É o único caso em que screenshot
-   não é desperdício: o pixel é a evidência.
-4. **Publicar** — em artefato, mande as imagens em `files` com caminho relativo
+3. **Conferir com os olhos.** Leia o arquivo gerado: aqui o pixel é a evidência,
+   então a imagem na conversa se paga.
+4. **Se a imagem vai numa página publicada como artefato** (só quando a pessoa pediu
+   artefato): mande as imagens em `files` com caminho relativo
    (`{"hero.jpg": "/caminho/local/hero.jpg"}`) e referencie `src="hero.jpg"`. **Não**
    precisa da capability `assets`. Foto de host externo é bloqueada pela CSP do
-   artefato — é por isso que geramos e publicamos junto.
+   artefato; por isso a imagem vai junto, no `files`.
 
 ## A chave
 
 O script procura nesta ordem e **imprime de onde veio**: `$OPENAI_API_KEY` →
-`~/.codex/.env.tokens` → `.env`/`.env.local` do diretório atual → `--env-file`.
+`--env-file` → `~/.codex/.env.tokens` → `.env`/`.env.local` do diretório atual. Com
+`$OPENAI_API_KEY` exportada, o `--env-file` é ignorado; o `--listar-modelos` mostra a
+linha `chave:` sem gerar nada.
 
 `~/.codex/.env.tokens` é o lugar da chave padrão, fora de qualquer repositório — usar
 ela não gera aviso. Chave lida de um `.env` de repo sai com `⚠️ o custo cai naquela

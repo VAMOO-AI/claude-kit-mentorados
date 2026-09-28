@@ -7,10 +7,10 @@ Uso:
     python3 gerar-imagem.py --listar-modelos
 
 A chave é procurada nesta ordem, e o script SEMPRE imprime de onde ela veio:
-    1. $OPENAI_API_KEY
-    2. ~/.codex/.env.tokens
-    3. .env / .env.local do diretório atual
-    4. --env-file <caminho>
+    1. $OPENAI_API_KEY (exportada, ela vence o --env-file)
+    2. --env-file <caminho>
+    3. ~/.codex/.env.tokens
+    4. .env / .env.local do diretório atual
 Chave que vem de fora do diretório atual aparece com aviso: o custo cai na conta
 daquele projeto. Isso é de propósito — descobrir na fatura é pior.
 

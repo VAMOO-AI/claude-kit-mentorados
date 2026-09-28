@@ -3,9 +3,7 @@ name: skills-projeto
 description: >-
   Skill de projeto (.claude/skills) cobra contexto em TODA request, mesmo sem
   disparar. Use ao criar, instalar (npx skills add) ou revisar skill de projeto,
-  quando a sessão nasce cara, ou em "vale a pena virar skill?". Traz o teto
-  (8 skills / 2.000 chars), o que faz uma skill rotear de verdade (name = pasta,
-  description que diz QUANDO, corpo com conteúdo) e como medir. Não é o
+  quando a sessão nasce cara, ou em "vale a pena virar skill?". Não é o
   harness-check, que mede a sessão inteira.
 ---
 
@@ -53,8 +51,9 @@ request pelo resto do projeto. Antes de instalar qualquer coisa de terceiro:
    05/09/2026 no kit do time). O que sai desse comando entra no seu contexto
    como se fosse do sistema.
 3. **Procedência**: quem publicou, quantas instalações, o repositório existe e
-   tem histórico. A skill `find-skills` (`/kit-vamoo:find-skills`) é o caminho
-   para procurar; ela cobre esse mesmo aviso.
+   tem histórico. Para procurar, rode `npx skills find <termo>`; a
+   `/kit-vamoo:find-skills` faz a mesma busca com o checklist de procedência, mas
+   só a pessoa aciona.
 
 Depois de instalar, rode o scan. Se o total pulou, desinstale o que você não
 consegue explicar em uma frase.
@@ -73,7 +72,7 @@ O Claude Code escolhe a skill pelo `name` do frontmatter e decide pela
   investigar teste instável, ou quando o CI fica vermelho só no CI" roteia.
 - **Corpo com conteúdo.** Os mesmos dez SKILL.md tinham 99–135 bytes e o corpo
   vazio: cobravam a description e não ensinavam nada. Skill sem corpo é uma
-  linha do CLAUDE.md do projeto que se disfarçou de skill.
+  linha do AGENTS.md do projeto que se disfarçou de skill.
 
 ## Não gere skill — ainda
 
@@ -108,15 +107,17 @@ Formato que basta:
 ## Opcional: teste a skill sob pressão
 
 Skill de disciplina ("sempre rode o teste antes de dizer pronto") costuma ser
-ignorada justamente quando dá trabalho obedecer. Dá para provar isso antes de
-confiar nela:
+ignorada justamente quando dá trabalho obedecer. O `skill-pressure-test.sh` do
+plugin mede isso só nas skills do próprio kit: ele procura a skill em
+`${CLAUDE_PLUGIN_ROOT}/skills` e recusa (exit 2) a que não está lá. Para uma
+skill do seu projeto, faça o mesmo à mão: um cenário com escolha forçada
+(A/B/C), rodado com `claude -p` sem a skill e depois com a SKILL.md em
+`--append-system-prompt-file`; se a escolha certa só aparece com a skill, ela
+segura alguma coisa. O método completo está no repositório do kit, fora do
+plugin instalado:
+https://github.com/VAMOO-AI/claude-kit-mentorados/blob/main/docs/testar-skills-sob-pressao.md
 
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/skill-pressure-test.sh"
-```
-
-É nota, não gate: uma skill sua não precisa passar por isso para existir. Método
-em `docs/testar-skills-sob-pressao.md`.
+É nota, não gate: uma skill sua não precisa passar por isso para existir.
 
 ## Checklist antes de commitar uma skill nova
 
