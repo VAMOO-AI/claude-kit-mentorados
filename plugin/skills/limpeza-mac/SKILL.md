@@ -108,12 +108,13 @@ O que o script respeita, e por quê:
   prova do PR, como na skill `worktrees`:
 
   ```bash
-  gh pr list --state merged --search <sha-do-HEAD> --json number,headRefOid,baseRefName
+  gh pr list -R <dono/repo> --state merged --search <sha-do-HEAD> --json number,headRefOid,baseRefName
   ```
 
-  O PR tem de estar mergeado no default, com `headRefOid` igual ao HEAD do worktree. A
-  prova cobre só esse motivo: qualquer outro da linha `keep:` continua valendo. Com ela,
-  `git worktree remove <caminho>`, sem `--force`, e só com o OK da pessoa.
+  O `<dono/repo>` sai de `git -C <repo> remote get-url origin`. O PR tem de estar mergeado
+  no default, com `headRefOid` igual ao HEAD do worktree. A prova cobre só esse motivo:
+  qualquer outro da linha `keep:` continua valendo. Com ela,
+  `git -C <repo> worktree remove <caminho>`, sem `--force`, e só com o OK da pessoa.
 
 Não rode `git gc --prune=now` nem `--aggressive` depois. O ledger restaura com
 `git -C <repo> branch <branch> <sha>` enquanto os objetos soltos existirem, o que dura

@@ -12,7 +12,7 @@
 # enquanto ninguém rodar `git gc --prune=now`.
 #
 # Uso: bash aplicar.sh <dir-do-plano> <dir-do-ledger>
-#      DRY=1 só lista, sem tocar no plano nem no ledger
+#      DRY=1 não remove nada nem escreve no plano ou no ledger; o fetch --prune roda igual
 #      LIMPEZA_WORKTREE_GC troca o worktree-gc.sh (padrão: o de scripts/ do plugin)
 # Só macOS: fora dele, sai 0 sem fazer nada.
 set -uo pipefail
