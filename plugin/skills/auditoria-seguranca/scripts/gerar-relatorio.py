@@ -212,15 +212,24 @@ _ATRIB_NUA = re.compile(
     r"(?i)\b(" + _CHAVE + r"\s*[:=]\s*)([A-Za-z0-9_@#!%^&*+=/~-]{8,})(?=\s|$|[,;])")
 # Default de variavel (${VAR:-valor}) com a regua da A4: ate' 12 caracteres so' "…", acima
 # os 4 primeiros + "…". O arquivo:linha do achado continua sendo a evidencia. Referencia no
-# lugar do valor (${A:-${B}}) e chave ja' mascarada acima ficam como estao.
+# lugar do valor (${A:-${B}}) e chave ja' mascarada acima ficam como estao. No aninhado
+# (${A:-${B:-valor}}) o [^}] para antes da primeira }, e o grupo 2 e' "${B:-valor": o default
+# interno e' mascarado pela mesma regua, nivel a nivel.
 _DEFAULT = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)([^}\n]+)\}")
+_DEFAULT_INTERNO = re.compile(r"(\$\{[A-Za-z_][A-Za-z0-9_]*:?-)(.+)")
+
+
+def _mascarar_valor_default(v):
+    if " redigida]" in v:
+        return v
+    if v.startswith("$"):
+        m = _DEFAULT_INTERNO.fullmatch(v)
+        return m.group(1) + _mascarar_valor_default(m.group(2)) if m else v
+    return "…" if len(v) <= 12 else v[:4] + "…"
 
 
 def _mascarar_default(m):
-    v = m.group(2)
-    if v.startswith("$") or " redigida]" in v:
-        return m.group(0)
-    return m.group(1) + ("…" if len(v) <= 12 else v[:4] + "…") + "}"
+    return m.group(1) + _mascarar_valor_default(m.group(2)) + "}"
 
 
 def redigir_segredos(texto):
@@ -415,8 +424,9 @@ def calcular_veredito(achados):
 
 
 def trecho_redigido(a):
-    """Trecho do achado ja' mascarado. 'redacao': false desliga, para o caso em que
-    o valor literal E' a evidencia (default publico versionado, por exemplo)."""
+    """Trecho do achado ja' mascarado, para o PDF. 'redacao': false desliga, para o caso em
+    que o valor literal E' a evidencia (default publico versionado, por exemplo); a issue
+    nao passa por aqui e sai mascarada sempre."""
     trecho = a.get("trecho")
     if not trecho or a.get("redacao") is False:
         return trecho, 0
@@ -992,7 +1002,9 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         nivel = EVIDENCIA[nivel_evidencia(a)][0].lower()
         linhas.append(f"- `{local}` — {a.get('titulo','')} "
                       f"({nivel}, confiança {num(confianca(a))})")
-        texto, n_red = trecho_redigido(a)
+        # sem escotilha aqui: "redacao": false vale para o trecho do PDF, e o GitHub e' mais
+        # publico que ele
+        texto, n_red = redigir_segredos(a.get("trecho"))
         if texto:
             linhas += ["", "```", texto.strip(), "```", ""]
             redacoes[0] += n_red

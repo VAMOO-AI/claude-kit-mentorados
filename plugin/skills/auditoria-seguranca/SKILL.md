@@ -57,10 +57,12 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
 - **Segredo encontrado não é copiado para o entregável.** O `trecho` vai para um
   PDF e para uma issue de GitHub, ambos mais públicos que o repo. O gerador
   mascara chave, JWT, token, atribuição de segredo e o default de variável
-  (`${VAR:-valor}`, com a régua da A4) automaticamente; a escotilha
-  `"redacao": false` vale só para o `trecho` (o markdown da issue é mascarado sempre) e
-  existe só para quando o valor literal **é** a evidência (um default público já versionado). Nunca a use para segredo vivo — esse você
-  descreve, e a issue pede rotação.
+  (`${VAR:-valor}`, com a régua da A4, também aninhado: em `${A:-${B:-valor}}` o valor
+  interno é mascarado, e só a referência pura `${A:-${B}}` fica) automaticamente. A escotilha
+  `"redacao": false` vale só para o `trecho` impresso no PDF: a issue, montada dos achados ou
+  escrita em `markdown`, sai mascarada sempre, no corpo e na seção "Issues para o GitHub". Ela
+  existe só para quando o valor literal **é** a evidência (um default público já versionado).
+  Nunca a use para segredo vivo — esse você descreve, e a issue pede rotação.
 - **Percorra tudo nas categorias A1 e A3, e publique DUAS contagens:** quantos
   handlers foram **lidos integralmente** e quantos foram **triados por padrão**
   (grep de gate). As duas somadas têm que dar o total; a primeira sozinha é a
@@ -599,8 +601,7 @@ pads = [r"(sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{1
 achados = sorted((g.start(1), g.group(1)) for p in pads for g in re.finditer(p, l))
 if not achados: sys.exit("nenhum segredo reconhecido nesta linha: o trecho não sai")
 i, v = achados[0]
-ini = max(0, i - 60)  # a janela inteira: valor reconhecido nela empurra o início para depois dele
-ini += max([g.end() for p in pads for g in re.finditer(p, l[ini:i])], default=0)
+ini = max(0, i - 60)
 print(l[ini:i] + ("" if len(v) <= 12 else v[:4]) + "  // valor mascarado")'
 ```
 
@@ -609,10 +610,9 @@ no primeiro valor da linha, com até 60 caracteres antes dele: num bundle minifi
 linha inteira é o arquivo. Por isso a lista cobre também `ghp_`/`gho_`/`github_pat_`,
 `xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha de `scheme://usuario:senha@` (que não
 conta quando é `${VAR}`): token que
-o bloco não reconhece não vira corte, e sai inteiro na janela antes do valor reconhecido. A
-janela também passa pelos padrões, e um valor reconhecido dentro dela empurra o início para
-depois dele. Mascarar no meio da janela faria o trecho deixar de ser pedaço da linha real, e
-o `--verificar` o recusaria.
+o bloco não reconhece não vira corte, e sai inteiro na janela antes do valor reconhecido. Valor
+reconhecido não cabe na janela, porque o corte é o primeiro da linha. Mascarar no meio da
+janela faria o trecho deixar de ser pedaço da linha real, e o `--verificar` o recusaria.
 
 O PDF imprime **"Rastreabilidade de compliance"** sozinho: cada achado acionável
 é etiquetado nos controles de OWASP 2025/API/LLM/ISO/NIST/SOC2/PCI que viola,

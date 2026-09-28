@@ -35,9 +35,18 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   reconhece sai redigido pelo gerador (`tests/test-auditoria-relatorio.sh` e
   `tests/test-auditoria-a4-mascara.sh`).
 - **O default genérico `${VAR:-valor}` saía em claro no relatório.** Agora o gerador o mascara
-  com a régua da A4 (até 12 caracteres só `…`, acima os 4 primeiros + `…`) no trecho, no
-  markdown da issue e no PDF; o `arquivo:linha` continua como evidência, e `"redacao": false`
-  segue valendo só para o trecho (`tests/test-auditoria-relatorio.sh`).
+  com a régua da A4 (até 12 caracteres só `…`, acima os 4 primeiros + `…`) no trecho, na issue
+  e no PDF, também aninhado; o `arquivo:linha` continua como evidência, e `"redacao": false`
+  vale só para o trecho impresso no PDF (`tests/test-auditoria-relatorio.sh`).
+- **O default aninhado saía inteiro.** Em `${A:-${B:-valor}}` o valor começava com `$`, a
+  redação o tratava como referência e o default interno nunca era visitado: o literal ia para o
+  trecho, a issue e o PDF. Agora cada nível passa pela régua da A4, e só a referência pura
+  (`${A:-${B}}`, `${A:-${B:-${C}}}`) fica como está (`tests/test-auditoria-relatorio.sh`).
+- **A issue automática de achado com `"redacao": false` saía crua.** O corpo montado dos
+  achados usava o mesmo trecho do PDF, com a escotilha, e o valor ia inteiro para o GitHub e
+  para a seção "Issues para o GitHub" (o próprio `F3` do exemplo fazia isso). Agora a issue sai
+  mascarada sempre, montada ou em `markdown`, e a escotilha vale só para o trecho do PDF
+  (`tests/test-auditoria-relatorio.sh`).
 - **A A4 pulava achado com byte fora de UTF-8.** Arquivo com um byte inválido fazia o grep
   calar a linha e o `sed` do macOS abortar com "illegal byte sequence", e os achados seguintes
   sumiam. Os greps rodam com `-a` e `LC_ALL=C`, e a máscara de defaults e config passou para
@@ -52,8 +61,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   saía inteiro nessa janela: `ghp_…`, `xoxb-…` e a senha de `postgres://u:senha@h/db`
   chegavam ao PDF e à issue. O bloco reconhece também `ghp_`/`gho_`/`github_pat_`,
   `xox[abprs]-`, `glpat-`, `AKIA…`, `whsec_` e a senha em `scheme://usuario:senha@` (menos
-  `${VAR}`), e a janela inteira passa pelos padrões antes de sair, sem reescrever nada: o
-  `--verificar` continua aceitando o trecho como pedaço da linha real. A varredura de bundle da A4 continua com os
+  `${VAR}`). Como o corte é o primeiro valor reconhecido da linha, nenhum outro cabe na janela,
+  e nada é reescrito: o `--verificar` continua aceitando o trecho como pedaço da linha real. A varredura de bundle da A4 continua com os
   padrões dela (`tests/test-auditoria-a4-mascara.sh`).
 - **`baseline` completa não via arquivo fora do git.** Só o `--diff` lia o untracked não
   ignorado; no modo completo um `.env` novo passava sem finding. Migration com espaço ou
