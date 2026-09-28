@@ -97,8 +97,12 @@ if os.path.isfile(setup):
         sys.exit("GUARDA: HOME do kit-setup fora do temporário — abortando")
     env = dict(os.environ, HOME=home)
     env.pop("CLAUDE_CONFIG_DIR", None)
-    setup_rc = subprocess.run(["bash", setup], env=env, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, timeout=300).returncode
+    try:
+        setup_rc = subprocess.run(["bash", setup], env=env, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL, timeout=300).returncode
+    except subprocess.TimeoutExpired:
+        shutil.rmtree(home, ignore_errors=True)
+        sys.exit("kit-setup.sh passou de 300s no HOME descartável")
 instalado = os.path.join(home, ".claude") if home else None
 
 def r1_home(t, tok):

@@ -124,6 +124,8 @@ printf -- '---\nname: fakeagente\n---\nregra de agente\n' > "$TMP/agents/fakeage
 printf -- '---\nagente: fakeagente\nesperado: A\n---\nDecida. ESCOLHA: <letra>\n' > "$TMP/cenario-03-fake.md"
 roda_agente --com-skill "$TMP/cenario-03-fake.md" PRESSURE_AGENTS_DIR="$TMP/agents"
 check "PRESSURE_AGENTS_DIR troca a pasta" "$(valor_de --append-system-prompt-file 2>/dev/null)" "$TMP/agents/fakeagente.md"
+( cd "$TMP" && roda_agente --com-skill "$TMP/cenario-03-fake.md" PRESSURE_AGENTS_DIR=agents )
+check "PRESSURE_AGENTS_DIR relativo vira absoluto" "$(valor_de --append-system-prompt-file 2>/dev/null)" "$TMP/agents/fakeagente.md"
 printf -- '---\nagente: naoexiste\nesperado: A\n---\nDecida. ESCOLHA: <letra>\n' > "$TMP/cenario-04-sem-agente.md"
 roda_agente --com-skill "$TMP/cenario-04-sem-agente.md"; rc=$?
 check "agente ausente sai com exit 2"    "$rc" 2

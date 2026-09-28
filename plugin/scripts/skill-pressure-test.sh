@@ -83,6 +83,7 @@ corpo() { awk '/^---$/{c++; next} c>=2' "$1"; }
 # nem cita. Sem ele, RED e GREEN leem as ferramentas da conta de quem roda.
 SKILLS_DIR="$(cd "$(dirname "$0")/../skills" && pwd)"
 AGENTS_DIR="${PRESSURE_AGENTS_DIR:-$(dirname "$SKILLS_DIR")/agents}"
+case "$AGENTS_DIR" in /*) ;; *) AGENTS_DIR="$PWD/$AGENTS_DIR" ;; esac  # o claude roda em cd "$CWD"
 CWD=$(mktemp -d)
 FALHAS=0; TOTAL=0
 for c in "${CENARIOS[@]}"; do

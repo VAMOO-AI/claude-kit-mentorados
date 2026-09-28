@@ -172,6 +172,8 @@ linhas da tabela acima.
 | #270 (`eddfe44`) | formatos novos no gerador, paridade reversa gerador → Fase 6 (`test-auditoria-a4-mascara.sh`) e o sufixo de erro da API no `worktree-gc.sh` | orientação do sufixo novo nas skills: lá também não existe |
 | #271 (`3dd1633`) | buscas 3 e 4 da A4 alinhadas à Fase 6; listas livres do relatório (pontos fortes e fracos, hardening, recomendações) redigidas | — |
 | #272 (`8af642b`) | a frase das listas livres no parágrafo de redação da `auditoria-seguranca`, igual à de lá | — |
+| #263 (`ed82452`) | — | não se aplica: tirou da §2c da `ship` do time as citações de racionalização medidas no Sonnet, e a `ship` daqui nunca teve esse bloco |
+| #267 (`3b458be`) | — | não se aplica: corrige a `whatsapp-inbox-stack`, que o plugin não tem |
 
 ## Como usar
 

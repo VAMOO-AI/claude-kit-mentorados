@@ -125,7 +125,7 @@ const temPayload = !!input.context_window;
 const segCtx = (rotulo, tok) => {
   const col = tok < 150_000 ? C.green : tok < 300_000 ? C.yellow : C.red;
   const dica = tok >= 300_000 ? ' /compact' : '';
-  return ` ${C.dim}·${C.reset} ${col}${rotulo}:${Math.round(tok / 1000)}k${dica}${C.reset}`;
+  return ` ${C.dim}·${C.reset} ${col}${rotulo}:${Math.floor(tok / 1000)}k${dica}${C.reset}`;
 };
 let ctxSeg = '';
 const usage = (temPayload && input.context_window.current_usage) || {};

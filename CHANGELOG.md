@@ -18,7 +18,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 ### Depois de atualizar
 
 - **Rode `/kit-vamoo:setup`.** A barra de status mudou, e ela só chega pelo setup (ele faz backup
-  antes). Sem rodar, a barra continua mostrando `ses:` e `ctx:` lado a lado.
+  antes). Sem rodar, acima de 150k a barra continua mostrando `ses:` e `ctx:` lado a lado.
 
 ### Novo
 
@@ -49,7 +49,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   (`tests/test-worktree-gc.sh`).
 - **`bot-discord`, `ship`, `worktrees` e `subagentes.md`:** três caminhos citados que não existiam
   foram corrigidos (`references/02-codigo-base.md` e `baseline/references/02-banco.md`), e uma
-  frase relativa a tempo na `worktrees` saiu. Achados pelo lint novo (abaixo).
+  frase relativa a tempo na `worktrees` saiu. Achados pelo lint novo (acima, em Novo).
 
 ### Corrigido
 
