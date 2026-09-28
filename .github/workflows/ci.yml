@@ -132,6 +132,9 @@ jobs:
       - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
 
+      - name: O instrucoes-projeto classifica o par CLAUDE.md/AGENTS.md e só grava o que não pede julgamento
+        run: bash tests/test-instrucoes-projeto.sh
+
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 
