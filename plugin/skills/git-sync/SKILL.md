@@ -100,8 +100,9 @@ para o outro. O git-sync não sobe nada (regra 4): o push é do fluxo da tarefa
 Branch sem upstream e sem `origin/<branch>` é também o que o squash merge deixa (o GitHub
 apaga a remota). Por isso o aviso consulta o `gh` antes de mandar `git push -u`: com PR
 mergeado cuja head bate com o tip, ele diz que os commits **já estão na default** e que é
-sobra — **não pushe de volta** (recriaria a remota e abriria PR vazio). Sem `gh` que
-enxergue o repo, ele não afirma nada e pede para conferir o PR antes de pushar.
+sobra — **não pushe de volta** (recriaria a remota e abriria PR vazio). Sem `gh` nem
+token da API que enxerguem o repo, ele não afirma nada e pede para conferir o PR antes de
+pushar.
 
 ### Regras de convivência (as duas pessoas seguem)
 
@@ -140,6 +141,19 @@ usa a que enxerga o repo (só neste processo, sem trocar a ativa) e diz qual foi
 Se nenhuma enxerga, ele diz isso com todas as letras (`nenhuma conta do gh enxerga
 <owner/repo>`) em vez de deixar o `gh pr list falhou` sozinho. `GH_TOKEN` exportado
 por você tem precedência e desliga a busca.
+
+**Repositório onde o `gh` não pode rodar** (o AGENTS.md do repo proíbe, ou a máquina não
+tem): configure uma vez, local ao clone, fora do commit:
+
+```bash
+git config git-sync.noGh true               # o gh nunca é chamado, nem para sondar conta
+git config git-sync.tokenVar MEU_GH_TOKEN   # a variável, no ambiente ou em ~/.claude/.env.tokens
+```
+
+PRs abertos e a prova do cleanup passam a sair da API REST do GitHub. O token é lido só na
+linha dele, nunca impresso, e vai ao `curl` pelo stdin. `git config git-sync.repo dono/nome`
+sobrepõe o slug tirado do `origin`. Sem token, o cleanup diz "sem prova" e não apaga nada.
+Com o `gh` instalado mas cego para o repo, a API entra sozinha quando há token.
 
 ## Regras duras (nunca violar)
 
@@ -182,12 +196,13 @@ Flags:
 | (nenhuma) | fetch + status + ff-only em checkouts elegíveis + relatório (+ modo time se auto-detectado) |
 | `--status-only` | só fetch + relatório (não mexe em HEAD) |
 | `--no-pr` | pula `gh pr list` |
+| `--no-gh` | nunca chama o `gh`: PRs e prova de merge pela API REST (`git config git-sync.tokenVar`); o mesmo que `git config git-sync.noGh true` |
 | `--team` | força modo time (quem mudou o quê, PR com autor/mergeable, branches ativas, risco de conflito) |
 | `--no-team` | desliga o modo time mesmo em repo multi-autor |
 | `--voltar-main` | **opt-in.** No fim, devolve o checkout deste clone à branch default (ff-only). Aborta e explica em: working tree suja, detached HEAD, merge/rebase/cherry-pick/bisect em andamento, worktree locked, default divergente da remota. Commit local à frente é preservado e vira aviso de push pendente — nunca reset. Em `--status-only` não toca em HEAD. |
 | `--since N` | janela de atividade do modo time em dias (default 14) |
-| `--cleanup-dry-run` | lista branches `gone`, branches mergeadas por PR fora do `[gone]` (remoto vivo ou sem upstream, que o `[gone]` não enxerga) e worktrees candidatos a remoção (não apaga). Quando a prova é o PR, é sempre **PR mergeado e head == tip** |
-| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove só o que tem prova, nesta ordem: (1) worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) — mergeado é ancestral de `origin/$DEFAULT` ou PR mergeado com head igual ao `HEAD` do worktree, e clean inclui os env ignorados (`.env*`, `.npmrc`, `bunfig.toml` e `.bunfig.toml` de qualquer pasta) iguais aos do clone principal e nenhum repo aninhado ignorado, porque o `remove` apaga os dois sem recusar: diferente, fica, com o nome do arquivo ou o caminho do repo; (2) branches `gone`: `-d`, e, se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho); (3) branches fora do `[gone]` (remoto vivo ou nunca pushada), com a mesma prova e só a local — o `git push origin --delete <b>` do remoto sai impresso para você decidir. Branch sem commit próprio (tip igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada: é sessão recém-aberta, que o app desktop não trava. Sem PR, sem head para conferir ou sem `gh`, a branch fica. |
+| `--cleanup-dry-run` | lista branches `gone`, branches mergeadas por PR fora do `[gone]` (remoto vivo ou sem upstream, que o `[gone]` não enxerga), branches **remotas suas sem cópia local** (autor = `user.name` + `user.email` do clone, com o `git push origin --delete` impresso, nunca executado) e worktrees candidatos a remoção (não apaga). Quando a prova é o PR, é sempre **PR mergeado e head == tip**, pelo `gh` ou pela API. O run padrão já avisa quantas branches e worktrees há além da default |
+| `--cleanup-apply` | **perigoso** — só se o usuário pediu “aplica limpeza”. Remove só o que tem prova, nesta ordem: (1) worktrees **clean + mergeados + sem sessão viva** (`git worktree remove`, nunca `--force`) — mergeado é ancestral de `origin/$DEFAULT` ou PR mergeado com head igual ao `HEAD` do worktree, e clean é **sem ignorado de valor**, porque o `remove` apaga ignorado sem recusar: env (`.env*`, `.npmrc`, `bunfig.toml`, `.bunfig.toml` de qualquer pasta) igual ao do clone principal, nenhum repo aninhado ignorado e nenhum outro ignorado além de symlink e cache/build (`node_modules`, `.next`, `dist`, `.venv`...). Fica, com o nome do arquivo, o caminho do repo ou os caminhos ignorados (`outputs/`); (2) branches `gone`: `-d`, e, se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho); (3) branches fora do `[gone]` (remoto vivo ou nunca pushada), com a mesma prova e só a local — o `git push origin --delete <b>` do remoto sai impresso para você decidir. Branch sem commit próprio (tip igual a `origin/$DEFAULT` ou na linha first-parent dela) nunca conta como mergeada: é sessão recém-aberta, que o app desktop não trava. Sem PR, sem head para conferir ou sem `gh` nem token da API, a branch fica. Remoto nunca é apagado. |
 | `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
 | `--cwd <path>` | roda a partir desse path (útil em multi-root IDE) |
 
@@ -352,10 +367,8 @@ Candidatos típicos a remoção (só listar no dry-run):
 
 ```bash
 # worktree candidato (clean + commit próprio mergeado por ancestralidade OU por PR com head == HEAD + sem sessão viva)
-# e env ignorado igual ao do clone: o remove o apaga sem recusar
-git -C <path> ls-files --others --ignored --exclude-standard -- ':(glob)**/.env*' ':(glob)**/.npmrc' ':(glob)**/bunfig.toml' ':(glob)**/.bunfig.toml'
-cmp -s <path>/<arquivo> <clone principal>/<arquivo>   # um por arquivo listado; diferente = fica
-# linha com / no fim é repo aninhado ignorado: o remove o apagaria com .git e tudo — fica
+# e sem ignorado de valor (env diferente do clone, repo aninhado, outputs/...): o remove o apaga sem recusar
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <path>   # exit 0 = pode remover; 1 = keep, com os motivos
 git worktree remove <path>      # falha se dirty — não force
 git worktree prune
 

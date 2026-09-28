@@ -70,6 +70,9 @@ jobs:
       - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
         run: bash tests/test-git-sync-cleanup.sh
 
+      - name: O cleanup do git-sync prova pela API sem gh e lista a remota sua sem cópia local
+        run: bash tests/test-git-sync-cleanup-sem-gh.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 
