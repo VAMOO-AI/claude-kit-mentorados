@@ -129,11 +129,12 @@ Os que mais importam:
 Sem acesso ao banco, o fallback é estático sobre `supabase/migrations/`:
 
 ```bash
-# tabelas criadas vs tabelas com RLS
-grep -rhoiE 'create table (if not exists )?(public\.)?[a-z0-9_]+' supabase/migrations | \
-  grep -oE '[a-z0-9_]+$' | sort -u > /tmp/t.txt
-grep -rhoiE 'alter table (public\.)?[a-z0-9_]+ enable row level security' supabase/migrations | \
-  grep -oiE '[a-z0-9_]+ enable' | cut -d' ' -f1 | sort -u > /tmp/r.txt
+# tabelas criadas vs tabelas com RLS; [[:space:]]+ porque migration alinha coluna com tab
+# e vários espaços, e o espaço único dava tabela protegida como "nunca protegida"
+grep -rhoiE 'create[[:space:]]+table[[:space:]]+(if[[:space:]]+not[[:space:]]+exists[[:space:]]+)?(public\.)?[a-z0-9_]+' supabase/migrations | \
+  grep -oiE '[a-z0-9_]+$' | sort -u > /tmp/t.txt
+grep -rhoiE 'alter[[:space:]]+table[[:space:]]+(only[[:space:]]+)?(public\.)?[a-z0-9_]+[[:space:]]+enable[[:space:]]+row[[:space:]]+level[[:space:]]+security' supabase/migrations | \
+  sed -E 's/.*table[[:space:]]+(only[[:space:]]+)?(public\.)?([a-z0-9_]+)[[:space:]]+enable.*/\3/I' | sort -u > /tmp/r.txt
 comm -23 /tmp/t.txt /tmp/r.txt        # criadas e nunca protegidas
 
 # SECURITY DEFINER sem search_path. É por arquivo: migration com duas funções e um só

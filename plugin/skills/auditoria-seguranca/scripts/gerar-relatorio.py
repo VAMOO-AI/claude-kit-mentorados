@@ -160,12 +160,29 @@ ESTADO_SEM_MEDIDA = {"nao_instalado", "falhou"}
 # --------------------------------------------------------------------------- redacao
 # O relatorio copia trecho literal do codigo e a categoria A4 e' sobre segredo
 # exposto: sem isto, o PDF entregue ao cliente vira o vazamento que ele denuncia.
+def _mascarar_chave(m):
+    """Chave de API com a mascara da A4 (ate' 12 caracteres so' "…", acima 4 + "…") e o
+    tipo num rotulo, para o leitor saber o que rotacionar sem ver o valor."""
+    v = m.group(0)
+    if v.startswith("sk-proj-"):
+        tipo = "chave de projeto OpenAI"
+    elif v.startswith("sk-ant-"):
+        tipo = "chave Anthropic"
+    elif v[2] == "_":
+        tipo = "chave Stripe " + v[:v.index("_", 3) + 1]
+    else:
+        tipo = "chave " + v[:3]
+    return ("…" if len(v) <= 12 else v[:4] + "…") + f" [{tipo} redigida]"
+
+
 PADROES_SEGREDO = [
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                 re.S), "[CHAVE PRIVADA REDIGIDA]"),
     (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}"),
      "[JWT REDIGIDO]"),
-    (re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{16,}"), "[CHAVE REDIGIDA]"),
+    # sk_live_/rk_test_ e afins sao da Stripe, com _ em vez de hifen
+    (re.compile(r"\b(?:sk|rk)(?:-[A-Za-z0-9_-]{16,}|_(?:live|test)_[A-Za-z0-9]{16,})"),
+     _mascarar_chave),
     (re.compile(r"\b(?:sbp|sbs|ghp|gho|ghu|ghs|ghr|glpat|xoxb|xoxp|xapp|shpat)[-_]"
                 r"[A-Za-z0-9_-]{12,}"), "[TOKEN REDIGIDO]"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[CHAVE AWS REDIGIDA]"),
@@ -174,8 +191,10 @@ PADROES_SEGREDO = [
 # sem ele o \b encosta no _ do meio do nome e a chave escapa da redacao.
 _CHAVE = (r"(?:[A-Za-z0-9]+[_-])?"
           r"(?:api[_-]?key|secret|token|passwd|password|senha|private[_-]?key)")
-# Atribuicao com literal entre aspas: alta precisao, redige sempre.
-_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])([^\"'\n]{8,})\2")
+# Atribuicao com literal entre aspas: alta precisao, redige sempre. O lookahead pula
+# o valor que ja' e' a chave mascarada acima, para nao apagar o rotulo do tipo.
+_ATRIB_ASPAS = re.compile(r"(?i)\b(" + _CHAVE + r"[\"']?\s*[:=>]{1,2}\s*)([\"'])"
+                          r"(?!(?:[^\"'\n]{4})?… \[[^\]\n]+ redigida\]\2)([^\"'\n]{8,})\2")
 # Mesma atribuicao sem aspas. A classe do valor exclui ., (, $ e { de proposito:
 # req.body.password e ${VAR:-default} sao codigo e referencia, nao segredo -- e o
 # default publico do compose e' justamente a evidencia que precisa aparecer.
