@@ -176,6 +176,23 @@ sem_commit_proprio() {   # <tip> [branch]
   [[ -n "$ultimo" && "$(git rev-parse --verify -q "$ultimo^1")" == "$tip" ]]
 }
 
+# Env ignorado não aparece no `status --porcelain`, e o `git worktree remove` sem --force o
+# apaga sem recusar: um .env.local editado na sessão sumia com o worktree "limpo". Põe em
+# ENV_DIF os .env* (inclusive de subpasta), .npmrc e .bunfig.toml ignorados do worktree que
+# diferem do clone principal ou só existem no worktree — a trava da "Limpeza no fim" da
+# skill worktrees e do plugin/scripts/worktree-gc.sh. Linha com / no fim é repositório
+# aninhado: pula.
+env_diverge() {   # <worktree> — 0 = achou algum
+  local wt="$1" f
+  ENV_DIF=""
+  while IFS= read -r f; do
+    [[ -z "$f" || "$f" == */ ]] && continue
+    cmp -s "$wt/$f" "$MAIN_WT/$f" || ENV_DIF="${ENV_DIF:+$ENV_DIF }$f"
+  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard \
+             -- ':(glob)**/.env*' .npmrc .bunfig.toml 2>/dev/null)
+  [[ -n "$ENV_DIF" ]]
+}
+
 UPDATED=()
 SKIPPED=()
 UNTRACKED_LINES=()
@@ -803,9 +820,18 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       if git merge-base --is-ancestor "$b" "$ORIGIN_DEFAULT" 2>/dev/null; then
         echo "  $b — mergeada (branch -d resolve)"
       else
+        # O PR achado pelo nome não prova que levou tudo: commit feito depois do merge,
+        # sem push, só existe nesta branch. Mesma prova do passo (3): head do PR == tip.
         _pr="$(merged_pr_num "$b")"
         if [[ -n "$_pr" ]]; then
-          echo "  $b — SQUASH de PR #$_pr merged → candidata a -D"
+          _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
+          if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
+            echo "  $b — SQUASH de PR #$_pr merged, head == tip → candidata a -D"
+          elif [[ -n "$_oid" ]]; then
+            echo "  $b — ! PR #$_pr merged, mas o tip avançou depois do head do PR: preservada"
+          else
+            echo "  $b — ! PR #$_pr merged sem head para conferir: preservada"
+          fi
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
         else
@@ -866,12 +892,22 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="locked (sessão viva)"
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
+      elif env_diverge "$wt"; then
+        [[ "$ENV_DIF" == *" "* ]] && _v=diferem || _v=difere
+        reason="$ENV_DIF $_v do clone principal (env ignorado: o remove o apagaria)"
       elif sem_commit_proprio "$(git -C "$wt" rev-parse --verify -q HEAD 2>/dev/null)" "$wt_branch"; then
         reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
         _pr="$(merged_pr_num "$wt_branch")"
         if [[ -n "$_pr" ]]; then
-          nota=" [squash: PR #$_pr merged]"
+          _oid="$(merged_pr_oid "$wt_branch")"; _tip="$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)"
+          if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
+            nota=" [squash: PR #$_pr merged, head == tip]"
+          elif [[ -n "$_oid" ]]; then
+            reason="PR #$_pr merged, mas o tip avançou depois do head do PR"
+          else
+            reason="PR #$_pr merged sem head para conferir"
+          fi
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
         else
@@ -929,11 +965,17 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           echo "  deleted branch $b (-d)"
           continue
         fi
-        # -d recusou: só o PR distingue squash-merge de trabalho de verdade
+        # -d recusou: só o PR distingue squash-merge de trabalho de verdade — e só quando o
+        # head dele é o tip, senão o -D leva junto o commit feito depois do merge
         _pr="$(merged_pr_num "$b")"
         if [[ -n "$_pr" ]]; then
-          if git branch -D "$b" >/dev/null 2>&1; then
-            echo "  deleted branch $b (-D — squash de PR #$_pr merged)"
+          _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
+          if [[ -z "$_oid" ]]; then
+            echo "  skip $b (PR #$_pr merged sem head para conferir — não deleto no escuro)"
+          elif [[ "$_oid" != "$_tip" ]]; then
+            echo "  skip $b (PR #$_pr merged, mas o tip avançou depois do head do PR — commit sem cópia no GitHub)"
+          elif git branch -D "$b" >/dev/null 2>&1; then
+            echo "  deleted branch $b (-D — squash de PR #$_pr merged, head == tip)"
           else
             echo "  skip $b (-D falhou)"
           fi

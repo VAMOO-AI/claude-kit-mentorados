@@ -4,8 +4,9 @@
 # Remove worktrees em .claude/worktrees/ cuja branch JÁ FOI MERGEADA (ancestral de
 # origin/main OU squash-merge detectado via `gh pr`), e que estejam LIMPOS (sem
 # mudança não-commitada). Nunca toca: clone principal, branch main/master, worktree
-# sujo, branch ou detached sem commit próprio (sessão recém-aberta), ou o worktree de
-# onde o script roda (use ExitWorktree pra esse).
+# sujo, env ignorado diferente do clone principal, branch ou detached sem commit
+# próprio (sessão recém-aberta), ou o worktree de onde o script roda (use ExitWorktree
+# pra esse).
 #
 # Uso:
 #   worktree-gc.sh            # dry-run (só mostra o que faria) — PADRÃO
@@ -75,6 +76,23 @@ sem_commit_proprio() {
   [ -n "$ultimo" ] && [ "$(git -C "$PRIMARY" rev-parse --verify -q "$ultimo^1")" = "$tip" ]
 }
 
+# Env ignorado não aparece no `status` e some junto com o worktree. Até 28/09/2026 só o
+# .env.local da raiz era comparado: .npmrc e .env.local de subpasta sumiam no --apply. Põe
+# em ENV_DIF (e o verbo em ENV_V) os .env* (inclusive de subpasta), .npmrc e .bunfig.toml
+# ignorados que diferem do clone principal ou só existem no worktree — a mesma trava do
+# git-sync e da regra de descarte da vamoo-worktrees. Linha com / no fim é repo aninhado.
+env_diverge() {   # <worktree> — 0 = achou algum
+  local wt="$1" f
+  ENV_DIF=""
+  while IFS= read -r f; do
+    case "$f" in ""|*/) continue ;; esac
+    cmp -s "$wt/$f" "$PRIMARY/$f" || ENV_DIF="${ENV_DIF:+$ENV_DIF }$f"
+  done < <(git -C "$wt" ls-files --others --ignored --exclude-standard \
+             -- ':(glob)**/.env*' .npmrc .bunfig.toml 2>/dev/null)
+  case "$ENV_DIF" in *" "*) ENV_V=diferem ;; *) ENV_V=difere ;; esac
+  [ -n "$ENV_DIF" ]
+}
+
 removed=0; kept=0; skipped=0
 # Percorre os worktrees (path + branch) do porcelain.
 path=""; branch=""
@@ -98,8 +116,9 @@ while IFS= read -r line; do
         tip="$(git -C "$p" rev-parse --verify -q HEAD 2>/dev/null)"
         if [ "$p" != "$SELF" ] && sem_commit_proprio "$tip"; then
           echo "  ⏭️  $p  → detached sem commit próprio (HEAD na linha da main) — mantido"; skipped=$((skipped+1))
+        elif [ "$p" != "$SELF" ] && env_diverge "$p"; then
+          echo "  ✋ $p  → $ENV_DIF $ENV_V do clone principal — copie/confira antes; mantido"; kept=$((kept+1))
         elif [ "$p" != "$SELF" ] && [ -z "$(git -C "$p" status --porcelain 2>/dev/null)" ] \
-           && { [ ! -f "$p/.env.local" ] || cmp -s "$p/.env.local" "$PRIMARY/.env.local"; } \
            && git -C "$p" merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
           if [ "$APPLY" = 1 ]; then
             if git -C "$PRIMARY" worktree remove "$p" 2>/dev/null; then
@@ -123,10 +142,10 @@ while IFS= read -r line; do
       if [ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]; then
         echo "  ✋ $p  → SUJO (mudança não-commitada) — mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
-      # trava 4.5: .env.local é ignorado pelo git (invisível no status) e some
-      # junto com o worktree — só remove se for igual ao do clone principal.
-      if [ -f "$p/.env.local" ] && ! cmp -s "$p/.env.local" "$PRIMARY/.env.local"; then
-        echo "  ✋ $p  → .env.local difere do clone principal — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
+      # trava 4.5: env ignorado pelo git (invisível no status) some junto com o worktree —
+      # só remove se cada um for igual ao do clone principal.
+      if env_diverge "$p"; then
+        echo "  ✋ $p  → $ENV_DIF $ENV_V do clone principal — copie/confira antes; mantido"; kept=$((kept+1)); path=""; branch=""; continue
       fi
       # trava 5: só se mergeada — e branch sem commit próprio nunca foi mergeada
       if sem_commit_proprio "$(git -C "$PRIMARY" rev-parse --verify -q "refs/heads/$branch")" "$branch"; then
