@@ -125,6 +125,7 @@ test-git-sync-mural.sh|test-git-sync-mural.sh
 test-git-sync-voltar-main.sh|test-git-sync-voltar-main.sh
 test-hitl-loop.sh|test-hitl-loop.sh
 test-hooks-boot.sh|test-settings-boot.sh
+test-kit-setup-subagentes.sh|test-update-subagentes.sh
 test-memoria-indice.sh|test-memoria-indice.sh
 test-memoria-link.sh|test-memoria-link.sh
 test-lint-modificados.sh|test-lint-modificados.sh

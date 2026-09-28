@@ -130,6 +130,11 @@ jobs:
       - name: O kit-setup respeita o .keep-local e mantém só 3 backups
         run: bash tests/test-kit-setup-keep-local.sh
 
+      - name: O kit-setup tira o agents.md antigo e deixa intocado o AGENTS.md da pessoa
+        # No ubuntu o disco diferencia maiúscula: roda o caso (d). O (b), que só existe em
+        # disco que não diferencia (Mac, Windows), roda na máquina de quem mantém.
+        run: bash tests/test-kit-setup-subagentes.sh
+
       - name: Com o kit do time na máquina, os hooks do plugin saem sem fazer nada
         # Sem a guarda, cada hook rodava duas vezes: dois sons por turno, texto repetido no
         # contexto e corrida no dotcontext. KIT_VAMOO_HOOKS=1 religa para teste.

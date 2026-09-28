@@ -85,6 +85,15 @@ protegido() {
   return 1
 }
 
+# O último componente do caminho existe com esta caixa exata? No APFS padrão do Mac e no
+# NTFS, que não diferenciam maiúscula, `[ -e ]`, `cp` e `rm` em ~/.claude/agents.md também
+# acertam um AGENTS.md que o kit nunca escreveu. O glob devolve o nome como está gravado.
+nome_exato() {
+  local e
+  for e in "${1%/*}"/* "${1%/*}"/.*; do [ "${e##*/}" = "${1##*/}" ] && return 0; done
+  return 1
+}
+
 # Cada execução cria um backup-kit-<data>; sem rotação, ~/.claude acumula um por
 # atualização. O nome carrega a data (AAAAMMDD-HHMMSS), então ordem alfabética
 # reversa é do mais novo pro mais velho — o desta execução está sempre no topo.
@@ -138,12 +147,17 @@ fi
 # O nome antigo, agents.md, em disco que não diferencia maiúscula (macOS, Windows) é o
 # ~/.claude/AGENTS.md que o Claude Code lê em toda sessão: as regras de subagente
 # entravam em toda conversa. Ele sai com backup; o .keep-local segura, como segura
-# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só.
+# qualquer remoção. Os dois nomes contam, porque no disco é um arquivo só. Só sai o que
+# está gravado como `agents.md`, o nome que o setup instalava: um AGENTS.md é da pessoa
+# (o do Codex, por exemplo) e fica.
 backup "subagentes.md"
 run cp "$TPL/subagentes.md" "$CLAUDE_DIR/subagentes.md"
 ok "subagentes.md instalado"
 if [ -e "$CLAUDE_DIR/agents.md" ]; then
-  if protegido "agents.md" || protegido "AGENTS.md"; then
+  if ! nome_exato "$CLAUDE_DIR/agents.md"; then
+    outro="$(ls -A "$CLAUDE_DIR" | grep -Fxi -- agents.md | head -n 1 || true)"
+    warn "mantido: ~/.claude/${outro:-AGENTS.md} não foi instalado pelo kit (o setup só tira o agents.md antigo, escrito em minúsculas)."
+  elif protegido "agents.md" || protegido "AGENTS.md"; then
     warn "mantido (está no .keep-local): agents.md — em disco que não diferencia maiúscula, o Claude Code o lê como AGENTS.md em toda sessão."
   else
     backup "agents.md"
