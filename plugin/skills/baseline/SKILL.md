@@ -102,14 +102,15 @@ com contexto de regressão.
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
 ```bash
-SK="${CLAUDE_PLUGIN_ROOT}/skills/baseline"          # plugin: o Claude Code preenche ao carregar a skill
-[ -d "$SK" ] || SK="$HOME/.claude/skills/baseline"   # instalação antiga pelo install.sh
-OUT=/tmp/baseline-$(basename "$PWD")
-
-bash $SK/scripts/doctor.sh  --out "$OUT"      # o que dá pra medir
-bash $SK/scripts/collect.sh --out "$OUT"      # exit≠0 se não mediu nada
-node   $SK/scripts/render.mjs "$OUT/findings.json" --out "$OUT/report.md"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh"     # o que dá pra medir
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh"    # exit≠0 se não mediu nada
+node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" "/tmp/baseline-$(basename "$PWD")/findings.json"
 ```
+
+Da raiz do repo, e cada linha se basta: o shell não guarda variável de uma chamada para a
+outra. O Claude Code preenche o `${CLAUDE_PLUGIN_ROOT}` no texto ao carregar a skill. Os três
+usam `/tmp/baseline-<nome do repo>`, o `--out` padrão do doctor e do collect; o render grava o
+`report.md` ao lado do `findings.json` e lê dali o `tools.json`.
 
 `doctor.sh` sempre roda primeiro. Descobrir que falta `jq` no meio do collect é
 caro; descobrir antes custa 200 ms.
@@ -179,13 +180,10 @@ seguintes são rápidos porque o método já está no lugar.
 
 ```bash
 cd <repo>
-SK="${CLAUDE_PLUGIN_ROOT}/skills/baseline"; [ -d "$SK" ] || SK="$HOME/.claude/skills/baseline"   # plugin, ou instalação antiga
-OUT=/tmp/baseline-$(basename "$PWD")
-
-bash $SK/scripts/doctor.sh  --out "$OUT"    # 1. o que dá pra medir aqui
-bash $SK/scripts/collect.sh --out "$OUT"    # 2. mede (exit 3 = não mediu nada)
-bash $SK/scripts/splinter.sh                # 3. banco, se houver acesso
-node   $SK/scripts/render.mjs "$OUT/findings.json" --out "$OUT/report.md" --tools "$OUT/tools.json"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh"     # 1. o que dá pra medir aqui
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh"    # 2. mede (exit 3 = não mediu nada)
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh"   # 3. banco, se houver acesso
+node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" "/tmp/baseline-$(basename "$PWD")/findings.json"
 ```
 
 **4. Escreva o contrato** em `.context/docs/baseline.md`, de
