@@ -13,6 +13,56 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.43.2] — 2026-09-28
+
+### Depois de atualizar
+
+- **Rode `/kit-vamoo:setup`.** A barra de status mudou, e ela só chega pelo setup (ele faz backup
+  antes). Sem rodar, a barra continua mostrando `ses:` e `ctx:` lado a lado.
+
+### Novo
+
+- **Para quem mantém o kit: lint do texto que o modelo lê, no CI** (`tests/test-lint-instrucoes.sh`): reprova caminho do
+  kit que não existe, skill só-slash citada como chamável, frase relativa a versão ou tempo e
+  arquivo de instrução no lugar errado, conferido pelo `kit-setup.sh` real num HOME descartável.
+  Exceções ficam em `tests/lint-instrucoes.allow`, cada uma com o motivo.
+- **Cenário de pressão para agente:** o `skill-pressure-test.sh` aceita `agente: <nome>` no
+  frontmatter e injeta `plugin/agents/<nome>.md` (ou o da pasta `PRESSURE_AGENTS_DIR`) no lugar da
+  SKILL.md. Dois cenários novos: `worktrees/cenario-02-descartar-sem-prova` e
+  `revisor/cenario-01-cobertura-sem-filtro`.
+
+### Mudou
+
+- **Barra de status: um segmento de contexto só.** Com o `context_window` no payload do Claude
+  Code sai só a `ctx:`; a `ses:`, lida do transcript, aparece apenas quando o payload não traz o
+  contexto, no lugar da `ctx:`. As duas usam a mesma régua: verde abaixo de 150k, amarelo de 150k a
+  300k, vermelho com ` /compact` a partir de 300k. Saíram o laranja, o `sessão nova?` e o
+  `maratona` dos 400K da barra (o aviso de sessão longa no chat continua com as faixas dele), e a
+  `ses:` aparece com qualquer valor, não só acima de 150K (`tests/test-statusline-sessao.sh`).
+- **`auditoria-seguranca`: rótulos da redação.** A senha de `scheme://usuario:senha@host` sai
+  `[SEGREDO REDIGIDO]` (antes `[SENHA REDIGIDA]`) e o `whsec_` como "chave de webhook Stripe"
+  (antes "chave whsec_ do webhook Stripe"). A chave da Stripe escrita como default do compose
+  (`${STRIPE_KEY:-sk_live_…}`) continua mascarada, mas sai sem o rótulo do tipo.
+- **`worktree-gc.sh`: erro da API separado de "ninguém perguntou".** Quando a API do GitHub
+  respondeu erro, o worktree mantido sai com "(a API do GitHub respondeu erro: confira o token)";
+  o "sem gh nem token da API" fica para quando a API não foi consultada
+  (`tests/test-worktree-gc.sh`).
+- **`bot-discord`, `ship`, `worktrees` e `subagentes.md`:** três caminhos citados que não existiam
+  foram corrigidos (`references/02-codigo-base.md` e `baseline/references/02-banco.md`), e uma
+  frase relativa a tempo na `worktrees` saiu. Achados pelo lint novo (abaixo).
+
+### Corrigido
+
+- **O relatório da `auditoria-seguranca` ainda deixava segredo em claro.** Os campos de texto do
+  achado e as listas livres do relatório (pontos fortes e fracos, hardening, recomendações) saíam
+  sem redação, e `sb_secret_`, `npm_`, `hf_`, `AIza` e `SG.` iam inteiros para o PDF e as issues.
+  Agora o gerador redige todo token que a Fase 6 reconhece, também em atribuição sem aspas, e um
+  teste de paridade nos dois sentidos prova que o que a Fase 6 reconhece o gerador redige, e
+  vice-versa (`tests/test-auditoria-relatorio.sh` e `tests/test-auditoria-a4-mascara.sh`).
+- **As buscas 3 e 4 da A4 não viam o que a Fase 6 via.** Elas agora usam os mesmos padrões
+  (config com `pwd`, sufixo e `=>`, default minúsculo e aninhado), e o texto da skill e do schema
+  diz quais campos saem redigidos.
+
 ## [0.43.1] — 2026-09-28
 
 ### Corrigido
