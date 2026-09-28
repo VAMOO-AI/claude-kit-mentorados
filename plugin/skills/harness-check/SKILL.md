@@ -137,7 +137,8 @@ está no passo 4, e mexer no resto é fazer faxina achando que é economia.
 Os textos do kit (template do CLAUDE.md, `subagentes.md` e skills) foram auditados contra
 o guia do modelo padrão em 28/09/2026, no Opus 5.5 (`claude-opus-5-5`). Confira o padrão
 da máquina com `node -e 'try{console.log(require(require("os").homedir()+"/.claude/settings.json").model||"")}catch{}'`
-(vazio → o modelo desta sessão). Se não for `claude-opus-5-5`, a auditoria venceu: feche o
+(vazio ou alias como `opus` → o modelo desta sessão; o sufixo `[1m]` não conta). Se não for
+`claude-opus-5-5`, a auditoria venceu: feche o
 relatório com `PENDENTE: os textos do kit foram auditados para o Opus 5.5, não para o
 <modelo>. Atualize o kit e, se esta data continuar a mesma, avise quem mantém o kit`. Em
 dia, não entra no relatório.
