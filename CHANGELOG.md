@@ -15,6 +15,11 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 ## [0.44.0] — 2026-09-29
 
+### Depois de atualizar
+
+- **Rode `/kit-vamoo:setup`.** A tabela de roteamento do CLAUDE.md global ganhou a linha da
+  `mcp-sistema`, e ele só chega pelo setup (ele faz backup antes).
+
 ### Novo
 
 - **Skill `mcp-sistema`: o MCP do seu sistema.** Para quem tem app Next.js + Supabase e quer
