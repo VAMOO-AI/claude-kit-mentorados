@@ -51,6 +51,7 @@
       "description": "Receitas que vão do zero ao que está no ar, com a verificação de que subiu de verdade.",
       "skills": [
         "bot-discord",
+        "mcp-sistema",
         "diretor-imagem",
         "gerar-imagem"
       ]

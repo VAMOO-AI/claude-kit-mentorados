@@ -13,6 +13,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.44.0] — 2026-09-29
+
+### Novo
+
+- **Skill `mcp-sistema`: o MCP do seu sistema.** Para quem tem app Next.js + Supabase e quer
+  perguntar ao Claude ou ao ChatGPT sobre os próprios dados, com a conta de cada pessoa. A skill
+  entrevista você (quem vê o quê, o que o agente pode alterar), grava a spec e conduz 4 PRs:
+  login OAuth pelo navegador (o Supabase vira o servidor de autorização, sem token para
+  copiar), leitura recortada pelo nível de acesso de quem logou, alteração só com prévia +
+  confirmação + registro, e a página de instalação no app com a chave por usuário. Traz o
+  código de referência de um MCP que está em produção e as armadilhas que ele custou: o token do
+  agente também abre a API REST do Supabase (a skill gera a trava a partir das suas policies) e
+  as tools dão timeout quando o agente chama várias juntas (o `subscriptions/listen` prende uma
+  conexão; a skill recusa esse pedido).
+
 ## [0.43.2] — 2026-09-28
 
 ### Depois de atualizar
