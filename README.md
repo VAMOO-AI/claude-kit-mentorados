@@ -61,7 +61,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 23. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 24. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -82,6 +82,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **setup** | `/kit-vamoo:setup` — instala o que o plugin não consegue (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o CLAUDE.md. Rode uma vez, depois de instalar. | nenhum |
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, PRs abertos e prova de merge vêm pela API com o token que `git config git-sync.tokenVar` nomeia; sem token, só perde a visão de PR) |
 | **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
+| **mcp-sistema** | Cria o **MCP do seu sistema** (Next.js + Supabase) pra você e seu time perguntarem ao Claude ou ao ChatGPT com a própria conta: login OAuth pelo navegador sem token, cada pessoa vê só o que o nível de acesso dela permite, alteração só com prévia + confirmação + registro, e uma página de instalação no app. Conduz entrevista → spec → 4 PRs → produção, com o código de referência de um MCP que está no ar. | projeto Next.js + Supabase Auth na Vercel |
 | **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) e segura o `npx skills add` de um pacote com dezenas. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
 | **find-skills** | `/kit-vamoo:find-skills` — procura skill pronta no ecossistema aberto (`npx skills`, skills.sh) e verifica procedência antes de recomendar. Você chama; o Claude não aciona sozinho, então ela não pesa nas suas requests. | `npx` disponível |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
