@@ -13,6 +13,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.45.0] — 2026-09-30
+
+### Novo
+
+- **Skill `motion-reel`: vídeo de motion design em Remotion.** Reel 9:16, vinheta ou anúncio de
+  lançamento a partir de um projeto pronto (um reel de 33 s anunciando o próprio kit): você troca
+  o roteiro no `timeline.json`, a marca no `lib.tsx` e adapta as cenas-modelo — tipografia
+  cinética, contadores, cubo e parede 3D, match cut e 10 transições próprias caindo na batida.
+  A trilha é sintetizada no seu Mac e os 7 efeitos sonoros vêm na skill (síntese própria, sem
+  sample de terceiro), junto com a fonte Plus Jakarta Sans (OFL). O `qa.sh` renderiza a prévia
+  e monta folhas de quadros, de transições e da área segura do Instagram; o `final.sh` entrega
+  o MP4 em `yuv420p`. Sem o seu logo, sai o placeholder "SUA MARCA": aponte os PNGs em
+  `MOTION_LOGO_LIGHT`, `MOTION_LOGO_DARK` e `MOTION_MARK`. Precisa de Node.js 18+, `ffmpeg` e
+  `python3` com `numpy`. O Claude nunca ouve o áudio: escute antes de postar.
+
 ## [0.44.0] — 2026-09-29
 
 ### Depois de atualizar
