@@ -1,0 +1,184 @@
+{
+  "fps": 30,
+  "total": 990,
+  "models": {
+    "a": "Opus",
+    "aVer": "5.5",
+    "b": "Sonnet",
+    "bVer": "5.5"
+  },
+  "scenes": [
+    {
+      "id": "intro",
+      "cut": 0
+    },
+    {
+      "id": "grande",
+      "cut": 75,
+      "in": "iris",
+      "d": 12
+    },
+    {
+      "id": "atualizacao",
+      "cut": 105,
+      "in": "whip",
+      "d": 10
+    },
+    {
+      "id": "mosaic",
+      "cut": 165,
+      "in": "bars",
+      "d": 18
+    },
+    {
+      "id": "title",
+      "cut": 240,
+      "in": "cut",
+      "d": 0
+    },
+    {
+      "id": "models",
+      "cut": 300,
+      "in": "push",
+      "d": 12
+    },
+    {
+      "id": "hours",
+      "cut": 435,
+      "in": "iris",
+      "d": 14
+    },
+    {
+      "id": "terminals",
+      "cut": 525,
+      "in": "glitch",
+      "d": 10
+    },
+    {
+      "id": "credit",
+      "cut": 630,
+      "in": "panel",
+      "d": 18
+    },
+    {
+      "id": "voce",
+      "cut": 750,
+      "in": "cut",
+      "d": 0
+    },
+    {
+      "id": "performar",
+      "cut": 780,
+      "in": "whipUp",
+      "d": 10
+    },
+    {
+      "id": "claude",
+      "cut": 825,
+      "in": "spin",
+      "d": 12
+    },
+    {
+      "id": "outro",
+      "cut": 885,
+      "in": "ink",
+      "d": 16
+    }
+  ],
+  "music": {
+    "bpm": 120,
+    "groove_from": "grande",
+    "drop_at": "voce",
+    "break_beats": 2,
+    "outro_from": "outro"
+  },
+  "cues": [
+    {
+      "at": "intro",
+      "sfx": "soft-whoosh",
+      "gain": 0.5
+    },
+    {
+      "at": "grande+-26",
+      "sfx": "short-rise",
+      "gain": 0.6
+    },
+    {
+      "at": "intro+44",
+      "sfx": "dry-pop",
+      "gain": 0.6
+    },
+    {
+      "at": "grande",
+      "sfx": "low-hit",
+      "gain": 0.8
+    },
+    {
+      "at": "title",
+      "sfx": "paper-tap",
+      "gain": 0.8
+    },
+    {
+      "at": "models+14",
+      "sfx": "dry-pop",
+      "gain": 0.5
+    },
+    {
+      "at": "models+56",
+      "sfx": "soft-whoosh",
+      "gain": 0.6
+    },
+    {
+      "at": "models+62",
+      "sfx": "dry-pop",
+      "gain": 0.5
+    },
+    {
+      "at": "models+104",
+      "sfx": "soft-click",
+      "gain": 0.5
+    },
+    {
+      "at": "models+110",
+      "sfx": "soft-click",
+      "gain": 0.5
+    },
+    {
+      "at": "terminals+22",
+      "sfx": "soft-click",
+      "gain": 0.15,
+      "repeat": 8,
+      "every": 2
+    },
+    {
+      "at": "credit+10",
+      "sfx": "soft-click",
+      "gain": 0.5
+    },
+    {
+      "at": "credit+62",
+      "sfx": "paper-tap",
+      "gain": 0.6
+    },
+    {
+      "at": "voce",
+      "sfx": "low-hit",
+      "gain": 1.0
+    },
+    {
+      "at": "claude+10",
+      "sfx": "dry-pop",
+      "gain": 0.6
+    },
+    {
+      "at": "outro+24",
+      "sfx": "soft-chime",
+      "gain": 0.6
+    },
+    {
+      "at": "outro+54",
+      "sfx": "dry-pop",
+      "gain": 0.7
+    }
+  ]
+}

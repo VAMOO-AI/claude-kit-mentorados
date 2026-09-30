@@ -61,7 +61,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 24. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 25. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -110,6 +110,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 |---|---|---|
 | **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~12k tokens quando dispara, e o pedido de vídeo lê mais ~15k da referência de vídeo; desligue em `/plugin` se não for usar. | conta no gerador |
 | **gerar-imagem** | Gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
+| **motion-reel** | Faz vídeo de motion design (Reel 9:16, vinheta, anúncio de lançamento) em Remotion a partir de um template pronto: tipografia cinética, câmera 3D, match cut, 10 transições na batida, trilha sintetizada + efeitos sonoros e revisão por folhas de quadros. Você entra com o texto e o seu logo (sem logo sai um placeholder "SUA MARCA"); sai o MP4 pronto pro Instagram. O áudio é gerado, nunca ouvido pelo Claude: escute antes de postar. | Node.js 18+, `ffmpeg` e `python3` com `numpy` |
 
 ---
 
