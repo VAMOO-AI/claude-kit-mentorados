@@ -370,5 +370,7 @@ jobs:
           # exit 128 = "No package sources found" — o kit é só markdown + shell, sem
           # manifest de deps (package.json/requirements.txt). Nada a escanear = ok.
           # Outros códigos (ex: 1 = vulnerabilidade encontrada) continuam falhando.
+          # Único manifest hoje: o lock do template da motion-reel (pin do Remotion). Vermelho
+          # aqui num PR que não toca a skill = advisory novo; suba o pacote nesse lock.
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"

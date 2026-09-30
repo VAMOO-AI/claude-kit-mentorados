@@ -13,8 +13,6 @@ Um projeto Remotion pronto (um reel de 33 s anunciando o próprio kit) que vira 
 partida de toda peça nova. Você não reescreve do zero: copia o template, troca o roteiro no
 `timeline.json`, a marca no `lib.tsx` e adapta as cenas-modelo.
 
-Nos comandos abaixo, `$SK` é `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel`.
-
 - `assets/template/`: projeto completo (Remotion 4.0.484 travado no lockfile)
   - `src/timeline.json`: **fonte única de tempo** (cenas, cortes, transições, música, cues)
   - `src/scenes.tsx`: cenas-modelo
@@ -42,7 +40,7 @@ criar um venv se faltar). O primeiro `npm ci` baixa o Remotion e o Chrome headle
    e `MOTION_MARK` (símbolo). Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
    - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
    - O `Outro` usa a proporção do logo placeholder (4958×1202) e o `Intro` a do símbolo (1512×702): logo com outra proporção, ajuste essas contas.
-3. **Criar o projeto:** `$SK/scripts/new.sh <pasta>`
+3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh <pasta>`
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
 4. **Roteiro no `timeline.json`:**
    - Em cada cena, `cut` é o frame em que a transição passa do meio (múltiplo de 15 a 120 BPM), `in` é o tipo de transição e `d` a duração. Varie as transições.
@@ -54,7 +52,7 @@ criar um venv se faltar). O primeiro `npm ci` baixa o Remotion e o Chrome headle
    - Adapte as de `scenes.tsx`; os textos do exemplo (kit, modelos, comando `/plugin`) saem todos. Cena nova segue o molde: `useF()` (nunca `useCurrentFrame()`), `Bg`, `ip`, `MaskUp`, `random(seed)`. Registre-a no mapa `SCENES` do `Reel.tsx`.
    - Uma íris nova precisa de origem no `ORIGIN`.
    - Formato diferente de 1080×1920: troque `W` e `H` em `scenes.tsx` e `transitions.tsx`, e o tamanho em `index.tsx`.
-6. **QA:** `$SK/scripts/qa.sh <projeto>`. Ele confere se os cortes caem na batida, roda o tsc, gera a trilha, renderiza a prévia em 50% e monta três folhas:
+6. **QA:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh <projeto>`. Ele confere se os cortes caem na batida, roda o tsc, gera a trilha, renderiza a prévia em 50% e monta três folhas:
    - `sheet-N.jpg`: 2 fps
    - `transitions.jpg`: início, meio e fim de cada transição
    - `safe.jpg`: 1 fps com a guia segura do Reel
@@ -66,7 +64,7 @@ criar um venv se faltar). O primeiro `npm ci` baixa o Remotion e o Chrome headle
    - 3D achatado
    - acentos
    - logo esticado ou placeholder esquecido
-7. **Entrega:** `$SK/scripts/final.sh <projeto> <nome>`. Ele renderiza em 1080×1920, converte para `yuv420p` e imprime o `ffprobe` e o volume. Entregue o caminho do MP4 e reporte:
+7. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome>`. Ele renderiza em 1080×1920, converte para `yuv420p` e imprime o `ffprobe` e o volume. Entregue o caminho do MP4 e reporte:
    - a saída do tsc e do ffprobe (lint: o projeto não tem)
    - **o áudio não foi ouvido** (batida sintética + SFX nunca auditados): peça para o dono escutar; ofereça uma versão só com SFX se ele for usar música do Instagram
    - os textos que você mudou ou acrescentou
