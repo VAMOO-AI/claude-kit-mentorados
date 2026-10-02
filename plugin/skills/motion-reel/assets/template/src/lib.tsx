@@ -76,9 +76,13 @@ export const Bg: React.FC<{ color: string; children?: React.ReactNode }> = ({
   </AbsoluteFill>
 );
 
-export const hollow = (color: string, w = 3): React.CSSProperties => ({
-  color: "transparent",
-  WebkitTextStroke: `${w}px ${color}`,
+// Texto vazado. O preenchimento na cor do fundo é pintado por cima do traço e esconde os
+// contornos sobrepostos de dentro dos glifos da fonte variável; por isso o traço dobra (metade
+// fica por baixo do fill). Só vale sobre fundo sólido: em gradiente ou foto o fill aparece.
+export const hollow = (color: string, w: number, bg: string): React.CSSProperties => ({
+  color: bg,
+  WebkitTextStroke: `${w * 2}px ${color}`,
+  paintOrder: "stroke fill",
 });
 
 // Máscara: o filho sobe de dentro de uma janela com overflow hidden.
@@ -117,7 +121,38 @@ export const lemniscatePoint = (a: number, t: number) => {
   return { x: (a * Math.cos(t)) / d, y: (a * Math.sin(t) * Math.cos(t)) / d };
 };
 
-// Odômetro: cada dígito é uma coluna que rola até o alvo.
+// Contador: inteiro interpolado até o alvo, formatado em pt-BR ("2.700"). O alvo invisível
+// na mesma célula reserva a largura final, então o número não empurra o layout ao crescer.
+export const Counter: React.FC<{
+  value: number;
+  progress: number;
+  size: number;
+  color: string;
+  weight?: number;
+}> = ({ value, progress, size, color, weight = 800 }) => {
+  const p = Math.min(1, Math.max(0, progress));
+  const n = Math.round(value * EASE(p));
+  return (
+    <div
+      style={{
+        display: "inline-grid",
+        justifyItems: "end",
+        fontSize: size,
+        fontWeight: weight,
+        color,
+        lineHeight: 1,
+        letterSpacing: "-0.04em",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{value.toLocaleString("pt-BR")}</span>
+      <span style={{ gridArea: "1 / 1" }}>{n.toLocaleString("pt-BR")}</span>
+    </div>
+  );
+};
+
+// Odômetro: cada dígito é uma coluna que rola até o alvo. Para versão ou código ("5.5");
+// em contagem os dígitos rolam soltos e o meio da animação passa do alvo — use o Counter.
 export const Odometer: React.FC<{
   value: string;
   progress: number;

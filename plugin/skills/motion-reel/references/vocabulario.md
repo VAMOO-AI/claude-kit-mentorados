@@ -10,8 +10,9 @@ copiando e mudando o texto, não reescrevendo do zero.
 | `ip(f, [a,b], [x,y], ease?)` | interpolate com clamp e `EASE` da casa (`cubic-bezier(.22,1,.36,1)`) | toda animação |
 | `useF()` | frame local da cena já descontado o `lead` da transição de entrada: **f = 0 é o corte na batida** | sempre, no lugar de `useCurrentFrame()` dentro de cena |
 | `MaskUp` | texto sobe de dentro de uma janela `overflow: hidden`; `out` faz sair para cima | toda entrada de texto — é o tique mais "profissional" da peça |
-| `Odometer` | dígitos rolam em coluna até o valor; `spins` = voltas extras | número, versão, porcentagem, contador |
-| `hollow(cor, px)` | texto vazado (`-webkit-text-stroke`) | a ênfase de título da casa (nunca itálico/cor) |
+| `Counter` | inteiro interpolado até o valor, formatado em pt-BR (`2.700`), largura reservada | contagem, porcentagem, horas |
+| `Odometer` | dígitos rolam em coluna até o valor; `spins` = voltas extras | versão ou código (`5.5`); em contagem o meio passa do alvo |
+| `hollow(cor, px, fundo)` | texto vazado (`-webkit-text-stroke` + `paint-order`); `fundo` = cor sólida atrás do texto | a ênfase de título da casa (nunca itálico/cor) |
 | `lemniscatePath` / `lemniscatePoint` | o infinito em SVG, para `evolvePath` desenhar | motivo do exemplo em movimento; troque pelo traço da sua marca (o logo que fica é sempre o PNG) |
 | `shake(f, at, amp, dur)` | tremor que decai | impacto de palavra única |
 | `Bg` | fundo + fonte | raiz de toda cena |

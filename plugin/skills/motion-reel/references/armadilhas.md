@@ -13,6 +13,8 @@
 | `for fr in $LISTA` roda uma vez só | o zsh não divide variável em palavras | loops dos scripts rodam em `bash` |
 | Hook bloqueia `cd X && … src/arquivo` | regra de leitura com caminho relativo | caminhos absolutos em tudo |
 | Match cut pula | `Breathe` numa das pontas, ou escala do card ≠ escala do título | `MOSAIC_ZOOM` compartilhado; `Breathe` desligado nas duas cenas |
+| Linhas/triângulos dentro de letra vazada (no M, no K, no acento do "ê") | `-webkit-text-stroke` em fonte variável desenha os contornos sobrepostos de dentro dos glifos | `hollow(cor, px, fundo)`: `paint-order: stroke fill` + fill na cor do fundo (traço dobra, metade fica por baixo); só sobre fundo sólido |
+| Contador mostra número maior que o alvo no meio (`2.700` passa por `9.570`) | `Odometer` rola cada dígito sozinho | contagem é `Counter` (inteiro interpolado + `toLocaleString("pt-BR")`); `Odometer` só para versão |
 | Cena lenta de revisar | screenshot por quadro | folhas de contato (`qa.sh`): 1 imagem para 32 quadros |
 
 ## Coisas que não foram verificadas

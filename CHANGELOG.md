@@ -13,6 +13,22 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.45.1] — 2026-10-02
+
+### Corrigido
+
+- **`motion-reel`: texto vazado com linhas e triângulos dentro das letras.** Com a Plus Jakarta
+  Sans variável, o `-webkit-text-stroke` desenhava os contornos sobrepostos de dentro dos glifos
+  (triângulos no M e no K, traço no acento do "ê"). O `hollow` agora recebe a cor do fundo e
+  pinta o preenchimento nessa cor por cima do traço (`paint-order: stroke fill`), com o traço
+  dobrado porque metade fica por baixo. Assinatura nova: `hollow(cor, px, fundo)`; só vale sobre
+  fundo sólido. Na cena de letreiro, a faixa sólida sobe acima das linhas vizinhas para o
+  til e a cedilha da linha de baixo não vazarem como mancha clara sobre ela.
+- **`motion-reel`: contador passava do alvo no meio da animação.** O `Odometer` rola cada dígito
+  sozinho, então "2.700" chegava a mostrar "9.570" no caminho. Contagem passa a usar o `Counter`
+  novo: inteiro interpolado, formatado em pt-BR e com a largura final reservada, para o número
+  não empurrar o layout. O `Odometer` fica para versão ("5.5").
+
 ## [0.45.0] — 2026-09-30
 
 ### Novo
