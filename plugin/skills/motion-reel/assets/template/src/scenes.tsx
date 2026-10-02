@@ -217,6 +217,10 @@ const Marquee: React.FC<{
                   justifyContent: "center",
                   margin: "0 -400px",
                   transform: `scaleY(${band})`,
+                  // Acima das vizinhas: o fill na cor do fundo de um til ou cedilha da linha
+                  // de baixo vazaria como mancha clara sobre a faixa.
+                  position: "relative",
+                  zIndex: 1,
                 }}
               >
                 <MaskUp f={f} at={4}>
