@@ -6,6 +6,7 @@ import {
   BRAND,
   Bg,
   C,
+  Counter,
   EASE,
   EASE_IN,
   EASE_INOUT,
@@ -247,7 +248,7 @@ const Marquee: React.FC<{
                 lineHeight: 1,
                 transform: `translateX(${x}px)`,
                 opacity: reveal * (d === 1 ? 0.9 : 0.55),
-                ...hollow(stroke, 2.5),
+                ...hollow(stroke, 2.5, bg),
               }}
             >
               {`${word} · `.repeat(5)}
@@ -333,7 +334,7 @@ const KitCard: React.FC<{ variant: number }> = ({ variant }) => {
         <br />
         Kit
         <br />
-        <span style={v.hollow ? hollow(v.fg, 1.4) : undefined}>Mentorados</span>
+        <span style={v.hollow ? hollow(v.fg, 1.4, v.bg) : undefined}>Mentorados</span>
       </div>
     </div>
   );
@@ -458,7 +459,7 @@ export const Title: React.FC = () => {
         <br />
         <span style={{ position: "relative", display: "inline-block" }}>
           <span style={{ opacity: 1 - hol }}>Mentorados</span>
-          <span style={{ position: "absolute", left: 0, top: 0, opacity: hol, ...hollow(C.ink, 3) }}>
+          <span style={{ position: "absolute", left: 0, top: 0, opacity: hol, ...hollow(C.ink, 3, C.paper) }}>
             Mentorados
           </span>
         </span>
@@ -656,7 +657,7 @@ export const Hours: React.FC = () => {
         }}
       >
         <div style={{ background: C.night, padding: "0 20px", display: "flex", alignItems: "baseline", borderRadius: 12 }}>
-          <Odometer value="14" progress={prog} size={270} color={C.brandOnDark} spins={0} />
+          <Counter value={14} progress={prog} size={270} color={C.brandOnDark} />
           <span style={{ fontSize: 150, fontWeight: 800, color: C.brandOnDark, letterSpacing: "-0.04em" }}>h</span>
         </div>
       </div>
@@ -780,7 +781,7 @@ export const Terminals: React.FC = () => {
           </MaskUp>
         </div>
         <div style={{ opacity: ip(f, [36, 40], [0, 1]), marginTop: 6 }}>
-          <Odometer value="715" progress={ip(f, [36, 72], [0, 1], (t) => t)} size={250} color={C.brandOnDark} spins={1} />
+          <Counter value={715} progress={ip(f, [36, 72], [0, 1], (t) => t)} size={250} color={C.brandOnDark} />
         </div>
         <div style={{ color: C.white, fontSize: 64, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 12 }}>
           <MaskUp f={f} at={46}>
@@ -802,7 +803,7 @@ export const Credit: React.FC = () => {
     <Bg color={C.paper}>
       <div style={{ position: "absolute", left: 90, right: 180, top: 520, transform: `translateY(${shift}px)` }}>
         <div style={{ display: "flex", alignItems: "baseline" }}>
-          <Odometer value="26" progress={ip(f, [8, 42], [0, 1], (t) => t)} size={330} color={C.brand} spins={1} />
+          <Counter value={26} progress={ip(f, [8, 42], [0, 1], (t) => t)} size={330} color={C.brand} />
           <span style={{ fontSize: 200, fontWeight: 800, color: C.brand, letterSpacing: "-0.04em" }}>%</span>
         </div>
         <div
@@ -921,7 +922,7 @@ export const NoUsoDoClaude: React.FC = () => {
         </MaskUp>
         <br />
         <MaskUp f={f} at={10}>
-          <span style={{ display: "block", ...hollow(C.white, 4) }}>Claude!</span>
+          <span style={{ display: "block", ...hollow(C.white, 4, C.night) }}>Claude!</span>
         </MaskUp>
         <div style={{ height: 12, borderRadius: 100, background: C.brandOnDark, width: ip(f, [18, 34], [0, 780]), marginTop: 18 }} />
       </div>
