@@ -1,19 +1,25 @@
 ---
 name: mcp-sistema
 description: >-
-  Cria o MCP remoto de um sistema Next.js + Supabase para o usuário ligar Claude,
-  ChatGPT ou outro cliente com a própria conta: OAuth do Supabase sem token,
-  recorte por papel em cada tool, escrita com prévia + confirmação + log, página
-  de instalação e chave por usuário. Entrevista → spec → 4 PRs → prod. Use em
-  "cria um MCP pro sistema", "MCP com login", "o MCP dá timeout". Não é para
-  MCP local/stdio (mcp-builder).
+  Cria o MCP remoto de um sistema Supabase para o usuário ligar Claude, ChatGPT
+  ou outro cliente com a própria conta: Next.js com OAuth do Supabase, recorte
+  por papel, escrita com prévia + confirmação + log e página de instalação; app
+  não-Next (SPA Vite) com OAuth próprio numa edge function. Entrevista → spec →
+  PRs → prod. Use em "cria um MCP pro sistema", "MCP com login", "ligar no
+  ChatGPT", "o MCP dá timeout". Não é para MCP local/stdio (mcp-builder).
 ---
 
-# MCP remoto de um sistema (Next.js + Supabase)
+# MCP remoto de um sistema (Supabase)
 
-Receita tirada de um MCP que está em produção (dashboard comercial com
-vendedor/gerente/diretoria/suporte). O código de referência em `references/code/`
-já está despersonalizado: adapte nomes de tabela, papéis e tools ao projeto alvo.
+Duas receitas, cada uma tirada de um MCP em produção, com o código de referência
+despersonalizado: adapte nomes de tabela, papéis e tools ao projeto alvo.
+
+- **Next.js + Supabase Auth** (dashboard comercial com
+  vendedor/gerente/diretoria/suporte): rota `/api/mcp`, Supabase OAuth Server,
+  recorte por papel, escrita, página. É o corpo desta skill e `references/code/`.
+- **App não-Next + Supabase** (SPA Vite na Vercel): servidor MCP + OAuth próprio
+  numa edge function, token opaco, um dono, só leitura.
+  `references/edge-function.md` e `references/code/edge/`.
 
 ## Como ler esta skill
 
@@ -25,16 +31,28 @@ já está despersonalizado: adapte nomes de tabela, papéis e tools ao projeto a
 | `references/banco.md` | PR 1 (antes do merge) e antes de liberar a 2ª pessoa |
 | `references/escrita.md` | PR 3: prévia → token → aplicar → log |
 | `references/pagina.md` | PR 4: página MCP, guia de instalação, prompts, chave por usuário |
-| `references/code/` | Arquivos copiáveis citados pelas referências |
+| `references/edge-function.md` | Fase 0 mandou para a receita de edge function (app não-Next ou schema grande) |
+| `references/code/` | Arquivos copiáveis citados pelas referências (`code/edge/` = receita edge) |
 
 ## Fase 0 — entrevista e spec
 
 1. Descubra a stack (`package.json`, `src/proxy.ts` ou `middleware.ts`, client
-   Supabase de service role, tabela de usuários/papéis). Stack diferente de
-   Next.js + Supabase Auth → diga em 1 frase que a receita não cobre e pare.
+   Supabase de service role, tabela de usuários/papéis) e escolha a receita:
+   - **Next.js + Supabase Auth** → receita Next (o resto deste arquivo).
+   - **Não é Next.js, mas o backend é Supabase** (SPA Vite, front estático) e o
+     app tem domínio próprio com rewrite (Vercel) → diga em 1 frase que a receita
+     Next não cabe e siga `references/edge-function.md`. Ela entrega um dono e só
+     leitura; multiusuário com papel está lá como decisão aberta, não verificada.
+   - **Next.js com centenas de tabelas abertas a `authenticated`** → a trava
+     RESTRICTIVE (`banco.md`) fica cara. Ofereça a receita edge como opção, com
+     o tradeoff (token opaco que só abre a função × recorte por papel pronto da
+     receita Next); o usuário decide.
+   - **Sem Supabase** → diga em 1 frase que nenhuma das receitas cobre e pare.
 2. Rode a entrevista de `references/entrevista.md` (uma pergunta por vez, com
    recomendação). Ela fecha: hierarquia, fonte do papel, quem libera o acesso,
-   dados v1, escritas, endpoint, página.
+   dados v1, escritas, endpoint, página. Na receita edge, feche dados v1, o canal
+   do código ao dono (WhatsApp, e-mail) e o domínio público; papel só entra se for
+   multiusuário.
 3. Grave a spec em `docs/superpowers/specs/<data>-mcp-<sistema>-design.md` com a
    tabela de decisões, o escopo por papel e a ordem de rollout. A spec é o
    contrato dos 4 PRs; atualize o status dela a cada merge.
@@ -73,6 +91,9 @@ login interativo da CLI.
   direto na API REST, por fora das tools e do recorte. Trava RESTRICTIVE em toda
   tabela aberta a `authenticated`/`public` — liste pela query de `banco.md`, nunca
   de memória. **Tabela nova aberta a `authenticated` entra na trava no mesmo PR.**
+  Schema com centenas de tabelas: veja o ramo da Fase 0 (receita edge).
+- **ChatGPT não aceita Bearer fixo.** Só OAuth, sem auth ou misto: chave estática
+  no header liga no Claude Code, não no ChatGPT.
 - **`x-api-key` (ou qualquer chave de serviço) não abre `/api/mcp`.** No proxy, a
   rota do MCP sai ANTES do bloco que transforma a chave em usuário de serviço.
 - **Papel de UMA fonte, lido a cada chamada.** Desligar a pessoa corta na próxima
@@ -104,6 +125,27 @@ login interativo da CLI.
   principal, senão o bundle puxa a service role.
 - **Redirect pós-login** vira open redirect sem validação (`//evil.com`, `/\evil.com`).
 
+### Armadilhas da receita edge function (detalhe em `references/edge-function.md`)
+
+- **O Vercel não reescreve `/.well-known`** (path reservado). Os metadados RFC 8414
+  e 9728 são arquivos estáticos em `public/.well-known/`, com
+  `Content-Type: application/json` no `vercel.json`. Um teste compara os
+  estáticos com o handler.
+- **Service worker de PWA engole a navegação do `/authorize`.** O
+  `navigateFallback` serve o `index.html` do SPA, e em modo `prompt` o SW antigo
+  segue ativo até o usuário atualizar. O `authorization_endpoint` fica no host da
+  função e só responde 302 para um `.html` da raiz do app (com o `.html` da raiz,
+  `/mcp`, `/oauth/` e `/.well-known/` no `navigateFallbackDenylist`).
+- **No `supabase.co`, a edge function serve `text/html` como `text/plain`.** Nenhuma
+  tela sai da função: ela devolve JSON e 302; o HTML é estático no domínio do app.
+- **Protocolo `2026-07-28`.** Servidor legado responde `400` sem corpo a
+  `MCP-Protocol-Version` desconhecido. Um erro "moderno" (`-32022`) faz o cliente
+  não cair no `initialize`.
+- **ChatGPT e RFC 9207.** Anuncie `authorization_response_iss_parameter_supported`
+  e devolva `iss` em toda resposta do authorize (sucesso e erro). Sem isso o
+  callback do ChatGPT muda a cada conexão (`chatgpt.com/connector/oauth/<id>`). O
+  handler aceita esse formato por garantia; o verificado é o callback estável.
+
 ## Verificação (antes de dizer "pronto")
 
 - tsc + lint + testes + build do projeto, output colado (skill `verificacao`).
@@ -115,7 +157,17 @@ login interativo da CLI.
 - Escrita: prévia → aplicar; prévia → mudar o dado pelo app → aplicar (tem que
   recusar); conferir a linha no log de auditoria.
 
-**Verificado em produção** com Claude Code (login + MFA, 22 tools, paralelo, listen
-recusado sem o cliente entrar em loop). **Não verificado**: conector do Claude
-app/web, ChatGPT e outros clientes — ao ligar o primeiro de cada, confira nos logs
-como ele reage ao listen recusado e ao 401 inicial.
+**Receita Next — verificada em produção** com Claude Code (login + MFA, 22 tools,
+paralelo, listen recusado sem o cliente entrar em loop). Não verificada nela:
+claude.ai e ChatGPT. Ao ligar o ChatGPT, confira se o metadata do Supabase OAuth
+Server traz `authorization_response_iss_parameter_supported`; sem ele o ChatGPT
+registra um callback por conexão.
+
+**Receita edge — verificada em produção em 03/10/2026** nos três clientes, login +
+tools, 0 erro nos logs:
+
+| Cliente | Como liga | Callback confirmado |
+|---|---|---|
+| Claude Code | `claude mcp add --transport http <nome> <url>` → `/mcp` → autenticar (`claude mcp login` só em terminal interativo) | `http://localhost:<porta>/callback` ou `http://127.0.0.1:<porta>/callback`, porta aleatória |
+| claude.ai / Desktop | Conectores → Adicionar conector personalizado → URL (detecta OAuth + DCR sozinho); cada tool pede "Permitir" na 1ª chamada | `https://claude.ai/api/mcp/auth_callback` |
+| ChatGPT | Plugins → Adicionar → Criar servidor MCP personalizado → URL + OAuth (não procure "Developer mode") | `https://chatgpt.com/connector_platform_oauth_redirect` (estável com RFC 9207) |

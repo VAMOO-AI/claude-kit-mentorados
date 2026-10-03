@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.46.0|a mcp-sistema liga também app que não é Next.js (SPA Vite + Supabase) por uma edge function com login próprio, e traz o caminho verificado para Claude Code, claude.ai e ChatGPT
 0.45.1|na motion-reel o texto vazado não mostra mais linhas e triângulos dentro das letras e os contadores sobem até o número certo sem passar dele no meio
 0.45.0|nova skill motion-reel: o Claude monta um Reel de motion design em Remotion com o seu texto e o seu logo e entrega o MP4 pronto pro Instagram
 0.44.0|nova skill mcp-sistema: o Claude monta o MCP do seu app Next.js + Supabase com login pela sua conta, cada pessoa vendo só o que o nível dela permite|setup

@@ -13,6 +13,30 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.46.0] — 2026-10-03
+
+### Novo
+
+- **`mcp-sistema`: receita para app não-Next.js.** A Fase 0 não para mais na stack: SPA (Vite)
+  ou front estático com Supabase e domínio próprio com rewrite segue a referência nova
+  `references/edge-function.md`. É um servidor MCP + OAuth próprio numa edge function, com token
+  opaco que só abre a função, login por código num canal que só o dono lê, allowlist de callback
+  e kill switch lido a cada chamada. O código despersonalizado (handler, index, migration, tela
+  de login, `vercel.json` e 24 testes Deno) está em `references/code/edge/`. A receita foi
+  verificada num dono, só leitura; multiusuário com papel fica como decisão aberta, com o que
+  muda escrito. Next.js com centenas de tabelas abertas a `authenticated` recebe a receita edge
+  como opção, porque a trava RESTRICTIVE do token do Supabase fica cara.
+- **`mcp-sistema`: armadilhas que impediam a conexão sem erro legível.** O Vercel não reescreve
+  `/.well-known` (metadados estáticos com `Content-Type` no `vercel.json`). O service worker de
+  PWA engole a navegação do `/authorize` (authorize no host da função, 302 para um `.html` da
+  raiz). O `supabase.co` serve `text/html` como texto. O protocolo `2026-07-28` pede `400` vazio
+  para versão desconhecida. O ChatGPT só fixa o callback estável com RFC 9207
+  (`authorization_response_iss_parameter_supported` + `iss` em toda resposta) e não aceita Bearer
+  fixo.
+- **`mcp-sistema`: claude.ai e ChatGPT verificados.** A linha "não verificado" virou uma tabela
+  por receita, com o caminho de cada cliente (no ChatGPT: Plugins → Adicionar → Criar servidor
+  MCP personalizado) e os callbacks confirmados de Claude Code, claude.ai e ChatGPT.
+
 ## [0.45.1] — 2026-10-02
 
 ### Corrigido
