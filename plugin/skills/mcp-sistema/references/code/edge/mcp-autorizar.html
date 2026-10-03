@@ -1,0 +1,68 @@
+<!doctype html>
+<!-- public/mcp-autorizar.html — tela de login do MCP. Arquivo estático na raiz do app:
+     o navegador chega aqui pelo 302 do authorize, e o service worker do PWA deixa
+     passar .html da raiz (navigateFallbackDenylist). Troque cores e fonte pelas do app. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Conectar</title>
+<style>
+  :root { --brand: #2563eb; --accent-fill: #1d4ed8; --ink: #111; --dim: #555; --faint: #888; --line: #e5e7eb; --paper: #fafafa; --surface: #fff; --ok: #15803d; --erro: #b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #f5f5f5; --dim: #b4b4b4; --faint: #8a8a8a; --line: #2a2a2a; --paper: #0b0b0b; --surface: #161616; --accent-fill: #2563eb; --ok: #4ade80; --erro: #f87171; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--paper); color: var(--dim); font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; }
+  h1 { color: var(--ink); font-size: 1.35rem; font-weight: 800; margin: 0 0 6px; }
+  p { margin: 0 0 14px; }
+  .quem { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 16px 0; }
+  .quem dt { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+  .quem dd { margin: 0 0 8px; color: var(--ink); font-weight: 600; word-break: break-word; }
+  .quem dd:last-child { margin-bottom: 0; }
+  button { width: 100%; border: 0; border-radius: 10px; padding: 12px 16px; font: inherit; font-weight: 600; cursor: pointer; background: var(--accent-fill); color: #fff; }
+  button:disabled { opacity: .55; cursor: default; }
+  button.secundario { background: transparent; color: var(--dim); border: 1px solid var(--line); margin-top: 10px; }
+  input { width: 100%; font: 600 1.6rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .35em; text-align: center; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); margin-bottom: 12px; }
+  input:focus, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .msg { min-height: 1.5em; font-size: .92rem; margin-top: 12px; }
+  .msg.erro { color: var(--erro); }
+  .msg.ok { color: var(--ok); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="titulo">Conectar</h1>
+  <p>Um app está pedindo acesso de <strong>leitura</strong> ao sistema em seu nome.</p>
+
+  <div id="carregando">Carregando pedido…</div>
+
+  <div id="pedido" hidden>
+    <dl class="quem">
+      <dt>App</dt><dd id="cliente"></dd>
+      <dt>Depois do login, volta para</dt><dd id="destino"></dd>
+    </dl>
+    <p>Só continue se foi você que pediu e o destino é o app que você está usando.</p>
+
+    <div id="passo-enviar">
+      <button id="enviar" type="button">Enviar código</button>
+    </div>
+
+    <form id="passo-codigo" hidden>
+      <p>Digite o código de 6 dígitos que você recebeu.</p>
+      <input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" aria-label="Código de 6 dígitos" required>
+      <button id="confirmar" type="submit">Conectar</button>
+    </form>
+
+    <button id="negar" class="secundario" type="button">Não fui eu — cancelar</button>
+  </div>
+
+  <div id="msg" class="msg" role="status" aria-live="polite"></div>
+</main>
+<script src="/mcp-autorizar.js"></script>
+</body>
+</html>

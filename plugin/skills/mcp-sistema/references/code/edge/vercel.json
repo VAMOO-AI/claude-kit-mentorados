@@ -1,0 +1,17 @@
+{
+  "rewrites": [
+    { "source": "/mcp", "destination": "https://<ref>.supabase.co/functions/v1/sistema-mcp/mcp" },
+    { "source": "/oauth/:path*", "destination": "https://<ref>.supabase.co/functions/v1/sistema-mcp/oauth/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/(oauth-authorization-server|oauth-protected-resource)(.*)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    }
+  ]
+}
