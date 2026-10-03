@@ -1,7 +1,7 @@
 // supabase/functions/sistema-mcp/handler.test.ts
 // @ts-nocheck
 // deno test --allow-read supabase/functions/sistema-mcp/
-import { assert, assertEquals, assertMatch, assertStringIncludes } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+import { assert, assertEquals, assertStringIncludes } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { createMcpHandler, metadadosRecurso, metadadosServidor, OTP_MAX_POR_JANELA, otpHash, pkceS256, redirectPermitido, rota } from './handler.ts';
 
 const BASE = 'https://app.exemplo.com.br';
@@ -176,7 +176,8 @@ Deno.test('fluxo completo: código ao dono → token → initialize, tools/list 
     const clientId = await registrar(h, CLAUDE_CB, 'Claude *bold*\nfalso');
     const a = await pedir(h, clientId);
     assertEquals(a.status, 302);
-    assertMatch(a.headers.get('location'), new RegExp(`^${BASE}/mcp-autorizar\\.html#req=`));
+    // startsWith, não RegExp montada com BASE: o ponto do domínio casaria qualquer caractere.
+    assert(a.headers.get('location').startsWith(`${BASE}/mcp-autorizar.html#req=`));
     const id = reqId(a);
 
     const info = await (await h.handle(get(`/oauth/pedido?id=${id}`))).json();
