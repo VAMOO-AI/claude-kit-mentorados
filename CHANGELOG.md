@@ -13,6 +13,16 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.46.1] — 2026-10-03
+
+### Corrigido
+
+- **`mcp-sistema`: teste de exemplo da receita edge montava expressão regular com o domínio.**
+  O `handler.test.ts` de `references/code/edge/` conferia o redirect do authorize com
+  `new RegExp(`^${BASE}/…`)`, e o ponto do domínio casava qualquer caractere (alerta
+  `js/incomplete-hostname-regexp` do CodeQL). A conferência passa a usar `startsWith`; quem
+  copiar o teste não leva o padrão adiante.
+
 ## [0.46.0] — 2026-10-03
 
 ### Novo
