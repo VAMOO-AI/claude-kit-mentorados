@@ -1,19 +1,23 @@
 {
   "name": "motion-reel",
   "version": "1.0.0",
-  "description": "Reel de motion design em Remotion (skill motion-reel)",
+  "description": "Motion design em Remotion: Reel 9:16 e Film 16:9/9:16 (skill motion-reel)",
   "scripts": {
     "start": "npx remotion studio",
     "build": "npx remotion render src/index.tsx Reel out/video.mp4",
-    "upgrade": "npx remotion upgrade"
+    "upgrade": "npx remotion upgrade",
+    "stills": "node scripts/stills.mjs"
   },
   "dependencies": {
+    "@remotion/bundler": "^4.0.484",
     "@remotion/captions": "^4.0.484",
     "@remotion/cli": "^4.0.484",
     "@remotion/google-fonts": "^4.0.484",
     "@remotion/media": "^4.0.484",
     "@remotion/motion-blur": "^4.0.484",
+    "@remotion/paths": "^4.0.484",
     "@remotion/player": "^4.0.484",
+    "@remotion/renderer": "^4.0.484",
     "@remotion/transitions": "^4.0.484",
     "d3-geo": "^3.1.1",
     "fast-uri": "^3.1.8",

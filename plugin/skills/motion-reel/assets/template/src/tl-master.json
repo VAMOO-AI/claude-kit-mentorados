@@ -1,0 +1,387 @@
+{
+ "name": "master",
+ "fps": 30,
+ "total": 1350,
+ "letterbox": "title",
+ "scenes": [
+  {
+   "id": "desk-0",
+   "type": "desk",
+   "cut": 0,
+   "in": "cut",
+   "d": 0,
+   "len": 165,
+   "beats": [
+    18
+   ],
+   "ends": [
+    149
+   ],
+   "vo": [
+    "a1"
+   ],
+   "mark": null,
+   "energy": 0,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "kicker": "Segunda, 9h02.",
+    "session": "RELATÓRIO MENSAL",
+    "prompt": "monta o relatório da semana e confere os números",
+    "working": "Montando o relatório…",
+    "files": [
+     [
+      "relatorio/semana.md",
+      84
+     ],
+     [
+      "dados/vendas.csv",
+      12
+     ]
+    ],
+    "reply": "Pronto! Relatório montado e conferido."
+   }
+  },
+  {
+   "id": "statement-1",
+   "type": "statement",
+   "cut": 165,
+   "in": "glitch",
+   "d": 10,
+   "len": 75,
+   "beats": [
+    6
+   ],
+   "ends": [
+    54
+   ],
+   "vo": [
+    "a2"
+   ],
+   "mark": null,
+   "energy": 0,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "bg": "night",
+    "groups": [
+     {
+      "beat": 0,
+      "lines": [
+       "Sem copiar.",
+       "Sem colar."
+      ],
+      "hollowLast": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "title-2",
+   "type": "title",
+   "cut": 240,
+   "in": "cut",
+   "d": 0,
+   "len": 180,
+   "beats": [
+    8,
+    42
+   ],
+   "ends": [
+    34,
+    171
+   ],
+   "vo": [
+    "t1",
+    "t2"
+   ],
+   "mark": "braam",
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "line1": "Seu",
+    "line2": "Produto",
+    "sub": "Uma frase com o benefício principal",
+    "pill": "pronto em 2 minutos"
+   }
+  },
+  {
+   "id": "numbers-3",
+   "type": "numbers",
+   "cut": 420,
+   "in": "whip",
+   "d": 10,
+   "len": 195,
+   "beats": [
+    6,
+    42,
+    102
+   ],
+   "ends": [
+    34,
+    94,
+    173
+   ],
+   "vo": [
+    "n1",
+    "n2",
+    "n3"
+   ],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "items": [
+     {
+      "v": 3,
+      "label": "cliques"
+     },
+     {
+      "v": 12,
+      "label": "relatórios por mês"
+     },
+     {
+      "v": 40,
+      "label": "horas de volta"
+     }
+    ]
+   }
+  },
+  {
+   "id": "chapter-4",
+   "type": "chapter",
+   "cut": 615,
+   "in": "bars",
+   "d": 18,
+   "len": 45,
+   "beats": [],
+   "ends": [],
+   "vo": [],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "n": 1,
+    "name": "Como funciona",
+    "count": "3 passos"
+   }
+  },
+  {
+   "id": "card-5",
+   "type": "card",
+   "cut": 660,
+   "in": "push",
+   "d": 12,
+   "len": 105,
+   "beats": [
+    6
+   ],
+   "ends": [
+    86
+   ],
+   "vo": [
+    "c1"
+   ],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "n": 1,
+    "total": 3,
+    "kicker": "Passo 1",
+    "name": "conecta",
+    "line": "Liga na planilha que você já usa",
+    "before": "Copiar e colar à mão",
+    "solved": "evitado",
+    "cmd": "/conecta",
+    "session": "RELATÓRIO MENSAL",
+    "motif": {
+     "kind": "sync",
+     "left": "planilha",
+     "right": "relatório",
+     "foot": "sempre em dia"
+    }
+   }
+  },
+  {
+   "id": "card-6",
+   "type": "card",
+   "cut": 765,
+   "in": "spin",
+   "d": 12,
+   "len": 105,
+   "beats": [
+    6
+   ],
+   "ends": [
+    86
+   ],
+   "vo": [
+    "c2"
+   ],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "n": 2,
+    "total": 3,
+    "kicker": "Passo 2",
+    "name": "confere",
+    "line": "Testa cada número antes de mostrar",
+    "before": "Número errado na reunião",
+    "proof": "4 de 4 conferidos",
+    "cmd": "/confere",
+    "session": "RELATÓRIO MENSAL",
+    "motif": {
+     "kind": "rows",
+     "title": "Antes de entregar",
+     "items": [
+      "Totais",
+      "Datas",
+      "Gráficos",
+      "Fontes"
+     ],
+     "foot": "conferido ✓"
+    }
+   }
+  },
+  {
+   "id": "card-7",
+   "type": "card",
+   "cut": 870,
+   "in": "whipUp",
+   "d": 10,
+   "len": 105,
+   "beats": [
+    6
+   ],
+   "ends": [
+    90
+   ],
+   "vo": [
+    "c3"
+   ],
+   "mark": "hit",
+   "energy": 3,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "n": 3,
+    "total": 3,
+    "kicker": "Passo 3",
+    "name": "entrega",
+    "line": "Manda pra quem precisa, no horário",
+    "before": "Relatório esquecido",
+    "cmd": "/entrega",
+    "session": "RELATÓRIO MENSAL",
+    "dark": true,
+    "motif": {
+     "kind": "pipeline",
+     "title": "Toda segunda",
+     "gates": [
+      "Monta",
+      "Confere",
+      "Envia"
+     ],
+     "foot": "nenhuma etapa pulada"
+    }
+   }
+  },
+  {
+   "id": "commands-8",
+   "type": "commands",
+   "cut": 975,
+   "in": "glitch",
+   "d": 10,
+   "len": 135,
+   "beats": [
+    6,
+    66
+   ],
+   "ends": [
+    58,
+    122
+   ],
+   "vo": [
+    "i1",
+    "i2"
+   ],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "line1": "2 comandos.",
+    "line2": "E pronto.",
+    "badge": "↻ se atualiza sozinho",
+    "cmds": [
+     {
+      "cmd": "/instalar seu-produto",
+      "reply": "Instalado."
+     },
+     {
+      "cmd": "/seu-produto:setup",
+      "reply": "Configurado. Nada sobrescrito."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cta-9",
+   "type": "cta",
+   "cut": 1110,
+   "in": "whip",
+   "d": 10,
+   "len": 150,
+   "beats": [
+    6,
+    64
+   ],
+   "ends": [
+    56,
+    129
+   ],
+   "vo": [
+    "x1",
+    "x2"
+   ],
+   "mark": null,
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "q1": "Já usa?",
+    "pill1": "Atualiza agora →",
+    "q2": "Ainda não?",
+    "pill2": "Teste grátis",
+    "cmds": [
+     "/instalar seu-produto"
+    ]
+   }
+  },
+  {
+   "id": "outro-10",
+   "type": "outro",
+   "cut": 1260,
+   "in": "ink",
+   "d": 16,
+   "len": 90,
+   "beats": [],
+   "ends": [],
+   "vo": [],
+   "mark": "finale",
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "name": "Seu Produto",
+    "sub": "seuproduto.com.br"
+   }
+  }
+ ]
+}

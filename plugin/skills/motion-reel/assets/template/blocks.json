@@ -1,0 +1,11 @@
+{
+ "voice_id": "RGymW84CSmfVugnA5tvA",
+ "model": "eleven_v4",
+ "blocks": {
+  "b1": ["a1", "a2", "t1", "t2"],
+  "b2": ["n1", "n2", "n3", "c1", "c2", "c3"],
+  "b3": ["i1", "i2", "x1", "x2"]
+ },
+ "say": { "Claude": "Cláudi" },
+ "tags": { "a1": "[softly] [slowly]", "a2": "[dramatically]", "t1": "[confident]" }
+}

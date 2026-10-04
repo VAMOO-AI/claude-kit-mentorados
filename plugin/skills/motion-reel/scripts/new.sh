@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Cria um projeto motion-reel novo: copia o template, os assets, instala e gera a trilha.
+# Cria um projeto motion-reel novo: copia o template, os assets, instala e gera as trilhas.
 # Uso: new.sh <pasta-destino>
 # Fonte (Plus Jakarta Sans, OFL) e os 7 SFX vêm empacotados na skill. Os logos padrão são
 # placeholders "SUA MARCA": aponte os seus com MOTION_LOGO_LIGHT (para fundo claro),
 # MOTION_LOGO_DARK (para fundo escuro) e MOTION_MARK (símbolo). MOTION_FONT e MOTION_SFX_DIR
 # trocam fonte e banco de efeitos.
+# O projeto sai com as 3 composições renderizáveis: Reel (exemplo 9:16 guiado pela música) e
+# Master169/Reel916 (Film de exemplo, sem narração ainda: durações estimadas pelo texto).
 set -euo pipefail
 SK="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${1:?uso: new.sh <pasta-destino>}"
@@ -19,7 +21,7 @@ for f in "$FONT" "$LIGHT" "$DARK" "$MARK" "$SFXD/soft-whoosh.wav"; do
   [ -f "$f" ] || { echo "!! asset ausente: $f (confira MOTION_FONT / MOTION_LOGO_* / MOTION_MARK / MOTION_SFX_DIR)"; exit 1; }
 done
 command -v npm > /dev/null || { echo "!! npm não encontrado: instale o Node.js 18+"; exit 1; }
-command -v ffmpeg > /dev/null || echo "aviso: ffmpeg ausente; o qa.sh e o final.sh precisam dele (brew install ffmpeg)"
+command -v ffmpeg > /dev/null || echo "aviso: ffmpeg ausente; o qa.sh, o final.sh e o corte da narração precisam dele (brew install ffmpeg)"
 PY="$("$SK/scripts/py.sh")"
 
 mkdir -p "$DEST"; DEST="$(cd "$DEST" && pwd)"
@@ -35,9 +37,13 @@ cp "$SFXD"/*.wav "$DEST/public/sfx/"
 echo "→ npm ci (Remotion 4.0.484 travado no lockfile)"
 (cd "$DEST" && npm ci --no-audit --no-fund --loglevel=error)
 
+"$PY" "$DEST/scripts/grain.py"
 "$PY" "$DEST/scripts/track.py"
+"$PY" "$DEST/scripts/track_cinema.py" master
+"$PY" "$DEST/scripts/track_cinema.py" reel
 echo
 echo "pronto: $DEST"
-echo "  1. reescreva $DEST/src/timeline.json (cenas, cortes na batida, cues), $DEST/src/scenes.tsx e BRAND/C em $DEST/src/lib.tsx"
-echo "  2. $SK/scripts/qa.sh $DEST      # prévia + folhas de revisão"
-echo "  3. $SK/scripts/final.sh $DEST <nome>"
+echo "  Reel (música manda):  reescreva src/timeline.json, src/scenes.tsx e BRAND/C em src/lib.tsx"
+echo "  Film (voz manda):     reescreva film.json + vo.json + blocks.json; cenas em src/film-scenes.tsx"
+echo "  revisar:  $SK/scripts/qa.sh $DEST [Reel|Master169|Reel916]"
+echo "  entregar: $SK/scripts/final.sh $DEST <nome> [Reel|Master169|Reel916]"

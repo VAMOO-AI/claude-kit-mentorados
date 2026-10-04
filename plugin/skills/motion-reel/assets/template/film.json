@@ -1,0 +1,88 @@
+{
+ "letterbox": "title",
+ "master": [
+  {
+   "type": "desk", "vo": ["a1"], "energy": 0, "pre": 18,
+   "props": {
+    "kicker": "Segunda, 9h02.",
+    "session": "RELATÓRIO MENSAL",
+    "prompt": "monta o relatório da semana e confere os números",
+    "working": "Montando o relatório…",
+    "files": [["relatorio/semana.md", 84], ["dados/vendas.csv", 12]],
+    "reply": "Pronto! Relatório montado e conferido."
+   }
+  },
+  {
+   "type": "statement", "vo": ["a2"], "in": "glitch", "energy": 0,
+   "props": { "bg": "night", "groups": [{ "beat": 0, "lines": ["Sem copiar.", "Sem colar."], "hollowLast": true }] }
+  },
+  {
+   "type": "title", "vo": ["t1", "t2"], "in": "cut", "mark": "braam", "energy": 1, "pre": 8,
+   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos" }
+  },
+  {
+   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2,
+   "props": { "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
+  },
+  { "type": "chapter", "vo": [], "min": 45, "in": "bars", "energy": 2, "props": { "n": 1, "name": "Como funciona", "count": "3 passos" } },
+  {
+   "type": "card", "vo": ["c1"], "energy": 2,
+   "props": {
+    "n": 1, "total": 3, "kicker": "Passo 1", "name": "conecta", "line": "Liga na planilha que você já usa",
+    "before": "Copiar e colar à mão", "solved": "evitado", "cmd": "/conecta", "session": "RELATÓRIO MENSAL",
+    "motif": { "kind": "sync", "left": "planilha", "right": "relatório", "foot": "sempre em dia" }
+   }
+  },
+  {
+   "type": "card", "vo": ["c2"], "energy": 2,
+   "props": {
+    "n": 2, "total": 3, "kicker": "Passo 2", "name": "confere", "line": "Testa cada número antes de mostrar",
+    "before": "Número errado na reunião", "proof": "4 de 4 conferidos", "cmd": "/confere", "session": "RELATÓRIO MENSAL",
+    "motif": { "kind": "rows", "title": "Antes de entregar", "items": ["Totais", "Datas", "Gráficos", "Fontes"], "foot": "conferido ✓" }
+   }
+  },
+  {
+   "type": "card", "vo": ["c3"], "energy": 3, "mark": "hit",
+   "props": {
+    "n": 3, "total": 3, "kicker": "Passo 3", "name": "entrega", "line": "Manda pra quem precisa, no horário",
+    "before": "Relatório esquecido", "cmd": "/entrega", "session": "RELATÓRIO MENSAL", "dark": true,
+    "motif": { "kind": "pipeline", "title": "Toda segunda", "gates": ["Monta", "Confere", "Envia"], "foot": "nenhuma etapa pulada" }
+   }
+  },
+  {
+   "type": "commands", "vo": ["i1", "i2"], "energy": 2,
+   "props": {
+    "line1": "2 comandos.", "line2": "E pronto.", "badge": "↻ se atualiza sozinho",
+    "cmds": [{ "cmd": "/instalar seu-produto", "reply": "Instalado." }, { "cmd": "/seu-produto:setup", "reply": "Configurado. Nada sobrescrito." }]
+   }
+  },
+  {
+   "type": "cta", "vo": ["x1", "x2"], "energy": 1,
+   "props": { "q1": "Já usa?", "pill1": "Atualiza agora →", "q2": "Ainda não?", "pill2": "Teste grátis", "cmds": ["/instalar seu-produto"] }
+  },
+  { "type": "outro", "vo": [], "min": 90, "in": "ink", "mark": "finale", "energy": 1, "props": { "name": "Seu Produto", "sub": "seuproduto.com.br" } }
+ ],
+ "reel": [
+  {
+   "type": "title", "vo": ["t1", "t2"], "in": "cut", "mark": "braam", "energy": 1, "pre": 8,
+   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos" }
+  },
+  {
+   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2,
+   "props": { "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
+  },
+  {
+   "type": "card", "vo": ["c2"], "energy": 3, "mark": "hit",
+   "props": {
+    "n": 2, "total": 3, "kicker": "Passo 2", "name": "confere", "line": "Testa cada número antes de mostrar",
+    "before": "Número errado na reunião", "proof": "4 de 4 conferidos", "cmd": "/confere", "session": "RELATÓRIO MENSAL",
+    "motif": { "kind": "rows", "title": "Antes de entregar", "items": ["Totais", "Datas", "Gráficos", "Fontes"], "foot": "conferido ✓" }
+   }
+  },
+  {
+   "type": "cta", "vo": ["x1", "x2"], "energy": 1,
+   "props": { "q1": "Já usa?", "pill1": "Atualiza agora →", "q2": "Ainda não?", "pill2": "Teste grátis" }
+  },
+  { "type": "outro", "vo": [], "min": 75, "in": "ink", "mark": "finale", "energy": 1, "props": { "name": "Seu Produto", "sub": "seuproduto.com.br" } }
+ ]
+}
