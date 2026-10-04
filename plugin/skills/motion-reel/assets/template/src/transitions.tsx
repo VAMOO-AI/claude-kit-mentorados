@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import { AbsoluteFill, random } from "remotion";
+import { AbsoluteFill, random, useVideoConfig } from "remotion";
 import type {
   TransitionPresentation,
   TransitionPresentationComponentProps,
@@ -14,9 +14,6 @@ type Props = {
 };
 type TP = TransitionPresentationComponentProps<Props>;
 
-const W = 1080;
-const H = 1920;
-const MAX_R = Math.hypot(W, H);
 
 // Blur direcional via SVG (CSS blur é isotrópico): simula motion blur de câmera.
 const DirBlur: React.FC<{ x: number; y: number; children: React.ReactNode; style?: React.CSSProperties }> = ({
@@ -45,6 +42,8 @@ const bell = (p: number) => Math.sin(Math.PI * Math.min(1, Math.max(0, p)));
 
 /* Íris: a cena nova abre num círculo; a antiga empurra a câmera. */
 const Iris: React.FC<TP> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
+  const { width: W, height: H } = useVideoConfig();
+  const MAX_R = Math.hypot(W, H);
   const p = EASE_INOUT(presentationProgress);
   const cx = passedProps.cx ?? W / 2;
   const cy = passedProps.cy ?? H / 2;
@@ -118,6 +117,8 @@ const Glitch: React.FC<TP> = ({ children, presentationDirection, presentationPro
   const p = presentationProgress;
   const visible = presentationDirection === "entering" ? p >= 0.5 : p < 0.5;
   if (!visible) return null;
+  // Fora da troca (p = 0 ou 1) a cena fica inteira: fatias paradas deixam emendas de 1 px.
+  if (p <= 0.001 || p >= 0.999) return <AbsoluteFill>{children}</AbsoluteFill>;
   const k = Math.floor(p * 24);
   const intensity = bell(p);
   const slices = 7;
@@ -183,6 +184,9 @@ const Panel: React.FC<TP> = ({ children, presentationDirection, presentationProg
 
 /* Spin zoom: as duas cenas giram no mesmo sentido, com escala e blur. */
 const Spin: React.FC<TP> = ({ children, presentationDirection, presentationProgress }) => {
+  // O Remotion mantém a cena envolvida com progresso 0/1 fora da troca: sem isto, o blur(0) e o
+  // rotate(0) deixam emenda de 1 px na borda.
+  if (presentationProgress <= 0.001 || presentationProgress >= 0.999) return <AbsoluteFill>{children}</AbsoluteFill>;
   const p = EASE_INOUT(presentationProgress);
   const blur = bell(presentationProgress) * 14;
   if (presentationDirection === "exiting") {

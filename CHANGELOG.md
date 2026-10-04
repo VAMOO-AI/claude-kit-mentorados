@@ -13,6 +13,41 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.47.0] — 2026-10-04
+
+### Novo
+
+- **`motion-reel`: filme 16:9 + corte 9:16 com a narração mandando no tempo.** O template ganha
+  uma segunda base, o Film, ao lado do Reel guiado pela música. O roteiro vai no `film.json`
+  (uma lista de cenas por formato) e as composições `Master169` (1920×1080) e `Reel916`
+  (1080×1920) usam as mesmas cenas, que se ajustam à guia segura de cada formato. Cada cena dura
+  o que as falas dela duram, com o corte arredondado para a batida, e anima em cima delas: o
+  número aparece quando a voz o diz. Sem voz, a duração sai do texto e o vídeo já renderiza para
+  revisar. Vêm nove cenas prontas (conversa no Claude Code Desktop, frase, título, números,
+  comandos, capítulo, card com mini-animação, chamada e assinatura) e 18 mini-animações de
+  painel escolhidas pelo `film.json`.
+- **`motion-reel`: pipeline de narração.** O texto do TTS sai por bloco, com tags de direção e
+  troca de pronúncia só no áudio ("Claude" → "Cláudi"). A voz vem do ElevenLabs, com chave de
+  API ou pelo conector de criação, e cada bloco é baixado e cortado em uma fala por arquivo,
+  pelos silêncios e pelo tamanho do texto. A referência nova `references/narracao.md` ensina a
+  testar 1 bloco antes de gerar todos.
+- **`motion-reel`: trilha de cinema opcional (`track_cinema.py`).** Tem pad, ostinato e taikos
+  que crescem com a energia da cena, braam no título, riser e impacto nas viradas e SFX nos
+  pontos exatos das animações. A voz entra com ducking e reverb. O `final.sh` normaliza o
+  áudio em duas passadas (−14 LUFS, pico −1 dBTP) e, acima de 30 MB, gera também uma versão
+  leve para o celular.
+- **`motion-reel`: revisão mais rápida.** O `stills.mjs` renderiza 1 quadro por cena, só das
+  cenas pedidas, e monta a folha de contato sem renderizar o vídeo inteiro. O `qa.sh` e o
+  `final.sh` recebem a composição (`Reel`, `Master169` ou `Reel916`), e o `qa.sh` extrai os
+  quadros das transições em lotes, o que aguenta filme longo.
+
+### Corrigido
+
+- **`motion-reel`: emenda de 1 px depois das transições `glitch` e `spin`.** O Remotion mantém
+  a cena envolvida pela transição antes e depois da troca, e as fatias e o `blur(0)` parados
+  deixavam uma linha na borda. Fora da troca, a transição devolve a cena intacta. As transições
+  leem o tamanho do vídeo e servem os dois formatos.
+
 ## [0.46.1] — 2026-10-03
 
 ### Corrigido

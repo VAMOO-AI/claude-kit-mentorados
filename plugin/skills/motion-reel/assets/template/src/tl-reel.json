@@ -1,0 +1,173 @@
+{
+ "name": "reel",
+ "fps": 30,
+ "total": 705,
+ "letterbox": "title",
+ "scenes": [
+  {
+   "id": "title-0",
+   "type": "title",
+   "cut": 0,
+   "in": "cut",
+   "d": 0,
+   "len": 180,
+   "beats": [
+    8,
+    42
+   ],
+   "ends": [
+    34,
+    171
+   ],
+   "vo": [
+    "t1",
+    "t2"
+   ],
+   "mark": "braam",
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "line1": "Seu",
+    "line2": "Produto",
+    "sub": "Uma frase com o benefício principal",
+    "pill": "pronto em 2 minutos"
+   }
+  },
+  {
+   "id": "numbers-1",
+   "type": "numbers",
+   "cut": 180,
+   "in": "whip",
+   "d": 10,
+   "len": 195,
+   "beats": [
+    6,
+    42,
+    102
+   ],
+   "ends": [
+    34,
+    94,
+    173
+   ],
+   "vo": [
+    "n1",
+    "n2",
+    "n3"
+   ],
+   "mark": null,
+   "energy": 2,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "items": [
+     {
+      "v": 3,
+      "label": "cliques"
+     },
+     {
+      "v": 12,
+      "label": "relatórios por mês"
+     },
+     {
+      "v": 40,
+      "label": "horas de volta"
+     }
+    ]
+   }
+  },
+  {
+   "id": "card-2",
+   "type": "card",
+   "cut": 375,
+   "in": "push",
+   "d": 12,
+   "len": 105,
+   "beats": [
+    6
+   ],
+   "ends": [
+    86
+   ],
+   "vo": [
+    "c2"
+   ],
+   "mark": "hit",
+   "energy": 3,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "n": 2,
+    "total": 3,
+    "kicker": "Passo 2",
+    "name": "confere",
+    "line": "Testa cada número antes de mostrar",
+    "before": "Número errado na reunião",
+    "proof": "4 de 4 conferidos",
+    "cmd": "/confere",
+    "session": "RELATÓRIO MENSAL",
+    "motif": {
+     "kind": "rows",
+     "title": "Antes de entregar",
+     "items": [
+      "Totais",
+      "Datas",
+      "Gráficos",
+      "Fontes"
+     ],
+     "foot": "conferido ✓"
+    }
+   }
+  },
+  {
+   "id": "cta-3",
+   "type": "cta",
+   "cut": 480,
+   "in": "spin",
+   "d": 12,
+   "len": 150,
+   "beats": [
+    6,
+    64
+   ],
+   "ends": [
+    56,
+    129
+   ],
+   "vo": [
+    "x1",
+    "x2"
+   ],
+   "mark": null,
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "q1": "Já usa?",
+    "pill1": "Atualiza agora →",
+    "q2": "Ainda não?",
+    "pill2": "Teste grátis"
+   }
+  },
+  {
+   "id": "outro-4",
+   "type": "outro",
+   "cut": 630,
+   "in": "ink",
+   "d": 16,
+   "len": 75,
+   "beats": [],
+   "ends": [],
+   "vo": [],
+   "mark": "finale",
+   "energy": 1,
+   "origin": null,
+   "cues": [],
+   "props": {
+    "name": "Seu Produto",
+    "sub": "seuproduto.com.br"
+   }
+  }
+ ]
+}
