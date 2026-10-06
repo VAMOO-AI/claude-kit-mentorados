@@ -52,6 +52,14 @@ cat > "$TMP/bin/uname" <<STUB
 cat "$TMP/uname-s"
 STUB
 echo Darwin > "$TMP/uname-s"
+# du espião: o poço .cache/uv nunca responde. exec: o corte mata este pid
+DU_REAL="$(command -v du)"
+cat > "$TMP/bin/du" <<STUB
+#!/usr/bin/env bash
+case "\$*" in *"/.cache/uv"*) exec sleep 20 ;; esac
+exec "$DU_REAL" "\$@"
+STUB
+chmod +x "$TMP/bin/du"
 # stub do worktree-gc: anota a chamada; "keep" para o caminho listado em $TMP/gc-keep
 cat > "$TMP/gc-stub" <<STUB
 #!/usr/bin/env bash
@@ -161,7 +169,15 @@ mkdir -p "$WT/orfa-build/.next" "$WT/orfa-codigo/src"
 echo 'export {}' > "$WT/orfa-codigo/src/a.ts"
 mkdir -p "$R/.next/cache" "$R/.vercel/output/functions/x.func/.next"
 
-bash "$SCR/inventario.sh" "$TMP/plano" "$TMP/ws" 2>/dev/null
+# poço cujo du nunca responde, como o de ~/Library/Group Containers/*.dev.orbstack que parou
+# 13 min num Mac (04/10/2026): o corte mata o du e o inventário segue
+mkdir -p "$HOME/.cache/uv"
+ini=$(date +%s)
+POCO_TIMEOUT=2 bash "$SCR/inventario.sh" "$TMP/plano" "$TMP/ws" 2>/dev/null
+dur=$(( $(date +%s) - ini ))
+check "poços: du que não volta é cortado e marcado (${dur}s)" \
+  "$([ "$dur" -lt 15 ] && grep -qxF "timeout	$HOME/.cache/uv" "$TMP/plano/pocos.tsv" && echo ok || echo fail)"
+rm -rf "$HOME/.cache/uv"
 check "inventário marca worktree recém-criada como ativa" \
   "$(grep -F "$WT/nova" "$TMP/plano/worktrees.tsv" | cut -f6 | grep -q '^ativa' && echo ok || echo fail)"
 check "inventário não lista .next dentro de .vercel" \

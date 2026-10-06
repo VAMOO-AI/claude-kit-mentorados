@@ -162,7 +162,13 @@ for p in \
   "$HOME/Library/Application Support/Cursor/User/globalStorage" \
   "$HOME/.codex/archived_sessions" "$HOME/.claude/projects" "$HOME/.orbstack" \
   "$HOME/Library/Group Containers"/*.dev.orbstack "$HOME/.Trash"; do
-  [ -e "$p" ] && printf '%s\t%s\n' "$(du -sk "$p" 2>/dev/null | cut -f1)" "$p"
+  [ -e "$p" ] || continue
+  # du em Group Containers de outro app pode parar num prompt de privacidade do macOS que
+  # ninguém vê (13 min em 04/10/2026). Sem `timeout` no Mac: alarm do perl mata o du e o
+  # poço sai como "timeout" em vez de segurar o inventário inteiro
+  kb=$(perl -e 'alarm shift; exec @ARGV' "${POCO_TIMEOUT:-60}" du -sk "$p" 2>/dev/null)
+  [ $? = 142 ] && kb=timeout   # 128 + SIGALRM
+  printf '%s\t%s\n' "${kb%%[[:space:]]*}" "$p"
 done | sort -rn > "$OUT/pocos.tsv"
 
 awk -F'\t' '{e=$6; sub(/[(\[].*/, "", e); c[e]++} END{for (k in c) printf "worktrees %s: %d\n", k, c[k]}' "$OUT/worktrees.tsv" >&2

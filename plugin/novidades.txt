@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.47.1|a limpeza-mac não fica mais parada medindo um cache do Mac que não responde: o cache sai marcado como timeout e o inventário segue
 0.47.0|a motion-reel faz também filme 16:9 com corte 9:16 em que a narração manda no tempo, com voz do ElevenLabs cortada por fala, trilha de cinema, telas do Claude Code Desktop e áudio no volume certo pra rede social
 0.46.1|o teste de exemplo da receita edge function da mcp-sistema confere o redirect sem expressão regular montada com o domínio
 0.46.0|a mcp-sistema liga também app que não é Next.js (SPA Vite + Supabase) por uma edge function com login próprio, e traz o caminho verificado para Claude Code, claude.ai e ChatGPT
