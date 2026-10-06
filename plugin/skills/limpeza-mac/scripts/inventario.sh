@@ -12,7 +12,7 @@
 #   branches.tsv   repo  branch  sha  estado
 #   orfas.tsv      path  kb  conteudo   (dir em .claude/worktrees sem registro no git)
 #   builds.tsv     dias-sem-uso  kb  path   (node_modules e .next)
-#   pocos.tsv      kb  path   (caches conhecidos)
+#   pocos.tsv      kb  path   (caches conhecidos; kb "timeout" = du não voltou em POCO_TIMEOUT s)
 # estado: ativa(Nh) | merged(ancestral) | merged(PR#N) | pushed(+N) | LOCAL(+N)[track] | sem-origin
 set -uo pipefail
 [ "$(uname -s)" = Darwin ] || { echo "limpeza-mac: só macOS (aqui: $(uname -s)); nada feito"; exit 0; }
@@ -164,8 +164,8 @@ for p in \
   "$HOME/Library/Group Containers"/*.dev.orbstack "$HOME/.Trash"; do
   [ -e "$p" ] || continue
   # du em Group Containers de outro app pode parar num prompt de privacidade do macOS que
-  # ninguém vê (13 min em 04/10/2026). Sem `timeout` no Mac: alarm do perl mata o du e o
-  # poço sai como "timeout" em vez de segurar o inventário inteiro
+  # ninguém vê. Sem `timeout` no Mac: alarm do perl mata o du e o poço sai como "timeout"
+  # em vez de segurar o inventário inteiro
   kb=$(perl -e 'alarm shift; exec @ARGV' "${POCO_TIMEOUT:-60}" du -sk "$p" 2>/dev/null)
   [ $? = 142 ] && kb=timeout   # 128 + SIGALRM
   printf '%s\t%s\n' "${kb%%[[:space:]]*}" "$p"

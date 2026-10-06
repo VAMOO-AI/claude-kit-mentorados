@@ -170,7 +170,7 @@ echo 'export {}' > "$WT/orfa-codigo/src/a.ts"
 mkdir -p "$R/.next/cache" "$R/.vercel/output/functions/x.func/.next"
 
 # poço cujo du nunca responde, como o de ~/Library/Group Containers/*.dev.orbstack que parou
-# 13 min num Mac (04/10/2026): o corte mata o du e o inventário segue
+# minutos num Mac: o corte mata o du e o inventário segue
 mkdir -p "$HOME/.cache/uv"
 ini=$(date +%s)
 POCO_TIMEOUT=2 bash "$SCR/inventario.sh" "$TMP/plano" "$TMP/ws" 2>/dev/null
