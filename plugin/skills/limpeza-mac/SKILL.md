@@ -45,7 +45,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/inventario.sh" <ledger>/p
 A rodada leva alguns minutos, porque faz `git fetch --prune` em todos os repos (a única
 escrita, e é nas refs remotas) e um `gh pr list` por
 branch que não é ancestral do default. Não rode `du` em `~` inteiro: demora demais, e o
-inventário já mede o que importa em `pocos.tsv` e `builds.tsv`.
+inventário já mede o que importa em `pocos.tsv` e `builds.tsv`. Um cache com `timeout` no
+lugar do tamanho é um `du` que não voltou em 60 s (`POCO_TIMEOUT` troca): o mais provável é
+um aviso de privacidade do macOS esperando resposta. Peça à pessoa para responder o aviso e
+rode o inventário de novo.
 
 Antes de apagar, mostre à pessoa só o que exige decisão dela:
 - worktrees e branches `LOCAL(+N)` e `pushed(+N)`: trabalho que não chegou ao default;

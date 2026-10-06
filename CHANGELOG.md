@@ -13,6 +13,17 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.47.2] — 2026-10-06
+
+### Corrigido
+
+- **`limpeza-mac`: o inventário não fica mais parado medindo um cache.** Num Mac, o `du` de
+  `~/Library/Group Containers/*.dev.orbstack` (pasta do OrbStack) ficou 13 minutos sem voltar,
+  provavelmente esperando um aviso de privacidade do macOS que ninguém via. Agora cada cache
+  medido tem um corte de tempo (60 s, `POCO_TIMEOUT` troca) e sai como `timeout` no
+  `pocos.tsv` em vez de segurar o inventário inteiro. O teste prova o corte com um `du` que
+  nunca responde.
+
 ## [0.47.1] — 2026-10-06
 
 ### Corrigido
