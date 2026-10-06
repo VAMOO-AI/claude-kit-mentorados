@@ -261,6 +261,10 @@ ignorado_de_valor() {   # <worktree> — 0 = achou algum
       */) r="$(cd "$wt" && find "${f%/}" -name .git -prune 2>/dev/null | sed 's|\.git$||' | tr '\n' ' ')"
           r="${r% }"
           [ -n "$r" ] && { repo="${repo:+$repo }$r"; continue; } ;;
+      # O app desktop semeia esta cópia em todo worktree que cria: igual ao do clone passa;
+      # editada (permissão concedida na sessão) segura. Pelo caminho, não pelo basename.
+      .claude/settings.local.json)
+        cmp -s "$wt/$f" "$PRIMARY/$f" || dif="${dif:+$dif }$f"; continue ;;
       *) case "${f##*/}" in
            .env*|.npmrc|bunfig.toml|.bunfig.toml)
              cmp -s "$wt/$f" "$PRIMARY/$f" || dif="${dif:+$dif }$f"; continue ;;

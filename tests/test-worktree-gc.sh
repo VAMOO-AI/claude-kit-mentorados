@@ -62,7 +62,7 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf '.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf 'settings.local.json\n.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 G remote set-head origin main
@@ -70,6 +70,7 @@ BASE="$(G rev-parse HEAD)"
 echo "ENV=clone" > "$CLONE/.env.local"; echo "registry=clone" > "$CLONE/.npmrc"
 echo "exact = true" > "$CLONE/bunfig.toml"; echo "exact = true" > "$CLONE/.bunfig.toml"
 mkdir -p "$WTS"
+mkdir -p "$CLONE/.claude"; echo '{"permissions":{"allow":["Bash(ls:*)"]}}' > "$CLONE/.claude/settings.local.json"
 
 novo_wt()    { G worktree add -q -b "$1" "$WTS/wt-$1" "${2:-origin/main}"; }
 commit_em()  { g -C "$WTS/wt-$1" commit -q --allow-empty -m "$2"; }
@@ -79,6 +80,12 @@ merge_main() { G merge -q --no-ff -m "merge $1" "$1"; G push -q origin main; }
 # Sem commit próprio — criadas antes dos merges, para a main andar depois delas.
 # nova: recém-criada de origin/main, limpa — a sessão ainda não escreveu nada
 novo_wt nova
+# sl-igual / sl-dif / sl-outro: o app desktop semeia .claude/settings.local.json em todo
+# worktree que cria, idêntico ao do clone (#284). Igual passa; editado (permissão concedida
+# na sessão) segura; o mesmo nome em outra pasta não é a cópia do app e continua segurando.
+novo_wt sl-igual; mkdir -p "$WTS/wt-sl-igual/.claude"; cp "$CLONE/.claude/settings.local.json" "$WTS/wt-sl-igual/.claude/"
+novo_wt sl-dif; mkdir -p "$WTS/wt-sl-dif/.claude"; echo '{"permissions":{"allow":["Bash(rm:*)"]}}' > "$WTS/wt-sl-dif/.claude/settings.local.json"
+novo_wt sl-outro; mkdir -p "$WTS/wt-sl-outro/apps/z/.claude"; cp "$CLONE/.claude/settings.local.json" "$WTS/wt-sl-outro/apps/z/.claude/"
 # sem-reflog: idem, com o reflog expirado — sobra a linha first-parent da main
 novo_wt sem-reflog
 G reflog expire --expire=now refs/heads/sem-reflog
@@ -255,6 +262,9 @@ verif 0 'pode remover: .*wt-ign-cache'       "só cache: exit 0"                
 verif 0 'pode remover: .*wt-ign-venv'        "symlink: exit 0"                          --verificar "$WTS/wt-ign-venv"
 verif 0 'pode remover: .*wt-anc'             "env igual ao do clone: exit 0"            --verificar "$WTS/wt-anc"
 verif 1 'keep: .*wt-env .*\.env\.local difere' "env diferente: exit 1 e o arquivo"      --verificar "$WTS/wt-env"
+verif 0 'pode remover: .*wt-sl-igual'         ".claude/settings.local.json igual ao do clone: exit 0" --verificar "$WTS/wt-sl-igual"
+verif 1 'keep: .*wt-sl-dif .*\.claude/settings\.local\.json difere' "settings.local.json editado: exit 1 e o arquivo" --verificar "$WTS/wt-sl-dif"
+verif 1 'keep: .*wt-sl-outro .*apps/z/\.claude/settings\.local\.json' "settings.local.json fora da raiz não é a cópia do app" --verificar "$WTS/wt-sl-outro"
 verif 1 'keep: .*wt-env-bunfigdot .*\.bunfig\.toml difere' ".bunfig.toml diferente: exit 1" --verificar "$WTS/wt-env-bunfigdot"
 verif 1 'keep: .*wt-env-repo .*repo aninhado ignorado: vendor/lib/' "repo aninhado: exit 1" --verificar "$WTS/wt-env-repo"
 verif 1 'keep: .*wt-dirty .*SUJO'            "sujo: exit 1"                             --verificar "$WTS/wt-dirty"
