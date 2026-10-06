@@ -13,7 +13,7 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.47.1] — 2026-10-06
+## [0.47.2] — 2026-10-06
 
 ### Corrigido
 
@@ -23,6 +23,16 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   medido tem um corte de tempo (60 s, `POCO_TIMEOUT` troca) e sai como `timeout` no
   `pocos.tsv` em vez de segurar o inventário inteiro. O teste prova o corte com um `du` que
   nunca responde.
+
+## [0.47.1] — 2026-10-06
+
+### Corrigido
+
+- **`motion-reel`: o template sai sem as duas dependências vulneráveis.** O `package-lock.json`
+  do template subiu `source-map-js` de 1.2.1 para 1.2.2 (GHSA-68fv-2mgg-jv7q, CVSS 8.7) e
+  `postcss-selector-parser` de 7.1.4 para 7.1.6 (GHSA-rj75-hqrm-r3gf, CVSS 5.9). As duas vêm
+  junto com o Remotion, que continua travado em 4.0.484. O `package.json` não mudou. O
+  osv-scanner do CI estava vermelho em todo PR por causa desses dois advisories.
 
 ## [0.47.0] — 2026-10-04
 
