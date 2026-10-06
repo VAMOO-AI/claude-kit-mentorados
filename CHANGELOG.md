@@ -13,6 +13,15 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.47.3] — 2026-10-06
+
+### Corrigido
+
+- **`worktree-gc --verificar` não segura mais o worktree por causa do `.claude/settings.local.json`
+  que o app desktop copia.** O app semeia esse arquivo em todo worktree que cria, idêntico ao do
+  clone principal, e o script o contava como trabalho a perder. Agora ele segue a regra do `.env`:
+  se for igual ao do clone, passa; se foi editado (permissão concedida na sessão), segura.
+
 ## [0.47.2] — 2026-10-06
 
 ### Corrigido
