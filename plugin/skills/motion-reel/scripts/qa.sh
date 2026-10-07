@@ -54,10 +54,13 @@ i=0
 while [ "$#" -gt 0 ]; do
   sel=""; k=0
   while [ "$#" -gt 0 ] && [ "$k" -lt 24 ]; do sel="${sel:+$sel+}eq(n\\,$1)"; shift; k=$((k+1)); done
-  ffmpeg -loglevel error -y -i "$O/preview.mp4" -vf "select=$sel" -fps_mode vfr -start_number "$i" "$O/tr-%03d.jpg"
+  # format=yuvj420p: lote sem frame nenhum faz o mjpeg do ffmpeg 9 abrir no EOF com range tv e
+  # falhar ("Non full-range YUV"), o que derruba a QA pelo set -e
+  ffmpeg -loglevel error -y -i "$O/preview.mp4" -vf "select=$sel,scale=out_range=full,format=yuvj420p" -fps_mode vfr -start_number "$i" "$O/tr-%03d.jpg"
   i=$((i+k))
 done
-[ "$i" -gt 0 ] && ffmpeg -loglevel error -y -i "$O/tr-%03d.jpg" -vf "scale=150:-1,tile=8x6:padding=3:color=gray" "$O/transitions-%d.jpg"
+# conta o que saiu, não o que foi pedido: lote fora da duração do vídeo não gera arquivo
+ls "$O"/tr-*.jpg >/dev/null 2>&1 && ffmpeg -loglevel error -y -i "$O/tr-%03d.jpg" -vf "scale=150:-1,tile=8x6:padding=3:color=gray" "$O/transitions-%d.jpg"
 rm -f "$O"/tr-*.jpg
 echo "→ revise: $(ls "$O"/sheet-*.jpg "$O"/transitions-*.jpg "$O"/safe.jpg 2>/dev/null | tr '\n' ' ')"
 [ "$COMP" != Reel ] && echo "  quadro por cena sem render inteiro: (cd $P && node scripts/stills.mjs $COMP 0.2,0.8)"
