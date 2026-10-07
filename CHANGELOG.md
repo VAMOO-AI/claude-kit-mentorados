@@ -13,6 +13,17 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.47.4] — 2026-10-07
+
+### Corrigido
+
+- **`motion-reel`: a QA (`scripts/qa.sh`) não morre quando um lote de transição cai fora do
+  vídeo.** No ffmpeg 9, um `select` que não deixa passar frame nenhum abre o encoder mjpeg no fim
+  do arquivo com o range do vídeo (`tv`) e sai com `Non full-range YUV is non-standard`; com o
+  `set -euo pipefail`, a QA parava ali. O filtro agora termina em
+  `scale=out_range=full,format=yuvj420p`, e o mosaico das transições só roda se algum
+  `tr-*.jpg` foi de fato extraído (antes contava os frames pedidos). Mesmo fix no time.
+
 ## [0.47.3] — 2026-10-06
 
 ### Corrigido
