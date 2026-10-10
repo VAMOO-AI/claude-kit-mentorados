@@ -212,7 +212,9 @@ jobs:
 
       - name: O final.sh da motion-reel reprova áudio fora do alvo no MP4 entregue
         # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
+        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
         run: |
+          set -o pipefail
           bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
           ! grep -q '^pulado' /tmp/final-verificar.log
 
