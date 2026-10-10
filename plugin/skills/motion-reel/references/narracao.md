@@ -20,7 +20,7 @@ Pergunte ao dono qual usar antes de gerar qualquer coisa. Os dois primeiros não
 ```bash
 mkdir -p <projeto>/out/vo-blocks
 ffmpeg -i gravacao-b1.m4a -ac 1 -ar 48000 <projeto>/out/vo-blocks/b1.mp3
-python3 <projeto>/scripts/split-vo.py b1
+cd <projeto> && python3 ./scripts/split-vo.py b1
 ```
 
 Pausa marcada entre as falas é o que faz o corte cair no lugar; confira a tabela que ele imprime.
@@ -57,7 +57,7 @@ escreva a grafia que soa certo direto no `vo.json` só para o áudio, se precisa
    `props` da cena (a tela mostra "40", a voz diz "quarenta").
 2. **Blocos.** Agrupe 4–14 falas seguidas por bloco (um capítulo, por exemplo): a voz fica
    coerente dentro do bloco e cada geração custa menos chamadas.
-3. **Texto do TTS:** `python3 <projeto>/scripts/blocks-text.py` → `out/vo-blocks/<bloco>.txt`,
+3. **Texto do TTS:** `cd <projeto> && python3 ./scripts/blocks-text.py` → `out/vo-blocks/<bloco>.txt`,
    com as tags de direção, as trocas do `say` e um `[long pause]` entre falas. Ele imprime os
    caracteres de cada bloco: no ElevenLabs o custo é ~1 crédito por caractere, tags incluídas.
 4. **Teste 1 bloco antes de gerar todos.** Ouça a pronúncia, o ritmo e a voz; ajuste `say` e
@@ -68,14 +68,14 @@ escreva a grafia que soa certo direto no `vo.json` só para o áudio, se precisa
    - **Sem chave, pelo conector de criação:** `creative_generate_speech` com o texto do bloco, o
      `voice_id` e o modelo (`generations_count: 1`) → devolve o fluxo; `creative_get_flow_run_status`
      até terminar → `media[].url` é o MP3 numa URL assinada que **expira em 2 h** → baixe na hora com
-     `bash <projeto>/scripts/dl.sh <bloco> '<url>'` (aspas simples: a URL tem `&`).
-6. **Cortar por fala:** `python3 <projeto>/scripts/split-vo.py [bloco ...]` → `public/vo/<id>.wav`. Ele acha os
+     `cd <projeto> && bash ./scripts/dl.sh <bloco> '<url>'` (aspas simples: a URL tem `&`).
+6. **Cortar por fala:** `cd <projeto> && python3 ./scripts/split-vo.py [bloco ...]` → `public/vo/<id>.wav`. Ele acha os
    silêncios do bloco (os `[long pause]`) e escolhe os N−1 cortes por programação dinâmica: cada corte
    perto da posição esperada pela proporção de caracteres, silêncio mais longo pesando a favor. Confira
    a tabela que ele imprime: fala com duração absurda (0,3 s, ou o dobro da vizinha) é corte no lugar
    errado — gere o bloco de novo com pausas mais marcadas ou divida o bloco.
 7. **Timeline e trilha:** o `qa.sh` e o `final.sh` rodam `build-timeline.py` e `track_cinema.py`
-   sozinhos. À mão: `python3 <projeto>/scripts/build-timeline.py master` e `python3 <projeto>/scripts/track_cinema.py master`.
+   sozinhos. À mão, de dentro do projeto: `python3 ./scripts/build-timeline.py master` e `python3 ./scripts/track_cinema.py master`.
 
 ## Mix (`track_cinema.py`)
 

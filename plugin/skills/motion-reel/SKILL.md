@@ -4,6 +4,7 @@ description: >-
   Cria Reel 9:16, vinheta ou filme 16:9 narrado em motion design com Remotion:
   tipografia cinética, 3D, transições na batida, trilha + SFX e MP4 pronto. Use
   em "faz um reel/vinheta/vídeo", "motion design" ou "vídeo com narração".
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *)
 ---
 
 # motion-reel
@@ -40,10 +41,12 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - Vídeo de referência: baixe com `yt-dlp -o <arquivo> <url>` e extraia quadros com `ffmpeg` (2 fps só na região que interessa, montados numa folha com `tile`). Música e SFX não se deduzem de imagem.
    - Escolha a base pela tabela acima. Com narração ou com 16:9, é o Film.
 2. **Marca.** Pergunte uma vez se há logo e paleta. Com os PNGs (fundo transparente), crie o
-   projeto com `MOTION_LOGO_LIGHT` (logo para fundo claro), `MOTION_LOGO_DARK` (para fundo escuro)
-   e `MOTION_MARK` (símbolo). Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
+   projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro) e `--mark`
+   (símbolo) no `new.sh`. Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
    - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
-3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh <pasta>`
+3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta>`
+   - Passe os logos por flag, não por `MOTION_*=… new.sh`: a pré-aprovação da skill (`allowed-tools`) não vale para comando precedido de variável, e a pessoa teria de clicar em Permitir.
+   - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
    - O projeto sai renderizável nas três composições (o Film de exemplo ainda sem voz).
 4. **Roteiro.**
@@ -64,7 +67,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - `transitions-N.jpg`: início, meio e fim de cada transição
    - `safe.jpg`: 1 fps com a guia segura do formato
 
-   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `node <projeto>/scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`. Corrija e rode de novo. Verifique:
+   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`. Corrija e rode de novo. Verifique:
    - palavra cortada na borda ou texto fora da guia
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido

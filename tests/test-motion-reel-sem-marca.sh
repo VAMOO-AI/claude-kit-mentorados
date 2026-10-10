@@ -76,6 +76,26 @@ else
   check "narração sem custo documentada (voz própria + split-vo, say do macOS)" fail
 fi
 
+# Pré-aprovação (allowed-tools): os scripts da skill pelo caminho do plugin, sem "*" antes do
+# programa (o "*" no começo casaria qualquer comando) e sem interpolação de shell no frontmatter.
+fm="$(awk 'NR==1 && /^---$/ {on=1; next} on && /^---$/ {exit} on {print}' "$SK/SKILL.md")"
+at="$(printf '%s\n' "$fm" | /usr/bin/grep '^allowed-tools:')"
+ok_at=ok
+for regra in 'Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *)' \
+             'Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *)' \
+             'Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *)' \
+             'Bash(npx remotion *)' 'Bash(ffmpeg *)' 'Bash(node ./scripts/stills.mjs *)'; do
+  printf '%s' "$at" | /usr/bin/grep -qF "$regra" || { ok_at=fail; echo "        falta: $regra"; }
+done
+printf '%s' "$at" | /usr/bin/grep -qE '(Bash|PowerShell)\(\*' && { ok_at=fail; echo "        regra começando com *"; }
+check "allowed-tools pré-aprova os scripts da skill e os comandos do projeto" "$ok_at"
+
+if /usr/bin/grep -q -- '--mark' "$SK/scripts/new.sh"; then
+  check "new.sh aceita os logos por flag (regra allow não casa depois de VAR=...)" ok
+else
+  check "new.sh aceita os logos por flag (regra allow não casa depois de VAR=...)" fail
+fi
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "OK: motion-reel sem marca de terceiro"; exit 0; fi
 echo "$falhas falha(s)"; exit 1

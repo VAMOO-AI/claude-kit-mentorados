@@ -32,6 +32,16 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   `split-vo.py`, o `say` do macOS com a voz pt-BR detectada por `say -v '?'`, e o ElevenLabs
   como opção paga, com o total de caracteres dito ao dono antes de gerar.
 
+### Adicionado
+
+- **`motion-reel` pré-aprova os próprios comandos (`allowed-tools`).** No turno que invoca a
+  skill, os scripts dela (`new.sh`, `qa.sh`, `final.sh`, `py.sh`, pelo `${CLAUDE_PLUGIN_ROOT}`),
+  `npx remotion`, `npx tsc`, `ffmpeg`, `ffprobe` e os scripts do projeto em `./scripts/` rodam
+  sem pedir Permitir (no Windows, as mesmas regras em `PowerShell(...)` para os comandos que não
+  são `.sh`). Para isso o `new.sh` aceita `--logo-light`, `--logo-dark` e `--mark` (regra de
+  permissão não casa com `VAR=… comando`), e a skill chama os scripts do projeto de dentro da
+  pasta dele. A pré-aprovação vale só naquele turno; regra `deny`/`ask` sua continua valendo.
+
 ## [0.47.4] — 2026-10-07
 
 ### Corrigido
