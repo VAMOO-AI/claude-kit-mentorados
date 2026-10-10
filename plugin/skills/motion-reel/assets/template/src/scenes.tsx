@@ -12,12 +12,11 @@ import {
   EASE_INOUT,
   FONT,
   MONO,
+  MarkIn,
   MaskUp,
   Odometer,
   hollow,
   ip,
-  lemniscatePath,
-  lemniscatePoint,
   shake,
   useF,
 } from "./lib";
@@ -26,22 +25,20 @@ const W = 1080;
 const H = 1920;
 
 /* ---------------------------------------------------------------- INTRO */
-export const Intro: React.FC = () => {
+// Partículas convergem para um anel → o símbolo (public/marca.png) entra com escala → mergulho
+// de câmera no centro. symbol: false (no timeline.json) tira o símbolo e fica só o anel + BRAND.
+export const Intro: React.FC<{ symbol?: boolean }> = ({ symbol = true }) => {
   const f = useF();
-  const a = 380;
+  const ring = 300;
   const cx = W / 2;
   const cy = 860;
-  const path = lemniscatePath(a, cx, cy);
-  const draw = ip(f, [10, 46], [0, 1], EASE_INOUT);
-  const { strokeDasharray, strokeDashoffset } = evolvePath(draw, path);
-  const toLogo = ip(f, [44, 54], [0, 1]);
-  // Mergulho no cruzamento do infinito.
+  // Mergulho no centro do símbolo.
   const dive = ip(f, [58, 75], [1, 9], EASE_IN);
   const fadeOut = ip(f, [66, 75], [1, 0], EASE_IN);
 
   const particles = Array.from({ length: 80 }, (_, i) => {
     const t = (i / 80) * Math.PI * 2;
-    const target = lemniscatePoint(a, t);
+    const target = { x: Math.cos(t) * ring, y: Math.sin(t) * ring };
     const ang = random(`ang${i}`) * Math.PI * 2;
     const r = 260 + random(`r${i}`) * 620;
     const start = i % 14;
@@ -63,13 +60,6 @@ export const Intro: React.FC = () => {
         }}
       >
         <svg width={W} height={H} style={{ position: "absolute" }}>
-          <defs>
-            <linearGradient id="inf" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0" stopColor={C.brandOnDark} />
-              <stop offset="0.5" stopColor={C.brand} />
-              <stop offset="1" stopColor={C.brandOnDark} />
-            </linearGradient>
-          </defs>
           {particles.map((p, i) => (
             <circle
               key={i}
@@ -80,32 +70,12 @@ export const Intro: React.FC = () => {
               opacity={p.o}
             />
           ))}
-          <path
-            d={path}
-            fill="none"
-            stroke="url(#inf)"
-            strokeWidth={34}
-            strokeLinecap="round"
-            strokeDasharray={strokeDasharray}
-            strokeDashoffset={strokeDashoffset}
-            opacity={1 - toLogo}
-          />
         </svg>
-        <Img
-          src={staticFile("marca.png")}
-          style={{
-            position: "absolute",
-            width: 780,
-            left: cx - 390,
-            top: cy - 181,
-            opacity: toLogo,
-            transform: `scale(${ip(f, [44, 60], [1.12, 1])})`,
-          }}
-        />
+        {symbol ? <MarkIn f={f} cx={cx} cy={cy} w={640} h={440} at={30} dur={22} /> : null}
         <div
           style={{
             position: "absolute",
-            top: cy + 290,
+            top: symbol ? cy + 290 : cy - 30,
             width: "100%",
             textAlign: "center",
             color: C.white,
@@ -114,7 +84,7 @@ export const Intro: React.FC = () => {
             letterSpacing: "-0.01em",
           }}
         >
-          <MaskUp f={f} at={32}>
+          <MaskUp f={f} at={symbol ? 32 : 24}>
             <span style={{ color: C.faint }}>{BRAND} apresenta</span>
           </MaskUp>
         </div>
@@ -935,43 +905,45 @@ export const NoUsoDoClaude: React.FC = () => {
 };
 
 /* --------------------------------------------------------------- OUTRO */
-export const Outro: React.FC = () => {
+// Símbolo (public/marca.png) entra com escala → logo PNG revelado por clipPath → nome, subtítulo,
+// pílula de CTA e endereço em mono. symbol: false (no timeline.json) começa direto pelo logo.
+// Os textos são do exemplo: troque nome, frase, CTA e endereço pelos seus.
+export const Outro: React.FC<{ symbol?: boolean }> = ({ symbol = true }) => {
   const f = useF();
-  const a = 200;
   const cx = W / 2;
   const cy = 820;
-  const path = lemniscatePath(a, cx, cy);
-  const { strokeDasharray, strokeDashoffset } = evolvePath(ip(f, [0, 24], [0, 1], EASE_INOUT), path);
-  const swap = ip(f, [22, 30], [0, 1]);
   const logoW = 820;
-  const wipe = ip(f, [24, 44], [0, 100], EASE_INOUT);
+  // Sem símbolo, o logo já começa a aparecer no corte (nunca tela vazia na transição).
+  const wipe = symbol ? ip(f, [24, 44], [0, 100], EASE_INOUT) : ip(f, [-6, 18], [0, 100], EASE_INOUT);
   const pill = ip(f, [54, 66], [0, 1]);
   return (
     <Bg color={C.paper}>
-      <svg width={W} height={H} style={{ position: "absolute", opacity: 1 - swap }}>
-        <path d={path} fill="none" stroke={C.brand} strokeWidth={26} strokeLinecap="round" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} />
-      </svg>
+      {symbol ? <MarkIn f={f} cx={cx} cy={cy} w={520} h={360} at={-4} dur={20} out={[22, 30]} /> : null}
       <div
         style={{
           position: "absolute",
-          left: cx - logoW / 2,
-          top: cy - (logoW * 1202) / 4958 / 2,
-          width: logoW,
-          clipPath: `inset(0 ${100 - wipe}% 0 0)`,
+          left: 0,
+          right: 0,
+          top: cy,
+          display: "flex",
+          justifyContent: "center",
+          transform: "translateY(-50%)",
         }}
       >
-        <Img src={staticFile("logo-light.png")} style={{ width: logoW, display: "block" }} />
+        <div style={{ width: logoW, clipPath: `inset(0 ${100 - wipe}% 0 0)` }}>
+          <Img src={staticFile("logo-light.png")} style={{ width: logoW, display: "block" }} />
+        </div>
       </div>
       <div style={{ position: "absolute", top: cy + 220, width: "100%", textAlign: "center" }}>
         <MaskUp f={f} at={40}>
           <span style={{ display: "block", fontSize: 64, fontWeight: 800, color: C.ink, letterSpacing: "-0.035em" }}>
-            Claude Kit Mentorados
+            Seu Produto
           </span>
         </MaskUp>
         <br />
         <MaskUp f={f} at={45}>
           <span style={{ display: "block", fontSize: 40, fontWeight: 600, color: C.dim, marginTop: 6 }}>
-            atualizado para o Opus 5.5
+            a frase que fecha o vídeo
           </span>
         </MaskUp>
       </div>
@@ -989,7 +961,7 @@ export const Outro: React.FC = () => {
             opacity: pill,
           }}
         >
-          Atualize seu plugin →
+          Teste grátis →
         </div>
       </div>
       <div
@@ -1004,7 +976,7 @@ export const Outro: React.FC = () => {
           opacity: ip(f, [64, 74], [0, 1]),
         }}
       >
-        /plugin update kit-vamoo
+        seuproduto.com.br
       </div>
     </Bg>
   );

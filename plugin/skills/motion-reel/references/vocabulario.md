@@ -13,7 +13,7 @@ copiando e mudando o texto, não reescrevendo do zero.
 | `Counter` | inteiro interpolado até o valor, formatado em pt-BR (`2.700`), largura reservada | contagem, porcentagem, horas |
 | `Odometer` | dígitos rolam em coluna até o valor; `spins` = voltas extras | versão ou código (`5.5`); em contagem o meio passa do alvo |
 | `hollow(cor, px, fundo)` | texto vazado (`-webkit-text-stroke` + `paint-order`); `fundo` = cor sólida atrás do texto | a ênfase de título da casa (nunca itálico/cor) |
-| `lemniscatePath` / `lemniscatePoint` | o infinito em SVG, para `evolvePath` desenhar | motivo do exemplo em movimento; troque pelo traço da sua marca (o logo que fica é sempre o PNG) |
+| `MarkIn` | o símbolo da marca (`public/marca.png`, o `MOTION_MARK` do `new.sh`) entra com escala e opacidade; caixa fixa com `objectFit: contain`, então qualquer proporção cabe sem esticar; `out` faz sair | abertura e assinatura: é o que a `Intro`, o `Outro`, o `title` e o `outro` usam |
 | `shake(f, at, amp, dur)` | tremor que decai | impacto de palavra única |
 | `Bg` | fundo + fonte | raiz de toda cena |
 
@@ -21,7 +21,7 @@ copiando e mudando o texto, não reescrevendo do zero.
 
 | Cena | Técnica | Reuso típico |
 |---|---|---|
-| `Intro` | partículas (`random(seed)`) convergem para um traço que se desenha → cross para o logo PNG → mergulho de câmera no cruzamento | abertura de marca |
+| `Intro` | partículas (`random(seed)`) convergem para um anel → o símbolo (`MarkIn`) entra com escala → mergulho de câmera no centro | abertura de marca |
 | `Grande` | palavra única, letras caem em stagger com escala + blur | 1 palavra de impacto (≤ 7 letras em 226px) |
 | `Marquee` (`Atualizacao`, `Performar`) | faixas diagonais de texto vazado correndo em sentidos opostos + tarja sólida central | palavra-tema que precisa "encher a tela" |
 | `Mosaic` + `Title` | grade 3D de cards (câmera recua, inclina, volta) → **match cut**: o card central abre até virar a tela | nome de produto/oferta |
@@ -31,7 +31,9 @@ copiando e mudando o texto, não reescrevendo do zero.
 | `Credit` | número + barra-pílula que enche + frase em palavras staggered | porcentagem, consumo, meta |
 | `Voce` | smash: flash azul, palavra gigante com blur que assenta, ondas de choque, tremor | clímax depois de uma pausa na música |
 | `NoUsoDoClaude` | 3 linhas em máscara, última vazada, sublinhado que se desenha | fechamento da frase principal |
-| `Outro` | infinito se desenha → logo PNG revelado por `clipPath` → nome, subtítulo, pílula preta de CTA, comando em mono | assinatura + CTA |
+| `Outro` | símbolo (`MarkIn`) entra com escala → logo PNG revelado por `clipPath` → nome, subtítulo, pílula preta de CTA, endereço em mono | assinatura + CTA |
+
+No `timeline.json`, a cena `intro` ou `outro` aceita `"symbol": false` (ex.: `{"id": "outro", "cut": 885, "in": "ink", "d": 16, "symbol": false}`): a `Intro` fica só com o anel e o nome, o `Outro` começa direto pelo logo. Sem a chave, o símbolo aparece.
 
 ## Film: cenas responsivas (`film-scenes.tsx`, 16:9 e 9:16)
 
@@ -42,13 +44,13 @@ Escolha pelo `type` no `film.json`; os textos vão em `props`. Toda cena anima e
 |---|---|---|
 | `desk` | Claude Code Desktop: pedido digitado antes do corte, enviado, "Trabalhando…", card de arquivos editados, resposta com ✓ no meio da 1ª fala; câmera empurra devagar | `kicker?`, `session?`, `prompt`, `working?`, `files?` `[[arquivo, linhas]]`, `reply` |
 | `statement` | frases em máscara, um grupo por fala; o grupo sai quando o próximo entra; última linha vazada | `bg` (`night`/`paper`), `groups` `[{beat, frac?, lines, hollowLast?}]` |
-| `title` | infinito se desenha, letras caem com escala, tremor no corte, inclinação 3D que assenta; subtítulo e pílula na 2ª fala | `line1`, `line2` (vazada), `sub?`, `pill?`, `symbol?` (false tira o traço) |
+| `title` | o símbolo (`MarkIn`) entra com escala acima do título, letras caem com escala, tremor no corte, inclinação 3D que assenta; subtítulo e pílula na 2ª fala | `line1`, `line2` (vazada), `sub?`, `pill?`, `symbol?` (padrão `true`; `false` tira o símbolo e centraliza o título) |
 | `numbers` | um `Counter` por fala; os anteriores esmaecem (linha no 16:9, coluna no 9:16) | `items` `[{v, label}]` |
 | `commands` | comandos digitados um a um no Desktop, cada um com resposta ✓; selo na 2ª fala | `line1`, `line2`, `cmds` `[{cmd, reply}]`, `badge?`, `session?` |
 | `chapter` | número gigante vazado gira em Y, nome em máscara, linha que varre | `n`, `name`, `count?`, `label?` |
 | `card` | item de uma série: nome + o que faz + "antes" riscado + selo de prova; janela do Desktop em 3D com o comando e um motif; régua de progresso embaixo | `n`, `total`, `kicker?`, `name`, `line`, `before?`, `beforeLabel?`, `solved?`, `proof?`, `cmd?`, `motif?`, `dark?`, `session?` |
 | `cta` | duas frentes (pergunta + pílula), a 2ª na 2ª fala; comandos em mono embaixo | `q1`, `pill1`, `q2?`, `pill2?`, `cmds?` |
-| `outro` | infinito → logo PNG revelado por `clipPath` → nome e subtítulo; fade no fim | `name`, `sub?`, `logo?` (padrão `logo-dark.png`) |
+| `outro` | símbolo (`MarkIn`) → logo PNG revelado por `clipPath` → nome e subtítulo; fade no fim | `name`, `sub?`, `logo?` (padrão `logo-dark.png`), `symbol?` (padrão `true`; `false` começa direto pelo logo) |
 
 Utilitários exportados para cena nova: `useL()` (W, H, `v` = vertical, guia `l r t b`), `bt`,
 `first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura de todas: `Breathe` (zoom de
