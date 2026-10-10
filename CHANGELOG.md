@@ -13,6 +13,25 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.49.0] — 2026-10-10
+
+### Mudado
+
+- **motion-reel: o `final.sh` confere o MP4 entregue, não a prévia.** Até a 0.48.0 a folha de
+  contato só saía da prévia a 50% do `qa.sh`, e o loudness do final era impresso sem
+  consequência. Agora, depois do render, ele grava `out/<nome>-folha.jpg` (2 fps, numa folha
+  só) e `out/<nome>-loudness.txt` (integrado, pico verdadeiro, segundos mais altos e mais
+  baixos, o segundo do pico e a lista segundo a segundo) e **sai com exit 1** se o integrado
+  ficar fora de −14 ±1 LUFS ou o pico passar de −1 dBTP, dizendo o que ajustar no mix. O
+  `-leve.mp4` só sai quando o principal passa. `final.sh --verificar <arquivo.mp4>` roda só
+  essa conferência, sem renderizar.
+- **motion-reel: relatório de entrega com fatos e fontes.** O passo 8 da skill pede cada
+  número, nome ou afirmação da tela com a fonte (URL ou material da pessoa), as decisões
+  (paleta, presets, ritmo, voz), o que não foi verificado ("áudio não ouvido" sempre entra) e
+  a folha e o loudness do final. Número sem fonte não entra no vídeo.
+- Teste novo: `tests/test-motion-reel-final-verificar.sh` (MP4 sintético a −14 passa, a −20
+  reprova, com pico acima de −1 reprova).
+
 ## [0.48.0] — 2026-10-10
 
 ### Mudado

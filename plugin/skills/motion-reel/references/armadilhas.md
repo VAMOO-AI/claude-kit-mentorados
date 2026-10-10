@@ -37,7 +37,7 @@
 | Download da voz dá 403 | a URL assinada do ElevenLabs (`media[].url` do conector) **expira em 2 h** | baixe com `dl.sh` assim que a geração termina; vencida, gere o bloco de novo |
 | Fala cortada no meio ou duas falas num WAV | `[long pause]` curto demais, ou bloco com falas muito desiguais | confira a tabela do `split-vo.py`; marque mais as pausas ou divida o bloco |
 | Pronúncia errada de nome em inglês ("Claude") | o TTS lê com fonética do inglês | `say` no `blocks.json` ("Claude" → "Cláudi"), só no áudio |
-| Volume muito diferente de outros vídeos da plataforma | mix sem normalização; `loudnorm` numa passada só é dinâmico e erra ~1 LU (−12,9 LUFS medido numa trilha sem voz) | `final.sh` mede e aplica em duas passadas (`linear=true`), alvo I=−14 LUFS, TP=−1 dBTP; confira o `I:` que ele imprime |
+| Volume muito diferente de outros vídeos da plataforma | mix sem normalização; `loudnorm` numa passada só é dinâmico e erra ~1 LU (−12,9 LUFS medido numa trilha sem voz) | `final.sh` mede e aplica em duas passadas (`linear=true`), alvo I=−14 LUFS, TP=−1 dBTP; depois mede o MP4 entregue e sai com exit 1 se o integrado ficar fora de −14 ±1 ou o pico passar de −1 (`out/<nome>-loudness.txt` aponta o segundo do pico) |
 | Vídeo não chega no celular/web pelo envio de arquivo | o envio de arquivo (SendUserFile) tem teto de **30 MB** | o `final.sh` gera `<nome>-leve.mp4` (metade da resolução) quando passa de 30 MB; mande o leve e diga onde está o completo |
 
 ## Coisas que não foram verificadas
