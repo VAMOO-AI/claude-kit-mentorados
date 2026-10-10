@@ -6,7 +6,7 @@ import { SLOTS } from "./timeline";
 import { presentation } from "./transitions";
 import * as S from "./scenes";
 
-const SCENES: Record<string, React.FC> = {
+const SCENES: Record<string, React.FC<{ symbol?: boolean }>> = {
   intro: S.Intro,
   grande: S.Grande,
   atualizacao: S.Atualizacao,
@@ -54,7 +54,7 @@ export const Reel: React.FC<{ withAudio?: boolean }> = ({ withAudio = true }) =>
       <TransitionSeries.Sequence key={slot.id} durationInFrames={slot.dur} name={slot.id}>
         <LeadCtx.Provider value={slot.lead}>
           <Breathe dur={slot.dur} on={slot.id !== "mosaic" && slot.id !== "title"}>
-            <Scene />
+            <Scene symbol={slot.symbol} />
           </Breathe>
         </LeadCtx.Provider>
       </TransitionSeries.Sequence>,

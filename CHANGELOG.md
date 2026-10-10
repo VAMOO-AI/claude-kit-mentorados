@@ -13,6 +13,25 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.47.5] — 2026-10-10
+
+### Corrigido
+
+- **`motion-reel`: nenhuma peça gerada pelo kit mostra mais a marca do mantenedor.** A `Intro`
+  do Reel e o `title`/`outro` do Film desenhavam em SVG o infinito azul da VAMOO AI, e o
+  `Outro` do Reel fechava com `/plugin update kit-vamoo`. Abertura e assinatura agora usam o
+  símbolo de quem cria o projeto (`public/marca.png`, o `MOTION_MARK` do `new.sh`), que entra
+  com escala numa caixa com `objectFit: contain` (qualquer proporção, sem esticar), pela
+  primitiva nova `MarkIn`. `"symbol": false` tira o símbolo da cena: no `timeline.json` (Reel,
+  `intro`/`outro`) e nas `props` do `film.json` (Film, `title`/`outro`). O logo do `Outro`
+  do Reel deixou de supor a proporção do placeholder. Teste novo:
+  `tests/test-motion-reel-sem-marca.sh`.
+- **`motion-reel`: narração sem custo documentada.** Saiu a seção com a voz e o roteiro de uso
+  do mantenedor (e o `voice_id` dele no `blocks.json`, que vira `COLE_O_VOICE_ID`). O
+  `references/narracao.md` traz três caminhos: a própria voz gravada e cortada pelo
+  `split-vo.py`, o `say` do macOS com a voz pt-BR detectada por `say -v '?'`, e o ElevenLabs
+  como opção paga, com o total de caracteres dito ao dono antes de gerar.
+
 ## [0.47.4] — 2026-10-07
 
 ### Corrigido

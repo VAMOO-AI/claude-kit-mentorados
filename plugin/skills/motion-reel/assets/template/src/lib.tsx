@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Easing,
+  Img,
   continueRender,
   delayRender,
   interpolate,
@@ -9,7 +10,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 
-// Paleta do exemplo (identidade VAMOO AI). Troque pela sua marca; azul sobre --night usa a variante clara.
+// Paleta do exemplo. Troque pela sua marca; azul sobre --night usa a variante clara.
 // Nome da marca nas cenas (Intro). Os logos são public/logo-light.png, logo-dark.png e marca.png.
 export const BRAND = "Sua Marca";
 
@@ -103,22 +104,37 @@ export const MaskUp: React.FC<{
   );
 };
 
-// Lemniscata de Bernoulli — o motivo do infinito em movimento (o logo real é o PNG).
-export const lemniscatePath = (a: number, cx: number, cy: number, n = 240) => {
-  const pts: string[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = (i / n) * Math.PI * 2;
-    const d = 1 + Math.sin(t) ** 2;
-    const x = cx + (a * Math.cos(t)) / d;
-    const y = cy + (a * Math.sin(t) * Math.cos(t)) / d;
-    pts.push(`${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`);
-  }
-  return pts.join(" ");
-};
-
-export const lemniscatePoint = (a: number, t: number) => {
-  const d = 1 + Math.sin(t) ** 2;
-  return { x: (a * Math.cos(t)) / d, y: (a * Math.sin(t) * Math.cos(t)) / d };
+// Símbolo da marca (public/marca.png, o MOTION_MARK do new.sh) entrando com escala e opacidade.
+// Caixa fixa w×h centrada em (cx, cy) com objectFit contain: qualquer proporção cabe sem esticar.
+// at = frame em que a entrada começa; dur = duração da entrada; out = [início, fim] da saída.
+export const MarkIn: React.FC<{
+  f: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  at?: number;
+  dur?: number;
+  from?: number;
+  out?: [number, number];
+}> = ({ f, cx, cy, w, h, at = 0, dur = 18, from = 0.6, out }) => {
+  const t = ip(f, [at, at + dur], [0, 1]);
+  const o = ip(f, [at, at + dur * 0.6], [0, 1]) * (out ? ip(f, out, [1, 0]) : 1);
+  return (
+    <Img
+      src={staticFile("marca.png")}
+      style={{
+        position: "absolute",
+        left: cx - w / 2,
+        top: cy - h / 2,
+        width: w,
+        height: h,
+        objectFit: "contain",
+        opacity: o,
+        transform: `scale(${from + (1 - from) * t})`,
+      }}
+    />
+  );
 };
 
 // Contador: inteiro interpolado até o alvo, formatado em pt-BR ("2.700"). O alvo invisível

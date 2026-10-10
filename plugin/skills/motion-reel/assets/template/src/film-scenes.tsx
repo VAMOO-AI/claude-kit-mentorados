@@ -6,10 +6,9 @@
 // pontos em scripts/track_cinema.py (SFX_BY_TYPE) ou use "cues" no film.json.
 import React from "react";
 import { AbsoluteFill, Img, staticFile, useVideoConfig } from "remotion";
-import { evolvePath } from "@remotion/paths";
 import { Motif } from "./motifs";
 import { AsstText, Composer, D, Desk, EditCard, UserMsg, Working, fadeIn, typing } from "./desktop";
-import { Bg, C, Counter, EASE_INOUT, MONO, MaskUp, hollow, ip, lemniscatePath, shake, useF } from "./lib";
+import { Bg, C, Counter, EASE_INOUT, MONO, MarkIn, MaskUp, hollow, ip, shake, useF } from "./lib";
 
 /* ───────────────────────── tipos e utilitários ───────────────────────── */
 
@@ -94,17 +93,15 @@ export const Statement: React.FC<SP> = (p) => {
   );
 };
 
-/* ───────────────────────── título (impacto + tremor + traço que se desenha) ───────────────────────── */
-// props: line1, line2 (vazada), sub?, pill? (entram na 2ª fala), symbol? (false tira o infinito)
+/* ───────────────────────── título (impacto + tremor + símbolo da marca) ───────────────────────── */
+// props: line1, line2 (vazada), sub?, pill? (entram na 2ª fala), symbol? (false tira o símbolo,
+// o public/marca.png, que entra com escala acima do título)
 export const Title: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
   const sh = shake(f, 0, 26, 14);
-  const a = L.v ? 150 : 170;
   const cx = L.W / 2;
   const cy = L.v ? 640 : 250;
-  const path = lemniscatePath(a, cx, cy);
-  const draw = evolvePath(ip(f, [-8, 26], [0, 1], EASE_INOUT), path);
   const w1: string = p.line1 ?? "";
   const w2: string = p.line2 ?? "";
   const fs = fit([w1, w2], L.W - L.l - L.r, L.v ? 170 : 196, 0.62);
@@ -122,11 +119,7 @@ export const Title: React.FC<SP> = (p) => {
   return (
     <Bg color={C.night}>
       <AbsoluteFill style={{ transform: `translate(${sh.x}px, ${sh.y}px)` }}>
-        {p.symbol !== false ? (
-          <svg width={L.W} height={L.H} style={{ position: "absolute" }}>
-            <path d={path} fill="none" stroke={C.brandOnDark} strokeWidth={18} strokeLinecap="round" strokeDasharray={draw.strokeDasharray} strokeDashoffset={draw.strokeDashoffset} />
-          </svg>
-        ) : null}
+        {p.symbol !== false ? <MarkIn f={f} cx={cx} cy={cy} w={L.v ? 360 : 400} h={L.v ? 220 : 190} at={-8} dur={22} /> : null}
         <AbsoluteFill style={{ perspective: 1400, alignItems: "center", justifyContent: "center", paddingTop: p.symbol !== false ? (L.v ? 260 : 210) : 0 }}>
           <div style={{ transform: `rotateX(${tilt}deg)`, textAlign: "center" }}>
             <div style={{ display: "flex", justifyContent: "center" }}>{letters(w1, 2, () => ({ color: C.white }))}</div>
@@ -434,27 +427,24 @@ export const Cta: React.FC<SP> = (p) => {
   );
 };
 
-/* ───────────────────────── assinatura: traço → logo PNG → nome ───────────────────────── */
-// props: name, sub?, logo? (default "logo-dark.png", em public/). O logo é sempre o PNG da marca,
-// sem esticar: a largura manda e a altura segue a proporção do arquivo.
+/* ───────────────────────── assinatura: símbolo → logo PNG → nome ───────────────────────── */
+// props: name, sub?, logo? (default "logo-dark.png", em public/), symbol? (false começa direto pelo
+// logo). O símbolo é o public/marca.png; o logo é sempre o PNG da marca, sem esticar: a largura
+// manda e a altura segue a proporção do arquivo.
 export const Outro: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
-  const a = L.v ? 190 : 200;
   const cx = L.W / 2;
   const cy = L.v ? 800 : 420;
-  const path = lemniscatePath(a, cx, cy);
-  const draw = evolvePath(ip(f, [-6, 26], [0, 1], EASE_INOUT), path);
-  const swap = ip(f, [24, 32], [0, 1]);
+  const symbol = p.symbol !== false;
   const logoW = L.v ? 760 : 900;
-  const wipe = ip(f, [26, 48], [0, 100], EASE_INOUT);
+  // Sem símbolo, o logo já começa a aparecer no corte (nunca tela vazia na transição).
+  const wipe = symbol ? ip(f, [26, 48], [0, 100], EASE_INOUT) : ip(f, [-6, 20], [0, 100], EASE_INOUT);
   const fade = ip(f, [p.len - 24, p.len], [1, 0]);
   return (
     <Bg color={C.night}>
       <AbsoluteFill style={{ opacity: fade }}>
-        <svg width={L.W} height={L.H} style={{ position: "absolute", opacity: 1 - swap }}>
-          <path d={path} fill="none" stroke={C.brandOnDark} strokeWidth={22} strokeLinecap="round" strokeDasharray={draw.strokeDasharray} strokeDashoffset={draw.strokeDashoffset} />
-        </svg>
+        {symbol ? <MarkIn f={f} cx={cx} cy={cy} w={L.v ? 480 : 520} h={L.v ? 340 : 300} at={-6} dur={22} out={[24, 32]} /> : null}
         <div style={{ position: "absolute", left: 0, right: 0, top: cy, display: "flex", justifyContent: "center", transform: "translateY(-50%)" }}>
           <div style={{ width: logoW, clipPath: `inset(0 ${100 - wipe}% 0 0)` }}>
             <Img src={staticFile(p.logo ?? "logo-dark.png")} style={{ width: logoW, display: "block" }} />

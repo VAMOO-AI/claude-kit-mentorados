@@ -204,6 +204,9 @@ jobs:
         # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
         run: bash tests/test-skill-sem-injecao.sh
 
+      - name: A motion-reel não carrega marca de terceiro e abre/fecha com o marca.png da pessoa
+        run: bash tests/test-motion-reel-sem-marca.sh
+
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
         # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo
