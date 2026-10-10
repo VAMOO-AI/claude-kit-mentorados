@@ -7,6 +7,9 @@ description: >-
   OrbStack. Primeiro um inventário que não apaga nada; o SHA de cada branch vai para um
   ledger antes de apagar. Só manual: "/kit-vamoo:limpeza-mac".
 disable-model-invocation: true
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/inventario.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/inventario.sh *)'
 ---
 
 # Limpeza do Mac

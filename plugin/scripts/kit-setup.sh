@@ -23,7 +23,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.47.4"
+KIT_VERSION="0.48.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -261,6 +261,10 @@ rotaciona_backups
 
 echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
+say "Modo de permissão: quem estava no Manual passa para \"Accept edits\" (acceptEdits) — edita e roda o comando comum sem pedir; force push, reset --hard e afins continuam pedindo. auto, bypass e plan ficam."
+say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o settings.json e é lembrado por pasta:"
+say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Accept edits\" em cada pasta onde escolheu Manual."
+say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"
 if [ "$INSTALOU_CLAUDE" -eq 1 ]; then

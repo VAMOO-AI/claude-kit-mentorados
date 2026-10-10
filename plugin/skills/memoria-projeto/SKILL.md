@@ -7,6 +7,11 @@ description: >-
   num projeto e em "/memoria-projeto", "liga a memória deste projeto", "o Claude
   esquece o que aprendeu", "troquei de computador e perdi o contexto", "essa
   memória está no repo?".
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoria-indice.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/memoria-indice.sh *)'
 ---
 
 # Memória do projeto dentro do repositório

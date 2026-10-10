@@ -13,6 +13,44 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.48.0] — 2026-10-10
+
+### Mudado
+
+- **`/kit-vamoo:setup` deixa todo mentorado em Accept edits (`acceptEdits`).** Até a 0.47.x o
+  `merge-settings.js` só avisava quem estava no Manual (`default`) e mantinha o modo. Agora
+  Manual ou modo ausente viram `acceptEdits`, com uma linha dizendo o que mudou e como voltar.
+  `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam. Quem quer o Manual de vez cria
+  `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais (o marcador sai da pasta do
+  `settings.json`). Continua idempotente: a segunda passada não troca nem anuncia nada.
+- **Allow novo (sintaxe ` *`):** `git add`, `git commit`, `git switch -c`, `git checkout -b`,
+  `git fetch`, `git pull --ff-only`, `git stash list`, `git worktree list`, `git push`,
+  `gh pr create`, `ffmpeg`, `ffprobe`, `node scripts/*`, `bash scripts/*`, `python3 scripts/*`
+  e `npx remotion`. Nada de `Bash(*)`, `node *` ou `python3 *` genérico: `node -e` continua
+  pedindo. Os allow antigos em `:*` ficam.
+- **`ask` explícito**, que vale mesmo onde o hook não roda (Windows sem bash): `git push` com
+  `--force`/`-f` em qualquer posição, `+refspec`, `--mirror`, `--delete`/`-d`, push para
+  `main`/`master`, `git reset --hard`, `git clean`, `git branch -D`, `git checkout -- `/`.`,
+  `git stash drop`/`clear`, `git worktree remove --force`, `gh pr merge`, `gh repo delete`,
+  `gh release delete` e, no PowerShell, `Remove-Item -Recurse`/`-r`. `--force-with-lease`
+  segue livre. `rm -rf .next` e afins continuam livres no Bash (o `acceptEdits` aprova `rm` no
+  projeto); no PowerShell o `Remove-Item -Recurse` pergunta sempre, porque lá não há hook que
+  separe pasta descartável.
+- **PowerShell:** espelho em `PowerShell(...)` de todo deny e ask de Bash e dos allow que se
+  escrevem igual (git, gh, npm, npx, bun, pnpm), mais os nomes nativos (`Get-ChildItem`,
+  `Get-Content`, `Select-String`…). No Windows com Git, deny só de `Bash(...)` desligava a
+  ferramenta PowerShell sem aviso; com as regras `PowerShell(...)` ela volta a ficar ligada.
+- **Hooks:** o `pre-bash.sh` passa a casar `Bash|PowerShell` (commit em main, push --force, troca
+  de branch no clone compartilhado e merge com branch-filha valem no PowerShell). O
+  `block-cd-leitura-relativa` fica só no Bash. O `repo-session` do PostToolUse também vê o
+  PowerShell.
+- **Skills e `/kit-vamoo:atalhos`:** `allowed-tools` com os scripts que cada uma manda rodar
+  (`baseline`, `auditoria-seguranca`, `gerar-imagem`, `git-sync`, `harness-check`, `limpeza-mac`
+  só o inventário, `memoria-projeto`, `setup`, `skills-projeto`, `worktrees`). O que apaga
+  (`git-sync --cleanup-apply`, `limpeza-mac/aplicar.sh`) continua pedindo.
+- **Desktop:** o setup e o README explicam que o seletor de modo vence o `settings.json` e é
+  lembrado por pasta: se mostrar **Manual** (ou **Ask permissions**), troque para **Accept edits**.
+
 ## [0.47.4] — 2026-10-07
 
 ### Corrigido

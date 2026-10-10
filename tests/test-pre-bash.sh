@@ -137,6 +137,41 @@ for par in 'block-main-commit.sh|commit' 'block-parallel-clone-switch.sh|checkou
 done
 
 echo
+echo "== PowerShell (0.48.0): git e gh com a mesma proteção; sintaxe de bash não =="
+# Regra e hook de `Bash` não veem o comando que o Claude roda pelo PowerShell
+# (code.claude.com/docs/en/tools-reference#powershell-tool: "Match `Bash|PowerShell` in hooks
+# that inspect shell commands"). O comando chega no mesmo `tool_input.command`.
+matcher_de() { # matcher_de <evento> <trecho-do-comando>
+  node -e '
+const [arq, ev, trecho] = process.argv.slice(1)
+const g = (require(arq).hooks[ev] || []).find((x) => (x.hooks || []).some((h) => h.command.includes(trecho)))
+console.log(g ? g.matcher : "")' "$HOOKS_DIR/hooks.json" "$1" "$2"
+}
+m="$(matcher_de PreToolUse pre-bash.sh)"
+case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o pre-bash.sh casa PowerShell ($m)" ;; *) falha "hooks.json: o pre-bash.sh não casa PowerShell (matcher: $m)" ;; esac
+case "|$m|" in *'|Bash|'*) ok "hooks.json: e continua casando Bash" ;; *) falha "hooks.json: o pre-bash.sh perdeu o Bash (matcher: $m)" ;; esac
+m="$(matcher_de PostToolUse 'repo-session.sh')"
+case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o repo-session (sessão ativa no clone) vê PowerShell" ;; *) falha "hooks.json: repo-session não vê PowerShell (matcher: $m)" ;; esac
+roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
+  C="$1" D="$2" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
+    | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
+  echo $?
+}
+rc=$(roda_ps "$COMMIT" "$MAIN");  espera_rc 2 "$rc" "PowerShell: git commit em main bloqueia"
+rc=$(roda_ps "$COMMIT" "$FEAT");  espera_rc 0 "$rc" "PowerShell: git commit em feature passa"
+rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push --force pede confirmação"
+rc=$(roda_ps 'git push --force-with-lease origin feat/x' "$FEAT"); espera_rc 0 "$rc" "PowerShell: --force-with-lease sai 0"
+[ -s "$TMP/out" ] && falha "PowerShell: --force-with-lease interrompido: $(cat "$TMP/out")" || ok "PowerShell: --force-with-lease segue sem perguntar"
+rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push comum interrompido: $(cat "$TMP/out")" || ok "PowerShell: git push comum passa em silêncio"
+rc=$(C='git checkout main' D="$CLONE" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"default",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
+  | HOME="$HOME_OUTRA" TMPDIR="$TMP" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; echo $?)
+espera_rc 2 "$rc" "PowerShell: checkout no clone com outra sessão ativa bloqueia"
+rc=$(roda_ps 'cd C:/proj/app; cat package.json' "$FEAT")
+espera_rc 0 "$rc" "PowerShell: cd + leitura relativa não cai no block-cd-leitura-relativa (é regra do bash)"
+rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
+espera_rc 2 "$rc" "Bash: o mesmo cd + leitura continua bloqueado (controle)"
+
+echo
 echo "== fail-open =="
 rc=$(printf '' | bash "$HOOK" >/dev/null 2>&1; echo $?)
 espera_rc 0 "$rc" "payload vazio sai 0"

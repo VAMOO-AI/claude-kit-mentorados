@@ -138,6 +138,27 @@ Depois **reinicie o Claude Code**. Não é só pela barra: a sessão aberta come
 com as configurações antigas, então idioma, permissões e barra de status só
 valem no próximo start.
 
+### Modo de permissão: Accept edits
+
+O setup deixa você em **Accept edits** (`acceptEdits`), inclusive se você estava no
+Manual: o Claude edita arquivo e roda o comando do dia a dia (git local, `git push`,
+`gh pr create`, `npm run`, `ffmpeg`, `node scripts/…`) sem pedir "Permitir". Continua
+pedindo o que não tem volta: `git push --force`, push direto na main, `git reset --hard`,
+`git clean`, `git branch -D`, `gh pr merge`, `gh repo delete` e, no Windows,
+`Remove-Item -Recurse`. As regras valem no Bash e no PowerShell, e os bloqueios de
+segredo (`.env`, chave SSH) e de login do Supabase/Vercel continuam em todo modo.
+Se você já usa `auto`, `bypassPermissions`, `plan` ou `dontAsk`, o setup não mexe.
+
+- **App de desktop:** o seletor de modo ao lado do botão de enviar vence o
+  `settings.json` e é lembrado por pasta. Se ele mostrar **Manual** (ou **Ask
+  permissions**, em versão antiga do app), troque uma vez para **Accept edits** em
+  cada pasta onde você tinha escolhido Manual.
+- **Quer o Manual de vez?** Crie o arquivo `~/.claude/kit-vamoo/manter-modo-manual`
+  (`mkdir -p ~/.claude/kit-vamoo && touch ~/.claude/kit-vamoo/manter-modo-manual`; no
+  PowerShell, `New-Item -Force ~/.claude/kit-vamoo/manter-modo-manual`) e ponha
+  `permissions.defaultMode` em `"default"`. Com o arquivo lá, o setup não troca mais.
+- Um `defaultMode` no `.claude/settings.json` de um projeto vence o seu nessa pasta.
+
 > **Instalou o kit antes de 24/08/2026, pelo `install.sh`?** Você precisa de um passo a
 > mais, senão fica com cada skill duas vezes — a cópia velha em `~/.claude/skills/` e a
 > nova do plugin, com o mesmo nome. O `/kit-vamoo:setup` limpa isso sozinho, mas vale ler

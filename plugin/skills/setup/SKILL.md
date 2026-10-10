@@ -7,6 +7,11 @@ description: >-
   CLAUDE.md com os dados de quem está instalando. Use em "/kit-vamoo:setup",
   "terminar de instalar o kit", "configurar o kit", "instalei o plugin e agora?",
   "a barra de status não apareceu", "o kit não está pegando as regras".
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh" --check *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh --check *)'
 ---
 
 # Terminar a instalação do kit
@@ -58,6 +63,18 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
+- **O modo de permissão vira "Accept edits" (`acceptEdits`).** Quem estava no
+  Manual (`default`) ou sem modo passa para `acceptEdits`, e a saída diz isso numa
+  linha. `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam como
+  estão. Junto vêm allow de git local, `git push`, `gh pr create`, `ffmpeg` e scripts
+  do projeto, e `ask` para o que não tem volta (force push, push na main,
+  `reset --hard`, `git clean`, `branch -D`, `gh pr merge`), com espelho em
+  `PowerShell(...)` para o Windows. Quem quer o manual de vez cria
+  `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais.
+- **No app de desktop, o seletor vence o arquivo.** O modo escolhido no seletor ao
+  lado do botão de enviar é lembrado por pasta e ganha do `defaultMode`. Se ele
+  mostrar **Manual** (ou **Ask permissions**, em versão antiga), diga à pessoa para
+  trocar uma vez para **Accept edits** em cada pasta onde escolheu Manual.
 - **O setup liga o auto-update do kit** (`extraKnownMarketplaces.vamoo-ai.autoUpdate`).
   É o que faz o kit parar de envelhecer na máquina de quem instalou: o Claude
   Code desliga a atualização automática de marketplace de terceiro por padrão, e

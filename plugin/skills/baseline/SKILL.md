@@ -6,6 +6,15 @@ description: >-
   segredos, perímetro. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
   produção está apto?). Use em "está pronto pra prod", "auditar produção",
   "hardening", "app novo do zero", "baseline".
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'
+  - 'Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" *)'
+  - 'Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs *)'
 ---
 
 # baseline — Ambiente e Segurança
