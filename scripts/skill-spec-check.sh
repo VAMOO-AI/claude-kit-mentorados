@@ -61,8 +61,11 @@ if [ -z "$bin" ]; then
 fi
 
 # --emit-annotations só faz sentido dentro do Actions; fora dele é ruído no terminal.
-FLAGS=(check -o compact)
-[ -n "${GITHUB_ACTIONS:-}" ] && FLAGS=(check -o compact --emit-annotations)
+# --skip links: o gate é de spec (frontmatter que parseia). Link externo vivo é revisão,
+# não spec, e o github.com responde 503 ao runner do Actions em ondas — em 10/10/2026 o
+# mesmo PR ficou vermelho em três reruns por três links de docs/ que abriam normalmente.
+FLAGS=(check -o compact --skip links)
+[ -n "${GITHUB_ACTIONS:-}" ] && FLAGS=(check -o compact --skip links --emit-annotations)
 
 falhas=0
 for alvo in "${ALVOS[@]}"; do

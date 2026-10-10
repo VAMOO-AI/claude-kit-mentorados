@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Cria um projeto motion-reel novo: copia o template, os assets, instala e gera as trilhas.
-# Uso: new.sh <pasta-destino>
+# Uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta-destino>
+# As flags valem o mesmo que MOTION_LOGO_LIGHT / MOTION_LOGO_DARK / MOTION_MARK e têm prioridade;
+# prefira as flags: a pré-aprovação da skill (allowed-tools) não casa com VAR=... antes do comando.
 # Fonte (Plus Jakarta Sans, OFL) e os 7 SFX vêm empacotados na skill. Os logos padrão são
 # placeholders "SUA MARCA": aponte os seus com MOTION_LOGO_LIGHT (para fundo claro),
 # MOTION_LOGO_DARK (para fundo escuro) e MOTION_MARK (símbolo). MOTION_FONT e MOTION_SFX_DIR
@@ -9,7 +11,17 @@
 # Master169/Reel916 (Film de exemplo, sem narração ainda: durações estimadas pelo texto).
 set -euo pipefail
 SK="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="${1:?uso: new.sh <pasta-destino>}"
+USO="uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta-destino>"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --logo-light) MOTION_LOGO_LIGHT="${2:?$USO}"; shift 2 ;;
+    --logo-dark) MOTION_LOGO_DARK="${2:?$USO}"; shift 2 ;;
+    --mark) MOTION_MARK="${2:?$USO}"; shift 2 ;;
+    -*) echo "!! opção desconhecida: $1 ($USO)"; exit 1 ;;
+    *) break ;;
+  esac
+done
+DEST="${1:?$USO}"
 [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ] && { echo "!! $DEST já existe e não está vazia"; exit 1; }
 
 FONT="${MOTION_FONT:-$SK/assets/fonts/PlusJakartaSans.ttf}"
@@ -32,7 +44,7 @@ cp "$LIGHT" "$DEST/public/logo-light.png"
 cp "$DARK" "$DEST/public/logo-dark.png"
 cp "$MARK" "$DEST/public/marca.png"
 cp "$SFXD"/*.wav "$DEST/public/sfx/"
-[ -z "${MOTION_LOGO_LIGHT:-}" ] && echo "aviso: logos são placeholders \"SUA MARCA\"; defina MOTION_LOGO_LIGHT, MOTION_LOGO_DARK e MOTION_MARK ou troque os PNG em $DEST/public/"
+[ -z "${MOTION_LOGO_LIGHT:-}" ] && echo "aviso: logos são placeholders \"SUA MARCA\"; passe --logo-light, --logo-dark e --mark ou troque os PNG em $DEST/public/"
 
 echo "→ npm ci (Remotion 4.0.484 travado no lockfile)"
 (cd "$DEST" && npm ci --no-audit --no-fund --loglevel=error)
