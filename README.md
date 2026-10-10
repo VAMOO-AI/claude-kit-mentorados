@@ -142,11 +142,15 @@ valem no próximo start.
 
 O setup deixa você em **Accept edits** (`acceptEdits`), inclusive se você estava no
 Manual: o Claude edita arquivo e roda o comando do dia a dia (git local, `git push`,
-`gh pr create`, `npm run`, `ffmpeg`, `node scripts/…`) sem pedir "Permitir". Continua
-pedindo o que não tem volta: `git push --force`, push direto na main, `git reset --hard`,
-`git clean`, `git branch -D`, `gh pr merge`, `gh repo delete` e, no Windows,
-`Remove-Item -Recurse`. As regras valem no Bash e no PowerShell, e os bloqueios de
-segredo (`.env`, chave SSH) e de login do Supabase/Vercel continuam em todo modo.
+`gh pr create`, `npm run`, `ffprobe`) sem pedir "Permitir". Continua
+pedindo o que não tem volta: `git push --force` (em qualquer forma), push na main,
+apagar branch remota, `git reset --hard`, `git clean`, `git branch -D`, descartar
+alteração local (`checkout -f`, `switch --discard-changes`, `restore .`, `stash drop`),
+`gh pr merge`, `gh repo delete`, `rm -r`/`Remove-Item -Recurse` fora das pastas
+descartáveis (`node_modules`, `.next`, `dist`, `build`…), `find -delete`/`-exec`, listar
+as variáveis de ambiente e qualquer comando que cite arquivo de segredo (`.env`, chave
+SSH, `.pem`, credencial de AWS/gh/npm). Vale no Bash e no PowerShell, e os bloqueios de
+login do Supabase/Vercel continuam em todo modo.
 Se você já usa `auto`, `bypassPermissions`, `plan` ou `dontAsk`, o setup não mexe.
 
 - **App de desktop:** o seletor de modo ao lado do botão de enviar vence o
@@ -158,6 +162,16 @@ Se você já usa `auto`, `bypassPermissions`, `plan` ou `dontAsk`, o setup não 
   PowerShell, `New-Item -Force ~/.claude/kit-vamoo/manter-modo-manual`) e ponha
   `permissions.defaultMode` em `"default"`. Com o arquivo lá, o setup não troca mais.
 - Um `defaultMode` no `.claude/settings.json` de um projeto vence o seu nessa pasta.
+- **Windows: instale o [Git para Windows](https://git-scm.com/download/win).** Os
+  guard-rails (commit na main, push forçado, `rm -r` fora das pastas descartáveis, leitura
+  de `.env` e chave SSH por qualquer comando) são scripts bash chamados pelos hooks. Sem o
+  Git Bash o hook falha aberto e nenhuma guarda roda; sobram as regras `ask`/`deny` do
+  `settings.json`, que pegam menos. O `/kit-vamoo:setup` confere e avisa.
+- **Runner de script e `ffmpeg` não são liberados globalmente.** Com `acceptEdits` o Claude
+  pode escrever `scripts/x.py` e rodar em seguida; `ffmpeg` grava fora do projeto e manda
+  saída para `http://`. Projeto que precisa libera o script exato no próprio
+  `.claude/settings.json` (ex.: `"Bash(node scripts/build-sitemap.mjs)"`). O `npm run *`
+  continua liberado: editar o `package.json` e rodar é o risco que sobra.
 
 > **Instalou o kit antes de 24/08/2026, pelo `install.sh`?** Você precisa de um passo a
 > mais, senão fica com cada skill duas vezes — a cópia velha em `~/.claude/skills/` e a

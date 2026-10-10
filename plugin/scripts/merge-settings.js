@@ -87,6 +87,8 @@ if (Object.keys(kitMarkets).length) {
 
 const kitPerms = kit.permissions || {};
 user.permissions = user.permissions || {};
+const allowAntes = [...(user.permissions.allow || [])];
+const askAntes = new Set(user.permissions.ask || []);
 for (const lista of ['allow', 'deny', 'ask']) {
   const meus = user.permissions[lista] || [];
   const vistos = new Set(meus);
@@ -101,6 +103,35 @@ for (const lista of ['allow', 'deny', 'ask']) {
 // deliberadas. Quem quer o manual de vez cria o marcador ao lado do settings.json
 // (~/.claude/kit-vamoo/manter-modo-manual) e o kit não troca mais. O marcador sai de
 // dirname(userPath) para o teste nunca tocar o ~/.claude de verdade.
+// Um `ask` do kit vence o allow que a pessoa escreveu de propósito (ordem deny → ask →
+// allow). Quem tinha `Bash(git push origin main)` ou `Bash(env)` passa a ver pergunta — o
+// setup diz quais, em vez de a pessoa descobrir no meio do trabalho. Mesmo casamento da doc
+// (code.claude.com/docs/en/permissions#wildcard-patterns): `*` é qualquer texto e o ` *`
+// final, quando é o único curinga, casa também o comando sem argumento.
+const casaRegra = (padrao, cmd, semCaixa) => {
+  let p = padrao.endsWith(':*') ? padrao.slice(0, -2) + ' *' : padrao;
+  const esc = (t) => t.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[\\s\\S]*');
+  const so1 = (p.match(/\*/g) || []).length === 1;
+  const re = so1 && p.endsWith(' *') ? '^' + esc(p.slice(0, -2)) + '( [\\s\\S]*)?$' : '^' + esc(p) + '$';
+  return new RegExp(re, semCaixa ? 'i' : '').test(cmd);
+};
+const partes = (r) => { const m = /^([A-Za-z]+)\(([\s\S]*)\)$/.exec(r); return m ? [m[1], m[2]] : null; };
+const asksNovos = (user.permissions.ask || []).filter((r) => !askAntes.has(r));
+const anulados = [];
+for (const r of allowAntes) {
+  const pr = partes(r);
+  if (!pr || (pr[0] !== 'Bash' && pr[0] !== 'PowerShell')) continue;
+  const exemplo = pr[1].replace(/:\*$/, '').replace(/ \*$/, '');
+  if (exemplo.includes('*')) continue;
+  const quem = asksNovos.find((a) => { const pa = partes(a); return pa && pa[0] === pr[0] && casaRegra(pa[1], exemplo, pr[0] === 'PowerShell'); });
+  if (quem) anulados.push(`${r} (agora pergunta por ${quem})`);
+}
+if (anulados.length) {
+  console.log(`  aviso: ${anulados.length} permissão(ões) sua(s) passa(m) a perguntar, porque o kit pôs um ask por cima:`);
+  for (const a of anulados) console.log(`    - ${a}`);
+  console.log('  é de propósito: força push, push na main, descartar alteração e listar segredo têm volta difícil. Pra manter o seu, tire a linha correspondente de permissions.ask.');
+}
+
 const MARCADOR = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-modo-manual');
 const MODOS_MANTIDOS = ['auto', 'bypassPermissions', 'plan', 'dontAsk', 'acceptEdits'];
 const meuModo = user.permissions.defaultMode;

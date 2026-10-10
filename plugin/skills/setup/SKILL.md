@@ -24,6 +24,19 @@ permissões não podem vir num plugin.** É isto que esta skill instala.
 
 ## 1. Rode o setup
 
+**No Windows, confira antes se existe `bash`.** Os guard-rails do kit (commit na main,
+push forçado, `rm -r` fora das pastas descartáveis, leitura de segredo) são scripts bash
+chamados pelos hooks. Sem o Git para Windows, o hook falha aberto e **nenhuma guarda roda**:
+sobram só as regras `ask`/`deny` do `settings.json`. No PowerShell:
+
+```powershell
+Get-Command bash -ErrorAction SilentlyContinue
+```
+
+Saída vazia: diga à pessoa, em português, que sem o Git para Windows
+(https://git-scm.com/download/win) as guardas do kit não rodam, recomende instalar e
+reiniciar o Claude Code, e só então siga. O próprio `kit-setup.sh` também precisa do bash.
+
 Sempre com `--dry-run` primeiro, e mostre a saída para a pessoa:
 
 ```bash
@@ -66,11 +79,12 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **O modo de permissão vira "Accept edits" (`acceptEdits`).** Quem estava no
   Manual (`default`) ou sem modo passa para `acceptEdits`, e a saída diz isso numa
   linha. `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam como
-  estão. Junto vêm allow de git local, `git push`, `gh pr create`, `ffmpeg` e scripts
-  do projeto, e `ask` para o que não tem volta (force push, push na main,
-  `reset --hard`, `git clean`, `branch -D`, `gh pr merge`), com espelho em
-  `PowerShell(...)` para o Windows. Quem quer o manual de vez cria
-  `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais.
+  estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
+  não tem volta (force push, push na main, descartar alteração local, `rm -r` fora das
+  pastas descartáveis, listar variáveis de ambiente, ler arquivo de segredo), com espelho
+  em `PowerShell(...)`. Runner de script (`node scripts/*`) e `ffmpeg` não entram no allow
+  global: o projeto libera o script exato no próprio `.claude/settings.json`. Quem quer o
+  manual de vez cria `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais.
 - **No app de desktop, o seletor vence o arquivo.** O modo escolhido no seletor ao
   lado do botão de enviar é lembrado por pasta e ganha do `defaultMode`. Se ele
   mostrar **Manual** (ou **Ask permissions**, em versão antiga), diga à pessoa para

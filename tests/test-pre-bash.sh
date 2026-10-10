@@ -175,6 +175,116 @@ rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
 espera_rc 2 "$rc" "Bash: o mesmo cd + leitura continua bloqueado (controle)"
 
 echo
+echo "== revisão do PR #170: o que é perigoso pergunta nos dois shells, o resto segue livre =="
+# Cada linha: esperado|shell|repo|comando. shell: B (Bash), P (PowerShell) ou A (os dois).
+# repo: F (branch de feature) ou M (main). Comandos de git valem igual nos dois shells.
+decide_em() { # decide_em <ferramenta> <cwd> <comando> → ask | block | pass
+  local out rc
+  out=$(T="$1" D="$2" C="$3" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-matriz",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:process.env.T,tool_input:{command:process.env.C}}))' \
+    | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" 2>/dev/null); rc=$?
+  if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ask
+  elif [ "$rc" = 2 ]; then echo block; else echo pass; fi
+}
+while IFS='|' read -r esp sh repo cmd; do
+  [ -z "$esp" ] && continue
+  case "$esp" in \#*) continue ;; esac
+  case "$repo" in M) d="$MAIN" ;; *) d="$FEAT" ;; esac
+  cmd="${cmd//@FEAT@/$FEAT}"
+  case "$sh" in A) tools="Bash PowerShell" ;; P) tools="PowerShell" ;; *) tools="Bash" ;; esac
+  for t in $tools; do
+    got=$(decide_em "$t" "$d" "$cmd")
+    [ "$got" = "$esp" ] && ok "$esp ($t): $cmd" || falha "$t: $cmd (esperado $esp, veio $got)"
+  done
+done <<'CASOS'
+# segredo citado por qualquer comando
+ask|A|F|grep '' .env
+ask|B|F|awk 1 .env
+ask|A|F|cat ~/.ssh/id_ed25519
+ask|A|F|git show HEAD:.env
+ask|A|F|ffmpeg -f data -i .env -map 0 -c copy -f data -
+ask|A|F|cat ~/.aws/credentials
+ask|A|F|cat ~/.netrc
+ask|A|F|cat ~/.config/gh/hosts.yml
+ask|A|F|cat serviceAccountKey.json
+ask|A|F|cat ~/.claude/.env.tokens
+ask|A|F|cat certs/server.pem
+ask|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
+ask|P|F|Get-Content .env
+ask|P|F|Select-Object -InputObject (gc .env)
+ask|P|F|Select-String -Path .env -Pattern KEY
+ask|P|F|gc ~/.claude.json
+pass|A|F|cat .env.example
+pass|A|F|cp .env.example .env.template
+pass|B|F|grep -c '^KEY=' .env.local
+pass|B|F|echo .env >> .gitignore
+pass|A|F|git commit -m "chore: ignora .env"
+pass|A|F|grep -rn "process.env" src
+# variáveis de ambiente inteiras
+ask|B|F|env
+ask|B|F|env | grep TOKEN
+ask|B|F|printenv
+ask|B|F|printenv GITHUB_TOKEN
+ask|B|F|export -p
+ask|P|F|Get-ChildItem Env:
+ask|P|F|gci env:
+ask|P|F|ls env:
+ask|P|F|dir Env:
+ask|P|F|Get-Item Env:GITHUB_TOKEN
+ask|P|F|[Environment]::GetEnvironmentVariables()
+pass|B|F|env FOO=1 npm test
+pass|B|F|export FOO=1
+pass|P|F|Get-ChildItem src
+# rm -r só em pasta descartável
+ask|B|F|rm -rf outputs
+ask|B|F|rm -rf .next outputs
+ask|B|F|rm -r src/assets
+ask|P|F|Remove-Item -Recurse -Force outputs
+ask|P|F|rm -r outputs
+pass|B|F|rm -rf .next
+pass|B|F|rm -rf node_modules dist build out coverage
+pass|B|F|rm -rf .venv __pycache__ .pytest_cache .turbo .cache .parcel-cache tmp
+pass|B|F|rm -rf /tmp/x
+pass|B|F|rm -f arquivo.txt
+pass|P|F|Remove-Item -Recurse -Force .next
+pass|P|F|Remove-Item node_modules -Recurse -ErrorAction SilentlyContinue
+# push
+ask|A|F|git push -uf origin feat/x
+ask|A|F|git push origin :feat/x
+ask|A|F|git push origin +feat/x
+ask|A|F|git push origin HEAD:refs/heads/main
+ask|A|F|git push origin feat/x:main
+ask|A|F|git push origin master
+ask|A|M|git push
+ask|A|M|git push origin
+ask|A|M|git push -u origin HEAD
+ask|A|F|git -C @FEAT@ push --force
+ask|A|F|git push --all origin
+ask|A|F|git push --mirror
+ask|A|F|git push --delete origin feat/x
+pass|A|F|git push
+pass|A|F|git push origin
+pass|A|F|git push -u origin feat/x
+pass|A|F|git push -u origin HEAD
+pass|A|F|git push --force-with-lease origin feat/x
+pass|A|F|git -C @FEAT@ push
+# descartar alteração local
+ask|A|F|git checkout -f feat/y
+ask|A|F|git checkout feat/y --force
+ask|A|F|git switch --discard-changes feat/y
+ask|A|F|git switch -f feat/y
+ask|A|F|git restore .
+ask|A|F|git checkout -- .
+ask|A|F|git stash drop
+ask|A|F|git stash clear
+pass|A|F|git restore --staged .
+pass|A|F|git restore src/a.ts
+pass|A|F|git switch -c feat/z
+pass|A|F|git checkout -b feat/z
+pass|A|F|git stash list
+pass|A|F|git stash
+CASOS
+
+echo
 echo "== fail-open =="
 rc=$(printf '' | bash "$HOOK" >/dev/null 2>&1; echo $?)
 espera_rc 0 "$rc" "payload vazio sai 0"
