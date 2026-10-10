@@ -72,9 +72,19 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido
    - no Film, animação caindo na fala certa (o número aparece quando a voz o diz)
-8. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome> [Reel|Master169|Reel916]`. Ele renderiza, converte para `yuv420p`, normaliza o áudio em −14 LUFS (pico −1 dBTP), imprime `ffprobe` e loudness e, acima de 30 MB, gera também `<nome>-leve.mp4`. Entregue o caminho do MP4 (para o celular, o leve) e reporte:
-   - a saída do tsc e do ffprobe (lint: o projeto não tem)
-   - **o áudio não foi ouvido** (trilha sintética + SFX nunca auditados): peça para o dono escutar; ofereça uma versão só com SFX se ele for usar música da plataforma
+8. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome> [Reel|Master169|Reel916]`. Ele renderiza, converte para `yuv420p`, normaliza o áudio em −14 LUFS (pico −1 dBTP) e confere o MP4 que vai ser entregue, não a prévia:
+   - `out/<nome>-folha.jpg`: folha de contato do final a 2 fps. Leia antes de entregar: o encode final pode mostrar o que a prévia a 50% escondia (banding, texto borrado, quadro preto)
+   - `out/<nome>-loudness.txt`: integrado, pico verdadeiro, segundos mais altos e mais baixos, o segundo do pico e a lista segundo a segundo
+   - **exit 1 = reprovado:** integrado fora de −14 ±1 LUFS ou pico acima de −1 dBTP. O MP4 fica em `out/`, mas não se entrega: ajuste o mix como a mensagem indica e rode de novo. Para reconferir um MP4 sem renderizar: `final.sh --verificar <arquivo.mp4>`
+   - acima de 30 MB, e só se passou, sai também `<nome>-leve.mp4`
+
+   **Antes de pôr na tela:** número, nome e afirmação só entram no vídeo com fonte, seja uma URL ou um material que a pessoa deu. Sem fonte, corte ou pergunte.
+
+   Entregue o caminho do MP4 (para o celular, o leve) com este relatório:
+   - **fatos e fontes:** cada número, nome ou afirmação que aparece na tela, com a fonte de cada um (URL ou "material da pessoa: <arquivo ou mensagem>")
+   - **decisões:** paleta, presets e transições, ritmo (BPM, duração das cenas), voz (gravada, TTS ou sem narração) e o porquê de cada uma
+   - **não verificado:** tudo o que você não conferiu, sem suavizar. Sempre entra "áudio não ouvido" (trilha sintética e SFX nunca escutados: peça para o dono ouvir e ofereça uma versão só com SFX se ele for usar música da plataforma); entram também fonte que você não abriu, logo placeholder, nome que a pessoa não confirmou
+   - **verificação:** caminho da folha do final, integrado e pico do `loudness.txt`, e a saída do tsc e do ffprobe (lint: o projeto não tem)
    - os textos que você mudou ou acrescentou
    - `PENDENTE:` com nomes a confirmar, logos placeholder e onde guardar o projeto (o scratchpad some com a sessão)
 

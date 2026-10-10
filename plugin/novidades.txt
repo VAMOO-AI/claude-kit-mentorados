@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.49.0|o vídeo final da motion-reel ganha folha de contato e loudness por segundo, e o final.sh reprova áudio fora de -14 LUFS ou com pico acima de -1; o relatório de entrega lista fatos com fonte, decisões e o que não foi verificado
 0.48.0|o setup deixa você em Accept edits (sai do Manual): git local, push comum e gh pr create rodam sem pedir; force push, push na main, apagar pasta que não é descartável, ler .env ou chave e listar variáveis de ambiente continuam pedindo, no Bash e no PowerShell|setup
 0.47.5|a motion-reel abre e fecha os vídeos com o símbolo da sua marca (ou sem símbolo, se preferir) e ensina a narrar de graça, com a sua voz ou a voz do Mac
 0.47.4|a revisão de qualidade da motion-reel não para mais no meio quando uma transição cai fora do vídeo, no ffmpeg 9
