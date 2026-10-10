@@ -13,6 +13,71 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.48.0] — 2026-10-10
+
+### Mudado
+
+- **`/kit-vamoo:setup` deixa todo mentorado em Accept edits (`acceptEdits`).** Até a 0.47.x o
+  `merge-settings.js` só avisava quem estava no Manual (`default`) e mantinha o modo. Agora
+  Manual ou modo ausente viram `acceptEdits`, com uma linha dizendo o que mudou e como voltar.
+  `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam. Quem quer o Manual de vez cria
+  `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais (o marcador sai da pasta do
+  `settings.json`). Continua idempotente: a segunda passada não troca nem anuncia nada.
+- **Allow novo (sintaxe ` *`):** `git add`, `git commit`, `git switch -c`, `git checkout -b`,
+  `git fetch`, `git pull --ff-only`, `git stash list`, `git worktree list`, `git push`,
+  `gh pr create`, `ffprobe` e `npx remotion`. Nada de `Bash(*)`, `node *` ou `python3 *`.
+  **Fora do allow global, de propósito:** `node|bash|python3|python|py scripts/*` (com
+  `acceptEdits` o Claude escreve `scripts/x.py` e roda em seguida: execução arbitrária) e
+  `ffmpeg` (saída `http://` e `-y` fora do projeto; a motion-reel pré-aprova só no turno dela).
+  Projeto que precisa declara o script exato no próprio `.claude/settings.json`. **Risco que
+  sobra:** o `npm run *`, que já existia, roda o que estiver no `package.json`, e o Claude pode
+  editar o `package.json` antes. O `Bash(env)` saiu do allow do template.
+- **`ask` explícito**, que vale mesmo onde o hook não roda (Windows sem bash), nos dois shells:
+  - push: `--force`/`-f` em qualquer posição, `-uf`/`-fu`, `+refspec`, `--mirror`, `--all`,
+    `--delete`/`-d`, destino `main`/`master` (inclusive `x:refs/heads/main`);
+  - descarte local: `reset --hard`, `clean`, `branch -D`, `checkout -f`/`--force`/`-- .`,
+    `switch -f`/`--discard-changes`, `restore .`/`-- .`/`--worktree`, `stash drop`/`clear`,
+    `worktree remove --force`;
+  - `gh pr merge`, `gh repo delete`, `gh release delete`;
+  - `find -delete`/`-exec`/`-execdir`/`-ok`/`-fprint` (o allow `find:*` antigo liberava);
+  - variáveis de ambiente inteiras: `env`, `printenv`, `export -p`, `export`, `set`,
+    `declare -p|-x` e, no PowerShell, `Get-ChildItem Env:` e aliases, `Get-Item Env:…`,
+    `[Environment]::GetEnvironmentVariables()`. O `ask` vence o `Bash(env)` de quem já tinha;
+  - caminhos de segredo de alto sinal: `id_rsa`, `id_ed25519`, `.ssh/`, `.aws/credentials`,
+    `.netrc`, `.npmrc`, `serviceAccountKey`, `gh/hosts.yml`, `.claude.json`, `.env.tokens`;
+  - `Remove-Item -Recurse`/`-r` no PowerShell (pergunta inclusive em `.next`: é a regra que
+    segura onde não há bash).
+- **`check-careful` (Bash e PowerShell):**
+  - segredo citado por **qualquer** comando pergunta (`grep '' .env`, `awk 1 .env`,
+    `git show HEAD:.env`, `ffmpeg -i .env`, `Get-Content .env`, `(gc .env)`,
+    `$HOME\.ssh\id_ed25519`). Isentos: `.env.example/.sample/.template`, escrita por `>`/`>>`,
+    `grep -c/-q/-l`, `test`, `ls`, `echo`, mensagem de commit/PR;
+  - `rm -r` e `Remove-Item -Recurse` só passam calados em pasta descartável (`node_modules`,
+    `.next`, `dist`, `build`, `out`, `coverage`, `.turbo`, `.cache`, `.parcel-cache`,
+    `__pycache__`, `.pytest_cache`, `tmp`, `.venv`) ou temporária. `rm -rf outputs` pergunta:
+    o git não devolve pasta ignorada;
+  - push lido por segmento e com `git -C` normalizado: flag agrupada, `+`/`:` no refspec,
+    destino main/master em qualquer forma, e `git push`/`git push origin`/`HEAD` estando na
+    main (o hook consulta o branch atual);
+  - descarte local e listagem de variáveis de ambiente, como no `ask`.
+- **`merge-settings.js` avisa** quando um `ask` novo do kit anula um allow que a pessoa escreveu
+  (ex.: `Bash(git push origin main)`, `Bash(env)`), listando quais.
+- **PowerShell:** espelho em `PowerShell(...)` de todo deny e ask de Bash e dos allow que se
+  escrevem igual (git, gh, npm, npx, bun, pnpm), mais nomes nativos (`Get-ChildItem`,
+  `Test-Path`, `Set-Location`…). `Get-Content` e `Select-String` ficam fora do allow: a doc só
+  garante o deny de `Read` nos comandos de arquivo do Bash. No Windows com Git, deny só de
+  `Bash(...)` desligava a ferramenta PowerShell sem aviso; com `PowerShell(...)` ela volta.
+- **Hooks:** o `pre-bash.sh` casa `Bash|PowerShell`; o `block-cd-leitura-relativa` fica só no
+  Bash. O `repo-session` do PostToolUse também vê o PowerShell.
+- **Windows sem Git Bash:** os hooks chamam `bash` e, sem ele, falham abertos. O setup confere
+  (`Get-Command bash`) e avisa em português para instalar o Git para Windows; o README explica.
+- **Skills e `/kit-vamoo:atalhos`:** `allowed-tools` com os scripts que cada uma manda rodar
+  (`baseline`, `auditoria-seguranca`, `gerar-imagem`, `git-sync`, `harness-check`, `limpeza-mac`
+  só o inventário, `memoria-projeto`, `setup`, `skills-projeto`, `worktrees`). O que apaga
+  (`git-sync --cleanup-apply`, `limpeza-mac/aplicar.sh`) continua pedindo.
+- **Desktop:** o setup e o README explicam que o seletor de modo vence o `settings.json` e é
+  lembrado por pasta: se mostrar **Manual** (ou **Ask permissions**), troque para **Accept edits**.
+
 ## [0.47.5] — 2026-10-10
 
 ### Corrigido

@@ -1,6 +1,9 @@
 ---
 name: gerar-imagem
 description: EXECUTA a geração de imagem pela API da OpenAI (gpt-image-*, paga por imagem) e entrega o JPEG pronto para a web ou para um artefato. Use quando pedirem uma imagem gerada, ou quando uma página/deck pede foto sem banco de imagens e a pessoa topa pagar a geração. Para ESCREVER o prompt (luz, lente, direção de arte), carregue antes a skill diretor-imagem — esta aqui roda o comando, não dirige a foto.
+allowed-tools:
+  - 'Bash(python3 "${CLAUDE_PLUGIN_ROOT}/skills/gerar-imagem/scripts/gerar-imagem.py" *)'
+  - 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/gerar-imagem/scripts/gerar-imagem.py *)'
 ---
 
 # Gerar imagem

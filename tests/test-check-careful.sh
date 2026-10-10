@@ -77,14 +77,13 @@ echo
 echo "== não pode interromper (falsos positivos medidos em produção) =="
 check pass "commit com heredoc -F e push na mesma linha" \
   'git add e2e/spec.ts && git commit -F - <<EOF && git push -u origin feat/x'
-check pass "push normal com rm -f depois"   'git push origin main && rm -f /tmp/lixo.txt'
+check pass "push normal com rm -f depois"   'git push origin feat/x && rm -f /tmp/lixo.txt'
 check pass "push --force-with-lease (recusa se o remoto andou)" 'git push --force-with-lease origin feat/x'
 check pass "push -q --force-with-lease=branch:sha" 'git push -q --force-with-lease=feat/x:9f1327f origin feat/x'
 check pass "rm -rf .next (sem barra no fim)" 'rm -rf .next && npm run build'
 check pass "rm -rf de pasta temporária"      'rm -rf /private/tmp/claude-501/sessao/scratchpad/tr'
 check pass "git rm -r é versionado"          'git rm -r -q "src/app/proposta"'
 check pass "git rm -r --cached"              'git rm -r --cached --ignore-unmatch app/scripts/pgtest'
-check pass "rm -rf relativo dentro de repo git (git é o undo)" 'rm -rf app/api/n8n'
 check pass "trap de limpeza de mktemp"       'T=$(mktemp -d); trap "rm -rf $T" EXIT; echo ok'
 check pass "git add com paths explícitos depois do -A" 'git add -A src supabase && git commit -m wip'
 check pass "grep -f não é push force"        'git push && grep -f padroes.txt arquivo.log'
@@ -131,6 +130,9 @@ check ask  "push --force puro"               'git push --force origin main'
 check ask  "push -f puro"                    'git push -f origin feat/x'
 check ask  "rm -rf em path absoluto"         'rm -rf ~/PROJETOS/cliente'
 check ask  "rm -rf fora de repo git"         'rm -rf minha-pasta' "$FORA_GIT"
+# 0.48.0: o git não é undo de pasta ignorada (outputs/, mídia). Só descartável passa.
+check ask  "rm -rf relativo dentro do repo (pasta que não é descartável)" 'rm -rf app/api/n8n'
+check ask  "push nomeando a main"            'git push origin main && rm -f /tmp/lixo.txt'
 check ask  "git add -A sozinho em clone compartilhado" 'git add -A && git commit -m wip' "$CLONE"
 check ask  "git add . sozinho"               'git add .' "$CLONE"
 check ask  "DROP TABLE executado no psql"    'psql -c "drop table clientes;"'

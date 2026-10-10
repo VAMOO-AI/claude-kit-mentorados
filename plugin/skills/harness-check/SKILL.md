@@ -6,6 +6,9 @@ description: >-
   que dá pra cortar sem perder nada. Use quando o limite ou a conta surpreender,
   a sessão nascer cara ou houver dúvida se um MCP ou o CLAUDE.md pesa. Não é o
   secscan (segurança) nem o baseline (produção).
+allowed-tools:
+  - 'Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" *)'
+  - 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py *)'
 ---
 
 # Harness Check — para onde vai o seu token

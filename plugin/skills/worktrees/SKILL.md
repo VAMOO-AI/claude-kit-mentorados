@@ -7,6 +7,9 @@ description: >-
   mesmo repositório, antes de criar um worktree, ou antes de commitar num clone
   que outra sessão também usa. Gatilhos: "worktree", "paralelo no mesmo repo",
   "outra aba/sessão", "limpar branch".
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh --verificar *)'
 ---
 
 # Terminais paralelos & worktrees

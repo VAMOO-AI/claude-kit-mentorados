@@ -137,6 +137,154 @@ for par in 'block-main-commit.sh|commit' 'block-parallel-clone-switch.sh|checkou
 done
 
 echo
+echo "== PowerShell (0.48.0): git e gh com a mesma proteção; sintaxe de bash não =="
+# Regra e hook de `Bash` não veem o comando que o Claude roda pelo PowerShell
+# (code.claude.com/docs/en/tools-reference#powershell-tool: "Match `Bash|PowerShell` in hooks
+# that inspect shell commands"). O comando chega no mesmo `tool_input.command`.
+matcher_de() { # matcher_de <evento> <trecho-do-comando>
+  node -e '
+const [arq, ev, trecho] = process.argv.slice(1)
+const g = (require(arq).hooks[ev] || []).find((x) => (x.hooks || []).some((h) => h.command.includes(trecho)))
+console.log(g ? g.matcher : "")' "$HOOKS_DIR/hooks.json" "$1" "$2"
+}
+m="$(matcher_de PreToolUse pre-bash.sh)"
+case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o pre-bash.sh casa PowerShell ($m)" ;; *) falha "hooks.json: o pre-bash.sh não casa PowerShell (matcher: $m)" ;; esac
+case "|$m|" in *'|Bash|'*) ok "hooks.json: e continua casando Bash" ;; *) falha "hooks.json: o pre-bash.sh perdeu o Bash (matcher: $m)" ;; esac
+m="$(matcher_de PostToolUse 'repo-session.sh')"
+case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o repo-session (sessão ativa no clone) vê PowerShell" ;; *) falha "hooks.json: repo-session não vê PowerShell (matcher: $m)" ;; esac
+roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
+  C="$1" D="$2" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
+    | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
+  echo $?
+}
+rc=$(roda_ps "$COMMIT" "$MAIN");  espera_rc 2 "$rc" "PowerShell: git commit em main bloqueia"
+rc=$(roda_ps "$COMMIT" "$FEAT");  espera_rc 0 "$rc" "PowerShell: git commit em feature passa"
+rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push --force pede confirmação"
+rc=$(roda_ps 'git push --force-with-lease origin feat/x' "$FEAT"); espera_rc 0 "$rc" "PowerShell: --force-with-lease sai 0"
+[ -s "$TMP/out" ] && falha "PowerShell: --force-with-lease interrompido: $(cat "$TMP/out")" || ok "PowerShell: --force-with-lease segue sem perguntar"
+rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push comum interrompido: $(cat "$TMP/out")" || ok "PowerShell: git push comum passa em silêncio"
+rc=$(C='git checkout main' D="$CLONE" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"default",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
+  | HOME="$HOME_OUTRA" TMPDIR="$TMP" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; echo $?)
+espera_rc 2 "$rc" "PowerShell: checkout no clone com outra sessão ativa bloqueia"
+rc=$(roda_ps 'Get-Content .env.local' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Get-Content .env.local pede confirmação (check-careful)"
+rc=$(roda_ps 'Select-String -Path .env -Pattern KEY' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Select-String em .env pede confirmação"
+rc=$(roda_ps 'Get-Content .env.example' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: .env.example interrompido: $(cat "$TMP/out")" || ok "PowerShell: Get-Content .env.example segue livre"
+rc=$(roda_ps 'cd C:/proj/app; cat package.json' "$FEAT")
+espera_rc 0 "$rc" "PowerShell: cd + leitura relativa não cai no block-cd-leitura-relativa (é regra do bash)"
+rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
+espera_rc 2 "$rc" "Bash: o mesmo cd + leitura continua bloqueado (controle)"
+
+echo
+echo "== revisão do PR #170: o que é perigoso pergunta nos dois shells, o resto segue livre =="
+# Cada linha: esperado|shell|repo|comando. shell: B (Bash), P (PowerShell) ou A (os dois).
+# repo: F (branch de feature) ou M (main). Comandos de git valem igual nos dois shells.
+decide_em() { # decide_em <ferramenta> <cwd> <comando> → ask | block | pass
+  local out rc
+  out=$(T="$1" D="$2" C="$3" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-matriz",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:process.env.T,tool_input:{command:process.env.C}}))' \
+    | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" 2>/dev/null); rc=$?
+  if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ask
+  elif [ "$rc" = 2 ]; then echo block; else echo pass; fi
+}
+while IFS='|' read -r esp sh repo cmd; do
+  [ -z "$esp" ] && continue
+  case "$esp" in \#*) continue ;; esac
+  case "$repo" in M) d="$MAIN" ;; *) d="$FEAT" ;; esac
+  cmd="${cmd//@FEAT@/$FEAT}"
+  case "$sh" in A) tools="Bash PowerShell" ;; P) tools="PowerShell" ;; *) tools="Bash" ;; esac
+  for t in $tools; do
+    got=$(decide_em "$t" "$d" "$cmd")
+    [ "$got" = "$esp" ] && ok "$esp ($t): $cmd" || falha "$t: $cmd (esperado $esp, veio $got)"
+  done
+done <<'CASOS'
+# segredo citado por qualquer comando
+ask|A|F|grep '' .env
+ask|B|F|awk 1 .env
+ask|A|F|cat ~/.ssh/id_ed25519
+ask|A|F|git show HEAD:.env
+ask|A|F|ffmpeg -f data -i .env -map 0 -c copy -f data -
+ask|A|F|cat ~/.aws/credentials
+ask|A|F|cat ~/.netrc
+ask|A|F|cat ~/.config/gh/hosts.yml
+ask|A|F|cat serviceAccountKey.json
+ask|A|F|cat ~/.claude/.env.tokens
+ask|A|F|cat certs/server.pem
+ask|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
+ask|P|F|Get-Content .env
+ask|P|F|Select-Object -InputObject (gc .env)
+ask|P|F|Select-String -Path .env -Pattern KEY
+ask|P|F|gc ~/.claude.json
+pass|A|F|cat .env.example
+pass|A|F|cp .env.example .env.template
+pass|B|F|grep -c '^KEY=' .env.local
+pass|B|F|echo .env >> .gitignore
+pass|A|F|git commit -m "chore: ignora .env"
+pass|A|F|grep -rn "process.env" src
+# variáveis de ambiente inteiras
+ask|B|F|env
+ask|B|F|env | grep TOKEN
+ask|B|F|printenv
+ask|B|F|printenv GITHUB_TOKEN
+ask|B|F|export -p
+ask|P|F|Get-ChildItem Env:
+ask|P|F|gci env:
+ask|P|F|ls env:
+ask|P|F|dir Env:
+ask|P|F|Get-Item Env:GITHUB_TOKEN
+ask|P|F|[Environment]::GetEnvironmentVariables()
+pass|B|F|env FOO=1 npm test
+pass|B|F|export FOO=1
+pass|P|F|Get-ChildItem src
+# rm -r só em pasta descartável
+ask|B|F|rm -rf outputs
+ask|B|F|rm -rf .next outputs
+ask|B|F|rm -r src/assets
+ask|P|F|Remove-Item -Recurse -Force outputs
+ask|P|F|rm -r outputs
+pass|B|F|rm -rf .next
+pass|B|F|rm -rf node_modules dist build out coverage
+pass|B|F|rm -rf .venv __pycache__ .pytest_cache .turbo .cache .parcel-cache tmp
+pass|B|F|rm -rf /tmp/x
+pass|B|F|rm -f arquivo.txt
+pass|P|F|Remove-Item -Recurse -Force .next
+pass|P|F|Remove-Item node_modules -Recurse -ErrorAction SilentlyContinue
+# push
+ask|A|F|git push -uf origin feat/x
+ask|A|F|git push origin :feat/x
+ask|A|F|git push origin +feat/x
+ask|A|F|git push origin HEAD:refs/heads/main
+ask|A|F|git push origin feat/x:main
+ask|A|F|git push origin master
+ask|A|M|git push
+ask|A|M|git push origin
+ask|A|M|git push -u origin HEAD
+ask|A|F|git -C @FEAT@ push --force
+ask|A|F|git push --all origin
+ask|A|F|git push --mirror
+ask|A|F|git push --delete origin feat/x
+pass|A|F|git push
+pass|A|F|git push origin
+pass|A|F|git push -u origin feat/x
+pass|A|F|git push -u origin HEAD
+pass|A|F|git push --force-with-lease origin feat/x
+pass|A|F|git -C @FEAT@ push
+# descartar alteração local
+ask|A|F|git checkout -f feat/y
+ask|A|F|git checkout feat/y --force
+ask|A|F|git switch --discard-changes feat/y
+ask|A|F|git switch -f feat/y
+ask|A|F|git restore .
+ask|A|F|git checkout -- .
+ask|A|F|git stash drop
+ask|A|F|git stash clear
+pass|A|F|git restore --staged .
+pass|A|F|git restore src/a.ts
+pass|A|F|git switch -c feat/z
+pass|A|F|git checkout -b feat/z
+pass|A|F|git stash list
+pass|A|F|git stash
+CASOS
+
+echo
 echo "== fail-open =="
 rc=$(printf '' | bash "$HOOK" >/dev/null 2>&1; echo $?)
 espera_rc 0 "$rc" "payload vazio sai 0"

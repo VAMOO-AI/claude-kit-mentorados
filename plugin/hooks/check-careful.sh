@@ -95,29 +95,146 @@ ask() {
 m()  { printf '%s' "$c" | grep -qiE "$1"; }   # case-insensitive: SQL, nomes de comando
 ms() { printf '%s' "$c" | grep -qE  "$1"; }   # case-sensitive: flags (-f do force ≠ -F do heredoc)
 
-# rm recursivo — só quando não há undo (nem pasta descartável, nem git, nem temp da sessão)
-if ms '\brm[[:space:]]+-[a-zA-Z]*[rR]'; then
-  DESCARTAVEL='(node_modules|\.next|\.turbo|\.cache|__pycache__|coverage|playwright-report|/tmp/|/private/tmp/|/var/folders/|(^|[[:space:]/])(dist|build|out|tmp[-_a-zA-Z0-9]*|temp[-_a-zA-Z0-9]*)([[:space:]/]|$))'
-  rm_ok=0
-  ms "$DESCARTAVEL" && rm_ok=1
-  ms '\bgit[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?rm\b' && rm_ok=1
-  { ms 'mktemp' || ms '\btrap\b'; } && ms 'rm[[:space:]]+-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+"?\$' && rm_ok=1
-  if [ "$rm_ok" = 0 ]; then
-    ms 'rm[[:space:]]+-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*["'"'"']?(~|/)' \
-      && ask "[cuidado] rm recursivo em path absoluto (fora de repo, sem undo do git). Confirme o alvo."
-    git -C "${cwd:-.}" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-      || ask "[cuidado] rm recursivo fora de repo git (sem undo). Confirme o alvo."
-  fi
-fi
+# Segmentos do comando, sem o corpo de heredoc: `&&`, `||`, `;`, `|` e quebra de linha
+# separam. Os blocos de rm, push, descarte local, segredo e variável de ambiente (0.48.0)
+# decidem por segmento — testar no comando inteiro foi o defeito de 29/08 (o -F do heredoc
+# casando com o -f do force). Vale para Bash e PowerShell: o pre-bash.sh entrega os dois.
+segs=$(printf '%s\n' "$c_hd" | awk '{ gsub(/&&|\|\||;|\|/, "\n"); print }')
+desaspa() { local a="$1"; a="${a#[\"\']}"; a="${a%[\"\']}"; printf '%s' "$a"; }
 
-# git push --force. O flag TEM que estar no trecho do push (senão `git commit -F - && git push`
-# dispara) e --force-with-lease é isento: ele já recusa se o remoto andou.
-push_seg=$(printf '%s' "$c" | tr '\n' ';' | grep -oE 'git[[:space:]]+push[^;&|]*' 2>/dev/null)
-if [ -n "$push_seg" ]; then
-  sem_lease=$(printf '%s' "$push_seg" | sed 's/--force-with-lease[^[:space:]]*//g')
-  printf '%s' "$sem_lease" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|=|$)' \
-    && ask "[cuidado] git push --force (sem lease) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
-fi
+# rm recursivo (0.48.0): o `acceptEdits` aprova `rm` dentro do projeto sem perguntar, e o
+# git não é undo de pasta ignorada — `rm -rf outputs` apagava mídia fora do git calado. Só
+# passa sem pergunta quando TODO alvo é pasta descartável (regenerável) ou temporária.
+# Vale para `rm -r` e para `Remove-Item -Recurse` (e os aliases ri/del/rd/rmdir/erase).
+alvo_descartavel() {
+  local a; a="$(desaspa "$1")"
+  case "$a" in /tmp/*|/private/tmp/*|/var/folders/*|'$TMPDIR'*|'${TMPDIR'*) return 0 ;; esac
+  if [ "$tem_mktemp" = 1 ]; then case "$a" in '$'*) return 0 ;; esac; fi
+  a="${a%/\*}"; a="${a%\\\*}"; a="${a%/}"; a="${a%\\}"
+  local b="${a##*/}"; b="${b##*\\}"
+  case "$b" in
+    node_modules|.next|dist|build|out|coverage|.turbo|.cache|.parcel-cache|__pycache__|.pytest_cache|tmp|.venv) return 0 ;;
+    tmp[-_]*|temp|temp[-_]*) return 0 ;;
+  esac
+  return 1
+}
+tem_mktemp=0; printf '%s' "$c_hd" | grep -qE '\bmktemp\b' && tem_mktemp=1
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
+  case "$seg" in *[![:space:]]*) ;; *) continue ;; esac
+  printf '%s' "$seg" | grep -qE '^[[:space:]]*trap[[:space:]]' && continue
+  printf '%s' "$seg" | grep -qE '\bgit[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?rm\b' && continue
+  resto=""
+  if printf '%s' "$seg" | grep -qE '(^|[[:space:]])rm[[:space:]]+(-[^[:space:]]*[[:space:]]+)*-[a-zA-Z]*[rR]|(^|[[:space:]])rm[[:space:]].*--recursive' \
+     && ! printf '%s' "$seg" | grep -qiE '(^|[[:space:]])(remove-item)'; then
+    resto=$(printf '%s' "$seg" | sed -E 's/^(.*[[:space:]])?rm[[:space:]]+//')
+    ps=0
+  elif printf '%s' "$seg" | grep -qiE '(^|[[:space:]])(remove-item|ri|rm|del|erase|rd|rmdir)[[:space:]](.*[[:space:]])?-(recurse|r)([[:space:]]|$)'; then
+    resto=$(printf '%s' "$seg" | sed -E 's/^(.*[[:space:]])?([Rr][Ee][Mm][Oo][Vv][Ee]-[Ii][Tt][Ee][Mm]|ri|rm|del|erase|rd|rmdir)[[:space:]]+//')
+    ps=1
+  else
+    continue
+  fi
+  pula=0; fim_opcoes=0; alvos=0; ruim=""
+  for w in $resto; do
+    if [ "$pula" = 1 ]; then pula=0; continue; fi
+    if [ "$fim_opcoes" = 0 ]; then
+      case "$w" in
+        --) fim_opcoes=1; continue ;;
+        -[Ee]rror[Aa]ction|-ea|-[Ff]ilter|-[Ii]nclude|-[Ee]xclude|-[Cc]redential) [ "$ps" = 1 ] && pula=1; continue ;;
+        -*) continue ;;
+      esac
+    fi
+    alvos=$((alvos+1))
+    alvo_descartavel "$w" || { ruim="$w"; break; }
+  done
+  if [ -n "$ruim" ]; then
+    ask "[cuidado] apagar pasta inteira (rm -r / Remove-Item -Recurse) fora das descartáveis (node_modules, .next, dist, build…): $ruim. O git não devolve arquivo ignorado. Confirme o alvo."
+  fi
+done <<< "$segs"
+
+# git push (0.48.0). Normaliza `git -C <dir> push` e lê flag, refspec e o branch atual:
+#   • force por flag agrupada (`-uf`), `--force` ou refspec com `+`; --force-with-lease e
+#     --force-if-includes são isentos (recusam se o remoto andou);
+#   • apagar por `--delete`/`-d` ou refspec `:branch`; `--mirror` e `--all`;
+#   • destino main/master em qualquer forma (`main`, `HEAD:main`, `x:refs/heads/main`);
+#   • `git push`/`git push origin` sem refspec (ou `HEAD`) estando na main/master.
+alvo_main() { local d="${1#refs/heads/}"; [ "$d" = main ] || [ "$d" = master ]; }
+push_segs=$(printf '%s\n' "$segs" | grep -E '(^|[[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)')
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
+  dir="${cwd:-.}"
+  dir_c=$(printf '%s' "$seg" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+).*/\1/p')
+  [ -n "$dir_c" ] && dir="$(desaspa "$dir_c")"
+  args=$(printf '%s' "$seg" | sed -E 's/^(.*[[:space:]])?push([[:space:]]+|$)//')
+  force=0; apaga=0; tudo=0; pos=(); pula=0; fim=0
+  for w in $args; do
+    if [ "$pula" = 1 ]; then pula=0; continue; fi
+    if [ "$fim" = 0 ]; then
+      case "$w" in
+        --) fim=1; continue ;;
+        --force-with-lease*|--force-if-includes|--no-force-if-includes) continue ;;
+        --force|--force=*) force=1; continue ;;
+        --delete) apaga=1; continue ;;
+        --mirror|--all|--branches) tudo=1; continue ;;
+        --push-option|--repo|--receive-pack|--exec) pula=1; continue ;;
+        --*) continue ;;
+        -[a-zA-Z]*)
+          case "$w" in *f*) force=1 ;; esac
+          case "$w" in *d*) apaga=1 ;; esac
+          case "$w" in *o) pula=1 ;; esac
+          continue ;;
+      esac
+    fi
+    pos+=("$(desaspa "$w")")
+  done
+  refs=("${pos[@]:1}")
+  main=0
+  for r in "${refs[@]}"; do
+    case "$r" in +*) force=1; r="${r#+}" ;; esac
+    case "$r" in :*) apaga=1 ;; esac
+    dst="${r##*:}"
+    alvo_main "$dst" && main=1
+    if [ "$dst" = HEAD ] || [ "$r" = HEAD ]; then
+      atual=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)
+      alvo_main "$atual" && main=1
+    fi
+  done
+  if [ "${#refs[@]}" = 0 ]; then
+    atual=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)
+    alvo_main "$atual" && main=1
+  fi
+  [ "$force" = 1 ] && ask "[cuidado] git push --force (ou -f agrupado, ou refspec com +) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
+  [ "$apaga" = 1 ] && ask "[cuidado] git push apagando branch remota (--delete, -d ou refspec :branch). Confirme."
+  [ "$tudo" = 1 ] && ask "[cuidado] git push --mirror/--all empurra todas as branches, main incluída. Confirme."
+  [ "$main" = 1 ] && ask "[cuidado] git push direto na main/master. O fluxo do kit é branch + PR. Confirme."
+done <<< "$push_segs"
+
+# Descartar alteração local não commitada (0.48.0): não há undo nenhum, nem do git.
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
+  printf '%s' "$seg" | grep -qE '(^|[[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(checkout|switch|restore|stash)([[:space:]]|$)' || continue
+  sub=$(printf '%s' "$seg" | sed -nE 's/.*git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(checkout|switch|restore|stash)([[:space:]].*)?$/\2/p')
+  args=" $(printf '%s' "$seg" | sed -E 's/^.*[[:space:]](checkout|switch|restore|stash)([[:space:]]+|$)//') "
+  case "$sub" in
+    checkout)
+      printf '%s' "$args" | grep -qE '[[:space:]](--force|-[a-zA-Z]*f[a-zA-Z]*)[[:space:]]' \
+        && ask "[cuidado] git checkout --force/-f descarta as alterações locais. Confirme."
+      printf '%s' "$args" | grep -qE '[[:space:]](\.|:/|\*)[[:space:]]' \
+        && ask "[cuidado] git checkout -- . descarta as alterações locais de tudo. Confirme." ;;
+    switch)
+      printf '%s' "$args" | grep -qE '[[:space:]](--discard-changes|--force|-[a-zA-Z]*f[a-zA-Z]*)[[:space:]]' \
+        && ask "[cuidado] git switch --discard-changes/-f descarta as alterações locais. Confirme." ;;
+    restore)
+      if printf '%s' "$args" | grep -qE '[[:space:]](\.|:/|\*)[[:space:]]'; then
+        if printf '%s' "$args" | grep -qE '[[:space:]](--staged|-S)[[:space:]]' && ! printf '%s' "$args" | grep -qE '[[:space:]](--worktree|-W)[[:space:]]'; then :
+        else ask "[cuidado] git restore . descarta as alterações locais. Confirme."; fi
+      fi ;;
+    stash)
+      printf '%s' "$args" | grep -qE '^[[:space:]]+(drop|clear)([[:space:]]|$)' \
+        && ask "[cuidado] git stash drop/clear apaga o que estava guardado no stash. Confirme." ;;
+  esac
+done <<< "$segs"
 
 # SQL destrutivo: só quando há EXECUTOR. Corpo de heredoc cuja linha de abertura não tem
 # executor (`cat > x.sql <<SQL`, `python3 - <<PY`) é conteúdo sendo escrito, não comando.
@@ -164,13 +281,34 @@ if ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:
   [ "$em_worktree" = 0 ] && ask "[cuidado] git add amplo (-A/-u/--all/.) em clone compartilhado. Prefira paths explícitos pra não commitar arquivo errado."
 fi
 
-# Ler .env pelo terminal traz a credencial pro contexto — o deny de Read só cobre a
-# ferramenta Read, o Bash passaria livre. `cat >> .env` é escrita e não conta.
-if m '(\b(cat|head|tail|less|more|bat|strings|base64)\b|rtk[[:space:]]+read\b)[^|;&>]*\.env(\.[A-Za-z0-9_.-]+)?([[:space:]]|$)' \
-   && ! m '\.env\.(example|1password|sample|template)' \
-   && ! m 'grep[[:space:]]+-c'; then
-  ask "[cuidado] ler .env/.env.local pelo terminal traz a credencial pro contexto. Pra saber só se a chave existe: grep -c '^CHAVE=' arquivo"
-fi
+# Segredo citado por QUALQUER comando (0.48.0). O deny de Read só cobre os comandos de
+# arquivo que o Claude Code reconhece no Bash; `grep '' .env`, `awk 1 .env`, `git show
+# HEAD:.env`, `ffmpeg -i .env` e os cmdlets do PowerShell passavam calados. Agora o texto do
+# segmento basta. Isentos: .env.example/.sample/.template/.1password (públicos), escrita por
+# redirecionamento (`>> .env.local`) e o que não imprime conteúdo (`grep -c/-q/-l`, test, ls,
+# stat, echo/printf, mensagem de commit/PR — sem substituição de comando).
+SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|\.ssh[/\\]|id_rsa|id_ed25519|id_ecdsa|\.pem($|[^A-Za-z0-9_])|\.aws[/\\]credentials|\.netrc|\.npmrc|\.claude\.json|\.config[/\\]gh[/\\]hosts\.yml|serviceAccountKey\.json'
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
+  limpo=$(printf '%s' "$seg" | sed -E 's/\.env(\.[A-Za-z0-9_-]+)*\.(example|sample|template|1password)//g; s/>>?[[:space:]]*[^[:space:]]+//g')
+  printf '%s' "$limpo" | grep -qE "$SEGREDO" || continue
+  case "$limpo" in *'$('*|*'`'*) ;; *)
+    printf '%s' "$limpo" | grep -qE '^[[:space:]]*(grep|rg)[[:space:]]+(.*[[:space:]])?-[a-zA-Z]*[cqlL][a-zA-Z]*([[:space:]]|$)' && continue
+    printf '%s' "$limpo" | grep -qE '^[[:space:]]*(test|\[|\[\[|ls|stat|echo|printf|touch|chmod|git[[:space:]]+(check-ignore|ls-files|commit|rm[[:space:]]+--cached)|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit))([[:space:]]|$)' && continue
+    printf '%s' "$limpo" | grep -qiE '^[[:space:]]*test-path([[:space:]]|$)' && continue
+  ;; esac
+  ask "[cuidado] o comando cita arquivo de segredo (.env, chave SSH, .pem, credencial de nuvem/gh/npm) e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe: grep -c '^CHAVE=' arquivo"
+done <<< "$segs"
+
+# Variáveis de ambiente inteiras (0.48.0): `env`, `printenv`, `export -p`, `set` e, no
+# PowerShell, `Get-ChildItem Env:` mostram todos os tokens carregados de uma vez.
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
+  if printf '%s' "$seg" | grep -qE '^[[:space:]]*(env|printenv|set|export[[:space:]]+-p|export|declare[[:space:]]+-[a-zA-Z]*[xp][a-zA-Z]*)([[:space:]]+-0)?[[:space:]]*$|^[[:space:]]*printenv([[:space:]]|$)' \
+     || printf '%s' "$seg" | grep -qiE '(^|[[:space:](])(get-childitem|gci|ls|dir|get-item|gi|get-content|gc)[[:space:]]+(-path[[:space:]]+|-literalpath[[:space:]]+)?["'"'"']?env:|\[(system\.)?environment\]::getenvironmentvariables'; then
+    ask "[cuidado] listar as variáveis de ambiente mostra todos os tokens carregados. Pra uma só: echo \"\${NOME:+definida}\" (Bash) ou [bool]\$env:NOME (PowerShell)."
+  fi
+done <<< "$segs"
 
 # Exfiltração de credencial pra fora da máquina. Nada mais no harness barra isso:
 # permissions.deny só cobre o tool Read, e o `ask` de hook não freia subagent — mas na

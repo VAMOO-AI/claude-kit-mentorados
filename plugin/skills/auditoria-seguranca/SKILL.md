@@ -8,6 +8,11 @@ description: >-
   "auditoria de segurança", "relatório de segurança", "auditoria em PDF", "achou
   IDOR?". NÃO é o secscan (Markdown fora do git): este é o pacote para outra
   pessoa ler e agir.
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'
+  - 'Bash(cp "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/)'
+  - 'Bash(python3 docs/security-audit/gerar-relatorio.py *)'
 ---
 
 # auditoria-seguranca — 6 categorias, PDF e issues

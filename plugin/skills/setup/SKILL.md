@@ -7,6 +7,11 @@ description: >-
   CLAUDE.md com os dados de quem está instalando. Use em "/kit-vamoo:setup",
   "terminar de instalar o kit", "configurar o kit", "instalei o plugin e agora?",
   "a barra de status não apareceu", "o kit não está pegando as regras".
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh" --check *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh --check *)'
 ---
 
 # Terminar a instalação do kit
@@ -18,6 +23,19 @@ o `settings.json` de um plugin só aceita as chaves `agent` e
 permissões não podem vir num plugin.** É isto que esta skill instala.
 
 ## 1. Rode o setup
+
+**No Windows, confira antes se existe `bash`.** Os guard-rails do kit (commit na main,
+push forçado, `rm -r` fora das pastas descartáveis, leitura de segredo) são scripts bash
+chamados pelos hooks. Sem o Git para Windows, o hook falha aberto e **nenhuma guarda roda**:
+sobram só as regras `ask`/`deny` do `settings.json`. No PowerShell:
+
+```powershell
+Get-Command bash -ErrorAction SilentlyContinue
+```
+
+Saída vazia: diga à pessoa, em português, que sem o Git para Windows
+(https://git-scm.com/download/win) as guardas do kit não rodam, recomende instalar e
+reiniciar o Claude Code, e só então siga. O próprio `kit-setup.sh` também precisa do bash.
 
 Sempre com `--dry-run` primeiro, e mostre a saída para a pessoa:
 
@@ -58,6 +76,19 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
+- **O modo de permissão vira "Accept edits" (`acceptEdits`).** Quem estava no
+  Manual (`default`) ou sem modo passa para `acceptEdits`, e a saída diz isso numa
+  linha. `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam como
+  estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
+  não tem volta (force push, push na main, descartar alteração local, `rm -r` fora das
+  pastas descartáveis, listar variáveis de ambiente, ler arquivo de segredo), com espelho
+  em `PowerShell(...)`. Runner de script (`node scripts/*`) e `ffmpeg` não entram no allow
+  global: o projeto libera o script exato no próprio `.claude/settings.json`. Quem quer o
+  manual de vez cria `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais.
+- **No app de desktop, o seletor vence o arquivo.** O modo escolhido no seletor ao
+  lado do botão de enviar é lembrado por pasta e ganha do `defaultMode`. Se ele
+  mostrar **Manual** (ou **Ask permissions**, em versão antiga), diga à pessoa para
+  trocar uma vez para **Accept edits** em cada pasta onde escolheu Manual.
 - **O setup liga o auto-update do kit** (`extraKnownMarketplaces.vamoo-ai.autoUpdate`).
   É o que faz o kit parar de envelhecer na máquina de quem instalou: o Claude
   Code desliga a atualização automática de marketplace de terceiro por padrão, e

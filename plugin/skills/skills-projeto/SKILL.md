@@ -5,6 +5,9 @@ description: >-
   disparar. Use ao criar, instalar (npx skills add) ou revisar skill de projeto,
   quando a sessão nasce cara, ou em "vale a pena virar skill?". Não é o
   harness-check, que mede a sessão inteira.
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh *)'
 ---
 
 # Skills do projeto — o que elas cobram, e de quem

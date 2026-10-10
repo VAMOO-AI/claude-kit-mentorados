@@ -7,6 +7,19 @@ description: >-
   github", "sync github", "puxa o remote", "source control desatualizado", ou no
   INÍCIO/FIM de sessão num repo compartilhado ("vou mexer no projeto", "meu
   colega mexeu?", "tem PR aberto?"). Complementa a skill worktrees (isolamento).
+allowed-tools:
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh")'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --status-only)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh --status-only)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --team)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh --team)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --cwd * --team)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh --cwd * --team)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh" --cleanup-dry-run)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh --cleanup-dry-run)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh --verificar *)'
 ---
 
 # /git-sync — Atualizar local com o GitHub
