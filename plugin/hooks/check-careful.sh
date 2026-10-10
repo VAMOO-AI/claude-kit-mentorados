@@ -165,8 +165,9 @@ if ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:
 fi
 
 # Ler .env pelo terminal traz a credencial pro contexto — o deny de Read só cobre a
-# ferramenta Read, o Bash passaria livre. `cat >> .env` é escrita e não conta.
-if m '(\b(cat|head|tail|less|more|bat|strings|base64)\b|rtk[[:space:]]+read\b)[^|;&>]*\.env(\.[A-Za-z0-9_.-]+)?([[:space:]]|$)' \
+# ferramenta Read, o Bash passaria livre. `cat >> .env` é escrita e não conta. Get-Content/gc/
+# Select-String/sls são as leituras do PowerShell (0.48.0), que chega aqui pelo mesmo pre-bash.sh.
+if m '(\b(cat|head|tail|less|more|bat|strings|base64|get-content|gc|select-string|sls)\b|rtk[[:space:]]+read\b)[^|;&>]*\.env(\.[A-Za-z0-9_.-]+)?([[:space:]]|$)' \
    && ! m '\.env\.(example|1password|sample|template)' \
    && ! m 'grep[[:space:]]+-c'; then
   ask "[cuidado] ler .env/.env.local pelo terminal traz a credencial pro contexto. Pra saber só se a chave existe: grep -c '^CHAVE=' arquivo"

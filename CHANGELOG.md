@@ -38,8 +38,10 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   separe pasta descartável.
 - **PowerShell:** espelho em `PowerShell(...)` de todo deny e ask de Bash e dos allow que se
   escrevem igual (git, gh, npm, npx, bun, pnpm), mais os nomes nativos (`Get-ChildItem`,
-  `Get-Content`, `Select-String`…). No Windows com Git, deny só de `Bash(...)` desligava a
-  ferramenta PowerShell sem aviso; com as regras `PowerShell(...)` ela volta a ficar ligada.
+  `Test-Path`, `Set-Location`…). `Get-Content` e `Select-String` ficam fora do allow: a doc só
+  garante o deny de `Read` nos comandos de arquivo do Bash, e o `check-careful` passa a perguntar
+  quando eles leem `.env`. No Windows com Git, deny só de `Bash(...)` desligava a ferramenta
+  PowerShell sem aviso; com as regras `PowerShell(...)` ela volta a ficar ligada.
 - **Hooks:** o `pre-bash.sh` passa a casar `Bash|PowerShell` (commit em main, push --force, troca
   de branch no clone compartilhado e merge com branch-filha valem no PowerShell). O
   `block-cd-leitura-relativa` fica só no Bash. O `repo-session` do PostToolUse também vê o

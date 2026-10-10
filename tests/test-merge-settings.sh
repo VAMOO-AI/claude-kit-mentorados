@@ -315,6 +315,13 @@ for tool in Bash PowerShell; do
     else echo "  ok    continua pedindo ($tool): $c"; fi
   done
 done
+# A doc garante o deny de Read só para os comandos de arquivo do BASH (cat, head, tail…). Cmdlet
+# de leitura do PowerShell no allow lia .env e chave SSH sem pergunta: fica fora do allow.
+for c in 'Get-Content .env' 'Get-Content .env.local' 'Get-Content ~/.ssh/id_rsa' 'gc ~/.claude/.env.tokens' \
+         'Select-String -Path .env -Pattern KEY' 'Get-Content README.md'; do
+  if casa allow PowerShell "$c"; then echo "  FALHA leitura de arquivo pelo PowerShell aprovada sem pergunta: $c"; falhas=$((falhas+1))
+  else echo "  ok    leitura pelo PowerShell continua pedindo: $c"; fi
+done
 for c in 'rm -rf .next' 'rm -rf node_modules' 'rm -rf dist' 'rm -r build'; do
   if casa ask Bash "$c" || casa deny Bash "$c"; then echo "  FALHA ask/deny novo pega: $c"; falhas=$((falhas+1))
   else echo "  ok    continua livre (acceptEdits aprova rm no projeto): $c"; fi

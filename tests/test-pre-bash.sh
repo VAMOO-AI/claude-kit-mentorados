@@ -166,6 +166,9 @@ rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "P
 rc=$(C='git checkout main' D="$CLONE" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"default",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
   | HOME="$HOME_OUTRA" TMPDIR="$TMP" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; echo $?)
 espera_rc 2 "$rc" "PowerShell: checkout no clone com outra sessão ativa bloqueia"
+rc=$(roda_ps 'Get-Content .env.local' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Get-Content .env.local pede confirmação (check-careful)"
+rc=$(roda_ps 'Select-String -Path .env -Pattern KEY' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Select-String em .env pede confirmação"
+rc=$(roda_ps 'Get-Content .env.example' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: .env.example interrompido: $(cat "$TMP/out")" || ok "PowerShell: Get-Content .env.example segue livre"
 rc=$(roda_ps 'cd C:/proj/app; cat package.json' "$FEAT")
 espera_rc 0 "$rc" "PowerShell: cd + leitura relativa não cai no block-cd-leitura-relativa (é regra do bash)"
 rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
