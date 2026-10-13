@@ -108,6 +108,9 @@ jobs:
       - name: O --voltar-main do git-sync só troca de branch quando é seguro
         run: bash tests/test-git-sync-voltar-main.sh
 
+      - name: O gh do git-sync consulta o repo do origin, não o upstream que ele preferiria
+        run: bash tests/test-git-sync-gh-repo-origin.sh
+
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
@@ -354,6 +357,9 @@ jobs:
           cat /tmp/paridade.log
           [ "$code" = 2 ] || { echo "::error::esperava exit 2 sem o clone do time, veio $code"; exit 1; }
 
+      - name: A paridade de arquivos compara hash, data do commit e a lista de exceções
+        run: bash tests/test-paridade-arquivos.sh
+
       - name: Sintaxe dos scripts shell
         run: |
           bash -n install.sh
@@ -528,3 +534,42 @@ jobs:
           done
           if [ -n "$falhas" ]; then echo "::error::falharam no Windows:$falhas"; exit 1; fi
 
+  # Não reprova. Divergência de skill/hook com o kit do time é aviso: o porte é manual
+  # e parte da diferença é de propósito (scripts/paridade.ignore). Se o GITHUB_TOKEN
+  # não enxerga o claude-config-team privado, o job pula com aviso.
+  paridade-conteudo:
+    name: paridade de skills e hooks (só avisa)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Tenta clonar o claude-config-team
+        id: time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh repo clone VAMOO-AI/claude-config-team /tmp/claude-config-team; then
+            echo "acessivel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "acessivel=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::O token do Actions não leu o claude-config-team privado. Paridade de conteúdo pulada."
+          fi
+
+      - name: Compara skills e hooks e só avisa
+        if: steps.time.outputs.acessivel == 'true'
+        run: |
+          code=0
+          bash scripts/paridade.sh --arquivos --kit "$GITHUB_WORKSPACE" --time /tmp/claude-config-team | tee /tmp/paridade-arquivos.txt || code=$?
+          if [ "$code" != 0 ]; then
+            echo "::warning::paridade.sh --arquivos saiu $code. Este job não reprova."
+            exit 0
+          fi
+          n="$(grep -c '^divergiu' /tmp/paridade-arquivos.txt || true)"
+          if [ "${n:-0}" != 0 ]; then
+            echo "::warning::${n} arquivo(s) de skill/hook divergem do claude-config-team. O job só avisa; veja o log."
+          else
+            echo "nenhuma divergência de conteúdo fora das exceções."
+          fi

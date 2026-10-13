@@ -8,13 +8,39 @@ antes disso? Rode o setup uma vez. Para aplicar uma atualização na sessão abe
 `/reload-plugins`. Veja **Atualizar depois** no README — inclusive o que o auto-update
 NÃO cobre.
 
-Mantenedor: **suba o `version` do `plugin.json` em toda entrega.** Ele é a chave do
-cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update ligado.
-Com mais de uma sessão portando ao mesmo tempo, o número é **a versão da main + 1, fixado
-na hora do merge** (depois de trazer a main), nunca no começo do trabalho: em 15/10/2026
-dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
-Se a mudança tocar a barra de status ou as preferências, rode também
-`/kit-vamoo:setup` — ele faz backup de tudo antes.
+Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## [0.67.0] — 2026-10-22
+
+### Corrigido
+
+- **O `git-sync` consulta o repo do `origin`, não o `upstream`.** Sem `gh repo set-default`, o
+  `gh` prefere um remote `upstream`, e o relatório de PR e a prova de merge saíam do repo
+  errado (por exemplo, num projeto clonado de template).
+  - O script exporta `GH_REPO` antes do primeiro `gh`, com esta precedência: ambiente >
+    `git config git-sync.repo` > slug do origin.
+  - As sondagens `gh repo view` recebem o slug como argumento.
+  - A API REST usa o mesmo slug.
+  - Teste novo: `tests/test-git-sync-gh-repo-origin.sh`, com 17 falhas contra o script da
+    0.66.1 e verde com o fix.
+  - Porte de VAMOO-AI/claude-config-team#289.
+
+### Adicionado
+
+- **`scripts/paridade.sh --arquivos`.** Compara, pelo hash do que está no git, as skills e os
+  hooks que existem neste kit e no `claude-config-team` (`vamoo-<nome>` casa com `<nome>`).
+  - Diz qual lado é mais novo pela data do último commit; `--json` imprime o mesmo relatório.
+  - As exceções de propósito ficam em `scripts/paridade.ignore`.
+  - O job `paridade-conteudo` do CI só avisa. Se o token do Actions não ler o repo privado do
+    time, ele pula com aviso.
+  - Teste: `tests/test-paridade-arquivos.sh`.
+  - Vale até a F10 do núcleo único (#241), quando o `paridade.sh` sai.
+
+### Mudado
+
+- O parágrafo de quem mantém o kit saiu do topo deste arquivo e foi para o `CONTRIBUTING.md`.
+  Aqui fica a nota para quem usa.
+- Esta versão resgata o conteúdo do #186, fechado sem merge em 14/10/2026.
 
 ## [0.66.1] — 2026-10-22
 

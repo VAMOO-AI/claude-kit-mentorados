@@ -83,6 +83,24 @@ fi
 COMMON="$(cd "$COMMON" && pwd)"
 [[ "$(git config --get --type=bool git-sync.noGh 2>/dev/null || true)" == "true" ]] && NO_GH=1
 
+# Sem `gh repo set-default`, o gh escolhe o repo base pelo NOME do remote e prefere
+# `upstream` a `origin`. Em 07/10/2026, no linkbio-vamoo (upstream = o template, push
+# DISABLE), todo gh deste script consultou o template: "nenhum PR aberto" com o #15 aberto,
+# mergeados do template e o cleanup casando branch com PR do outro repo. O GH_REPO
+# exportado aqui, antes do primeiro gh, vale para todas as chamadas — inclusive a sondagem
+# de contas, que senão aprovaria a conta ativa por ela enxergar o template público.
+# Exceção: `gh repo view` sem argumento ignora o GH_REPO (gh 2.102) — toda sondagem passa
+# ${GH_REPO:+"$GH_REPO"} explícito.
+# Precedência: GH_REPO do ambiente > `git config git-sync.repo dono/nome` > slug do origin.
+# Origin fora do github.com dá slug vazio: nada é exportado e o gh resolve como sempre.
+REPO_SLUG="${GH_REPO:-}"
+[[ -n "$REPO_SLUG" ]] || REPO_SLUG="$(git config --get git-sync.repo 2>/dev/null || true)"
+[[ -n "$REPO_SLUG" ]] || REPO_SLUG="$(git remote get-url origin 2>/dev/null \
+  | sed -nE 's#^.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//' || true)"
+if [[ -z "${GH_REPO:-}" && -n "$REPO_SLUG" ]]; then
+  export GH_REPO="$REPO_SLUG"
+fi
+
 hr() { printf '%s\n' "------------------------------------------------------------"; }
 
 echo "## git-sync"
@@ -484,14 +502,14 @@ resolver_conta_gh() {
   GH_CONTA_RESOLVIDA=1
   [[ "$NO_GH" -eq 1 ]] && return 0
   if command -v gh >/dev/null 2>&1 \
-     && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view --json name >/dev/null 2>&1; then
+     && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1; then
     _status="$(gh auth status 2>&1 || true)"
     _contas="$(printf '%s\n' "$_status" | sed -n 's/.*account \([A-Za-z0-9_-]*\).*/\1/p' | sort -u || true)"
     _ativa="$(printf '%s\n' "$_status" | awk '/account /{match($0,/account [A-Za-z0-9_-]+/); c=substr($0,RSTART+8,RLENGTH-8)} /Active account: true/{print c; exit}' || true)"
     for _c in $_contas; do
       _t="$(gh auth token -u "$_c" 2>/dev/null || true)"
       [[ -n "$_t" ]] || continue
-      if GH_TOKEN="$_t" gh repo view --json name >/dev/null 2>&1; then
+      if GH_TOKEN="$_t" gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1; then
         # A ativa passando no retry quer dizer que a 1ª consulta caiu por rede/API, não por
         # conta: mandar `gh auth switch` para a conta que já está ativa é instrução vazia.
         if [[ "$_c" == "$_ativa" ]]; then
@@ -504,10 +522,9 @@ resolver_conta_gh() {
       fi
     done
     if [[ -z "$GH_CONTA_NOTA" ]]; then
-      _slug="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
-      GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${_slug:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
+      GH_CONTA_NOTA="(nenhuma conta do gh enxerga ${REPO_SLUG:-este repositório} — 'gh auth login' na conta que tem acesso; 'gh auth status' mostra as logadas)"
     fi
-    unset _status _contas _ativa _c _t _slug
+    unset _status _contas _ativa _c _t
   fi
   return 0
 }
@@ -519,10 +536,9 @@ resolver_conta_gh() {
 # O token da API vem da variável que `git config git-sync.tokenVar` nomeia — do ambiente ou,
 # lida só a linha dela, de ~/.claude/.env.tokens (GIT_SYNC_TOKENS_FILE) —, senão de
 # GH_TOKEN/GITHUB_TOKEN. Nunca é impresso e vai ao curl pelo stdin: em argv apareceria no ps.
-# `git config git-sync.repo dono/nome` sobrepõe o slug tirado do origin.
-REST_SLUG="$(git config --get git-sync.repo 2>/dev/null || true)"
-[[ -n "$REST_SLUG" ]] || REST_SLUG="$(git remote get-url origin 2>/dev/null \
-  | sed -nE 's#^.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//' || true)"
+# O repo é o mesmo do gh (REPO_SLUG, lá em cima), sem o HOST/ que o GH_REPO aceita.
+REST_SLUG="$REPO_SLUG"
+[[ "$REST_SLUG" == */*/* ]] && REST_SLUG="${REST_SLUG#*/}"
 rest_token() {
   local var tok="" f
   var="$(git config --get git-sync.tokenVar 2>/dev/null || true)"
@@ -582,7 +598,7 @@ detectar_backend_pr() {
   PR_BACKEND=none
   if [[ "$NO_GH" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
     resolver_conta_gh
-    gh repo view --json name >/dev/null 2>&1 && { PR_BACKEND=gh; return 0; }
+    gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1 && { PR_BACKEND=gh; return 0; }
   fi
   [[ "$REST_OK" -eq 1 ]] && PR_BACKEND=rest
   return 0

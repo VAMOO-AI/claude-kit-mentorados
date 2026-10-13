@@ -1,0 +1,15 @@
+# Exceções intencionais: o hash difere e não é porte atrasado.
+# Cada linha é um glob (o * atravessa barra). Casa com
+# "skill/<nome>/<caminho>", "<nome>/<caminho>" e "<caminho>".
+# Linha vazia e o que vem depois de # não contam.
+
+# motion-reel: marca e logos são diferentes de propósito.
+# O kit público leva o placeholder "SUA MARCA"; o time leva a marca VAMOO.
+# A paleta de exemplo, quando mora num arquivo próprio, também.
+# O objeto de cores dentro de assets/template/src/lib.tsx continua na comparação:
+# nesse arquivo o símbolo (MarkIn aqui, lemniscata no time) é divergência real.
+motion-reel/**/marca.png
+motion-reel/**/logo-light.png
+motion-reel/**/logo-dark.png
+motion-reel/**/paleta.*
+motion-reel/**/palette.*
