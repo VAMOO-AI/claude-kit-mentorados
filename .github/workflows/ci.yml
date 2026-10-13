@@ -218,6 +218,9 @@ jobs:
           bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
           ! grep -q '^pulado' /tmp/final-verificar.log
 
+      - name: A paleta da motion-reel é neutra e o new.sh grava --cor no projeto novo
+        run: bash tests/test-motion-reel-cor.sh
+
       - name: O stills.mjs da motion-reel aceita índices com espaço e vírgula e recusa índice inválido
         # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
         run: bash tests/test-motion-reel-stills-indices.sh
@@ -401,3 +404,127 @@ jobs:
           # aqui num PR que não toca a skill = advisory novo; suba o pacote nesse lock.
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
+
+  # Compila e renderiza o template Remotion de verdade, nos dois sistemas em que o mentorado usa a skill.
+  # O job validate (acima) continua só no Ubuntu, com ffmpeg e Node falsos nos testes de shell.
+  motion-render:
+    name: motion-render (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\ffmpeg.zip"
+          Invoke-WebRequest "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-8.1.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ffmpeg"
+          $bin = (Get-ChildItem "$env:RUNNER_TEMP\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+          Add-Content $env:GITHUB_PATH $bin
+
+      - name: Python com numpy (a trilha do new.sh)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$HOME/.venvs/motion"
+          if [ -x "$HOME/.venvs/motion/Scripts/python.exe" ]; then PY="$HOME/.venvs/motion/Scripts/python.exe"
+          else PY="$HOME/.venvs/motion/bin/python"; fi
+          "$PY" -m pip install --disable-pip-version-check numpy
+          "$PY" -c "import numpy; print('numpy', numpy.__version__)"
+          ffmpeg -version | head -1
+          node --version
+          python3 --version
+
+      - name: Projeto novo numa pasta com espaço no nome
+        shell: bash
+        run: |
+          set -euo pipefail
+          # new.sh já roda npm ci. A pasta com espaço é o caso que quebra aspas no Windows.
+          bash plugin/skills/motion-reel/scripts/new.sh "motion reel"
+
+      - name: npm ci e tsc
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "motion reel" && npm ci --no-audit --no-fund --loglevel=error)
+          (cd "motion reel" && npx tsc --noEmit)
+
+      - name: Um quadro de cada cena do SCENES
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 plugin/skills/motion-reel/scripts/galeria.py "motion reel"
+          python3 - <<'PY'
+          import re, pathlib, sys
+          tsx = pathlib.Path("plugin/skills/motion-reel/assets/template/src/film-scenes.tsx").read_text(encoding="utf-8")
+          bloco = re.search(r"export const SCENES[^=]*=\s*\{(.*?)\};", tsx, re.S)
+          tipos = re.findall(r"(\w+)\s*:", bloco.group(1))
+          faltam = [t for t in ("launch", "beats", "glass", "logo3d") if t not in tipos]
+          if faltam:
+              sys.exit("SCENES não exporta " + ", ".join(faltam))
+          gal = pathlib.Path("motion reel/out/galeria")
+          ruim = []
+          for t in tipos:
+              f = gal / f"cena-{t}.png"
+              tam = f.stat().st_size if f.is_file() else 0
+              print(f"{t} {tam}")
+              if tam < 1000:
+                  ruim.append(f"{t} ({tam})")
+          if ruim:
+              sys.exit("PNG vazio ou ausente: " + ", ".join(ruim))
+          print("stills", len(tipos))
+          PY
+
+      - name: qa.sh
+        shell: bash
+        run: bash plugin/skills/motion-reel/scripts/qa.sh "motion reel"
+
+      - name: Render curto e final.sh --verificar
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "motion reel" && npx remotion render src/index.tsx Reel "out/reel-curto.mp4" --frames=0-30 --scale=0.25 --log=error)
+          ffprobe -v error -show_entries stream=codec_name,width,height -of compact "motion reel/out/reel-curto.mp4"
+          test -s "motion reel/out/reel-curto.mp4"
+          # O trecho cru de 1 s não passou pelo loudnorm. --verificar confere um MP4 curto já no alvo
+          # (−14 LUFS): é o mesmo tom do tests/test-motion-reel-final-verificar.sh.
+          ffmpeg -loglevel error -y \
+            -f lavfi -i "color=c=black:s=270x480:r=30:d=2" \
+            -f lavfi -i "aevalsrc=0.2*sin(2*PI*1000*t)|0.2*sin(2*PI*1000*t):s=48000:d=2" \
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest \
+            "motion reel/out/curto-alvo.mp4"
+          bash plugin/skills/motion-reel/scripts/final.sh --verificar "motion reel/out/curto-alvo.mp4"
+          test -s "motion reel/out/curto-alvo-folha.jpg"
+
+      - name: voz.py --qualquer-voz --taxa 220
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 plugin/skills/motion-reel/scripts/voz.py "motion reel" --qualquer-voz --taxa 220 | tee voz.log
+          grep -q "taxa 220" voz.log
+          if grep -q "só vale no macOS" voz.log; then echo "aviso antigo de --taxa"; exit 1; fi
+          n_vo=$(python3 -c 'import json; print(len(json.load(open("motion reel/vo.json", encoding="utf-8"))["lines"]))')
+          n_wav=$(ls "motion reel"/public/vo/*.wav | wc -l | tr -d ' ')
+          echo "falas=$n_vo wavs=$n_wav"
+          test "$n_wav" = "$n_vo"
+          ffprobe -v error -show_entries stream=sample_rate,channels -of compact "motion reel/public/vo/a1.wav" | grep "sample_rate=48000|channels=1"

@@ -10,16 +10,17 @@ import {
   useCurrentFrame,
 } from "remotion";
 
-// Paleta do exemplo. Troque pela sua marca; azul sobre --night usa a variante clara.
+// Paleta neutra do exemplo (grafite e preto). Troque pela sua marca com --cor / --cor-escura
+// no new.sh, ou edite aqui. brand sobre papel; brandOnDark sobre night; accentFill com texto branco.
 // Nome da marca nas cenas (Intro). Os logos são public/logo-light.png, logo-dark.png e marca.png.
 export const BRAND = "Sua Marca";
 
 export const C = {
   paper: "#fcfcfc",
   ink: "#000000",
-  brand: "#007dff",
-  brandOnDark: "#4da3ff",
-  accentFill: "#0063cc",
+  brand: "#3f3f46",
+  brandOnDark: "#d4d4d8",
+  accentFill: "#18181b",
   night: "#05070a",
   dim: "#677294",
   faint: "#97a3b7",
@@ -229,7 +230,7 @@ export const Odometer: React.FC<{
   );
 };
 
-// Painel azul que varre a tela na troca de cena.
+// Painel na cor da marca que varre a tela na troca de cena.
 export const Wipe: React.FC<{ f: number; at: number; color?: string; dir?: 1 | -1 }> = ({
   f,
   at,

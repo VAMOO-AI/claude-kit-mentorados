@@ -44,10 +44,11 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - Vídeo de referência: baixe com `yt-dlp -o <arquivo> <url>` e extraia quadros com `ffmpeg` (2 fps só na região que interessa, montados numa folha com `tile`). Música e SFX não se deduzem de imagem.
    - Escolha a base pela tabela acima. Com narração ou com 16:9, é o Film.
 2. **Marca.** Pergunte uma vez se há logo e paleta. Com os PNGs (fundo transparente), crie o
-   projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro) e `--mark`
-   (símbolo) no `new.sh`. Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
-   - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
-3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta>`
+   projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro), `--mark`
+   (símbolo), `--cor` (`#rrggbb`, acento sobre fundo claro, o `brand`) e, se quiser o preenchimento
+   com texto branco, `--cor-escura` (o `accentFill`) no `new.sh`. Sem os logos, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
+   - O template nasce em grafite e preto: `brand` `#3f3f46` sobre papel, `brandOnDark` `#d4d4d8` sobre night, `accentFill` `#18181b` com texto branco. `--cor` e `--cor-escura` gravam essas chaves no `src/lib.tsx` do projeto novo; hex que não é `#rrggbb` recusa. A variante clara (`brandOnDark`) você troca no `lib.tsx` se a marca pedir. `BRAND` é o nome. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
+3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] [--cor <#rrggbb>] [--cor-escura <#rrggbb>] <pasta>`
    - Passe os logos por flag, não por `MOTION_*=… new.sh`: a pré-aprovação da skill (`allowed-tools`) não vale para comando precedido de variável, e a pessoa teria de clicar em Permitir.
    - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
@@ -59,7 +60,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - SFX disponíveis: `soft-click`, `dry-pop`, `soft-whoosh`, `low-hit`, `short-rise`, `soft-chime`, `paper-tap`. As transições já soam sozinhas.
 5. **Narração (só Film com voz).** Siga `references/narracao.md`. Pergunte de onde vem a voz; os dois primeiros caminhos não custam nada:
    - **a própria voz:** a pessoa grava cada bloco com uma pausa entre as falas, você converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala;
-   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
+   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, ritmo com `--taxa` (90 a 300 palavras por minuto; no Windows vira o Rate do System.Speech), grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json` (também termo com ponto ou cerquilha, como `.env`), não sobrescreve a gravação da pessoa e refaz a timeline;
    - **ElevenLabs (pago):** falas no `vo.json`, blocos no `blocks.json`, texto do TTS pelo `blocks-text.py`. Diga ao dono o total de caracteres que ele imprime (≈ créditos) **antes** de gerar e espere o ok; depois **1 bloco de teste** antes dos outros, download pelo `dl.sh`, corte pelo `split-vo.py`.
 
    Sem voz, pule: o `build-timeline.py` estima a duração pelo texto e avisa.
@@ -94,7 +95,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 
 ## Linguagem visual (padrão do template)
 
-Papel, ink, um azul como acento de dado e um fundo night; sans geométrica pesada; ênfase de
+Papel, ink, um grafite como acento e um fundo night; sans geométrica pesada; ênfase de
 título vazada (nunca itálico nem cor); CTA em pílula preta; mono só em comando. Sem gradiente
 decorativo, glow ou glass: o impacto vem da coreografia. A exceção são os presets `glass` e
 `logo3d`, que trazem vidro, luz e reflexo de propósito: use quando a peça pede (lançamento, número

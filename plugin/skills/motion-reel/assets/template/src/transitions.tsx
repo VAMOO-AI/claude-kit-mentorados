@@ -153,7 +153,7 @@ const Glitch: React.FC<TP> = ({ children, presentationDirection, presentationPro
   );
 };
 
-/* Painel diagonal duplo: azul e night varrem em chanfro. */
+/* Painel diagonal duplo: a cor da marca e night varrem em chanfro. */
 const Panel: React.FC<TP> = ({ children, presentationDirection, presentationProgress }) => {
   if (presentationDirection === "exiting") {
     return <AbsoluteFill style={{ transform: `translateX(${-EASE_INOUT(presentationProgress) * 12}%)` }}>{children}</AbsoluteFill>;

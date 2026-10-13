@@ -13,6 +13,35 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.52.0] — 2026-10-13
+
+### Mudado
+
+- **motion-reel: paleta neutra.** O template nascia no azul `#007dff` / `#4da3ff` / `#0063cc`.
+  O acento agora é grafite e preto, com contraste em fundo claro (`brand` `#3f3f46` sobre papel)
+  e em fundo night (`brandOnDark` `#d4d4d8`; `accentFill` `#18181b` com texto branco).
+  `new.sh --cor <#rrggbb>` grava o `brand` do projeto novo e `--cor-escura` (opcional) grava o
+  `accentFill`. Hex que não é `#rrggbb` recusa. Teste: `tests/test-motion-reel-cor.sh`.
+
+### Corrigido
+
+- **motion-reel: `--taxa` no Windows.** O `voz.py` avisava que a velocidade só valia no macOS.
+  A faixa 90–300 agora vira o `Rate` do System.Speech (`round(10·log₃(taxa/182))`, de −10 a 10),
+  o mesmo critério do template irmão. Se o corte de silêncio esvaziar a fala, o WAV segue sem o corte.
+- **motion-reel: pronúncia com símbolo.** A troca do `say` no `blocks.json` usava `\b` e não casava
+  `.env`, `C#` nem `node.js`. Agora usa `(?<!\w)` e `(?!\w)`. Teste: `tests/test-motion-reel-voz.sh`.
+- **motion-reel: folha de contato no Windows** (#172). O `stills.mjs` montava a folha com
+  `ffmpeg -pattern_type glob`, que o ffmpeg do Windows não implementa, e saía com erro depois de
+  gravar os PNGs. A folha agora lê a sequência `%03d.png`.
+
+### Adicionado
+
+- **CI `motion-render`.** Além dos testes de shell no Ubuntu, o workflow compila e renderiza o
+  template Remotion em `macos-latest` e `windows-latest`: projeto criado com o `new.sh` numa pasta
+  com espaço no nome, `tsc`, um quadro de cada cena do `SCENES` (inclui `launch`, `beats`, `glass`
+  e `logo3d`), `qa.sh`, um render curto, `final.sh --verificar` num MP4 curto e
+  `voz.py --qualquer-voz --taxa 220`.
+
 ## [0.51.0] — 2026-10-13
 
 ### Adicionado

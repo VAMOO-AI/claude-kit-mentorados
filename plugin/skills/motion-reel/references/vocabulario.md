@@ -29,7 +29,7 @@ copiando e mudando o texto, não reescrevendo do zero.
 | `Hours` | relógio: 60 ticks + ponteiro com rastro + anel de progresso + contador | tempo investido, prazo |
 | `Terminals` | parede 3D de janelas acendendo + janela-herói com comando digitado e número | volume de trabalho técnico |
 | `Credit` | número + barra-pílula que enche + frase em palavras staggered | porcentagem, consumo, meta |
-| `Voce` | smash: flash azul, palavra gigante com blur que assenta, ondas de choque, tremor | clímax depois de uma pausa na música |
+| `Voce` | smash: flash na cor da marca, palavra gigante com blur que assenta, ondas de choque, tremor | clímax depois de uma pausa na música |
 | `NoUsoDoClaude` | 3 linhas em máscara, última vazada, sublinhado que se desenha | fechamento da frase principal |
 | `Outro` | símbolo (`MarkIn`) entra com escala → logo PNG revelado por `clipPath` → nome, subtítulo, pílula preta de CTA, endereço em mono | assinatura + CTA |
 
@@ -119,7 +119,7 @@ nome, visível na folha de QA.
 - **Uma ideia por tela, 0,5–1,5 s cada.** Frase de mais de 3 palavras fica ≥ ~1,3 s. No Film, uma ideia por fala, e a animação entra quando a voz diz a coisa.
 - **Mesmo roteiro, dois formatos:** o `reel` do `film.json` é um corte do `master` (título, 2–3 cenas fortes, CTA, assinatura), não um roteiro novo.
 - Frase longa do briefing vira **beats**: o número grande primeiro, o apoio depois.
-- **Paleta do exemplo** (troque em `C`, no `lib.tsx`): papel `#fcfcfc`, ink `#000`, azul `#007dff` (dado), night `#05070a`. Azul sobre night é `#4da3ff`; preenchimento azul com texto branco é `#0063cc`. Alternar fundo claro/escuro marca o ritmo.
+- **Paleta do exemplo** (troque em `C`, no `lib.tsx`, ou com `--cor` e `--cor-escura` no `new.sh`): papel `#fcfcfc`, ink `#000`, grafite `#3f3f46` (acento sobre fundo claro), night `#05070a`. Grafite claro sobre night é `#d4d4d8`; preenchimento escuro com texto branco é `#18181b`. Alternar fundo claro/escuro marca o ritmo.
 - **Mono só em comando/terminal.** Ênfase de título = vazado.
 - Nada de gradiente decorativo, glow ou glass. O impacto vem da coreografia: máscara, escala, corte pela borda, câmera 3D, match cut. Exceção: os presets `glass` e `logo3d` (acima) usam vidro, luz e reflexo por escolha; no máximo uma cena de cada por peça.
 - Comando que aparece na tela tem que ser **real** (o público digita o que vê). Busque no README do produto.

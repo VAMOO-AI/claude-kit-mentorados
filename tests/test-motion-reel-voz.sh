@@ -20,7 +20,10 @@
 #   7. com o terminal em cp1252 (Windows), o aviso do build-timeline ("duração") não derruba o
 #      voz.py com UnicodeDecodeError: ele recusa com a mensagem de fala sem WAV;
 #   8. escolha da voz: Luciana quando instalada; senão a primeira pt-BR que não é voz de
-#      novidade (Eddy, Flo, Grandma...); senão a primeira pt-BR.
+#      novidade (Eddy, Flo, Grandma...); senão a primeira pt-BR;
+#   9. --taxa vale nos dois: say -r no macOS e Rate do System.Speech no Windows
+#      (round(10·log3(taxa/182)), de −10 a 10). Fora de 90–300 recusa;
+#   10. pronúncia casa termo com ponto ou cerquilha (.env, C#, node.js), não só palavra.
 #
 # Uso: bash tests/test-motion-reel-voz.sh [raiz-do-repo]
 set -uo pipefail
@@ -63,7 +66,11 @@ python3 -c 'import sys, wave
 w = wave.open(sys.argv[1], "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000)
 w.writeframes(b"\0\0" * 48000); w.close()' "$out"
 SH
-chmod +x "$BIN/say" "$BIN/ffmpeg"
+cat > "$BIN/ffprobe" <<'SH'
+#!/usr/bin/env bash
+printf '1.0\n'
+SH
+chmod +x "$BIN/say" "$BIN/ffmpeg" "$BIN/ffprobe"
 
 VOZES_PT='Albert              en_US    # Hello! My name is Albert.
 Fernanda (Português (Brasil)) pt_BR    # Olá, meu nome é Fernanda.
@@ -167,6 +174,7 @@ python3 -c 'import json, sys
 m = json.load(open(sys.argv[1], encoding="utf-8"))
 with open(sys.argv[2], "a", encoding="utf-8") as log:
     log.write("voz=%s\n" % m["voz"])
+    log.write("rate=%s\n" % m["rate"])
     for f in m["falas"]:
         log.write(f["texto"] + "\n")
         open(f["saida"], "wb").write(b"RIFF")' "$MOTION_VOZ_MANIFESTO" "$TEXTOS"
@@ -178,7 +186,7 @@ spec = importlib.util.spec_from_file_location("voz", sys.argv[1])
 voz = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(voz)
 voz.WINDOWS = True
-sys.argv = ["voz.py", sys.argv[2]]
+sys.argv = ["voz.py", *sys.argv[2:]]
 voz.main()
 EOF
 P6="$TMP/p6 ção"; projeto "$P6"; : > "$LOG"; : > "$TEXTOS"
@@ -188,6 +196,8 @@ check "sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
 n_wav="$(ls "$P6/public/vo/"*.wav 2>/dev/null | wc -l | tr -d ' ')"
 check "um WAV por fala ($n_wav de $n_vo)" "$([ "$n_wav" = "$n_vo" ] && echo ok || echo fail)"
 check "escolhe a voz pt-BR do Windows" "$(tem "$TEXTOS" 'voz=Microsoft Maria Desktop')"
+check "taxa padrão vira Rate 0" "$(tem "$TEXTOS" 'rate=0')"
+check "não avisa que --taxa só vale no macOS" "$(naotem "$TMP/6.log" 'só vale no macOS')"
 check "o say do blocks.json troca Claude por Cláudi no áudio" "$(tem "$TEXTOS" 'O Cláudi confere tudo.')"
 check "o script vai codificado (-EncodedCommand)" "$(tem "$LOG" '[-EncodedCommand]')"
 check "nenhum texto de fala na linha de comando" "$(naotem "$LOG" 'Segunda, nove da manhã')"
@@ -230,6 +240,63 @@ for k in "luciana:Luciana quando instalada, mesmo depois das vozes de novidade" 
   check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/8.log" && echo ok || echo fail)"
 done
 /usr/bin/grep -v ' ok$' "$TMP/8.log" | sed 's/^/        /'
+
+echo "9. --taxa (90–300) no say e no Rate do Windows"
+printf '%s\n' "$VOZES_PT" > "$VOZES"; : > "$LOG"
+roda "$TMP/9a.log" "$P" --refazer --taxa 220; rc=$?
+check "taxa 220 sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+[ "$rc" = 0 ] || sed 's/^/        /' "$TMP/9a.log"
+check "say recebe -r 220" "$(tem "$LOG" '[-r] [220]')"
+check "a saída cita a taxa 220" "$(tem "$TMP/9a.log" 'taxa 220')"
+roda "$TMP/9b.log" "$P" --refazer --taxa 89; rc=$?
+check "abaixo de 90 recusa (veio $rc)" "$([ "$rc" != 0 ] && echo ok || echo fail)"
+check "a recusa cita a faixa" "$(tem "$TMP/9b.log" '90')"
+roda "$TMP/9c.log" "$P" --refazer --taxa abc; rc=$?
+check "taxa que não é número recusa (veio $rc)" "$([ "$rc" != 0 ] && echo ok || echo fail)"
+: > "$TEXTOS"
+PATH="$BIN:$PATH" "$PY" "$TMP/windows.py" "$VOZ" "$P6" --refazer --taxa 220 > "$TMP/9d.log" 2>&1; rc=$?
+check "Windows com taxa 220 sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+[ "$rc" = 0 ] || sed 's/^/        /' "$TMP/9d.log"
+rate220="$("$PY" -c 'import math; print(max(-10, min(10, round(10 * math.log(220 / 182, 3)))))')"
+check "taxa 220 vira Rate $rate220 no manifesto" "$(tem "$TEXTOS" "rate=$rate220")"
+check "a saída do Windows cita a taxa 220" "$(tem "$TMP/9d.log" 'taxa 220')"
+check "não avisa que --taxa só vale no macOS" "$(naotem "$TMP/9d.log" 'só vale no macOS')"
+
+echo "10. pronúncia com ponto e cerquilha"
+cat > "$TMP/pronuncia.py" <<'EOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("voz", sys.argv[1])
+voz = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(voz)
+trocas = {".env": "ponto env", "C#": "cê sharp", "node.js": "node jota esse"}
+sai = voz.pronuncia("Leia o .env, use C# e node.js agora.", trocas)
+ok = ("ponto env" in sai and "cê sharp" in sai and "node jota esse" in sai
+      and ".env" not in sai and "C#" not in sai and "node.js" not in sai)
+print("troca", "ok" if ok else f"fail ({sai})")
+parcial = voz.pronuncia("my.env e xnode.jsy e CC#.", trocas)
+okp = (".env" in parcial and "node.js" in parcial and "C#" in parcial
+       and "ponto env" not in parcial and "cê sharp" not in parcial)
+print("parcial", "ok" if okp else f"fail ({parcial})")
+import math
+def esp(taxa):
+    return max(-10, min(10, round(10 * math.log(taxa / 182, 3))))
+casos = {182: esp(182), 220: esp(220), 90: esp(90), 300: esp(300), 1: -10, 100000: 10}
+okt = all(voz.rate_windows(t) == e for t, e in casos.items())
+print("rate", "ok" if okt else "fail " + " ".join(f"{t}->{voz.rate_windows(t)}" for t in casos))
+try:
+    voz.taxa_valida("89"); print("faixa", "fail (89 passou)")
+except Exception:
+    try:
+        voz.taxa_valida("301"); print("faixa", "fail (301 passou)")
+    except Exception:
+        print("faixa", "ok" if voz.taxa_valida("90") == 90 and voz.taxa_valida("300") == 300 else "fail")
+EOF
+"$PY" "$TMP/pronuncia.py" "$VOZ" > "$TMP/10.log" 2>&1
+for k in "troca:troca .env, C# e node.js" "parcial:não troca no meio de outra palavra" \
+         "rate:Rate do Windows segue log3 e o teto -10..10" "faixa:taxa_valida fica em 90–300"; do
+  check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/10.log" && echo ok || echo fail)"
+done
+/usr/bin/grep -v ' ok$' "$TMP/10.log" | sed 's/^/        /'
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

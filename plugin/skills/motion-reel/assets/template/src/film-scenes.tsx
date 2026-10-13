@@ -473,7 +473,7 @@ const hitAt = (p: SP, i: number, step: number) =>
   i === 0 ? first(p) : i < p.beats.length ? bt(p, i) - 4 : i * step;
 
 // Cor da paleta C com transparência: os presets pintam brilho e luz com a cor da marca de quem
-// cria o projeto, nunca com um azul fixo. Aceita #rgb e #rrggbb; outro formato volta como veio.
+// cria o projeto, nunca com uma cor fixa de outra marca. Aceita #rgb e #rrggbb; outro formato volta como veio.
 const alpha = (cor: string, a: number) => {
   const h = cor.replace("#", "");
   const hex = h.length === 3 ? h.replace(/./g, (c) => c + c) : h;

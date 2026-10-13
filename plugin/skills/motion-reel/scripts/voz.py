@@ -4,7 +4,8 @@
     python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> [id ...] [--voz NOME]
                                                     [--taxa 182] [--refazer] [--qualquer-voz]
 
-macOS: `say`. Windows: System.Speech pelo PowerShell 5.1. Voz: a Luciana quando instalada; senão a
+macOS: `say -r`. Windows: System.Speech pelo PowerShell 5.1; --taxa (90–300) vira o Rate
+(-10..10). Voz: a Luciana quando instalada; senão a
 primeira em português do Brasil que não é voz de novidade (Eddy, Flo...); outra com --voz.
 O texto vai por arquivo UTF-8, nunca pela linha de comando, e passa antes pelo `say` do blocks.json
 (troca de pronúncia, só no áudio).
@@ -15,6 +16,7 @@ comando ou --refazer geram de novo. No fim roda o build-timeline.py e recusa se 
 import argparse
 import base64
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -25,6 +27,7 @@ import tempfile
 
 WINDOWS = os.name == "nt"
 TAXA = 182
+TAXA_MIN, TAXA_MAX = 90, 300
 PREFERIDA = "Luciana"
 # Vozes de novidade/Eloquence do macOS: existem em pt-BR e vêm antes da Luciana na ordem alfabética.
 NOVIDADE = {"Eddy", "Flo", "Grandma", "Grandpa", "Reed", "Rocko", "Sandy", "Shelley"}
@@ -47,6 +50,7 @@ if (-not $env:MOTION_VOZ_MANIFESTO) {
 }
 $m = [System.IO.File]::ReadAllText($env:MOTION_VOZ_MANIFESTO, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 if ($m.voz) { $s.SelectVoice($m.voz) }
+$s.Rate = [int]$m.rate
 foreach ($f in $m.falas) {
   $s.SetOutputToWaveFile($f.saida)
   $s.Speak($f.texto)
@@ -110,10 +114,35 @@ def escolher_voz(lista, pedida=None, qualquer=False):
     raise SystemExit(SEM_VOZ_WINDOWS if WINDOWS else SEM_VOZ_MAC)
 
 
+def taxa_valida(valor):
+    try:
+        taxa = int(valor)
+    except ValueError:
+        taxa = None
+    if taxa is None or not TAXA_MIN <= taxa <= TAXA_MAX:
+        raise argparse.ArgumentTypeError(
+            f"use um número de {TAXA_MIN} a {TAXA_MAX} palavras por minuto (padrão {TAXA})")
+    return taxa
+
+
+def rate_windows(taxa):
+    """Rate do System.Speech: 0 é o ritmo padrão (182 ppm); 10 é 3× mais rápido."""
+    return max(-10, min(10, round(10 * math.log(taxa / TAXA, 3))))
+
+
 def pronuncia(texto, trocas):
+    # (?<!\w)/(?!\w) casa .env, C# e node.js; \b não casa ponto nem cerquilha na borda.
     for de, para in trocas.items():
-        texto = re.sub(rf"\b{re.escape(de)}\b", para, texto)
+        texto = re.sub(rf"(?<!\w){re.escape(de)}(?!\w)", lambda _: para, texto)
     return texto
+
+
+def duracao(wav):
+    saida = rodar(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(wav)])
+    try:
+        return float(saida.stdout.decode("ascii", "replace").strip())
+    except ValueError:
+        return 0.0
 
 
 def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=False):
@@ -136,10 +165,8 @@ def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=Fals
     if not shutil.which("powershell.exe" if WINDOWS else "say"):
         raise SystemExit(SEM_MOTOR)
     nome = escolher_voz(vozes(), voz, qualquer_voz)
-    if WINDOWS and taxa:
-        print("aviso: --taxa só vale no macOS; no Windows a voz fala no ritmo dela.")
-    taxa = taxa or TAXA
-    print(f"voz: {nome or 'padrão do sistema'}" + ("" if WINDOWS else f", taxa {taxa}"))
+    taxa = TAXA if taxa is None else taxa
+    print(f"voz: {nome or 'padrão do sistema'}, taxa {taxa}")
     destino.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp:
         temp = Path(temp)
@@ -148,7 +175,7 @@ def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=Fals
             for f in pendentes:
                 brutos[f["id"]] = temp / f"{f['id']}.wav"
             manifesto = temp / "falas.json"
-            manifesto.write_text(json.dumps({"voz": nome, "falas": [
+            manifesto.write_text(json.dumps({"voz": nome, "rate": rate_windows(taxa), "falas": [
                 {"texto": pronuncia(f["text"], trocas), "saida": str(brutos[f["id"]])} for f in pendentes]}),
                 encoding="utf-8")
             powershell({"MOTION_VOZ_MANIFESTO": str(manifesto)})
@@ -159,8 +186,12 @@ def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=Fals
                 rodar(["say", *(["-v", nome] if nome else []), "-r", str(taxa), "-f", str(texto),
                        "-o", str(brutos[f["id"]])])
         for f in pendentes:
-            rodar(["ffmpeg", "-v", "error", "-y", "-i", str(brutos[f["id"]]), "-af", APARA, "-ac", "1",
-                   "-ar", "48000", str(destino / f"{f['id']}.wav")])
+            alvo = destino / f"{f['id']}.wav"
+            base = ["ffmpeg", "-v", "error", "-y", "-i", str(brutos[f["id"]])]
+            rodar([*base, "-af", APARA, "-ac", "1", "-ar", "48000", str(alvo)])
+            if duracao(alvo) < 0.05:
+                print(f"  aviso: {f['id']} ficou vazia com o corte; vai sem o corte de silêncio")
+                rodar([*base, "-ac", "1", "-ar", "48000", str(alvo)])
             print(f"  {f['id']}: public/vo/{f['id']}.wav")
     return [f["id"] for f in pendentes]
 
@@ -173,7 +204,8 @@ def main():
     parser.add_argument("projeto", type=Path)
     parser.add_argument("ids", nargs="*", help="só estas falas, geradas de novo mesmo que já tenham WAV")
     parser.add_argument("--voz", help="nome de uma voz instalada (padrão: Luciana, ou a primeira pt-BR que não é voz de novidade)")
-    parser.add_argument("--taxa", type=int, help=f"palavras por minuto do say, só macOS (padrão: {TAXA})")
+    parser.add_argument("--taxa", type=taxa_valida, default=TAXA,
+                        help=f"palavras por minuto, de {TAXA_MIN} a {TAXA_MAX} (padrão: {TAXA}; no Windows vira o Rate do System.Speech)")
     parser.add_argument("--refazer", action="store_true", help="gera de novo todas as falas")
     parser.add_argument("--qualquer-voz", action="store_true", help="sem voz pt-BR, usa a voz padrão do sistema")
     args = parser.parse_args()

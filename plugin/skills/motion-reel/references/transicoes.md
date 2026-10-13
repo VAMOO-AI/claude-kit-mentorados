@@ -16,9 +16,9 @@ na cena (sem ela, centro da tela).
 | `whip` | as duas cenas correm na horizontal com blur direcional | 10 | troca de energia entre palavras | whoosh |
 | `whipUp` | idem, vertical | 10 | depois de um impacto | whoosh |
 | `push` | vertical, mais suave (blur menor) | 12 | do título para o conteúdo | whoosh |
-| `bars` | 8 barras azul/night em cascata cobrem e descobrem | 16–18 | mudança de seção | paper-tap + whoosh |
-| `glitch` | fatias deslocadas + riscos azuis/brancos | 10 | entrar em algo técnico/digital | cliques |
-| `panel` | dois painéis em chanfro (azul e night) varrem | 18 | mudança de fundo escuro → claro | whoosh |
+| `bars` | 8 barras da cor da marca e night em cascata cobrem e descobrem | 16–18 | mudança de seção | paper-tap + whoosh |
+| `glitch` | fatias deslocadas + riscos na cor clara da marca e brancos | 10 | entrar em algo técnico/digital | cliques |
+| `panel` | dois painéis em chanfro (cor da marca e night) varrem | 18 | mudança de fundo escuro → claro | whoosh |
 | `spin` | as duas cenas giram no mesmo sentido com escala e blur | 12 | virada de frase | whoosh |
 | `cut` | corte seco (`d: 0`) | 0 | **match cut** (mosaico → título) e **smash cut** depois de riser | — |
 

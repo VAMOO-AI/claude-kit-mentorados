@@ -46,7 +46,15 @@ export async function renderStill({ output, frame }) {
   fs.writeFileSync(output, "");
 }
 J
-printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/bin/ffmpeg"; chmod +x "$TMP/bin/ffmpeg"
+# O ffmpeg do Windows não tem -pattern_type glob. A folha usa a sequência %03d.png.
+export FFMPEG_LOG="$TMP/ffmpeg.log"
+: > "$FFMPEG_LOG"
+cat > "$TMP/bin/ffmpeg" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FFMPEG_LOG"
+exit 0
+SH
+chmod +x "$TMP/bin/ffmpeg"
 export PATH="$TMP/bin:$PATH"
 
 roda() { # roda <nome> <args...>: grava quadros em $TMP/<nome>.frames e a saída em $TMP/<nome>.out
@@ -84,6 +92,19 @@ done
 FRAMES_LOG="$TMP/frac.frames" node "$P/scripts/stills.mjs" Master169 0,2 > "$TMP/frac.out" 2>&1; rc=$?
 [ "$rc" != 0 ] && [ ! -s "$TMP/frac.frames" ] && /usr/bin/grep -q 'fração' "$TMP/frac.out" && /usr/bin/grep -qF '0.2,0.8 0.4 0,2' "$TMP/frac.out" && r=ok || r=fail
 check "fração 0,2 recusa antes de renderizar e mostra a forma dos índices (rc=$rc; $(head -c 200 "$TMP/frac.out" | tr '\n' ' '))" $r
+
+if /usr/bin/grep -Eq 'pattern_type|\*\.png' "$FFMPEG_LOG"; then
+  check "a folha não usa glob do ffmpeg" fail
+  sed 's/^/        /' "$FFMPEG_LOG"
+else
+  check "a folha não usa glob do ffmpeg" ok
+fi
+if /usr/bin/grep -q '%03d.png' "$FFMPEG_LOG"; then
+  check "a folha lê a sequência %03d.png" ok
+else
+  check "a folha lê a sequência %03d.png" fail
+  sed 's/^/        /' "$FFMPEG_LOG"
+fi
 
 [ "$falhas" -eq 0 ] && { echo "OK: stills.mjs aceita índices com espaço e vírgula"; exit 0; }
 echo "$falhas falha(s)"; exit 1

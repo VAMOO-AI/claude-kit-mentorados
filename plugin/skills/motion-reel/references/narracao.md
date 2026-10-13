@@ -36,8 +36,9 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refa
 - Voz: a Luciana quando instalada; senão a primeira pt-BR que não é voz de novidade do macOS
   (Eddy, Flo, Grandma, Grandpa, Reed, Rocko, Sandy, Shelley); senão a primeira pt-BR. A lista muda
   de máquina para máquina, por isso o script detecta. Para ver as do Mac: `say -v '?' | grep pt_BR`;
-  outra voz: `--voz "<nome>"` (o nome pode ter espaço e parênteses). Ritmo no macOS: `--taxa`
-  (padrão 182 palavras por minuto); no Windows a voz fala no ritmo dela.
+  outra voz: `--voz "<nome>"` (o nome pode ter espaço e parênteses). Ritmo: `--taxa`
+  (90 a 300, padrão 182 palavras por minuto). No macOS é o `say -r`. No Windows vira o Rate
+  do System.Speech (`round(10·log3(taxa/182))`, de −10 a 10).
 - Ele lê o `vo.json` direto, uma fala por arquivo, nunca na linha de comando: as tags do
   ElevenLabs (`tags`) seriam lidas em voz alta e não valem aqui. O texto passa antes pelo `say`
   do `blocks.json` ("Claude" → "Cláudi"); a tela e o `vo.json` continuam com a grafia original.

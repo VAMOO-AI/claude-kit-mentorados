@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cria um projeto motion-reel novo: copia o template, os assets, instala e gera as trilhas.
-# Uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta-destino>
+# Uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] [--cor <#rrggbb>] [--cor-escura <#rrggbb>] <pasta-destino>
+# --cor grava brand (acento sobre fundo claro). --cor-escura grava accentFill (preenchimento com texto branco).
 # As flags valem o mesmo que MOTION_LOGO_LIGHT / MOTION_LOGO_DARK / MOTION_MARK e têm prioridade;
 # prefira as flags: a pré-aprovação da skill (allowed-tools) não casa com VAR=... antes do comando.
 # Fonte (Plus Jakarta Sans, OFL) e os 7 SFX vêm empacotados na skill. Os logos padrão são
@@ -11,16 +12,29 @@
 # Master169/Reel916 (Film de exemplo, sem narração ainda: durações estimadas pelo texto).
 set -euo pipefail
 SK="$(cd "$(dirname "$0")/.." && pwd)"
-USO="uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta-destino>"
+USO="uso: new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] [--cor <#rrggbb>] [--cor-escura <#rrggbb>] <pasta-destino>"
+COR=""
+COR_ESCURA=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --logo-light) MOTION_LOGO_LIGHT="${2:?$USO}"; shift 2 ;;
     --logo-dark) MOTION_LOGO_DARK="${2:?$USO}"; shift 2 ;;
     --mark) MOTION_MARK="${2:?$USO}"; shift 2 ;;
+    --cor) COR="${2:?$USO}"; shift 2 ;;
+    --cor-escura) COR_ESCURA="${2:?$USO}"; shift 2 ;;
     -*) echo "!! opção desconhecida: $1 ($USO)"; exit 1 ;;
     *) break ;;
   esac
 done
+cor_ok() {
+  if printf '%s\n' "$1" | grep -Eq '^#[0-9A-Fa-f]{6}$'; then
+    return 0
+  fi
+  echo "!! cor inválida: $1 (use #rrggbb)"
+  exit 1
+}
+[ -n "$COR" ] && cor_ok "$COR"
+[ -n "$COR_ESCURA" ] && cor_ok "$COR_ESCURA"
 DEST="${1:?$USO}"
 [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ] && { echo "!! $DEST já existe e não está vazia"; exit 1; }
 
@@ -46,6 +60,19 @@ cp "$MARK" "$DEST/public/marca.png"
 cp "$SFXD"/*.wav "$DEST/public/sfx/"
 [ -z "${MOTION_LOGO_LIGHT:-}" ] && echo "aviso: logos são placeholders \"SUA MARCA\"; passe --logo-light, --logo-dark e --mark ou troque os PNG em $DEST/public/"
 
+gravar_cor() { # gravar_cor <chave> <hex> — uma linha `  chave: "#rrggbb"` no lib.tsx copiado
+  local chave="$1" hex="$2" tmp
+  tmp="$(mktemp)"
+  awk -v chave="$chave" -v hex="$hex" '
+    $0 ~ "^  " chave ": \"" { sub(/"[^"]*"/, "\"" hex "\""); n++ }
+    { print }
+    END { if (n != 1) exit 2 }
+  ' "$DEST/src/lib.tsx" > "$tmp" || { rm -f "$tmp"; echo "!! não achei ${chave} em src/lib.tsx"; exit 1; }
+  mv "$tmp" "$DEST/src/lib.tsx"
+}
+[ -n "$COR" ] && gravar_cor brand "$COR"
+[ -n "$COR_ESCURA" ] && gravar_cor accentFill "$COR_ESCURA"
+
 echo "→ npm ci (Remotion 4.0.484 travado no lockfile)"
 (cd "$DEST" && npm ci --no-audit --no-fund --loglevel=error)
 
@@ -56,6 +83,7 @@ echo "→ npm ci (Remotion 4.0.484 travado no lockfile)"
 echo
 echo "pronto: $DEST"
 echo "  Reel (música manda):  reescreva src/timeline.json, src/scenes.tsx e BRAND/C em src/lib.tsx"
+[ -n "$COR" ] && echo "  cor: $COR${COR_ESCURA:+ (escura $COR_ESCURA)} em src/lib.tsx"
 echo "  Film (voz manda):     reescreva film.json + vo.json + blocks.json; cenas em src/film-scenes.tsx"
 echo "  revisar:  $SK/scripts/qa.sh $DEST [Reel|Master169|Reel916]"
 echo "  entregar: $SK/scripts/final.sh $DEST <nome> [Reel|Master169|Reel916]"
