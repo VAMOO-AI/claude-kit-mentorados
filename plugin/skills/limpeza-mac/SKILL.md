@@ -108,6 +108,10 @@ O que o script respeita, e por quê:
   repo em uso é o build que o dev server está servindo.
 - **`.next` dentro de `.vercel/output` não é build solto.** É o prebuilt do deploy, e o
   inventário não desce em `.vercel`.
+- **Ferramenta vendorizada não é build.** O inventário não lista `node_modules` sob `.tools`
+  (ex.: `.claude/skills/<ferramenta>/.tools`), `.context/vendor` nem de clone aninhado (`.git`
+  diretório) que o projeto ignora. Medida pelo clone de dentro, ela parece parada mesmo com o
+  projeto em uso; worktree (`.git` arquivo) segue a regra comum.
 - **A idade do repo vem do reflog do HEAD**, não do mtime do índice, que qualquer
   `git status` reescreve.
 - **Worktree detached** sai quando o HEAD é ancestral do default. Squash não é ancestral:

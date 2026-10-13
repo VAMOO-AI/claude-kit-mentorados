@@ -144,13 +144,21 @@ done < "$OUT/repos.txt" > "$OUT/orfas.tsv"
 
 # builds: idade pela última entrada do reflog do HEAD — mtime do índice mente, qualquer
 # `git status` reescreve. %ct seria a data do COMMIT; a da entrada sai de %gd com --date=unix
+# Ferramenta vendorizada não é build do projeto: medida pelo clone de dentro, ela parece parada
+# mesmo com o projeto em uso. Fora do plano: tudo sob `.tools` e `.context/vendor` (poda no
+# find) e o node_modules de clone aninhado (`.git` DIRETÓRIO) que o repo de fora ignora.
+# Worktree tem `.git` arquivo e segue a regra comum
 while read -r d; do
   root=$(git -C "$(dirname "$d")" rev-parse --show-toplevel 2>/dev/null || dirname "$d")
+  if [ -d "$root/.git" ] && fora=$(git -C "$(dirname "$root")" rev-parse --show-toplevel 2>/dev/null) \
+     && git -C "$fora" check-ignore -q "$root" 2>/dev/null; then
+    continue
+  fi
   t=$(git -C "$root" reflog -1 --date=unix --format=%gd HEAD 2>/dev/null | sed -n 's/.*@{\([0-9]*\)}.*/\1/p')
   [ -z "$t" ] && t=$(git -C "$root" log -1 --format=%ct 2>/dev/null)
   [ -z "$t" ] && t=$(mtime "$root")
   printf '%s\t%s\t%s\n' $(( (AGORA - t) / 86400 )) "$(du -sk "$d" | cut -f1)" "$d"
-done < <(find -H "$@" -maxdepth 6 -type d \( -name .vercel -prune -o \( -name node_modules -o -name .next \) -print -prune \) 2>/dev/null) \
+done < <(find -H "$@" -maxdepth 6 -type d \( \( -name .vercel -o -name .tools -o -path '*/.context/vendor' \) -prune -o \( -name node_modules -o -name .next \) -print -prune \) 2>/dev/null) \
   | sort -n > "$OUT/builds.tsv"
 
 for p in \
