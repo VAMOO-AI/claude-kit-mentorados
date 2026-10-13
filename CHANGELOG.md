@@ -13,6 +13,39 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.50.0] — 2026-10-13
+
+### Adicionado
+
+- **motion-reel: narração grátis com `scripts/voz.py`** (#173). Uma fala do `vo.json` por WAV
+  (48 kHz mono, sem silêncio nas pontas) na primeira voz pt-BR instalada: `say` no macOS,
+  System.Speech pelo PowerShell no Windows (texto num manifesto UTF-8, nunca na linha de
+  comando). Aplica a troca de pronúncia do `say` do `blocks.json` só no áudio, não sobrescreve a
+  gravação da pessoa (ids ou `--refazer` geram de novo), refaz a timeline e recusa se sobrar fala
+  com duração estimada. Teste: `tests/test-motion-reel-voz.sh` (`say`, `powershell.exe` e
+  `ffmpeg` falsos).
+- **motion-reel: `scripts/galeria.py`** (#173). Um quadro de cada cena do Film, de cada
+  transição e de cada cena do Reel, com a marca do projeto, em `out/galeria/index.html`
+  (`--lista` em texto). O roteiro da pessoa não muda. Teste: `tests/test-motion-reel-galeria.sh`.
+- **motion-reel: presets de lançamento, batidas, vidro e logo 3D** (#175). Cenas `launch`,
+  `beats`, `glass` e `logo3d` no Film, som próprio no `track_cinema.py` e
+  `presets/lancamento.json` (16:9 + corte 9:16, sem voz, na batida). Pintam com a paleta `C`
+  da pessoa e o `logo3d` empilha o `marca.png` dela (prop `mark`), na proporção que ele tiver.
+  Quando usar: `references/vocabulario.md`. Teste: seção 5 de `tests/test-motion-reel-galeria.sh`.
+
+### Corrigido
+
+- **motion-reel: o símbolo placeholder era o do mantenedor.** O `assets/logos/marca.png` que
+  abre e fecha a peça sem `--mark` era o infinito azul da VAMOO AI desde a 0.45.0; o teste do
+  #169 só lia texto. Agora é um "SUA MARCA" cinza, e o `tests/test-motion-reel-sem-marca.sh`
+  decodifica o PNG e reprova pixel com cor.
+- **motion-reel: `stills.mjs` aceita índices com vírgula** (#176): `0,2,5` além de `0 2 5`,
+  ignora vazios e recusa índice que não é número ou passa do total antes de renderizar. Antes,
+  `0,2` saía "ok: 0 quadros". Teste: `tests/test-motion-reel-stills-indices.sh`.
+- **motion-reel: `py.sh` acha `~/.venvs/motion` sem `MOTION_PY`** (#176): `bin/python` no
+  macOS e `Scripts/python.exe` no Windows, entre `$MOTION_PY` e `python3`. Teste:
+  `tests/test-motion-reel-py.sh`.
+
 ## [0.49.0] — 2026-10-10
 
 ### Mudado
