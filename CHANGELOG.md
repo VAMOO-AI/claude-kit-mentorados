@@ -13,6 +13,17 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.0] — 2026-10-13
+
+### Adicionado
+
+- **motion-reel: storyboard antes de construir.** `scripts/storyboard.py` lê o `film.json`
+  do projeto e grava `out/storyboard/index.html` (miniatura, número, tipo, texto na tela,
+  fala e duração estimada) e `out/storyboard/storyboard.md` (tabela para aprovar cena a
+  cena). O quadro sai pelo `stills.mjs` do projeto; `--sem-stills` só escreve a página.
+  Não gera voz. Voz paga e o render final só entram depois dessa aprovação. Teste:
+  `tests/test-motion-reel-storyboard.sh`.
+
 ## [0.51.0] — 2026-10-13
 
 ### Adicionado
