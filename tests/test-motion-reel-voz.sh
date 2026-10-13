@@ -8,7 +8,7 @@
 # do Mac nem do Windows: `say`, `powershell.exe` e `ffmpeg` são falsos no PATH (o ffmpeg falso
 # grava um WAV válido de 1 s, porque o build-timeline abre o arquivo com `wave`).
 #
-#   1. sem --voz, usa a primeira voz pt-BR detectada (nenhum nome fixo); texto por arquivo,
+#   1. sem --voz, prefere a Luciana entre as pt-BR detectadas; texto por arquivo,
 #      nunca na linha de comando; aplica o `say` do blocks.json; WAV 48 kHz mono; timeline
 #      sem duração estimada;
 #   2. não sobrescreve gravação própria; id na linha de comando refaz só aquele;
@@ -16,7 +16,11 @@
 #   4. voz pedida que não existe e id que não está no vo.json recusam;
 #   5. sem `say` nem PowerShell (Linux) para e aponta a gravação própria;
 #   6. no Windows lista as vozes pelo PowerShell, escolhe a pt-BR e fala pelo manifesto UTF-8,
-#      com a pronúncia trocada e sem texto de fala na linha de comando.
+#      com a pronúncia trocada e sem texto de fala na linha de comando;
+#   7. com o terminal em cp1252 (Windows), o aviso do build-timeline ("duração") não derruba o
+#      voz.py com UnicodeDecodeError: ele recusa com a mensagem de fala sem WAV;
+#   8. escolha da voz: Luciana quando instalada; senão a primeira pt-BR que não é voz de
+#      novidade (Eddy, Flo, Grandma...); senão a primeira pt-BR.
 #
 # Uso: bash tests/test-motion-reel-voz.sh [raiz-do-repo]
 set -uo pipefail
@@ -94,7 +98,7 @@ check "sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
 n_vo="$("$PY" -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["lines"]))' "$P/vo.json")"
 n_wav="$(ls "$P/public/vo/"*.wav 2>/dev/null | wc -l | tr -d ' ')"
 check "um WAV por fala ($n_wav de $n_vo)" "$([ "$n_wav" = "$n_vo" ] && echo ok || echo fail)"
-check "a primeira voz pt-BR detectada, com espaço e parênteses no nome" "$(tem "$LOG" '[-v] [Fernanda (Português (Brasil))]')"
+check "prefere a Luciana entre as pt-BR" "$(tem "$LOG" '[-v] [Luciana]')"
 check "velocidade padrão (-r 182)" "$(tem "$LOG" '[-r] [182]')"
 check "texto vai por arquivo (-f)" "$(tem "$LOG" '[-f]')"
 check "nenhum texto de fala na linha de comando" "$(naotem "$LOG" 'Segunda, nove da manhã')"
@@ -190,6 +194,42 @@ check "nenhum texto de fala na linha de comando" "$(naotem "$LOG" 'Segunda, nove
 check "não chama o say" "$(/usr/bin/grep -q '^say' "$LOG" && echo fail || echo ok)"
 check "ffmpeg converte para mono 48 kHz" "$(tem "$LOG" '[-ar] [48000]')"
 check "timeline sem duração estimada" "$(naotem "$TMP/6.log" 'duração estimada')"
+
+echo "7. terminal em cp1252 (Windows)"
+# Só a fala a1 ganha WAV: o build-timeline avisa "duração estimada" das outras. Com
+# PYTHONIOENCODING=cp1252 herdado, o filho escrevia o aviso em cp1252 e a leitura em UTF-8
+# estrito estourava fora do try.
+P7="$TMP/p7"; projeto "$P7"; printf '%s\n' "$VOZES_PT" > "$VOZES"
+PYTHONIOENCODING=cp1252 PATH="$BIN:$PATH" "$PY" "$VOZ" "$P7" a1 > "$TMP/7.log" 2>&1; rc=$?
+check "recusa com erro (veio $rc)" "$([ "$rc" = 1 ] && echo ok || echo fail)"
+check "sem traceback de encoding" "$(/usr/bin/grep -q 'Traceback\|UnicodeDecodeError\|UnicodeEncodeError' "$TMP/7.log" && echo fail || echo ok)"
+check "diz que sobrou fala sem WAV" "$(tem "$TMP/7.log" 'fala sem WAV')"
+
+echo "8. escolha da voz"
+cat > "$TMP/escolha.py" <<'EOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("voz", sys.argv[1])
+voz = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(voz)
+pt = lambda *nomes: [(n, "pt-BR") for n in nomes]
+casos = {
+    "luciana": (pt("Eddy (Português (Brasil))", "Flo (Português (Brasil))", "Luciana"), "Luciana"),
+    "novidade": (pt("Eddy (Português (Brasil))", "Grandma (Português (Brasil))", "Reed (Português (Brasil))",
+                    "Fernanda (Português (Brasil))"), "Fernanda (Português (Brasil))"),
+    "windows": ([("Microsoft Zira Desktop", "en-US")] + pt("Microsoft Maria Desktop"), "Microsoft Maria Desktop"),
+    "so-novidade": (pt("Rocko (Português (Brasil))", "Sandy (Português (Brasil))"), "Rocko (Português (Brasil))"),
+}
+for nome, (lista, esperado) in casos.items():
+    veio = voz.escolher_voz(lista)
+    print(nome, "ok" if veio == esperado else f"fail (veio {veio})")
+EOF
+"$PY" "$TMP/escolha.py" "$VOZ" > "$TMP/8.log" 2>&1
+for k in "luciana:Luciana quando instalada, mesmo depois das vozes de novidade" \
+         "novidade:sem Luciana, pula Eddy, Grandma e Reed" "windows:Windows: a pt-BR do sistema" \
+         "so-novidade:só voz de novidade: a primeira pt-BR"; do
+  check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/8.log" && echo ok || echo fail)"
+done
+/usr/bin/grep -v ' ok$' "$TMP/8.log" | sed 's/^/        /'
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -27,6 +27,11 @@ if (comp === "Reel") {
   inputProps = { tl, audio: "x.wav", withAudio: false };
 }
 
+const fracs = fracS.split(",").map(Number);
+if (fracs.some((x) => !Number.isFinite(x) || x < 0 || x > 1)) {
+  console.error(`!! fração inválida: ${fracS} (cada fração vai de 0 a 1, ex.: 0.2,0.8). Índices vêm depois da escala: node scripts/stills.mjs ${comp} 0.2,0.8 0.4 0,2`);
+  process.exit(1);
+}
 const bad = idxTokens.filter((t) => !/^\d+$/.test(t) || Number(t) >= scenes.length);
 if (bad.length) {
   console.error(`!! índice inválido: ${bad.join(", ")} (use 0 a ${scenes.length - 1}, separados por espaço ou vírgula)`);
@@ -39,7 +44,6 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 const serveUrl = await bundle({ entryPoint: path.join(root, "src/index.tsx") });
 const composition = await selectComposition({ serveUrl, id: comp, inputProps });
-const fracs = fracS.split(",").map(Number);
 let n = 0;
 for (const [i, s] of scenes.entries()) {
   if (only.size && !only.has(i)) continue;

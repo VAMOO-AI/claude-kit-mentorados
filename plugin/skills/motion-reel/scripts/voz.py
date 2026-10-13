@@ -4,9 +4,10 @@
     python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> [id ...] [--voz NOME]
                                                     [--taxa 182] [--refazer] [--qualquer-voz]
 
-macOS: `say`. Windows: System.Speech pelo PowerShell 5.1. A voz é a primeira em português do Brasil
-instalada (o nome muda de máquina para máquina; outra com --voz). O texto vai por arquivo UTF-8, nunca
-pela linha de comando, e passa antes pelo `say` do blocks.json (troca de pronúncia, só no áudio).
+macOS: `say`. Windows: System.Speech pelo PowerShell 5.1. Voz: a Luciana quando instalada; senão a
+primeira em português do Brasil que não é voz de novidade (Eddy, Flo...); outra com --voz.
+O texto vai por arquivo UTF-8, nunca pela linha de comando, e passa antes pelo `say` do blocks.json
+(troca de pronúncia, só no áudio).
 Saída em <projeto>/public/vo/<id>.wav, sem silêncio nas pontas, que é o que o build-timeline.py mede.
 Fala que já tem WAV (a gravação da própria pessoa, por exemplo) fica como está; ids na linha de
 comando ou --refazer geram de novo. No fim roda o build-timeline.py e recusa se sobrar fala sem voz.
@@ -24,6 +25,9 @@ import tempfile
 
 WINDOWS = os.name == "nt"
 TAXA = 182
+PREFERIDA = "Luciana"
+# Vozes de novidade/Eloquence do macOS: existem em pt-BR e vêm antes da Luciana na ordem alfabética.
+NOVIDADE = {"Eddy", "Flo", "Grandma", "Grandpa", "Reed", "Rocko", "Sandy", "Shelley"}
 SAY_VOZ = re.compile(r"^(.*?\S)\s+([a-z]{2,3}_[A-Za-z0-9]+)\s+#")
 # Corta o silêncio do começo e do fim da fala: a cena anima em cima do início medido.
 APARA = ("silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
@@ -94,9 +98,12 @@ def escolher_voz(lista, pedida=None, qualquer=False):
             if nome.lower() == pedida.lower():
                 return nome
         raise SystemExit(f"!! voz '{pedida}' não encontrada. Vozes instaladas: " + ", ".join(n for n, _ in lista))
-    for nome, idioma in lista:
-        if idioma.lower() == "pt-br":
-            return nome
+    pt = [nome for nome, idioma in lista if idioma.lower() == "pt-br"]
+    if PREFERIDA in pt:
+        return PREFERIDA
+    normais = [nome for nome in pt if nome.split(" (")[0] not in NOVIDADE]
+    if pt:
+        return (normais or pt)[0]
     if qualquer:
         print("aviso: sem voz pt-BR; usando a voz padrão do sistema (serve para testar, não para publicar).")
         return None
@@ -159,10 +166,13 @@ def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=Fals
 
 
 def main():
+    # Terminal do Windows em cp1252: acento e seta não podem derrubar o script na hora de imprimir.
+    for fluxo in (sys.stdout, sys.stderr):
+        fluxo.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Narração grátis (voz do sistema) para o Film da motion-reel.")
     parser.add_argument("projeto", type=Path)
     parser.add_argument("ids", nargs="*", help="só estas falas, geradas de novo mesmo que já tenham WAV")
-    parser.add_argument("--voz", help="nome de uma voz instalada (padrão: a primeira em português do Brasil)")
+    parser.add_argument("--voz", help="nome de uma voz instalada (padrão: Luciana, ou a primeira pt-BR que não é voz de novidade)")
     parser.add_argument("--taxa", type=int, help=f"palavras por minuto do say, só macOS (padrão: {TAXA})")
     parser.add_argument("--refazer", action="store_true", help="gera de novo todas as falas")
     parser.add_argument("--qualquer-voz", action="store_true", help="sem voz pt-BR, usa a voz padrão do sistema")
@@ -178,8 +188,10 @@ def main():
         detalhe = (erro.stderr or b"").decode("utf-8", "replace").strip()
         raise SystemExit(f"!! {Path(erro.cmd[0]).name} falhou: {detalhe or erro}")
     # O build-timeline mede cada WAV: sem aviso de duração estimada, toda fala tem voz.
+    # O filho herda o encoding do terminal (cp1252 no Windows): força UTF-8 para ler o aviso com acento.
     timeline = subprocess.run([sys.executable, str(projeto / "scripts/build-timeline.py")], cwd=projeto,
-                              capture_output=True, text=True, encoding="utf-8")
+                              capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
     print(timeline.stdout.rstrip())
     if timeline.returncode:
         raise SystemExit(timeline.stderr.strip() or "!! build-timeline.py falhou")

@@ -706,7 +706,9 @@ export const Logo3D: React.FC<SP> = (p) => {
   const { tl, idx } = React.useContext(FilmCtx);
   const src = staticFile(p.mark ?? "marca.png");
   const ratio = useImgRatio(src);
-  const mh = L.v ? 250 : 300;
+  // Logo largo (wordmark 5:1) não pode passar da guia: a altura cede para a largura caber,
+  // contando o soco de escala (bump, até 1,05) na pose.
+  const mh = Math.min(L.v ? 250 : 300, (L.W - L.l - L.r) / (ratio * 1.05));
   const mw = mh * ratio;
   const depth = mh * 0.18;
   const N = 36;

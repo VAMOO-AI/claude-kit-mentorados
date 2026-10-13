@@ -67,6 +67,9 @@ echo "1. --lista sem projeto"
 "$PY" "$GAL" --lista > "$TMP/lista.log" 2>&1; rc=$?
 check "sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
 for c in $CENAS $TRANS $REEL; do check "lista cita $c" "$(tem "$TMP/lista.log" "$c")"; done
+# Terminal do Windows em cp1252: "→" e "×" da listagem não podem derrubar o script.
+PYTHONIOENCODING=cp1252 "$PY" "$GAL" --lista > "$TMP/lista-cp1252.log" 2>&1; rc=$?
+check "--lista com stdout cp1252 sai 0 sem UnicodeEncodeError (veio $rc)" "$([ "$rc" = 0 ] && ! /usr/bin/grep -q 'UnicodeEncodeError' "$TMP/lista-cp1252.log" && echo ok || echo fail)"
 
 echo "2. galeria de um projeto"
 P="$TMP/pasta com espaço ção/motion"; mkdir -p "$P/src" "$P/scripts"

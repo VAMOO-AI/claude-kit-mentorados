@@ -219,6 +219,9 @@ def galeria(projeto):
 
 
 def main():
+    # Terminal do Windows em cp1252: "→" e "×" da listagem não podem derrubar o script.
+    for fluxo in (sys.stdout, sys.stderr):
+        fluxo.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
     if args and args[0] == "--lista":
         listar(Path(args[1]).resolve() if len(args) > 1 else None)

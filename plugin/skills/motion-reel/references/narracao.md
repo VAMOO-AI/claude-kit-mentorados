@@ -33,10 +33,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> t1 n2 
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refazer    # refaz todas
 ```
 
-- A voz é a primeira pt-BR instalada: ela muda de máquina para máquina, então o script detecta em
-  vez de fixar o nome. Para ver as do Mac: `say -v '?' | grep pt_BR`; outra voz: `--voz "<nome>"`
-  (o nome pode ter espaço e parênteses). Ritmo no macOS: `--taxa` (padrão 182 palavras por
-  minuto); no Windows a voz fala no ritmo dela.
+- Voz: a Luciana quando instalada; senão a primeira pt-BR que não é voz de novidade do macOS
+  (Eddy, Flo, Grandma, Grandpa, Reed, Rocko, Sandy, Shelley); senão a primeira pt-BR. A lista muda
+  de máquina para máquina, por isso o script detecta. Para ver as do Mac: `say -v '?' | grep pt_BR`;
+  outra voz: `--voz "<nome>"` (o nome pode ter espaço e parênteses). Ritmo no macOS: `--taxa`
+  (padrão 182 palavras por minuto); no Windows a voz fala no ritmo dela.
 - Ele lê o `vo.json` direto, uma fala por arquivo, nunca na linha de comando: as tags do
   ElevenLabs (`tags`) seriam lidas em voz alta e não valem aqui. O texto passa antes pelo `say`
   do `blocks.json` ("Claude" → "Cláudi"); a tela e o `vo.json` continuam com a grafia original.

@@ -18,11 +18,13 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 ### Adicionado
 
 - **motion-reel: narração grátis com `scripts/voz.py`** (#173). Uma fala do `vo.json` por WAV
-  (48 kHz mono, sem silêncio nas pontas) na primeira voz pt-BR instalada: `say` no macOS,
+  (48 kHz mono, sem silêncio nas pontas) na voz pt-BR do sistema (a Luciana quando instalada,
+  senão a primeira que não é voz de novidade como Eddy ou Flo): `say` no macOS,
   System.Speech pelo PowerShell no Windows (texto num manifesto UTF-8, nunca na linha de
   comando). Aplica a troca de pronúncia do `say` do `blocks.json` só no áudio, não sobrescreve a
   gravação da pessoa (ids ou `--refazer` geram de novo), refaz a timeline e recusa se sobrar fala
-  com duração estimada. Teste: `tests/test-motion-reel-voz.sh` (`say`, `powershell.exe` e
+  com duração estimada. Terminal em cp1252 (Windows) não derruba o script. Teste:
+  `tests/test-motion-reel-voz.sh` (`say`, `powershell.exe` e
   `ffmpeg` falsos).
 - **motion-reel: `scripts/galeria.py`** (#173). Um quadro de cada cena do Film, de cada
   transição e de cada cena do Reel, com a marca do projeto, em `out/galeria/index.html`
@@ -41,7 +43,8 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   decodifica o PNG e reprova pixel com cor.
 - **motion-reel: `stills.mjs` aceita índices com vírgula** (#176): `0,2,5` além de `0 2 5`,
   ignora vazios e recusa índice que não é número ou passa do total antes de renderizar. Antes,
-  `0,2` saía "ok: 0 quadros". Teste: `tests/test-motion-reel-stills-indices.sh`.
+  `0,2` saía "ok: 0 quadros". Fração fora de [0, 1] também recusa, mostrando a forma dos
+  índices. Teste: `tests/test-motion-reel-stills-indices.sh`.
 - **motion-reel: `py.sh` acha `~/.venvs/motion` sem `MOTION_PY`** (#176): `bin/python` no
   macOS e `Scripts/python.exe` no Windows, entre `$MOTION_PY` e `python3`. Teste:
   `tests/test-motion-reel-py.sh`.

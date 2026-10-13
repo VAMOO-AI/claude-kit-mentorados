@@ -59,7 +59,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - SFX disponíveis: `soft-click`, `dry-pop`, `soft-whoosh`, `low-hit`, `short-rise`, `soft-chime`, `paper-tap`. As transições já soam sozinhas.
 5. **Narração (só Film com voz).** Siga `references/narracao.md`. Pergunte de onde vem a voz; os dois primeiros caminhos não custam nada:
    - **a própria voz:** a pessoa grava cada bloco com uma pausa entre as falas, você converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala;
-   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a primeira voz pt-BR (`say` no macOS, System.Speech no Windows; não fixe o nome, ele muda de máquina para máquina), grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
+   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
    - **ElevenLabs (pago):** falas no `vo.json`, blocos no `blocks.json`, texto do TTS pelo `blocks-text.py`. Diga ao dono o total de caracteres que ele imprime (≈ créditos) **antes** de gerar e espere o ok; depois **1 bloco de teste** antes dos outros, download pelo `dl.sh`, corte pelo `split-vo.py`.
 
    Sem voz, pule: o `build-timeline.py` estima a duração pelo texto e avisa.

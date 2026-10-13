@@ -7,7 +7,9 @@
 # (renderStill só anota o quadro), sem bundle nem render:
 #
 #   1. `0,2`, `0 2` e `0, ,2` renderizam os mesmos quadros;
-#   2. índice que não é número ou passa do total de cenas recusa com mensagem clara.
+#   2. índice que não é número ou passa do total de cenas recusa com mensagem clara;
+#   3. fração fora de [0, 1] (`0,2` no lugar das frações, querendo índices) recusa e mostra a
+#      forma certa, em vez de renderizar a fração 2 sem avisar.
 #
 # Uso: bash tests/test-motion-reel-stills-indices.sh [raiz-do-repo]
 set -uo pipefail
@@ -77,6 +79,11 @@ for caso in letra fora; do
   [ "$rc" != 0 ] && [ ! -s "$TMP/$caso.frames" ] && /usr/bin/grep -q 'índice inválido' "$TMP/$caso.out" && r=ok || r=fail
   check "$caso: recusa antes de renderizar, com mensagem (rc=$rc; $(head -c 160 "$TMP/$caso.out" | tr '\n' ' '))" $r
 done
+
+: > "$TMP/frac.frames"
+FRAMES_LOG="$TMP/frac.frames" node "$P/scripts/stills.mjs" Master169 0,2 > "$TMP/frac.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && [ ! -s "$TMP/frac.frames" ] && /usr/bin/grep -q 'fração' "$TMP/frac.out" && /usr/bin/grep -qF '0.2,0.8 0.4 0,2' "$TMP/frac.out" && r=ok || r=fail
+check "fração 0,2 recusa antes de renderizar e mostra a forma dos índices (rc=$rc; $(head -c 200 "$TMP/frac.out" | tr '\n' ' '))" $r
 
 [ "$falhas" -eq 0 ] && { echo "OK: stills.mjs aceita índices com espaço e vírgula"; exit 0; }
 echo "$falhas falha(s)"; exit 1
