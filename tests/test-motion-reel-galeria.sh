@@ -8,7 +8,9 @@
 #   2. a galeria tem um quadro de cada uma, a página cita todos e escapa o nome da marca;
 #      film.json, vo.json e tl-reel.json saem byte a byte iguais; nada de script ou job sobra;
 #   3. render que falha sai com erro e mesmo assim devolve o tl-reel.json;
-#   4. pasta sem projeto recusa.
+#   4. pasta sem projeto recusa;
+#   5. os presets (logo3d, launch, beats, glass) estão no SCENES com props, som e vocabulário,
+#      e o filme de lançamento (presets/lancamento.json) vira timeline na batida nos dois formatos.
 #
 # Uso: bash tests/test-motion-reel-galeria.sh [raiz-do-repo]
 set -uo pipefail
@@ -105,6 +107,80 @@ mkdir -p "$TMP/vazia"
 PATH="$BIN:$PATH" "$PY" "$GAL" "$TMP/vazia" > "$TMP/vazia.log" 2>&1; rc=$?
 check "recusa (veio $rc)" "$([ "$rc" != 0 ] && echo ok || echo fail)"
 check "aponta o new.sh" "$(tem "$TMP/vazia.log" 'new.sh')"
+
+echo "5. presets: logo 3D, filme de lançamento e vidro"
+# Cada preset é cena do SCENES (o film.json escolhe pelo type), com o comentário de props que a
+# galeria mostra, som próprio no track_cinema.py e linha no vocabulário. O filme de lançamento é
+# um film.json pronto (presets/lancamento.json): master 16:9 e corte 9:16 com as mesmas cenas,
+# sem voz, todo corte na batida.
+PRESETS="logo3d launch beats glass"
+for c in $PRESETS; do
+  check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
+  check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
+done
+"$PY" - "$A/src/film-scenes.tsx" "$A/scripts/track_cinema.py" $PRESETS > "$TMP/presets-src.log" 2>&1 <<'PY'
+import re, sys
+tsx, track = (open(p, encoding="utf-8").read() for p in sys.argv[1:3])
+bloco = tsx[tsx.index("export const SCENES"):]
+mapa = dict(re.findall(r"(\w+)\s*:\s*(\w+)", bloco[bloco.index("{") + 1:bloco.index("};")]))
+sfx = track[track.index("SFX_BY_TYPE = {"):]
+sfx = sfx[:sfx.index("}") + 1]
+linhas = tsx.splitlines()
+for tipo in sys.argv[3:]:
+    comp = mapa.get(tipo, "?")
+    i = next((k for k, l in enumerate(linhas) if l.startswith(f"export const {comp}:")), None)
+    acima = []
+    while i and linhas[i - 1].startswith("//"):
+        i -= 1; acima.append(linhas[i])
+    print(f"{tipo} props", "ok" if any(l.startswith("// props:") for l in acima) else "fail")
+    print(f"{tipo} som", "ok" if f'"{tipo}":' in sfx else "fail")
+PY
+for c in $PRESETS; do
+  check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/presets-src.log" && echo ok || echo fail)"
+  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/presets-src.log" && echo ok || echo fail)"
+done
+check "SKILL.md cita os presets" "$(tem "$SK/SKILL.md" "presets/lancamento.json")"
+
+# Marca neutra: o kit é de quem instala. Os presets pintam com a paleta C do lib.tsx (a da
+# pessoa) e o logo3d empilha o marca.png dela, com o PNG trocável por prop; cor fixa (hex ou
+# rgb que não seja branco/preto) dentro de um preset vira a cor de outra marca em toda peça.
+"$PY" - "$A/src/film-scenes.tsx" > "$TMP/presets-cor.log" 2>&1 <<'PY'
+import re, sys
+tsx = open(sys.argv[1], encoding="utf-8").read()
+ini = tsx.index("presets: lançamento")
+fim = tsx.index("export const SCENES")
+bloco = tsx[ini:fim]
+fixas = re.findall(r"#[0-9a-fA-F]{3,8}\b", bloco)
+fixas += [m for m in re.findall(r"rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+", bloco)
+          if re.sub(r"\s", "", m) not in ("rgba(255,255,255", "rgba(0,0,0", "rgb(255,255,255", "rgb(0,0,0")]
+print("cor", "ok" if not fixas else "fail " + " ".join(fixas))
+logo = bloco[bloco.index("export const Logo3D"):]
+print("mark", "ok" if re.search(r'staticFile\(p\.mark \?\? "marca\.png"\)', logo) else "fail")
+PY
+check "presets sem cor fixa: tudo vem da paleta C ($(head -1 "$TMP/presets-cor.log"))" "$(/usr/bin/grep -qx 'cor ok' "$TMP/presets-cor.log" && echo ok || echo fail)"
+check "logo3d empilha o marca.png da pessoa, trocável pela prop mark" "$(/usr/bin/grep -qx 'mark ok' "$TMP/presets-cor.log" && echo ok || echo fail)"
+
+LZ="$TMP/lancamento"; mkdir -p "$LZ/src" "$LZ/scripts"
+cp "$A/scripts/build-timeline.py" "$LZ/scripts/"
+cp "$A/presets/lancamento.json" "$LZ/film.json" 2>/dev/null
+"$PY" "$LZ/scripts/build-timeline.py" > "$TMP/lanc.log" 2>&1; rc=$?
+check "o lançamento vira timeline nos dois formatos (veio $rc)" "$([ "$rc" = 0 ] && [ -f "$LZ/src/tl-master.json" ] && [ -f "$LZ/src/tl-reel.json" ] && echo ok || echo fail)"
+"$PY" - "$LZ" "$CENAS" > "$TMP/lanc-tl.log" 2>&1 <<'PY'
+import json, pathlib, sys
+raiz, cenas = pathlib.Path(sys.argv[1]), sys.argv[2].split()
+film = json.loads((raiz / "film.json").read_text())
+tl = {n: json.loads((raiz / f"src/tl-{n}.json").read_text()) for n in ("master", "reel")}
+tipos = {n: [s["type"] for s in film[n]] for n in ("master", "reel")}
+print("tipos", "ok" if all(t in cenas for n in tipos for t in tipos[n]) else "fail")
+print("ordem", "ok" if tipos["master"][:2] == ["launch", "beats"] and tipos["master"][-1] == "logo3d" else "fail")
+print("corte", "ok" if set(tipos["reel"]) <= set(tipos["master"]) else "fail")
+print("batida", "ok" if all(s["cut"] % 15 == 0 for n in tl for s in tl[n]["scenes"]) and all(tl[n]["total"] % 15 == 0 for n in tl) else "fail")
+print("sem-voz", "ok" if all(not s.get("vo") for n in tipos for s in film[n]) else "fail")
+PY
+for k in "tipos:toda cena do lançamento existe no SCENES" "ordem:abre com launch e beats e assina com logo3d" \
+         "corte:o reel é corte do master" "batida:todo corte cai na batida (múltiplo de 15)" "sem-voz:sem fala (o ritmo é da trilha)"; do
+  check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/lanc-tl.log" && echo ok || echo fail)"
+done
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

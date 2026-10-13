@@ -20,6 +20,7 @@ zero: copia o template e troca roteiro, marca e cenas. Ele traz duas bases:
 - `assets/template/`: projeto completo (Remotion 4.0.484 travado no lockfile)
   - Reel: `src/timeline.json` (fonte única de tempo), `src/scenes.tsx` (cenas-modelo), `src/Reel.tsx`
   - Film: `film.json` (roteiro por formato), `vo.json` (falas), `blocks.json` (blocos de TTS), `src/Film.tsx`, `src/film-scenes.tsx` (cenas responsivas), `src/desktop.tsx` (Claude Code Desktop estilizado), `src/motifs.tsx` (mini-animações de painel)
+  - presets do Film: `launch` (título cinético + revelação), `beats` (3 batidas de benefício), `glass` (vidro com refração para cards de texto e número) e `logo3d` (o símbolo da pessoa extrudado, assinatura); `presets/lancamento.json` é um `film.json` pronto com os quatro (16:9 + corte 9:16, sem voz, na batida). Quando usar cada um: `references/vocabulario.md`
   - comuns: `src/transitions.tsx` (as 10 transições, nos dois formatos) e `src/lib.tsx` (primitivas, paleta `C`, fonte, `BRAND`)
   - `assets/template/scripts/`: `track.py` (trilha do Reel), `track_cinema.py` (trilha do Film), `build-timeline.py`, `blocks-text.py`, `dl.sh`, `split-vo.py`, `stills.mjs`, `grain.py`
 - `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"
@@ -95,7 +96,9 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 
 Papel, ink, um azul como acento de dado e um fundo night; sans geométrica pesada; ênfase de
 título vazada (nunca itálico nem cor); CTA em pílula preta; mono só em comando. Sem gradiente
-decorativo, glow ou glass: o impacto vem da coreografia. Com outra marca, troque as cores e
+decorativo, glow ou glass: o impacto vem da coreografia. A exceção são os presets `glass` e
+`logo3d`, que trazem vidro, luz e reflexo de propósito: use quando a peça pede (lançamento, número
+em destaque, assinatura), não como fundo de toda cena. Com outra marca, troque as cores e
 mantenha as regras. Curva da casa: `cubic-bezier(.22,1,.36,1)`.
 
 ## Abertura e assinatura

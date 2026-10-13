@@ -7,7 +7,8 @@
 Serve para escolher cena e transição antes de roteirizar. Tudo vem do código do projeto (ou do
 template da skill, sem projeto): as cenas do mapa SCENES de src/film-scenes.tsx com o comentário de
 props de cada uma, as transições do D do scripts/build-timeline.py e as cenas do src/timeline.json.
-O Film sai em 9:16 (Reel916) com as props de exemplo do film.json (master); cada transição aparece a
+O Film sai em 9:16 (Reel916) com as props de exemplo do film.json (master) e, para cena que não está
+nele, dos film.json prontos em presets/ (lancamento.json); cada transição aparece a
 um quarto da troca antes do corte. O film.json e o vo.json não mudam; o src/tl-reel.json é trocado durante o render e
 devolvido no fim, mesmo se o render falhar.
 """
@@ -98,7 +99,9 @@ def marca(projeto):
 def roteiro(projeto, tipos, trans):
     """Uma cena de exemplo por tipo (props do master) e, entre elas, cada transição uma vez."""
     exemplos = {}
-    for fonte in (projeto / "film.json", TEMPLATE / "film.json"):
+    fontes = [projeto / "film.json", TEMPLATE / "film.json"]
+    fontes += sorted((projeto / "presets").glob("*.json")) + sorted((TEMPLATE / "presets").glob("*.json"))
+    for fonte in fontes:
         if fonte.is_file():
             for cena in ler_json(fonte).get("master", []):
                 exemplos.setdefault(cena["type"], cena)

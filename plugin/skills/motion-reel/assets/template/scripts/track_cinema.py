@@ -340,8 +340,44 @@ def sfx_outro(s, p):
     add(FX, impact(0.9), T(s, 26), 0.5)
 
 
+# Presets: sem fala o item i cai na batida i·passo (hitAt em film-scenes.tsx); com fala, na fala.
+def hit_at(s, i, step):
+    return first(s) if i == 0 else (bt(s, i) - 4 if i < len(s["beats"]) else i * step)
+
+
+def sfx_launch(s, p):
+    words, step = p.get("words", []), p.get("step", 15)
+    voz = len(s["beats"]) > 0
+    for i in range(len(words)):
+        f0 = first(s) if i == 0 else (bt(s, 0, i / len(words)) - 4 if voz else i * step)
+        at(s, f0, "low-hit", 0.5); at(s, f0, "dry-pop", 0.25)
+    reveal = bt(s, 1) - 4 if voz and len(s["beats"]) > 1 else (len(words) + 1) * step
+    at(s, reveal - 12, "short-rise", 0.4)
+    at(s, reveal, "soft-chime", 0.55)
+    add(FX, impact(0.8), T(s, reveal), 0.45)
+
+
+def sfx_beats(s, p):
+    for i in range(len(p.get("items", []))):
+        f0 = hit_at(s, i, p.get("step", 30))
+        at(s, f0, "low-hit", 0.4); at(s, f0, "paper-tap", 0.35)
+
+
+def sfx_glass(s, p):
+    for i in range(len(p.get("cards", []))):
+        f0 = hit_at(s, i, p.get("step", 15)) + (4 if i == 0 else 0)
+        at(s, f0 - 2, "soft-whoosh", 0.35); at(s, f0 + 6, "dry-pop", 0.4)
+
+
+def sfx_logo3d(s, p):
+    settle = p.get("settle", bt(s, 0, 0.5) if s["beats"] else 60)
+    at(s, first(s), "soft-whoosh", 0.5)
+    at(s, settle, "low-hit", 0.5); at(s, settle + 4, "soft-chime", 0.5)
+
+
 SFX_BY_TYPE = {"desk": sfx_desk, "numbers": sfx_numbers, "commands": sfx_commands, "card": sfx_card,
-               "cta": sfx_cta, "outro": sfx_outro}
+               "cta": sfx_cta, "outro": sfx_outro,
+               "launch": sfx_launch, "beats": sfx_beats, "glass": sfx_glass, "logo3d": sfx_logo3d}
 
 # "cues": [{"at": 12 | "first+6" | "b1" | "b0@0.5-4", "sfx": "dry-pop", "gain": 0.5, "repeat": 1, "every": 0}]
 CUE = re.compile(r"^(?:b(\d+)(?:@([\d.]+))?|first)([+-]\d+)?$")
