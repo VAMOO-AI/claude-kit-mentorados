@@ -13,6 +13,15 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.50.1] — 2026-10-13
+
+### Corrigido
+
+- **limpeza-mac: não apaga `node_modules` de ferramenta vendorizada** (#174, porte de
+  claude-config-team#298). O `inventario.sh` deixa de listar `node_modules` sob `.tools`,
+  `.context/vendor` e clone aninhado que o projeto ignora; a idade vinha do clone de dentro
+  e não do projeto em uso (incidente de 09/10: o navegador do get-brolls do estúdio sumiu).
+
 ## [0.50.0] — 2026-10-13
 
 ### Adicionado
