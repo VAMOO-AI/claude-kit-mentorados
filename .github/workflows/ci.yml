@@ -179,6 +179,11 @@ jobs:
       - name: O dispatcher do UserPromptSubmit devolve o que os quatro hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
+      - name: Os zips de downloads/ batem com a skill do plugin
+        # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
+        # entregaria a versão antiga calado; o teste regera e compara byte a byte.
+        run: bash tests/test-downloads-zip.sh
+
       - name: Nenhuma description passa de 500 chars e o name bate com a pasta
         run: bash tests/test-skill-descriptions.sh
 

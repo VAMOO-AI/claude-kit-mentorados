@@ -232,6 +232,19 @@ Dá para deixar fixo pondo `DO_NOT_TRACK=1` e `DISABLE_TELEMETRY=1` no `env` do 
 flags do Claude Code, e com ela o **Remote Control** (a sessão para de aparecer no celular, sem
 erro nenhum na tela). O `claude doctor` acusa a causa. Por isso o kit não as liga por você.
 
+### Uma skill avulsa, sem o plugin (zip)
+
+A `mcp-sistema` também sai em zip, para quem não usa o plugin ou quer mandar só ela para
+alguém: [`downloads/mcp-sistema.zip`](https://github.com/VAMOO-AI/claude-kit-mentorados/raw/main/downloads/mcp-sistema.zip).
+Descompacte na pasta de skills do Claude Code e abra uma sessão nova:
+
+```bash
+unzip ~/Downloads/mcp-sistema.zip -d ~/.claude/skills/
+```
+
+O zip é gerado da mesma pasta do plugin (`bash scripts/empacotar-skill.sh mcp-sistema`), e o
+CI reprova se ele ficar diferente dela. Quem tem o plugin já tem a skill: não instale as duas.
+
 ### Confira se deu certo
 
 ```
