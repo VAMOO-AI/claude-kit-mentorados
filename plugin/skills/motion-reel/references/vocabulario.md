@@ -52,6 +52,29 @@ Escolha pelo `type` no `film.json`; os textos vão em `props`. Toda cena anima e
 | `cta` | duas frentes (pergunta + pílula), a 2ª na 2ª fala; comandos em mono embaixo | `q1`, `pill1`, `q2?`, `pill2?`, `cmds?` |
 | `outro` | símbolo (`MarkIn`) → logo PNG revelado por `clipPath` → nome e subtítulo; fade no fim | `name`, `sub?`, `logo?` (padrão `logo-dark.png`), `symbol?` (padrão `true`; `false` começa direto pelo logo) |
 
+### Presets (lançamento, vidro e logo 3D)
+
+Cenas como as de cima (`type` no `film.json`), feitas para abrir ou fechar uma peça. Sem fala, o
+ritmo é da trilha: o elemento i cai na batida i·`step` (15 frames = 1 batida a 120 BPM, a grade do
+`track_cinema.py`); com fala, cai na fala i. Todas têm som próprio no `SFX_BY_TYPE` e pintam com a
+paleta `C` do `lib.tsx`: trocou a paleta, os presets trocam junto.
+
+| `type` | O que faz | Quando usar | `props` |
+|---|---|---|---|
+| `launch` | palavras do título batem uma por batida, alternando sólida e vazada, com tremor e régua de batidas; uma batida de pausa, uma fenda de luz abre a tela clara e o nome do produto entra com o espaçamento fechando | abertura de lançamento; 2–4 palavras curtas | `words`, `name`, `tag?`, `kicker?`, `step?` (padrão 15) |
+| `beats` | um benefício por batida: a cor seguinte da paleta (`accentFill`, `night`, `paper`) varre a tela e a palavra sobe com um soco de escala; contador `01 / 03` | as 3 batidas de benefício depois da revelação; 1–3 palavras por item | `items`, `kicker?`, `step?` (padrão 30) |
+| `glass` | painéis de vidro sobre um fundo com estrutura (anéis nas cores da paleta, grade, palavra grande): dentro do painel o fundo aparece ampliado e deslocado (`feDisplacementMap`), com borda acesa e brilho que atravessa na entrada; número conta, texto fica | 1–3 números ou frases curtas que precisam de destaque; uma cena por peça | `title?`, `cards` `[{value, label}]`, `word?` (palavra do fundo), `step?` (padrão 15) |
+| `logo3d` | o símbolo da pessoa (`public/marca.png`, o `--mark` do `new.sh`) extrudado em camadas, girando e assentando numa pose com ângulo residual, com brilho preso ao ângulo, luz na cor da marca atrás e reflexo no chão; nome e subtítulo depois da pose; fade se for a última cena | assinatura no fim (no lugar do `outro`) ou vinheta de marca | `mark?` (padrão `marca.png`), `name?` (padrão `BRAND`), `sub?`, `turns?` (padrão 1), `settle?` (frame da pose, padrão 60) |
+
+O **filme de lançamento** pronto é `presets/lancamento.json`: `launch` → `beats` → `glass` → `logo3d`,
+~15 s, o `reel` é o corte 9:16 com as mesmas cenas. Para usar: `cp presets/lancamento.json film.json`,
+troque os textos de exemplo ("Seu Produto", os números) pelos da pessoa e rode o `qa.sh`
+(`Master169` e `Reel916`). Com narração, ponha as falas em `vo` e a animação passa a cair nelas.
+
+- O logo 3D não redesenha a marca: empilha o PNG, na proporção que ele tiver. Sem `--mark` no `new.sh`, sai o placeholder "SUA MARCA" e isso vai no `PENDENTE:`. O `filter` fica só na `Img` de cada camada; no nó `preserve-3d` ele achata o 3D.
+- O vidro é desenhado, não `backdrop-filter`: dentro de uma transição o que o backdrop amostra muda. Sobre fundo liso a refração some; o `glass` traz o próprio fundo. Texto vazado sobre o vidro deixa o fill aparecer: o texto ali é sólido.
+- Clipe curto (~6 s) só com o `logo3d`: o `mark: "finale"` pode empurrar o integrado para fora do alvo e o `final.sh` reprova. Em peça curta, tire o `mark` e deixe o som próprio da cena.
+
 Utilitários exportados para cena nova: `useL()` (W, H, `v` = vertical, guia `l r t b`), `bt`,
 `first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura de todas: `Breathe` (zoom de
 3%), grão de película (`public/grain.png`) e letterbox opcional até a cena-âncora (`letterbox`).
@@ -98,6 +121,6 @@ nome, visível na folha de QA.
 - Frase longa do briefing vira **beats**: o número grande primeiro, o apoio depois.
 - **Paleta do exemplo** (troque em `C`, no `lib.tsx`): papel `#fcfcfc`, ink `#000`, azul `#007dff` (dado), night `#05070a`. Azul sobre night é `#4da3ff`; preenchimento azul com texto branco é `#0063cc`. Alternar fundo claro/escuro marca o ritmo.
 - **Mono só em comando/terminal.** Ênfase de título = vazado.
-- Nada de gradiente decorativo, glow ou glass. O impacto vem da coreografia: máscara, escala, corte pela borda, câmera 3D, match cut.
+- Nada de gradiente decorativo, glow ou glass. O impacto vem da coreografia: máscara, escala, corte pela borda, câmera 3D, match cut. Exceção: os presets `glass` e `logo3d` (acima) usam vidro, luz e reflexo por escolha; no máximo uma cena de cada por peça.
 - Comando que aparece na tela tem que ser **real** (o público digita o que vê). Busque no README do produto.
 - Logo é sempre o PNG oficial da marca, sem esticar (altura manda). Nunca redesenhe o logo em CSS ou SVG.
