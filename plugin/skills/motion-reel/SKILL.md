@@ -67,7 +67,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - `transitions-N.jpg`: início, meio e fim de cada transição
    - `safe.jpg`: 1 fps com a guia segura do formato
 
-   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`. Corrija e rode de novo. Verifique:
+   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`, com os índices separados por espaço ou vírgula (`0 2 5` ou `0,2,5`). Corrija e rode de novo. Verifique:
    - palavra cortada na borda ou texto fora da guia
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido

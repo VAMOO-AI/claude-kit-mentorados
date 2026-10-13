@@ -1,4 +1,5 @@
 // node scripts/stills.mjs <Master169|Reel916|Reel> [frac=0.7] [scale=0.4] [idx...]
+// idx: índices das cenas separados por espaço ou vírgula (0 2 5 ou 0,2,5).
 // 1 quadro por cena (em cut + frac·len; várias frações com vírgula: 0.2,0.8) via renderStill,
 // sem render do vídeo inteiro, + folhas de contato em out/stills-<comp>/sheet-NN.jpg.
 // Bom para revisar layout depois de mexer em poucas cenas: passe só os índices delas.
@@ -10,7 +11,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const [comp = "Master169", fracS = "0.7", scaleS = "0.4", ...only] = process.argv.slice(2);
+const [comp = "Master169", fracS = "0.7", scaleS = "0.4", ...idxArgs] = process.argv.slice(2);
+const idxTokens = idxArgs.join(",").split(/[\s,]+/).filter(Boolean);
 
 let scenes, total, inputProps;
 if (comp === "Reel") {
@@ -25,6 +27,13 @@ if (comp === "Reel") {
   inputProps = { tl, audio: "x.wav", withAudio: false };
 }
 
+const bad = idxTokens.filter((t) => !/^\d+$/.test(t) || Number(t) >= scenes.length);
+if (bad.length) {
+  console.error(`!! índice inválido: ${bad.join(", ")} (use 0 a ${scenes.length - 1}, separados por espaço ou vírgula)`);
+  process.exit(1);
+}
+const only = new Set(idxTokens.map(Number));
+
 const out = path.join(root, `out/stills-${comp}`);
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
@@ -33,7 +42,7 @@ const composition = await selectComposition({ serveUrl, id: comp, inputProps });
 const fracs = fracS.split(",").map(Number);
 let n = 0;
 for (const [i, s] of scenes.entries()) {
-  if (only.length && !only.includes(String(i))) continue;
+  if (only.size && !only.has(i)) continue;
   for (const fr of fracs) {
     const frame = Math.min(total - 1, Math.round(s.cut + fr * s.len));
     const file = path.join(out, `${String(n++).padStart(3, "0")}.png`);

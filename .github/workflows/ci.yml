@@ -218,6 +218,13 @@ jobs:
           bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
           ! grep -q '^pulado' /tmp/final-verificar.log
 
+      - name: O stills.mjs da motion-reel aceita índices com espaço e vírgula e recusa índice inválido
+        # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
+        run: bash tests/test-motion-reel-stills-indices.sh
+
+      - name: O py.sh da motion-reel acha o venv ~/.venvs/motion (macOS e Windows) sem MOTION_PY
+        run: bash tests/test-motion-reel-py.sh
+
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
         # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo
