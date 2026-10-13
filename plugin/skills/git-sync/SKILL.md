@@ -164,8 +164,13 @@ git config git-sync.tokenVar MEU_GH_TOKEN   # a variável, no ambiente ou em ~/.
 ```
 
 PRs abertos e a prova do cleanup passam a sair da API REST do GitHub. O token é lido só na
-linha dele, nunca impresso, e vai ao `curl` pelo stdin. `git config git-sync.repo dono/nome`
-sobrepõe o slug tirado do `origin`. Sem token, o cleanup diz "sem prova" e não apaga nada.
+linha dele, nunca impresso, e vai ao `curl` pelo stdin. Sem token, o cleanup diz "sem prova" e não apaga nada.
+
+**Qual repo o `gh` consulta**: o do `origin`. O script exporta `GH_REPO` com o slug dele,
+porque sem `gh repo set-default` o `gh` preferiria um remote `upstream` (template, fork de origem)
+e o relatório inteiro sairia do repo errado. `git config git-sync.repo dono/nome` sobrepõe o slug
+(gh e API REST); um `GH_REPO` já exportado no ambiente vence os dois. Fork que abre PR no upstream:
+`git config git-sync.repo dono/upstream`.
 Com o `gh` instalado mas cego para o repo, só a prova de merge do cleanup cai sozinha na API
 quando há token. A lista de PRs abertos continua no `gh` e só avisa que ele falhou; para ela
 também sair da API, use `git config git-sync.noGh true`.

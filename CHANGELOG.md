@@ -8,10 +8,31 @@ antes disso? Rode o setup uma vez. Para aplicar uma atualização na sessão abe
 `/reload-plugins`. Veja **Atualizar depois** no README — inclusive o que o auto-update
 NÃO cobre.
 
-Mantenedor: **suba o `version` do `plugin.json` em toda entrega.** Ele é a chave do
-cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update ligado.
-Se a mudança tocar a barra de status ou as preferências, rode também
-`/kit-vamoo:setup` — ele faz backup de tudo antes.
+## [0.54.0] — 2026-10-13
+
+### Adicionado
+
+- **`scripts/paridade.sh --arquivos`** compara, pelo hash do que está no git, as skills e os
+  hooks que existem neste kit e no `claude-config-team` (lá em `skills/` e `hooks/`, sem o
+  `plugin/`; `vamoo-<nome>` casa com `<nome>` daqui). Lista o que divergiu e qual lado é mais
+  novo pela data do último commit de cada arquivo. `--json` imprime o mesmo relatório.
+  Exceções de propósito em `scripts/paridade.ignore` (marca e logos da motion-reel). No CI o
+  job só avisa; se o token do Actions não ler o repo privado do time, pula com aviso. Teste:
+  `tests/test-paridade-arquivos.sh`.
+
+### Corrigido
+
+- **O `git-sync` consulta o repo do `origin`, não o `upstream`** (#166, porte de
+  claude-config-team#289). Sem `gh repo set-default`, o `gh` prefere um remote `upstream`:
+  o relatório de PR e a prova de merge saíam do repo errado. O script exporta `GH_REPO` antes
+  do primeiro `gh`, com precedência ambiente > `git config git-sync.repo` > slug do origin, e
+  as sondagens `gh repo view` recebem o slug como argumento (sem ele, o `repo view` ignora o
+  `GH_REPO`). A API REST usa o mesmo slug. Teste: `tests/test-git-sync-gh-repo-origin.sh`.
+
+### Mudado
+
+- O parágrafo de quem mantém o kit saiu do topo deste arquivo e foi para `CONTRIBUTING.md`.
+  Aqui fica a nota para quem usa.
 
 ## [0.51.0] — 2026-10-13
 

@@ -308,6 +308,8 @@ Quando isso for necessário, você fica sabendo: o aviso de novidades do `Sessio
 
 #### Se você mantém o kit (não é o caso do mentorado)
 
+O passo a passo de versão está em [CONTRIBUTING.md](CONTRIBUTING.md).
+
 O campo `version` do `plugin/.claude-plugin/plugin.json` é a **chave do cache**: o Claude
 Code guarda cada versão numa pasta própria e só busca de novo quando o número muda.
 Publicar mudança sem subir a versão significa que **ninguém recebe** — nem quem está com
