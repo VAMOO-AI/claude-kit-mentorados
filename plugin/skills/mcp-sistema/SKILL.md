@@ -133,8 +133,8 @@ Armadilhas da receita edge function (well-known estático, service worker de PWA
   recusar); conferir a linha no log de auditoria.
 
 **Receita Next — verificada em produção** com Claude Code (login + MFA, 22 tools,
-paralelo, listen recusado sem o cliente entrar em loop). claude.ai e ChatGPT: ver
-`references/pagina.md` (caminho de cada cliente e o que está verificado).
+paralelo, listen recusado sem o cliente entrar em loop) e claude.ai. ChatGPT ainda
+não: caminho e estado de cada cliente em `references/pagina.md`.
 
 **Receita edge — verificada em produção** no Claude Code, claude.ai e ChatGPT
 (caminhos e callbacks em `references/edge-function.md`).

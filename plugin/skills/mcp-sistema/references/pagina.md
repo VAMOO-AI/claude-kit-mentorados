@@ -72,7 +72,7 @@ de card/badge que o app já tem). Não copie classes do exemplo.
 | Cliente | Como liga | Estado |
 |---|---|---|
 | Claude Code | `claude mcp add --transport http <nome> <url>` → `/mcp` → autenticar | verificado em produção (login + MFA, 22 tools, paralelo) |
-| claude.ai / Desktop | Conectores → Adicionar conector personalizado → URL (detecta OAuth + DCR sozinho) | não verificado nesta receita (o caminho é o verificado na receita edge) |
+| claude.ai / Desktop | Conectores → Adicionar conector personalizado → URL (detecta OAuth + DCR sozinho) | verificado em produção (cliente DCR com callback `https://claude.ai/api/mcp/auth_callback` registrado no Supabase) |
 | ChatGPT | Plugins → Adicionar → Criar servidor MCP personalizado → URL + OAuth | não verificado nesta receita; sem RFC 9207 no Supabase, espere um cliente DCR por conexão |
 
 O metadata do OAuth Server do Supabase (`<projeto>.supabase.co/.well-known/oauth-authorization-server/auth/v1`)
