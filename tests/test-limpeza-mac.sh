@@ -137,6 +137,22 @@ P="$TMP/ws/parado"
 git init -q "$P"
 GIT_AUTHOR_DATE=2026-01-01T00:00:00 GIT_COMMITTER_DATE=2026-01-01T00:00:00 git -C "$P" commit -q --allow-empty -m base
 mkdir -p "$P/.next/cache" "$P/node_modules/y"
+# ferramenta vendorizada dentro de projeto parado: a idade tem que vir do projeto, não do
+# clone de dentro. Fica fora do plano: .tools, .context/vendor e clone aninhado ignorado
+velho_git() { GIT_COMMITTER_DATE=2026-01-01T00:00:00 GIT_AUTHOR_DATE=2026-01-01T00:00:00 git "$@"; }
+SKV="$P/.claude/skills/ferramenta"   # layout do estúdio: skill clonada com .tools dentro
+velho_git init -q -b main "$SKV"; velho_git -C "$SKV" commit -q --allow-empty -m base
+mkdir -p "$SKV/.tools/node_modules/playwright"; echo .claude/skills/ferramenta/ >> "$P/.git/info/exclude"
+VEND="$P/.context/vendor/x"
+mkdir -p "$VEND/.tools/node_modules/playwright" "$P/.tools/y/node_modules/z"
+VEND2="$P/.context/vendor/sem-tools"   # node_modules direto, sem .tools nem .git: só a poda de .context/vendor segura
+mkdir -p "$VEND2/node_modules/q"
+CLONE="$P/libs/clone"   # clone fora de .tools/.context, ignorado pelo projeto
+velho_git init -q -b main "$CLONE"; velho_git -C "$CLONE" commit -q --allow-empty -m base
+mkdir -p "$CLONE/node_modules/w"; echo libs/ >> "$P/.git/info/exclude"
+SUB="$P/sub"            # repo aninhado que o de fora NÃO ignora: segue a regra comum
+velho_git init -q -b main "$SUB"; velho_git -C "$SUB" commit -q --allow-empty -m base
+mkdir -p "$SUB/node_modules/s"
 
 velho() { # velho <worktree> — joga o índice para 3 dias atrás
   local idx; idx=$(git -C "$1" rev-parse --git-path index)
@@ -165,6 +181,8 @@ git -C "$R" worktree add -q -b wt-gc-keep-lock "$WT/gckeeplock" main; velho "$WT
 git -C "$R" worktree lock --reason "claude session z (pid 999998 start ontem)" "$WT/gckeeplock"
 echo "$WT/gckeeplock" >> "$TMP/gc-keep"
 
+# worktree mora em pasta ignorada, mas tem .git ARQUIVO: não é clone vendorizado
+echo .claude/ >> "$R/.git/info/exclude"; mkdir -p "$WT/nova/node_modules/n"
 mkdir -p "$WT/orfa-build/.next" "$WT/orfa-codigo/src"
 echo 'export {}' > "$WT/orfa-codigo/src/a.ts"
 mkdir -p "$R/.next/cache" "$R/.vercel/output/functions/x.func/.next"
@@ -182,6 +200,16 @@ check "inventário marca worktree recém-criada como ativa" \
   "$(grep -F "$WT/nova" "$TMP/plano/worktrees.tsv" | cut -f6 | grep -q '^ativa' && echo ok || echo fail)"
 check "inventário não lista .next dentro de .vercel" \
   "$(grep -qF '.vercel' "$TMP/plano/builds.tsv" && echo fail || echo ok)"
+no_plano()      { cut -f3 "$TMP/plano/builds.tsv" | grep -qxF "$1" && echo ok || echo fail; }
+fora_do_plano() { cut -f3 "$TMP/plano/builds.tsv" | grep -qxF "$1" && echo fail || echo ok; }
+check "inventário não lista node_modules de .claude/skills/*/.tools" "$(fora_do_plano "$SKV/.tools/node_modules")"
+check "inventário não lista node_modules de .context/vendor"    "$(fora_do_plano "$VEND/.tools/node_modules")"
+check "inventário não lista node_modules direto em .context/vendor" "$(fora_do_plano "$VEND2/node_modules")"
+check "inventário não lista node_modules de .tools/*"            "$(fora_do_plano "$P/.tools/y/node_modules")"
+check "inventário não lista node_modules de clone ignorado"      "$(fora_do_plano "$CLONE/node_modules")"
+check "node_modules comum de repo parado entra no plano"         "$(no_plano "$P/node_modules")"
+check "node_modules de repo aninhado não ignorado entra"         "$(no_plano "$SUB/node_modules")"
+check "node_modules de worktree (.git arquivo, pasta ignorada) entra" "$(no_plano "$WT/nova/node_modules")"
 check "inventário marca detached no default como merged" \
   "$(grep -F "$WT/detached" "$TMP/plano/worktrees.tsv" | cut -f6 | grep -q '^merged' && echo ok || echo fail)"
 check "inventário não chama de merged a branch atrás do head do PR" \
@@ -236,6 +264,12 @@ check "worktree com .env ignorado próprio fica" "$(existe "$WT/comenv/.env.loca
 check "worktree com .env igual ao do clone sai" "$(sumiu "$WT/seed")"
 check "worktree com espaço no path sai"        "$(sumiu "$WT/wt com espaço")"
 check "node_modules de checkout recente fica (commit velho)" "$(existe "$R/node_modules/x")"
+check "node_modules de ferramenta em .claude/skills fica"    "$(existe "$SKV/.tools/node_modules/playwright")"
+check "node_modules vendorizado em .context/vendor fica"      "$(existe "$VEND/.tools/node_modules/playwright")"
+check "node_modules direto em .context/vendor fica"           "$(existe "$VEND2/node_modules/q")"
+check "node_modules de .tools do projeto fica"                "$(existe "$P/.tools/y/node_modules/z")"
+check "node_modules de clone ignorado fica"                   "$(existe "$CLONE/node_modules/w")"
+check "node_modules de repo aninhado parado sai"              "$(sumiu "$SUB/node_modules")"
 check "ledger guarda o SHA para restaurar"     "$(git -C "$R" cat-file -e "$sha" 2>/dev/null && echo ok || echo fail)"
 
 echo "== worktree-gc sem o --verificar: nada sai =="
