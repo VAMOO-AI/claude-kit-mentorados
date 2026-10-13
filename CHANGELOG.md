@@ -13,6 +13,18 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.51.1] — 2026-10-13
+
+### Adicionado
+
+- **`downloads/mcp-sistema.zip`: a skill em zip, num link fixo do GitHub**, para quem não usa o
+  plugin ou quer mandar só ela para alguém. Até aqui o zip era montado à mão e ficava fora do
+  git (`plugin/skills/*.zip` continua ignorado). Agora `scripts/empacotar-skill.sh <skill>` gera
+  um zip determinístico (ordem fixa, data fixa, sem `.DS_Store`/`__MACOSX`), e
+  `tests/test-downloads-zip.sh` regera cada zip de `downloads/` e compara byte a byte no CI:
+  mudou a skill e esqueceu o zip, reprova com o comando que conserta. Fica fora do `plugin/`,
+  então não vai junto em toda instalação. README ganhou a seção "Uma skill avulsa, sem o plugin".
+
 ## [0.51.0] — 2026-10-13
 
 ### Adicionado
