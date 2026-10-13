@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **23 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **26 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -87,6 +87,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **find-skills** | `/kit-vamoo:find-skills` — procura skill pronta no ecossistema aberto (`npx skills`, skills.sh) e verifica procedência antes de recomendar. Você chama; o Claude não aciona sozinho, então ela não pesa nas suas requests. | `npx` disponível |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 | **limpeza-mac** | `/kit-vamoo:limpeza-mac` — limpeza profunda de um Mac de dev: worktrees e branches já mergeadas, node_modules e .next de repo parado, caches e versões velhas de CLI. Faz um inventário read-only primeiro e guarda o SHA de cada branch num ledger antes de apagar; worktree só sai com o `worktree-gc.sh --verificar` liberando: ignorado só passa se for env igual ao do clone principal, symlink ou cache que o build recria (`node_modules`, `.next`, `dist`, `build`, `target`, `.cache`…); qualquer outro, `outputs/` e `out/` inclusive, segura o worktree com o motivo. Você chama; o Claude não aciona sozinho. | macOS; `gh` (opcional — sem ele, branch mergeada por squash fica) |
+| **reverse-engineer-anything** | `/kit-vamoo:reverse-engineer-anything` — engenharia reversa com o [REA](https://github.com/morluto/rea): descobre como um programa, app Electron, APK ou firmware funciona por dentro, a partir do que foi entregue (não do código-fonte), e separa o que foi observado do que é inferência. Cópia fiel do upstream (MIT). Você chama; o Claude não aciona sozinho. | MCP do REA: `npx -y rea-agents@latest setup` (Node 22.19+); Ghidra/JADX só se o alvo pedir |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
@@ -208,7 +209,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 23 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 26 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash

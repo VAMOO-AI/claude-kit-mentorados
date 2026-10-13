@@ -13,6 +13,18 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.51.0] — 2026-10-13
+
+### Adicionado
+
+- **Skill `reverse-engineer-anything` (REA), só manual** (porte de claude-config-team, PR irmão).
+  Cópia fiel de [morluto/rea](https://github.com/morluto/rea) @ `0bc422d` (skill v41, MIT, com o
+  `LICENSE` junto): engenharia reversa de binário, app Electron/JS empacotado, APK, firmware,
+  WASM, SQLite e captura de rede, separando observação, inferência e desconhecido. A única
+  mudança é `disable-model-invocation: true`: você chama com
+  `/kit-vamoo:reverse-engineer-anything` e ela não pesa nas suas requests. A skill não traz as
+  ferramentas: o MCP do REA se instala à parte com `npx -y rea-agents@latest setup`.
+
 ## [0.50.1] — 2026-10-13
 
 ### Corrigido

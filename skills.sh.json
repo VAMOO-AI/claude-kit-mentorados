@@ -26,12 +26,13 @@
     },
     {
       "title": "Segurança e produção",
-      "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares e guard-rails de agente de IA que fala com pessoa real.",
+      "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares guard-rails de agente de IA que fala com pessoa real e engenharia reversa do que foi entregue (binário, app, APK, firmware).",
       "skills": [
         "secscan",
         "auditoria-seguranca",
         "baseline",
-        "guardrails-ia"
+        "guardrails-ia",
+        "reverse-engineer-anything"
       ]
     },
     {
