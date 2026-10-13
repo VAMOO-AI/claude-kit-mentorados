@@ -225,6 +225,12 @@ jobs:
       - name: O py.sh da motion-reel acha o venv ~/.venvs/motion (macOS e Windows) sem MOTION_PY
         run: bash tests/test-motion-reel-py.sh
 
+      - name: A narração grátis da motion-reel fala por arquivo (say e PowerShell), respeita a gravação da pessoa e explica a voz que falta
+        run: bash tests/test-motion-reel-voz.sh
+
+      - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
+        run: bash tests/test-motion-reel-galeria.sh
+
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
         # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo

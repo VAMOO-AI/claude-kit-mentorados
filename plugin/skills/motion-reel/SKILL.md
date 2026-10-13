@@ -4,7 +4,7 @@ description: >-
   Cria Reel 9:16, vinheta ou filme 16:9 narrado em motion design com Remotion:
   tipografia cinética, 3D, transições na batida, trilha + SFX e MP4 pronto. Use
   em "faz um reel/vinheta/vídeo", "motion design" ou "vídeo com narração".
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *)
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *)
 ---
 
 # motion-reel
@@ -24,9 +24,11 @@ zero: copia o template e troca roteiro, marca e cenas. Ele traz duas bases:
   - `assets/template/scripts/`: `track.py` (trilha do Reel), `track_cinema.py` (trilha do Film), `build-timeline.py`, `blocks-text.py`, `dl.sh`, `split-vo.py`, `stills.mjs`, `grain.py`
 - `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"
 - `scripts/new.sh`, `qa.sh`, `final.sh`: criar, revisar, entregar (os dois últimos recebem a composição)
+- `scripts/voz.py`: narração grátis do Film na voz do sistema (`say` no macOS, System.Speech no Windows), uma fala por WAV
+- `scripts/galeria.py`: um quadro de cada cena do Film, de cada transição e de cada cena do Reel, com a marca do projeto, para escolher antes de roteirizar
 - `references/vocabulario.md`: cada técnica e cena, onde está e quando usar. **Leia antes de roteirizar.**
 - `references/transicoes.md`: tabela das transições e regras de ritmo
-- `references/narracao.md`: de onde vem a voz (gravação própria, `say` do macOS ou ElevenLabs), corte por fala e timeline guiada pela voz
+- `references/narracao.md`: de onde vem a voz (gravação própria, voz do sistema pelo `voz.py` ou ElevenLabs), corte por fala e timeline guiada pela voz
 - `references/armadilhas.md`: bugs já pisados. **Leia antes de mexer em 3D, cor, áudio ou render.**
 
 Requisitos: Node.js 18+ com npm, `ffmpeg` e um `python3` com `numpy` (o `py.sh` diz como
@@ -49,13 +51,14 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
    - O projeto sai renderizável nas três composições (o Film de exemplo ainda sem voz).
+   - Para escolher cena e transição com a pessoa: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py <projeto>` → `out/galeria/index.html` (só texto, sem render: `--lista`). O roteiro não muda.
 4. **Roteiro.**
    - **Reel:** no `timeline.json`, cada cena tem `cut` (frame em que a transição passa do meio, múltiplo de 15 a 120 BPM), `in` (transição) e `d` (duração). `music` traz `bpm`, `groove_from`, `drop_at`, `break_beats` e `outro_from`; `cues` traz sons dentro da cena (`{"at": "cena+frames", "sfx", "gain", "repeat", "every"}`). `total` é o frame final.
    - **Film:** no `film.json`, uma lista de cenas por formato (`master`, `reel`). Cada cena: `type` (cena de `SCENES`), `vo` (ids das falas), `props` (textos), `in` (opcional: sem ele, o ciclo escolhe sem repetir), `mark` (`braam`, `finale`, `hit`, `drop`, `pulse`), `energy` (0 tenso · 1 calmo · 2 andando · 3 cheio), `pre`/`gap`/`post`/`min` (frames) e `cues`. `letterbox: "title"` põe faixas pretas até a primeira cena desse tipo. O `reel` é um corte do `master`: reuse as mesmas falas.
    - SFX disponíveis: `soft-click`, `dry-pop`, `soft-whoosh`, `low-hit`, `short-rise`, `soft-chime`, `paper-tap`. As transições já soam sozinhas.
 5. **Narração (só Film com voz).** Siga `references/narracao.md`. Pergunte de onde vem a voz; os dois primeiros caminhos não custam nada:
    - **a própria voz:** a pessoa grava cada bloco com uma pausa entre as falas, você converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala;
-   - **`say` do macOS:** detecte a voz pt-BR com `say -v '?'` (não fixe o nome, ele muda de máquina para máquina) e gere uma fala por arquivo em `public/vo/<id>.wav`;
+   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a primeira voz pt-BR (`say` no macOS, System.Speech no Windows; não fixe o nome, ele muda de máquina para máquina), grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
    - **ElevenLabs (pago):** falas no `vo.json`, blocos no `blocks.json`, texto do TTS pelo `blocks-text.py`. Diga ao dono o total de caracteres que ele imprime (≈ créditos) **antes** de gerar e espere o ok; depois **1 bloco de teste** antes dos outros, download pelo `dl.sh`, corte pelo `split-vo.py`.
 
    Sem voz, pule: o `build-timeline.py` estima a duração pelo texto e avisa.
