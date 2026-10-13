@@ -4,7 +4,7 @@ description: >-
   Cria Reel 9:16, vinheta ou filme 16:9 narrado em motion design com Remotion:
   tipografia cinética, 3D, transições na batida, trilha + SFX e MP4 pronto. Use
   em "faz um reel/vinheta/vídeo", "motion design" ou "vídeo com narração".
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *)
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *)
 ---
 
 # motion-reel
@@ -20,13 +20,16 @@ zero: copia o template e troca roteiro, marca e cenas. Ele traz duas bases:
 - `assets/template/`: projeto completo (Remotion 4.0.484 travado no lockfile)
   - Reel: `src/timeline.json` (fonte única de tempo), `src/scenes.tsx` (cenas-modelo), `src/Reel.tsx`
   - Film: `film.json` (roteiro por formato), `vo.json` (falas), `blocks.json` (blocos de TTS), `src/Film.tsx`, `src/film-scenes.tsx` (cenas responsivas), `src/desktop.tsx` (Claude Code Desktop estilizado), `src/motifs.tsx` (mini-animações de painel)
+  - presets do Film: `launch` (título cinético + revelação), `beats` (3 batidas de benefício), `glass` (vidro com refração para cards de texto e número) e `logo3d` (o símbolo da pessoa extrudado, assinatura); `presets/lancamento.json` é um `film.json` pronto com os quatro (16:9 + corte 9:16, sem voz, na batida). Quando usar cada um: `references/vocabulario.md`
   - comuns: `src/transitions.tsx` (as 10 transições, nos dois formatos) e `src/lib.tsx` (primitivas, paleta `C`, fonte, `BRAND`)
   - `assets/template/scripts/`: `track.py` (trilha do Reel), `track_cinema.py` (trilha do Film), `build-timeline.py`, `blocks-text.py`, `dl.sh`, `split-vo.py`, `stills.mjs`, `grain.py`
 - `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"
 - `scripts/new.sh`, `qa.sh`, `final.sh`: criar, revisar, entregar (os dois últimos recebem a composição)
+- `scripts/voz.py`: narração grátis do Film na voz do sistema (`say` no macOS, System.Speech no Windows), uma fala por WAV
+- `scripts/galeria.py`: um quadro de cada cena do Film, de cada transição e de cada cena do Reel, com a marca do projeto, para escolher antes de roteirizar
 - `references/vocabulario.md`: cada técnica e cena, onde está e quando usar. **Leia antes de roteirizar.**
 - `references/transicoes.md`: tabela das transições e regras de ritmo
-- `references/narracao.md`: de onde vem a voz (gravação própria, `say` do macOS ou ElevenLabs), corte por fala e timeline guiada pela voz
+- `references/narracao.md`: de onde vem a voz (gravação própria, voz do sistema pelo `voz.py` ou ElevenLabs), corte por fala e timeline guiada pela voz
 - `references/armadilhas.md`: bugs já pisados. **Leia antes de mexer em 3D, cor, áudio ou render.**
 
 Requisitos: Node.js 18+ com npm, `ffmpeg` e um `python3` com `numpy` (o `py.sh` diz como
@@ -49,13 +52,14 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
    - O projeto sai renderizável nas três composições (o Film de exemplo ainda sem voz).
+   - Para escolher cena e transição com a pessoa: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py <projeto>` → `out/galeria/index.html` (só texto, sem render: `--lista`). O roteiro não muda.
 4. **Roteiro.**
    - **Reel:** no `timeline.json`, cada cena tem `cut` (frame em que a transição passa do meio, múltiplo de 15 a 120 BPM), `in` (transição) e `d` (duração). `music` traz `bpm`, `groove_from`, `drop_at`, `break_beats` e `outro_from`; `cues` traz sons dentro da cena (`{"at": "cena+frames", "sfx", "gain", "repeat", "every"}`). `total` é o frame final.
    - **Film:** no `film.json`, uma lista de cenas por formato (`master`, `reel`). Cada cena: `type` (cena de `SCENES`), `vo` (ids das falas), `props` (textos), `in` (opcional: sem ele, o ciclo escolhe sem repetir), `mark` (`braam`, `finale`, `hit`, `drop`, `pulse`), `energy` (0 tenso · 1 calmo · 2 andando · 3 cheio), `pre`/`gap`/`post`/`min` (frames) e `cues`. `letterbox: "title"` põe faixas pretas até a primeira cena desse tipo. O `reel` é um corte do `master`: reuse as mesmas falas.
    - SFX disponíveis: `soft-click`, `dry-pop`, `soft-whoosh`, `low-hit`, `short-rise`, `soft-chime`, `paper-tap`. As transições já soam sozinhas.
 5. **Narração (só Film com voz).** Siga `references/narracao.md`. Pergunte de onde vem a voz; os dois primeiros caminhos não custam nada:
    - **a própria voz:** a pessoa grava cada bloco com uma pausa entre as falas, você converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala;
-   - **`say` do macOS:** detecte a voz pt-BR com `say -v '?'` (não fixe o nome, ele muda de máquina para máquina) e gere uma fala por arquivo em `public/vo/<id>.wav`;
+   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
    - **ElevenLabs (pago):** falas no `vo.json`, blocos no `blocks.json`, texto do TTS pelo `blocks-text.py`. Diga ao dono o total de caracteres que ele imprime (≈ créditos) **antes** de gerar e espere o ok; depois **1 bloco de teste** antes dos outros, download pelo `dl.sh`, corte pelo `split-vo.py`.
 
    Sem voz, pule: o `build-timeline.py` estima a duração pelo texto e avisa.
@@ -67,7 +71,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - `transitions-N.jpg`: início, meio e fim de cada transição
    - `safe.jpg`: 1 fps com a guia segura do formato
 
-   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`. Corrija e rode de novo. Verifique:
+   Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`, com os índices separados por espaço ou vírgula (`0 2 5` ou `0,2,5`). Corrija e rode de novo. Verifique:
    - palavra cortada na borda ou texto fora da guia
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido
@@ -92,7 +96,9 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 
 Papel, ink, um azul como acento de dado e um fundo night; sans geométrica pesada; ênfase de
 título vazada (nunca itálico nem cor); CTA em pílula preta; mono só em comando. Sem gradiente
-decorativo, glow ou glass: o impacto vem da coreografia. Com outra marca, troque as cores e
+decorativo, glow ou glass: o impacto vem da coreografia. A exceção são os presets `glass` e
+`logo3d`, que trazem vidro, luz e reflexo de propósito: use quando a peça pede (lançamento, número
+em destaque, assinatura), não como fundo de toda cena. Com outra marca, troque as cores e
 mantenha as regras. Curva da casa: `cubic-bezier(.22,1,.36,1)`.
 
 ## Abertura e assinatura

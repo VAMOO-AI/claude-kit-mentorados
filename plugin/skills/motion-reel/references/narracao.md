@@ -12,7 +12,7 @@ Pergunte ao dono qual usar antes de gerar qualquer coisa. Os dois primeiros não
 | Caminho | Custo | Como entra no projeto |
 |---|---|---|
 | **A pessoa grava a própria voz** | zero | grava cada bloco lendo as falas na ordem, com uma pausa de ~1 s entre elas; converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala (passo 6) |
-| **`say` do macOS** | zero | fala por fala direto em `public/vo/<id>.wav`, sem bloco nem corte (ver abaixo) |
+| **Voz do sistema (`voz.py`)** | zero | fala por fala direto em `public/vo/<id>.wav`, sem bloco nem corte: `say` no macOS, System.Speech no Windows (ver abaixo) |
 | **ElevenLabs** | pago, ~1 crédito por caractere | blocos com tags de direção (passos 3–6). Rode o `blocks-text.py`, diga ao dono o total de caracteres **antes** de gerar e espere o ok |
 
 **Gravação própria.** Qualquer gravador serve (celular, QuickTime). O `split-vo.py` só lê MP3:
@@ -25,23 +25,28 @@ cd <projeto> && python3 ./scripts/split-vo.py b1
 
 Pausa marcada entre as falas é o que faz o corte cair no lugar; confira a tabela que ele imprime.
 
-**`say` do macOS.** A voz pt-BR muda de máquina para máquina, então detecte em vez de fixar o nome
-(o nome pode ter espaço e parênteses, por isso o `sed` e as aspas). O `say` leria as tags
-`[softly]`/`[long pause]` em voz alta: por isso ele lê o `vo.json` direto, uma fala por arquivo.
+**Voz do sistema: `voz.py`.**
 
 ```bash
-say -v '?' | grep pt_BR          # vozes pt-BR instaladas
-V="$(say -v '?' | sed -nE 's/^(.*[^ ]) +pt_BR .*/\1/p' | head -1)"
-P=<projeto>; mkdir -p "$P/public/vo"
-python3 -c 'import json,sys;[print(l["id"]+"\t"+l["text"]) for l in json.load(open(sys.argv[1]))["lines"]]' "$P/vo.json" |
-while IFS="$(printf '\t')" read -r id txt; do
-  say -v "$V" -o "/tmp/$id.aiff" "$txt" && ffmpeg -v error -y -i "/tmp/$id.aiff" -ac 1 -ar 48000 "$P/public/vo/$id.wav"
-done
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>              # falas que ainda não têm WAV
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> t1 n2        # refaz só estas
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refazer    # refaz todas
 ```
 
-Sem voz pt-BR na lista, ela se baixa em Ajustes do Sistema → Acessibilidade → Conteúdo Falado →
-Voz do Sistema → Gerenciar Vozes. A troca de pronúncia do `say` do `blocks.json` não vale aqui:
-escreva a grafia que soa certo direto no `vo.json` só para o áudio, se precisar.
+- Voz: a Luciana quando instalada; senão a primeira pt-BR que não é voz de novidade do macOS
+  (Eddy, Flo, Grandma, Grandpa, Reed, Rocko, Sandy, Shelley); senão a primeira pt-BR. A lista muda
+  de máquina para máquina, por isso o script detecta. Para ver as do Mac: `say -v '?' | grep pt_BR`;
+  outra voz: `--voz "<nome>"` (o nome pode ter espaço e parênteses). Ritmo no macOS: `--taxa`
+  (padrão 182 palavras por minuto); no Windows a voz fala no ritmo dela.
+- Ele lê o `vo.json` direto, uma fala por arquivo, nunca na linha de comando: as tags do
+  ElevenLabs (`tags`) seriam lidas em voz alta e não valem aqui. O texto passa antes pelo `say`
+  do `blocks.json` ("Claude" → "Cláudi"); a tela e o `vo.json` continuam com a grafia original.
+- Cada WAV sai em 48 kHz mono, sem silêncio nas pontas. Fala que já tem WAV (uma gravação da
+  pessoa) fica como está.
+- No fim ele roda o `build-timeline.py` e para se ainda houver fala com duração estimada.
+- Sem voz pt-BR no Mac: Ajustes do Sistema → Acessibilidade → Conteúdo Falado → Voz do Sistema →
+  Gerenciar Vozes → Português (Brasil). No Windows: Configurações → Hora e idioma → Fala →
+  Adicionar vozes → Português (Brasil). Sem nenhum dos dois, grave a própria voz.
 
 ## Arquivos do projeto
 
@@ -51,7 +56,9 @@ escreva a grafia que soa certo direto no `vo.json` só para o áudio, se precisa
 | `blocks.json` | `voice_id` (vem como `COLE_O_VOICE_ID`: cole o id da voz escolhida na conta do ElevenLabs), `model`, `blocks` (bloco → ids em ordem), `say` (troca de pronúncia, só no áudio) e `tags` (direção por fala) |
 | `film.json` | `vo: [ids]` em cada cena: é aqui que fala e cena se casam |
 
-## Passo a passo
+## Passo a passo (gravação própria e ElevenLabs)
+
+Com o `voz.py`, só o passo 1 vale; ele faz o último sozinho.
 
 1. **Falas.** Uma ideia por fala, curta. Número por extenso no `vo.json` e em algarismo nas
    `props` da cena (a tela mostra "40", a voz diz "quarenta").

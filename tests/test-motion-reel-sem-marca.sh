@@ -96,6 +96,45 @@ else
   check "new.sh aceita os logos por flag (regra allow não casa depois de VAR=...)" fail
 fi
 
+# O símbolo placeholder (assets/logos/marca.png) é o que o Title, o Outro e o logo3d mostram
+# quando a pessoa não passa --mark. Até a 0.49 ele era o infinito azul do mantenedor; o
+# grep acima só lê texto e não via o PNG. Aqui o PNG é decodificado (sem Pillow) e nenhum
+# pixel visível pode ter cor: o placeholder é cinza, como os logos "SUA MARCA".
+if python3 - "$SK/assets/logos/marca.png" <<'PY'
+import struct, sys, zlib
+raw = open(sys.argv[1], "rb").read()
+assert raw[:8] == b"\x89PNG\r\n\x1a\n"
+i, idat, ihdr = 8, b"", None
+while i < len(raw):
+    n, tipo = struct.unpack(">I4s", raw[i:i + 8])
+    dado = raw[i + 8:i + 8 + n]
+    if tipo == b"IHDR": ihdr = struct.unpack(">IIBBBBB", dado)
+    if tipo == b"IDAT": idat += dado
+    i += 12 + n
+w, h, prof, cor, _, _, entrelaçado = ihdr
+assert prof == 8 and cor in (2, 6) and not entrelaçado, "PNG fora do formato esperado (RGB/RGBA 8 bits)"
+bpp = 4 if cor == 6 else 3
+dados, linha_ant, pos, sat = zlib.decompress(idat), bytearray(w * bpp), 0, 0
+for _ in range(h):
+    filtro, linha = dados[pos], bytearray(dados[pos + 1:pos + 1 + w * bpp]); pos += 1 + w * bpp
+    for x in range(len(linha)):
+        a = linha[x - bpp] if x >= bpp else 0
+        b = linha_ant[x]; c = linha_ant[x - bpp] if x >= bpp else 0
+        if filtro == 1: linha[x] = (linha[x] + a) & 255
+        elif filtro == 2: linha[x] = (linha[x] + b) & 255
+        elif filtro == 3: linha[x] = (linha[x] + (a + b) // 2) & 255
+        elif filtro == 4:
+            p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+            linha[x] = (linha[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+    for x in range(0, len(linha), bpp):
+        if bpp == 4 and linha[x + 3] < 128: continue
+        sat = max(sat, max(linha[x:x + 3]) - min(linha[x:x + 3]))
+    linha_ant = linha
+sys.exit(0 if sat <= 24 else 1)
+PY
+then check "marca.png placeholder é neutro (cinza, sem a cor de ninguém)" ok
+else check "marca.png placeholder é neutro (cinza, sem a cor de ninguém)" fail; fi
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "OK: motion-reel sem marca de terceiro"; exit 0; fi
 echo "$falhas falha(s)"; exit 1
