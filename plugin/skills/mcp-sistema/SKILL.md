@@ -101,8 +101,6 @@ login interativo da CLI.
   `auth_user_id`, nunca por nome (homônimos existem).
 - **O recorte é feito na tool.** Rota HTTP existente quase nunca recorta por papel;
   a tool chama a lib de negócio e filtra pelo escopo.
-- **Hierarquia na data consultada.** Quem mudou de time no meio do ano: o recorte
-  de um mês passado usa o time daquele mês, não o vivo.
 - **Agregado vaza dado alheio.** Ranking, top clientes e previsão de time: quem só
   vê o próprio recebe a própria posição e o total do time, sem valores de colegas.
 - **A decisão do consentimento revalida o gate.** O form é HTML puro; um POST com
@@ -114,37 +112,14 @@ login interativo da CLI.
   o agente chama várias em paralelo — a tool nem chega ao servidor. Assinatura nos
   logs: um POST que morre exatamente no `maxDuration` logo depois do `initialize`,
   repetindo. `refuseListen` responde `-32601` na hora (`servidor.md`).
-- **Log de tempo por tool desde o PR 1** (`[mcp] tool=X ms=Y ok|erro|timeout`) e
-  deadline abaixo do `maxDuration`. Sem ele, travamento não deixa rastro.
-- **Cache por instância não resolve concorrência na Vercel**: chamadas paralelas
-  caem em instâncias diferentes. Tool pesada precisa de cache entre instâncias
-  (`unstable_cache`, tabela de snapshot).
-- **Escrita**: a prévia não grava; o aplicar relê TUDO, recusa se o estado mudou e
-  grava o log ANTES da escrita. Sem log, sem escrita.
-- **Catálogo de prompts roda no navegador**: só `import type` do módulo do
-  principal, senão o bundle puxa a service role.
-- **Redirect pós-login** vira open redirect sem validação (`//evil.com`, `/\evil.com`).
 
-### Armadilhas da receita edge function (detalhe em `references/edge-function.md`)
+As de uma fase só estão na referência dela: hierarquia na data consultada e log
+`[mcp] tool=` com deadline (`servidor.md`), cache entre instâncias (`servidor.md`),
+log antes da escrita (`escrita.md`), catálogo só com `import type` (`pagina.md`),
+open redirect no login (`oauth-supabase.md`).
 
-- **O Vercel não reescreve `/.well-known`** (path reservado). Os metadados RFC 8414
-  e 9728 são arquivos estáticos em `public/.well-known/`, com
-  `Content-Type: application/json` no `vercel.json`. Um teste compara os
-  estáticos com o handler.
-- **Service worker de PWA engole a navegação do `/authorize`.** O
-  `navigateFallback` serve o `index.html` do SPA, e em modo `prompt` o SW antigo
-  segue ativo até o usuário atualizar. O `authorization_endpoint` fica no host da
-  função e só responde 302 para um `.html` da raiz do app (com o `.html` da raiz,
-  `/mcp`, `/oauth/` e `/.well-known/` no `navigateFallbackDenylist`).
-- **No `supabase.co`, a edge function serve `text/html` como `text/plain`.** Nenhuma
-  tela sai da função: ela devolve JSON e 302; o HTML é estático no domínio do app.
-- **Protocolo `2026-07-28`.** Servidor legado responde `400` sem corpo a
-  `MCP-Protocol-Version` desconhecido. Um erro "moderno" (`-32022`) faz o cliente
-  não cair no `initialize`.
-- **ChatGPT e RFC 9207.** Anuncie `authorization_response_iss_parameter_supported`
-  e devolva `iss` em toda resposta do authorize (sucesso e erro). Sem isso o
-  callback do ChatGPT muda a cada conexão (`chatgpt.com/connector/oauth/<id>`). O
-  handler aceita esse formato por garantia; o verificado é o callback estável.
+Armadilhas da receita edge function (well-known estático, service worker de PWA,
+`text/plain` no `supabase.co`, `-32022`, RFC 9207): `references/edge-function.md`.
 
 ## Verificação (antes de dizer "pronto")
 
@@ -158,16 +133,8 @@ login interativo da CLI.
   recusar); conferir a linha no log de auditoria.
 
 **Receita Next — verificada em produção** com Claude Code (login + MFA, 22 tools,
-paralelo, listen recusado sem o cliente entrar em loop). Não verificada nela:
-claude.ai e ChatGPT. Ao ligar o ChatGPT, confira se o metadata do Supabase OAuth
-Server traz `authorization_response_iss_parameter_supported`; sem ele o ChatGPT
-registra um callback por conexão.
+paralelo, listen recusado sem o cliente entrar em loop) e claude.ai. ChatGPT ainda
+não: caminho e estado de cada cliente em `references/pagina.md`.
 
-**Receita edge — verificada em produção em 03/10/2026** nos três clientes, login +
-tools, 0 erro nos logs:
-
-| Cliente | Como liga | Callback confirmado |
-|---|---|---|
-| Claude Code | `claude mcp add --transport http <nome> <url>` → `/mcp` → autenticar (`claude mcp login` só em terminal interativo) | `http://localhost:<porta>/callback` ou `http://127.0.0.1:<porta>/callback`, porta aleatória |
-| claude.ai / Desktop | Conectores → Adicionar conector personalizado → URL (detecta OAuth + DCR sozinho); cada tool pede "Permitir" na 1ª chamada | `https://claude.ai/api/mcp/auth_callback` |
-| ChatGPT | Plugins → Adicionar → Criar servidor MCP personalizado → URL + OAuth (não procure "Developer mode") | `https://chatgpt.com/connector_platform_oauth_redirect` (estável com RFC 9207) |
+**Receita edge — verificada em produção** no Claude Code, claude.ai e ChatGPT
+(caminhos e callbacks em `references/edge-function.md`).

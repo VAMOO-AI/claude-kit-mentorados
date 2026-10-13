@@ -13,6 +13,27 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.51.2] — 2026-10-13
+
+### Mudou
+
+- **`mcp-sistema` 22% mais leve** (SKILL.md de 11,7 para 9,1 KB). As armadilhas da receita edge
+  e a tabela de clientes eram cópia do que já está em `references/edge-function.md`; as
+  armadilhas de uma fase só (log por tool, cache entre instâncias, log antes da escrita,
+  `import type` no catálogo, open redirect) ficaram só na referência da fase, com um ponteiro.
+  Nenhuma regra saiu da skill. `downloads/mcp-sistema.zip` regerado com a skill nova.
+- **`references/pagina.md`**: tabela de clientes da receita Next (como ligar e o que está
+  verificado) e o fato de que o OAuth Server do Supabase não anuncia RFC 9207 (o ChatGPT
+  registra um cliente DCR por conexão).
+
+### Adicionado
+
+- **Cenário de pressão `tests/skills/mcp-sistema/cenario-01-tabela-nova-sem-trava.md`**: tabela
+  nova aberta a `authenticated`, demo em 15 minutos e ordem de não mexer em RLS. Sem a skill,
+  0/3 (sobe e deixa a trava "sem token oauth" para amanhã); com a skill, 3/3 (opus, effort medium).
+- Para quem mantém: a description da `mcp-sistema` está em 455/500 chars. Gatilho novo troca um
+  antigo em vez de somar.
+
 ## [0.51.1] — 2026-10-13
 
 ### Adicionado

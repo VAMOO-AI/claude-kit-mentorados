@@ -66,3 +66,20 @@ de card/badge que o app já tem). Não copie classes do exemplo.
   booleano → 400.
 - Desligar corta na próxima tool (o principal é lido a cada chamada) — diga isso no
   tooltip da chave.
+
+## Clientes: como ligar e o que está verificado (receita Next)
+
+| Cliente | Como liga | Estado |
+|---|---|---|
+| Claude Code | `claude mcp add --transport http <nome> <url>` → `/mcp` → autenticar | verificado em produção (login + MFA, 22 tools, paralelo) |
+| claude.ai / Desktop | Conectores → Adicionar conector personalizado → URL (detecta OAuth + DCR sozinho) | verificado em produção (cliente DCR com callback `https://claude.ai/api/mcp/auth_callback` registrado no Supabase) |
+| ChatGPT | Plugins → Adicionar → Criar servidor MCP personalizado → URL + OAuth | não verificado nesta receita; sem RFC 9207 no Supabase, espere um cliente DCR por conexão |
+
+O metadata do OAuth Server do Supabase (`<projeto>.supabase.co/.well-known/oauth-authorization-server/auth/v1`)
+**não** anuncia `authorization_response_iss_parameter_supported` (RFC 9207), conferido
+em 13/10/2026. Sem isso o ChatGPT registra um cliente novo por conexão, com callback
+`chatgpt.com/connector/oauth/<id>`; o DCR do Supabase aceita. Conferir de novo:
+
+```bash
+curl -s https://<projeto>.supabase.co/.well-known/oauth-authorization-server/auth/v1 | jq '.authorization_response_iss_parameter_supported'
+```
