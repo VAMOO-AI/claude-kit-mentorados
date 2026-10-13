@@ -13,7 +13,7 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.51.1] — 2026-10-13
+## [0.51.2] — 2026-10-13
 
 ### Mudou
 
@@ -21,7 +21,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   e a tabela de clientes eram cópia do que já está em `references/edge-function.md`; as
   armadilhas de uma fase só (log por tool, cache entre instâncias, log antes da escrita,
   `import type` no catálogo, open redirect) ficaram só na referência da fase, com um ponteiro.
-  Nenhuma regra saiu da skill.
+  Nenhuma regra saiu da skill. `downloads/mcp-sistema.zip` regerado com a skill nova.
 - **`references/pagina.md`**: tabela de clientes da receita Next (como ligar e o que está
   verificado) e o fato de que o OAuth Server do Supabase não anuncia RFC 9207 (o ChatGPT
   registra um cliente DCR por conexão).
@@ -33,6 +33,18 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   0/3 (sobe e deixa a trava "sem token oauth" para amanhã); com a skill, 3/3 (opus, effort medium).
 - Para quem mantém: a description da `mcp-sistema` está em 455/500 chars. Gatilho novo troca um
   antigo em vez de somar.
+
+## [0.51.1] — 2026-10-13
+
+### Adicionado
+
+- **`downloads/mcp-sistema.zip`: a skill em zip, num link fixo do GitHub**, para quem não usa o
+  plugin ou quer mandar só ela para alguém. Até aqui o zip era montado à mão e ficava fora do
+  git (`plugin/skills/*.zip` continua ignorado). Agora `scripts/empacotar-skill.sh <skill>` gera
+  um zip determinístico (ordem fixa, data fixa, sem `.DS_Store`/`__MACOSX`), e
+  `tests/test-downloads-zip.sh` regera cada zip de `downloads/` e compara byte a byte no CI:
+  mudou a skill e esqueceu o zip, reprova com o comando que conserta. Fica fora do `plugin/`,
+  então não vai junto em toda instalação. README ganhou a seção "Uma skill avulsa, sem o plugin".
 
 ## [0.51.0] — 2026-10-13
 

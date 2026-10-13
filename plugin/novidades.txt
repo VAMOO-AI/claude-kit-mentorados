@@ -7,7 +7,8 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
-0.51.1|a skill mcp-sistema ficou mais leve (carrega 22% menos) e ganhou um teste que prova que ela não deixa tabela nova escapar da trava do token do agente
+0.51.2|a skill mcp-sistema ficou mais leve (carrega 22% menos) e ganhou um teste que prova que ela não deixa tabela nova escapar da trava do token do agente
+0.51.1|a skill mcp-sistema agora tem um zip para baixar e mandar para quem não usa o plugin, sempre igual à versão do plugin
 0.51.0|nova skill /kit-vamoo:reverse-engineer-anything, só manual: engenharia reversa de programa, app Electron, APK ou firmware com o REA (o MCP dele se instala à parte com npx -y rea-agents@latest setup)
 0.50.1|a limpeza-mac não apaga mais o node_modules de ferramenta guardada dentro de um projeto (como o navegador do get-brolls no estúdio), mesmo quando a ferramenta está há dias sem atualizar
 0.50.0|a motion-reel ganhou narração grátis na voz do sistema (Mac e Windows) com o voz.py, uma galeria das cenas e transições do template e um filme de lançamento pronto com logo 3D, vidro e batidas na sua marca; o stills aceita índices com vírgula e o py.sh acha o venv ~/.venvs/motion sozinho
