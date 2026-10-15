@@ -38,6 +38,12 @@ jobs:
       - name: Link relativo, âncora e href/src dos .md resolvem, e todo .json parseia
         run: bash tests/test-docs-consistencia.sh
 
+      - name: Nada versionado carrega dado de cliente (nome, telefone real, host UAZAPI)
+        run: bash tests/test-sem-dado-de-cliente.sh
+
+      - name: A QA simulada da n8n-workflow-agent reprova o agente quando deve e limpa depois
+        run: bash tests/test-simular-conversa.sh
+
       - name: A versão do plugin bate com a do kit-setup
         run: |
           v_plugin="$(python3 -c 'import json;print(json.load(open("plugin/.claude-plugin/plugin.json"))["version"])')"

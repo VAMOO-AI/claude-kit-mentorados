@@ -137,6 +137,7 @@ test-pressure-isolamento.sh|test-pressure-isolamento.sh
 test-pre-prompt.sh|test-pre-prompt.sh
 test-precompact.sh|test-precompact.sh
 test-session-size-guard.sh|test-session-size-guard.sh
+test-simular-conversa.sh|test-simular-conversa.sh
 test-skill-descriptions.sh|test-skill-descriptions.sh
 test-skill-sem-injecao.sh|test-skill-sem-injecao.sh
 test-skill-spec.sh|test-skill-spec.sh
