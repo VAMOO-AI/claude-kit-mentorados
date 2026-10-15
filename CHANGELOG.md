@@ -16,7 +16,11 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [Não lançado]
+## Não lançado
+
+Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de propósito: o
+`tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
+Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
 
 ### Adicionado
 
