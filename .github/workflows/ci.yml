@@ -453,21 +453,10 @@ jobs:
           git --version
           uname -a
 
-      - name: Sondas (temporário, #220)
-        run: |
-          echo "MSYS=${MSYS:-} MSYS2_ARG_CONV_EXCL=${MSYS2_ARG_CONV_EXCL:-}"
-          command -v python3 || echo "sem python3"; python3 -c 'print(1)' || echo "python3 falhou rc=$?"
-          command -v python || echo "sem python"
-          F=/tmp/alvo/x.txt node -e 'console.log("env F=", process.env.F)'
-          d=$(mktemp -d); ln -s "$(command -v cat)" "$d/cat"; ls -la "$d"; [ -L "$d/cat" ] && echo "é symlink" || echo "NÃO é symlink"
-          printf '%s\n' '#!/bin/sh' 'exit 1' > "$d/node"; chmod +x "$d/node"
-          echo '{}' | PATH="$d" "$(command -v bash)" -c 'command -v node; node -e 1; echo "rc stub=$?"' || echo "rc=$?"
-          echo '{}' | PATH="$d" "$(command -v bash)" -c 'cat; echo "cat ok rc=$?"'
-
-      # De fora por ora (issue própria): test-pre-prompt, test-path-rules e
-      # test-merge-settings quebram no Windows pelo ambiente do TESTE, não pelo hook: o
-      # MSYS troca /tmp/... por C:/... ao passar variável de ambiente para o node, o
-      # python3 do runner não é o do Git Bash e o `ln -s` do MSYS copia em vez de ligar.
+      # O que o MSYS faz e os testes daqui contornam (#220): caminho /tmp/... passado a
+      # programa nativo (node, python) por variável ou argumento vira C:/.../Temp/..., e o
+      # escrito dentro do código não vira nada; `ln -s` copia o .exe, e a cópia não
+      # carrega longe da msys-2.0.dll. E python não é pré-requisito do kit, node é.
       - name: Boot dos hooks e guard-rails no Git Bash
         run: |
           falhas=""
