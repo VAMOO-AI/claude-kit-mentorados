@@ -313,7 +313,8 @@ if want 04; then
       total_fn=$((total_fn+1))
       # requireAuth/assertAuth vêm de _shared e são o padrão mais comum de guard —
       # sem eles na lista, função corretamente protegida vira finding HIGH.
-      grep -qE 'headers\.get\(|verifySecret|secretMatches|timingSafeEqual|auth\.getUser|verifyCronSecret|requireAuth|assertAuth|requireUser' "$d/index.ts" 2>/dev/null \
+      # isCronAuthorized (guard de cron-secret em _shared, fail-closed + tempo constante) é o mesmo caso.
+      grep -qE 'headers\.get\(|verifySecret|secretMatches|timingSafeEqual|auth\.getUser|verifyCronSecret|isCronAuthorized|requireAuth|assertAuth|requireUser' "$d/index.ts" 2>/dev/null \
         || sem_auth="$sem_auth $n"
     done
     if [ -n "$sem_auth" ]; then
