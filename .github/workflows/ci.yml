@@ -69,6 +69,9 @@ jobs:
       - name: O merge do settings entrega o deny e preserva o que é seu
         run: bash tests/test-merge-settings.sh
 
+      - name: env-tem-chave diz se a chave existe sem nunca imprimir o valor
+        run: bash tests/test-env-tem-chave.sh
+
       - name: O check-careful não interrompe à toa (e ainda pega o destrutivo)
         run: bash tests/test-check-careful.sh
 
