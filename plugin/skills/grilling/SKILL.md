@@ -62,8 +62,10 @@ Regras do loop:
 ## Quando parar
 
 Pare de interrogar quando não restar ramo de decisão que mude o que você vai
-tocar (arquivo, tabela, endpoint, comportamento). Aí feche com um resumo
-curto do plano acordado e peça "go".
+tocar (arquivo, tabela, endpoint, comportamento). Aí feche com o plano em
+passos curtos, cada um com o check que o prova: o comando, o teste que falha
+antes e passa depois, ou o que a pessoa vê na tela. Passo sem check está vago
+demais; quebre até ter um. Peça "go".
 
 ## Modo EXECUTE (atalho)
 

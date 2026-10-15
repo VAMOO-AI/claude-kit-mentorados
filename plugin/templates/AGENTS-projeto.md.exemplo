@@ -33,6 +33,7 @@
 - `<ex.: src/lib/>` — helpers e cliente do banco
 
 ## Regras
+- Escopo do produto: `.context/docs/produto.md` (modelo: `plugin/templates/produto.md.exemplo` do kit). Leia antes de propor feature. Não existe e o pedido é produto ou feature nova? Monte comigo com as seções do modelo, uma pergunta por vez.
 - <o que não se adivinha lendo o código: "não mexa em X", integrações, decisões já tomadas>
 - <ex.: nada de chamada ao banco direto no componente — passa por src/lib/>
 

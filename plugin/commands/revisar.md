@@ -19,5 +19,6 @@ Cinco coisas que revisor costuma pular e você não pula:
 
 Para cada achado: aponte o arquivo:linha, explique o problema em 1 frase e proponha a correção.
 Marque cada um como **[mecânico]** (dead code, N+1, comentário que contradiz o código, número mágico, validação faltando: um sênior aplicaria sem discutir) ou **[decisão]** (segurança, race, remover funcionalidade, mudança de comportamento visível, fix acima de ~20 linhas: dois sêniores poderiam discordar). Se eu mandar "aplica os mecânicos", você aplica só esses; os de decisão eu decido um a um.
+Mexeu em login, permissão do banco, pagamento ou mensagem que chega numa pessoa? No fim, me sugira uma segunda revisão focada em segurança numa sessão nova, passando a lista do que eu já descartei aqui. Mesmo foco duas vezes não acha mais nada; foco diferente acha.
 Reporte tudo que encontrar, rankeado por severidade — eu filtro o que aplicar. Se está bom, diga que está bom.
 Não altere nada ainda: só relate. Eu decido o que aplicar.

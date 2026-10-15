@@ -50,6 +50,10 @@ O Claude pode errar com confiança. Defesas simples:
 
 ## 4. Escopo pequeno, passos curtos
 
+- **Projeto novo? Antes do primeiro código, o escopo.** Copie o
+  [`produto.md.exemplo`](../plugin/templates/produto.md.exemplo) para
+  `.context/docs/produto.md` e peça: "preenche o produto.md comigo, uma pergunta por vez".
+  Ele te faz decidir login, dinheiro e dados pessoais antes que o código decida por você.
 - Uma tarefa por vez. "Faz tudo" vira bagunça difícil de revisar.
 - Antes de mudança grande, peça o plano: "me mostra o que vai mudar antes de fazer."
 - Commits pequenos e frequentes. Deu ruim? Você volta um passo, não o projeto inteiro.
