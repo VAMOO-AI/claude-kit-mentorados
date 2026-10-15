@@ -13,6 +13,23 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.6] — 2026-10-15
+
+### Mudou
+
+- **`block-parallel-clone-switch` não bloqueia o clone por fixture na pasta temporária do
+  Claude** (espelho de VAMOO-AI/claude-config-team#335, issue #208).
+  - **Origem:** no kit do time, nenhum dos 14 bloqueios medidos em 30 dias tinha outra sessão
+    escrevendo no clone principal, e 5 eram repo descartável em `/tmp/claude-<uid>/` ou
+    `/private/tmp/claude-<uid>/`, criado no próprio comando. O path não resolvia e o hook caía
+    no cwd, que era o clone.
+  - **Agora:** o alvo nessa pasta é o próprio path. O `/tmp` comum e o `$(mktemp)` seguem
+    caindo no cwd, e a variável que se reatribui a partir dela mesma (`W=/x; W="$W" …`) passa
+    a resolver pelo valor literal.
+  - **Continua bloqueado:** trocar de branch no clone principal com outra sessão ativa.
+  - **Testes:** 7 casos novos em `tests/test-block-parallel-clone-switch.sh`, 4 falham contra
+    o hook anterior.
+
 ## [0.53.5] — 2026-10-15
 
 ### Mudou

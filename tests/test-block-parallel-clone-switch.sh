@@ -175,4 +175,24 @@ check pass "D=\$(mktemp -d) não vira path inventado; cwd fora de repo" \
 check pass "reset sem --hard no clone não mexe no working tree" \
   'git reset HEAD~1; git stash list'                                                  "$CLONE"
 echo
+echo "== falsos positivos da medição de 15/10/2026 (docs/medicao-guards-2026-10-15.md) =="
+# 0 dos 14 bloqueios em 30 dias tinha outra sessão escrevendo no clone principal, e 5 eram
+# fixture na raiz de scratch do Claude (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`):
+# o repo nasce no próprio comando, o path não resolve, e o hook caía no cwd (o clone).
+check pass "fixture no scratchpad do Claude, via variável" \
+  'S=/private/tmp/claude-501/s/scratchpad/f1; git -C $S/r checkout -qb feat'          "$CLONE"
+check pass "variáveis encadeadas até o scratch" \
+  'SP=/private/tmp/claude-501/x/scratchpad; F=$SP/f1; git -C $F/a reset --hard'      "$CLONE"
+check pass "scratch do Claude em /tmp, path literal" \
+  'git -C /tmp/claude-1000/sessao/fix checkout -b x'                                  "$CLONE"
+check block "/tmp comum não é descartável por nome" \
+  'git -C /tmp/outra/r checkout main'                                                 "$CLONE"
+check block "claude- sem uid não é a raiz de scratch" \
+  'git -C /tmp/claude-x/r checkout main'                                              "$CLONE"
+# Variável que se reatribui a partir dela mesma: a última atribuição era `$W` e não resolvia.
+check pass "variável reatribuída a partir dela mesma aponta pro worktree" \
+  "W=$CLONE/.wt; W=\"\$W\" true; git -C \$W checkout main"                            "$CLONE"
+check block "variável literal para o clone continua bloqueando" \
+  "W=$CLONE; git -C \$W checkout main"                                                "$FORA"
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
