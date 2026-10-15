@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.52.0|o kit ganhou um modelo de produto.md para decidir o escopo antes do primeiro código; o grilling fecha o plano com a prova de cada passo, o /revisar sugere uma segunda revisão em mudança de login ou pagamento, a memória diz o que vale guardar e o find-docs busca a doc da versão que o seu projeto usa|setup
 0.51.4|o aviso das skills do projeto passa a perceber skill instalada pelo npx skills add, e a skill baseline ganhou o alerta de fila parada e de página lenta
 0.51.3|o Claude passa a avisar os ajudantes dele para não tirar print à toa (cada imagem pesa em toda mensagem seguinte), e o modelo de .gitignore do projeto já deixa de fora os .env e as cópias das outras conversas|setup
 0.51.2|a skill mcp-sistema ficou mais leve (carrega 22% menos) e ganhou um teste que prova que ela não deixa tabela nova escapar da trava do token do agente

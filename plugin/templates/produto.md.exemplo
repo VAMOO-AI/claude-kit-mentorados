@@ -1,0 +1,51 @@
+# Produto: <nome>
+
+> Salve este arquivo como `.context/docs/produto.md` na **raiz do projeto**. É o escopo do
+> produto: o que ele resolve, para quem, o que entra primeiro e o que fica de fora. O
+> `AGENTS.md` do projeto aponta para cá, e o Claude lê antes de propor qualquer feature.
+>
+> Não preencha sozinho: peça "preenche o produto.md comigo, uma pergunta por vez". O que
+> ninguém sabe ainda vai para **Pendências**, nunca para um palpite escrito como fato.
+> Apague estas linhas de citação ao preencher. Estrutura inspirada em
+> soumatheusgomes/vibe-coding-toolkit (MIT).
+
+## Problema
+<o que dói hoje, para quem, e como a pessoa resolve sem o sistema>
+
+## Quem usa
+<cada tipo de pessoa e o que ela quer fazer; quem NÃO usa, se confunde>
+
+## Fluxos da 1ª versão
+<!-- um por linha: quem → faz o quê → o que vê no fim -->
+- <ex.: vendedor → cadastra o pedido → recebe o link de pagamento no WhatsApp>
+
+## O que entra primeiro (em ordem)
+1. <a menor coisa que já resolve o problema para alguém>
+2. <...>
+
+## Fora desta versão
+- <o que parece óbvio pedir e fica para depois, com o motivo>
+
+## Decida antes de codar
+<!-- cada linha vazia aqui é uma pergunta para o dono do produto, não para o código -->
+- **Login e papéis:** quem entra, como entra, e o que cada papel vê e altera.
+- **Dinheiro:** moeda, unidade gravada (centavos inteiros ou decimal), quando arredonda
+  e para que lado, quem pode mudar preço.
+- **Dados pessoais:** quais guarda (telefone, documento, endereço), por quanto tempo, e
+  quem pode ver.
+- **Mensagem para pessoa:** o sistema dispara WhatsApp, e-mail ou cobrança? Quem aprova
+  o primeiro envio?
+- **Idioma e fuso:** um só ou vários.
+
+## Hipóteses
+- <o que estamos assumindo sem prova, e como saber se é verdade>
+
+## Pendências
+- <pergunta aberta, de quem é a resposta>
+
+## Aceite
+<!-- observável: alguém consegue conferir sem ler o código -->
+- <ex.: um pedido de R$ 10,00 com cupom de 15% cobra R$ 8,50 e aparece igual no relatório>
+
+## Próxima entrega
+<a menor tarefa que move o item 1 de "O que entra primeiro", em uma frase>

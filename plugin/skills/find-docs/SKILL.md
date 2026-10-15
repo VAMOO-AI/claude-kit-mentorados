@@ -83,6 +83,20 @@ ctx7 docs /vercel/next.js/v14.3.0-canary.87 "How to set up app router"
 
 The available versions are listed in the `ctx7 library` output. Use the closest match to what the user specified.
 
+### Projeto com `package.json`: a versão instalada escolhe o ID
+
+Sem versão dita pela pessoa, a doc certa é a da versão que o projeto roda, não a última
+indexada (`cookies()` virou async no Next 15; o Tailwind v4 trocou o config por `@theme`).
+Antes do Step 2:
+
+1. Leia a versão instalada no campo `version` de `node_modules/<lib>/package.json` (abra o
+   arquivo, não precisa de `jq`); sem `node_modules`, procure a lib no lockfile; sem os dois,
+   use a faixa do `package.json`.
+2. Na linha `Versions` do `ctx7 library`, escolha a mesma major, e dentro dela a minor mais
+   próxima. A lista vem fora de ordem e mistura `canary` e `__branch__…`: ignore esses dois.
+3. Diga qual ID usou. Sem versão da mesma major na lista, use o ID geral e avise que a doc é
+   da última versão indexada, não da instalada.
+
 ## Step 2: Query Documentation
 
 Retrieves up-to-date documentation and code examples for the resolved library.
