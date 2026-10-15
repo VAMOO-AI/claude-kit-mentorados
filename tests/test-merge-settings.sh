@@ -235,11 +235,18 @@ done
 
 # `Read(**/.env.*)` bloquearia o .env.example, que é commitado e lido de propósito; os
 # arquivos de ambiente com segredo vão enumerados.
-for e in .env .env.local .env.production .env.development .env.staging; do
+# Âncora `//` (raiz do disco), não `**/` solto: "a rule only matches files under its anchor",
+# e sem âncora a regra só vale abaixo da pasta do projeto. Medido em 15/10/2026 (espelho de
+# VAMOO-AI/claude-config-team#332): com `Read(**/.env.local)`, `cat` num .env.local falso FORA
+# do projeto leu em bypass; com `Read(//**/.env.local)` foi negado nos dois modos.
+for e in .env .env.local .env.production .env.development .env.staging .env.tokens; do
   if node -e 'process.exit(require(process.argv[1]).permissions.deny.includes(process.argv[2]) ? 0 : 1)' \
-       "$TEMPLATE" "Read(**/$e)"; then echo "  ok    deny de leitura: $e"
-  else echo "  FALHA falta deny de leitura: $e"; falhas=$((falhas+1)); fi
+       "$TEMPLATE" "Read(//**/$e)"; then echo "  ok    deny de leitura: $e (ancorado em //)"
+  else echo "  FALHA falta deny de leitura ancorado: Read(//**/$e)"; falhas=$((falhas+1)); fi
 done
+if node -e 'process.exit(require(process.argv[1]).permissions.deny.some(r => r.startsWith("Read(**")) ? 0 : 1)' "$TEMPLATE"; then
+  echo "  FALHA regra Read(**/…) sem âncora: só vale abaixo da pasta do projeto"; falhas=$((falhas+1))
+else echo "  ok    toda regra Read de segredo é ancorada na raiz (//)"; fi
 
 echo "== modo de permissão: Manual e ausente viram acceptEdits; o resto fica =="
 # Pedido do Ruan (10/10/2026): mentorado não fica no manual pedindo "Permitir" a cada

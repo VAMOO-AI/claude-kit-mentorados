@@ -172,4 +172,20 @@ else printf '  ok    %s\n' "o comando não vai para o log"; fi
 rm -f "$LOGT"
 
 echo
+echo "== a pergunta sobre arquivo de segredo ensina a receita que o deny deixa rodar =="
+# Desde a 0.53.2 o deny Read(//**/…) nega também `grep -c '^CHAVE=' .env.local`: a receita
+# antiga da mensagem levava a uma negação. A nova aponta o env-tem-chave.sh do próprio plugin.
+msg=$(CMD='cat .env.local' CWD="$REPO_GIT" node -e \
+  'process.stdout.write(JSON.stringify({cwd:process.env.CWD,permission_mode:"acceptEdits",tool_input:{command:process.env.CMD}}))' \
+  | bash "$HOOK" 2>/dev/null)
+case "$msg" in
+  *env-tem-chave.sh*) printf '  ok    %s\n' "a mensagem aponta o env-tem-chave.sh" ;;
+  *) printf '  FALHA %s (veio: %s)\n' "a mensagem aponta o env-tem-chave.sh" "$msg"; falhas=$((falhas+1)) ;;
+esac
+case "$msg" in
+  *"grep -c '^CHAVE='"*) printf '  FALHA %s\n' "a mensagem não ensina mais o grep -c que o deny nega"; falhas=$((falhas+1)) ;;
+  *) printf '  ok    %s\n' "a mensagem não ensina mais o grep -c que o deny nega" ;;
+esac
+
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

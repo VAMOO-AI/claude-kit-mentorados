@@ -92,9 +92,12 @@ expand_shell_path() {
     case "$p" in *'$'*) ;; *) break ;; esac
     name=$(printf '%s' "$p" | sed -nE 's/^[^$]*\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?.*/\1/p')
     [ -z "$name" ] && break
-    val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=\"([^\"]*)\".*/\2/p" | head -1)
-    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}='([^']*)'.*/\2/p" | head -1)
-    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=([^[:space:];&|\"']+).*/\2/p" | head -1)
+    # A ÚLTIMA atribuição que não cita a própria variável. `KW=/repo; KW="$KW" python3 …`
+    # (15/10/2026): a reatribuição a partir dela mesma vinha por último, o valor saía `$KW`
+    # e o path nunca resolvia — commit em feature branch bloqueado.
+    val=$(printf '%s' "$c" | grep -oE "(^|[;&|(]|[[:space:]])${name}=(\"[^\"]*\"|'[^']*'|[^[:space:];&|\"']+)" \
+      | sed -E "s/^[^=]*${name}=//; s/^\"(.*)\"$/\1/; s/^'(.*)'$/\1/" \
+      | grep -vE "\\\$\{?${name}([^A-Za-z0-9_]|$)" | tail -1)
     [ -z "$val" ] && break
     # `D=$(mktemp -d)` ou `D=`pwd``: o valor só existe depois de o shell EXECUTAR aquilo.
     # Expandir o pedaço de texto (`$(mktemp`) fabricaria um path que ninguém pediu — e ele
@@ -119,15 +122,75 @@ expand_shell_path() {
 Q='("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]"'"'"';&|)]+))'
 CORTE="s/((^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*${ALVO})([[:space:]]|;|$).*/\\1/p"
 
+# A branch muda NO PRÓPRIO comando, antes do commit (15/10/2026). O hook roda antes do
+# comando e lê a branch de agora, então dois casos saíam errados:
+#   - `git checkout -b feat/x && git commit` era bloqueado, embora o commit caia em feat/x:
+#     12 dos 30 bloqueios medidos em 30 dias. Só passa com `&&` puro do checkout até o
+#     commit. Com pipe (`2>&1 | tail -1 &&`), `;`, nova linha ou `||`, um checkout que
+#     falha deixa o commit rodar na main — esses continuam bloqueados.
+#   - `git checkout main && git commit`, com a sessão numa feature branch, PASSAVA (falha
+#     aberta). Troca explícita para main/master no mesmo alvo bloqueia, com qualquer
+#     separador.
+# `git worktree add -b <nome> <path>` conta como branch nova para o commit feito em <path>.
+# Se o commit usa `git -C <path>` e o path ainda não existe, qualquer separador serve: com o
+# `worktree add` falhando, o path não existe e o `git -C` falha sem commitar. Com `cd <path>`
+# não — o cd falha e o commit roda no cwd.
+# Devolve 0 = branch nova para este alvo, 2 = alvo vai para main/master, 1 = não decide.
+OP="git([[:space:]]+-C[[:space:]]+${Q})?[[:space:]]+(checkout|switch|worktree[[:space:]]+add)([[:space:]][^;&|]*)?"
+branch_no_comando() {
+  local ate="$1" alvo="$2" via="$3" op resto sem rabo op_c wt
+  op=$(printf '%s' "$ate" | grep -oE "$OP" | tail -1)
+  [ -z "$op" ] && return 1
+  resto=${ate##*"$op"}
+  case "$resto" in *"cd "*) return 1 ;; esac
+  op_c=$(printf '%s' "$op" | sed -nE "s/^git[[:space:]]+-C[[:space:]]+${Q}[[:space:]].*/\\2\\3\\4/p")
+  [ -n "$op_c" ] && op_c=$(expand_shell_path "$op_c" "$c_cmd")
+  rabo=" $(printf '%s' "$op" | sed -E 's/.*(checkout|switch|worktree[[:space:]]+add)//') "
+  sem=${resto//&&/}
+  case "$op" in
+    *worktree*)
+      wt=$(printf '%s' "$rabo" | sed -nE 's/.*[[:space:]]-[bB][[:space:]]+[^[:space:]]+[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]"'"'"']+)).*/\2\3\4/p')
+      [ -n "$wt" ] || return 1
+      wt=$(expand_shell_path "$wt" "$c_cmd")
+      [ "$wt" = "$alvo" ] || return 1
+      [ "$via" = C ] && [ ! -e "$wt" ] && return 0
+      case "$sem" in *'|'*|*';'*) return 1 ;; esac
+      return 0 ;;
+  esac
+  [ "$op_c" = "$alvo" ] || return 1
+  case "$rabo" in
+    *[[:space:]]-[bBcC][[:space:]]*|*[[:space:]]--create[[:space:]]*|*[[:space:]]--force-create[[:space:]]*)
+      case "$sem" in *'|'*|*';'*) return 1 ;; esac
+      return 0 ;;
+  esac
+  printf '%s' "$rabo" | grep -qE '^[[:space:]]+((-q|--quiet|-f|--force)[[:space:]]+)*(main|master)[[:space:]]+$' && return 2
+  return 1
+}
+
+# Raiz de scratch do Claude Code (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`): é onde
+# o modelo monta repo de fixture, muitas vezes criado no próprio comando (5 dos bloqueios
+# medidos). Só essa raiz: o `mktemp -d` comum (que no Linux do CI cai em /tmp) segue em
+# falha fechada, como pede o caso de 17/09 da suíte.
+eh_scratch_do_claude() {
+  printf '%s' "$1" | grep -qE '^(/private)?/tmp/claude-[0-9]+/'
+}
+
 checa_alvo() {
-  local ate="$1" p p_cru tgt="${cwd:-.}" alvo_incerto="" b
+  local ate="$1" p p_cru tgt="${cwd:-.}" alvo_incerto="" b rc_op via=C
   p=$(printf '%s' "$ate" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[[:space:]]+commit$/\\2\\3\\4/p" | head -1)
   [ -z "$p" ] && p=$(printf '%s' "$ate" | sed -nE "s/.*git[[:space:]]+-C[[:space:]]+${Q}[^;&|]*[[:space:]]commit$/\\2\\3\\4/p" | head -1)
-  [ -z "$p" ] && p=$(printf '%s' "$ate" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\\5\\6\\7/p" | head -1)
+  [ -z "$p" ] && via="cd" && p=$(printf '%s' "$ate" | sed -nE "s/.*(^|[;&|({])[[:space:]]*((if|elif|then|do|else|while|until|!)[[:space:]]+)*cd[[:space:]]+${Q}.*/\\5\\6\\7/p" | head -1)
   # Path que não resolve como repo NÃO vira passe livre: cai de volta no cwd da
   # sessão. Sem isto, um path truncado ou inexistente deixava o commit em main sair.
   p_cru="$p"
   [ -n "$p" ] && p=$(expand_shell_path "$p" "$c_cmd")
+  [ -n "$p" ] && eh_scratch_do_claude "$p" && return 0
+  branch_no_comando "$ate" "$p" "$via"; rc_op=$?
+  [ "$rc_op" = 0 ] && return 0
+  if [ "$rc_op" = 2 ]; then
+    echo "BLOQUEADO pelo hook: o próprio comando troca para a main antes do git commit, então o commit cairia nela. Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Commit na main só se o usuário pediu isso nesta conversa: aí prefixe o comando com HOTFIX_MAIN=1." >&2
+    exit 2
+  fi
   if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
     tgt="$p"
   elif [ -n "$p" ]; then
