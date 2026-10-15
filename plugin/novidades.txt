@@ -7,6 +7,8 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.53.2|a baseline para de acusar como aberta a edge function de cron protegida por isCronAuthorized, que travava o /ship
+
 0.53.1|o freio que pede caminho absoluto depois de um cd para de atrapalhar quem usa o modo bypass, onde o Claude Code não pergunta mais; no modo padrão do kit ele segue igual|setup
 
 0.53.0|a baseline ensina a validar as chaves do .env sem mostrar o valor e a apagar senha e token do log; os ajudantes do Claude dizem em uma linha se terminaram, terminaram com ressalva, precisam de mais contexto ou travaram|setup

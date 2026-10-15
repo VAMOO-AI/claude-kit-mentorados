@@ -13,11 +13,7 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## Não lançado
-
-Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de propósito: o
-`tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
-Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
+## [0.53.2] — 2026-10-15
 
 ### Adicionado
 
@@ -33,6 +29,14 @@ Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as
 - **Actions pinadas por SHA** (`actions/checkout` v4.4.0 no `ci.yml` e no `release.yml`,
   `actions/setup-go` v5.6.0), com `.github/dependabot.yml` semanal abrindo o PR de
   atualização. Tag móvel pode ser reescrita por quem controla o repo da action.
+
+### Corrigido
+
+- **`baseline` 04: `isCronAuthorized` conta como guard de edge function.** O guard de
+  cron-secret em `_shared` (fail-closed, comparação em tempo constante) não estava na lista
+  da heurística, e a função protegida virava HIGH "Edge function sem verificação de
+  identidade aparente", travando o `/ship`. Teste novo em `tests/test-baseline-edge-auth.sh`.
+  Espelho de VAMOO-AI/claude-config-team#337. Fecha #209.
 
 ## [0.53.1] — 2026-10-15
 
