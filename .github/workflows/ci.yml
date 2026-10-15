@@ -430,3 +430,43 @@ jobs:
           # aqui num PR que não toca a skill = advisory novo; suba o pacote nesse lock.
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
+
+  # O kit promete funcionar no Windows com o Git Bash (README, "Funciona no Windows?"), e é
+  # lá que um hook quebrado falha aberto sem ninguém ver: o guard sai 0 e nada protege. Este
+  # job roda o boot dos hooks e as suítes dos guard-rails no bash do Git para Windows, com o
+  # node do runner, como na máquina de quem instala.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Ambiente (bash, node, git)
+        run: |
+          bash --version | head -1
+          node --version
+          git --version
+          uname -a
+
+      # De fora por ora (issue própria): test-pre-prompt, test-path-rules e
+      # test-merge-settings quebram no Windows pelo ambiente do TESTE, não pelo hook: o
+      # MSYS troca /tmp/... por C:/... ao passar variável de ambiente para o node, o
+      # python3 do runner não é o do Git Bash e o `ln -s` do MSYS copia em vez de ligar.
+      - name: Boot dos hooks e guard-rails no Git Bash
+        run: |
+          falhas=""
+          for t in test-hooks-boot test-pre-bash test-block-main-commit \
+                   test-check-careful test-block-parallel-clone-switch \
+                   test-block-delete-branch test-block-cd-leitura-relativa \
+                   test-block-monitor-ci; do
+            echo "::group::$t"
+            if bash "tests/$t.sh"; then echo "ok $t"; else falhas="$falhas $t"; fi
+            echo "::endgroup::"
+          done
+          if [ -n "$falhas" ]; then echo "::error::falharam no Windows:$falhas"; exit 1; fi
+

@@ -24,7 +24,7 @@ up="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)
 gdir="$(git rev-parse --git-common-dir 2>/dev/null)" || gdir=".git"
 gdir="$(cd "$gdir" 2>/dev/null && pwd -P)" || gdir="$DIR"
 CACHE_DIR="$HOME/.claude/.cache/warn-branch-behind"
-h="$(printf '%s' "$gdir" | shasum 2>/dev/null | awk '{print $1}')"
+h="$(printf '%s' "$gdir" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')"
 [ -z "$h" ] && h="$(printf '%s' "$gdir" | cksum | awk '{print $1}')"
 marker="$CACHE_DIR/$h-$(printf '%s' "$br" | tr '/' '_')"
 if [ -z "$(find "$marker" -mmin -10 2>/dev/null)" ]; then

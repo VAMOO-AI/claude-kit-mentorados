@@ -24,7 +24,9 @@ git -C "$CLONE" init -q
 git -C "$CLONE" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 git -C "$CLONE" worktree add -q "$CLONE/.wt" -b t-wt 2>/dev/null
 ROOT=$(git -C "$CLONE" rev-parse --show-toplevel)
-H=$(printf '%s' "$ROOT" | shasum | awk '{print $1}')
+# O Git Bash do Windows não tem shasum; o sha1sum dá o mesmo SHA-1.
+sha1() { shasum 2>/dev/null || sha1sum; }
+H=$(printf '%s' "$ROOT" | sha1 | awk '{print $1}')
 
 # HOME falso com marker de OUTRA sessão ativa (<30min) neste repo
 COM_SESSAO="$TMP/home-com-sessao"
@@ -40,7 +42,7 @@ touch "$SO_EU/.claude/.cache/repo-sessions/$H/sessao-teste"
 CLONE_H="$COM_SESSAO/repo-no-home"; mkdir -p "$CLONE_H"
 git -C "$CLONE_H" init -q
 git -C "$CLONE_H" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
-H_H=$(printf '%s' "$(git -C "$CLONE_H" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+H_H=$(printf '%s' "$(git -C "$CLONE_H" rev-parse --show-toplevel)" | sha1 | awk '{print $1}')
 mkdir -p "$COM_SESSAO/.claude/.cache/repo-sessions/$H_H"
 touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_H/outra-sessao"
 
@@ -48,7 +50,7 @@ touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_H/outra-sessao"
 CLONE_ESP="$TMP/repo esp - novo"; mkdir -p "$CLONE_ESP"
 git -C "$CLONE_ESP" init -q
 git -C "$CLONE_ESP" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
-H_E=$(printf '%s' "$(git -C "$CLONE_ESP" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+H_E=$(printf '%s' "$(git -C "$CLONE_ESP" rev-parse --show-toplevel)" | sha1 | awk '{print $1}')
 mkdir -p "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E"
 touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E/outra-sessao"
 
@@ -78,6 +80,18 @@ payload 'ls' "$FORA" sessao-b | HOME="$VIVO" bash "$SESSAO" touch
 check pass  "depois do end não há outra sessão: checkout passa" 'git checkout main' "$CLONE" "$VIVO"
 payload 'ls' "$CLONE" sessao-outra | HOME="$VIVO" bash "$SESSAO" touch
 check block "marker vindo do repo-session bloqueia de verdade"  'git checkout main' "$CLONE" "$VIVO"
+
+echo
+echo "== sem shasum (Git Bash do Windows): o marker nasce com o mesmo hash =="
+# O Git para Windows traz sha1sum, não shasum. Com só o shasum, o hash saía vazio, o
+# repo-session não gravava marker e este guard nunca bloqueava lá: falhava aberto calado.
+SEMSHA="$TMP/bin-sem-shasum"; mkdir -p "$SEMSHA"
+printf '%s\n' '#!/bin/sh' 'exit 127' > "$SEMSHA/shasum"; chmod +x "$SEMSHA/shasum"
+WIN="$TMP/home-win"; mkdir -p "$WIN"
+payload 'ls' "$CLONE" sessao-w | HOME="$WIN" PATH="$SEMSHA:$PATH" bash "$SESSAO" touch
+[ -f "$WIN/.claude/.cache/repo-sessions/$H/sessao-w" ] && printf '  ok    sem shasum, o touch grava o marker no mesmo hash\n' || { printf '  FALHA sem shasum, o touch não gravou o marker no hash do repo\n'; falhas=$((falhas+1)); }
+got=$(payload 'git checkout main' "$CLONE" | HOME="$WIN" PATH="$SEMSHA:$PATH" bash "$HOOK" >/dev/null 2>&1; echo $?)
+[ "$got" = 2 ] && printf '  ok    sem shasum, checkout no clone com outra sessão bloqueia\n' || { printf '  FALHA sem shasum, checkout no clone passou (rc=%s)\n' "$got"; falhas=$((falhas+1)); }
 
 echo
 echo "== tem que bloquear (outra sessão ativa, clone principal) =="

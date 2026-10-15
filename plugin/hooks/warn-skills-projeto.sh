@@ -26,7 +26,7 @@ fi
 [ -d "$DIR/.claude/skills" ] || exit 0
 
 CACHE="$HOME/.claude/.cache/kit-vamoo/skills-projeto"
-h="$(printf '%s' "$DIR" | shasum 2>/dev/null | awk '{print $1}')"
+h="$(printf '%s' "$DIR" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')"
 [ -z "$h" ] && h="$(printf '%s' "$DIR" | cksum | awk '{print $1}')"
 marker="$CACHE/$h"
 

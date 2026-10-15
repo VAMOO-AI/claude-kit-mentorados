@@ -157,7 +157,7 @@ checa_clone() { # usa tgt e alvo_incerto do alvo_de
   # worktree linkado tem git-dir próprio dentro de .git/worktrees/ => livre
   [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ] && return 0
 
-  h=$(printf '%s' "$root" | shasum 2>/dev/null | awk '{print $1}')
+  h=$(printf '%s' "$root" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')
   [ -z "$h" ] && return 0
   d="$HOME/.claude/.cache/repo-sessions/$h"
   [ -d "$d" ] || return 0

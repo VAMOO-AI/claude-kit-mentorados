@@ -42,7 +42,7 @@ printf '[install.scopes]\n"@y" = { token = "bundot_tokensecreto" }\n' > "$PRINCI
 chmod 600 "$PRINCIPAL/.env.local"
 
 roda() { ( cd "$1" && bash "$HOOK" ) >"$TMP/out" 2>"$TMP/err" </dev/null; echo $?; }
-sha()  { shasum "$1" | awk '{print $1}'; }
+sha()  { { shasum "$1" 2>/dev/null || sha1sum "$1"; } | awk '{print $1}'; }
 carimbo() { printf '%s/claude-seed-env' "$(git -C "$1" rev-parse --path-format=absolute --git-dir)"; }
 vazou() { grep -qF -e segredo -e postgres://exemplo -e npm_tokensecreto -e bun_tokensecreto -e bundot_tokensecreto "$TMP/out" "$TMP/err"; }
 

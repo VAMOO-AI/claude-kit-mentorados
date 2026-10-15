@@ -30,7 +30,7 @@ MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
 # clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
 CLONE="$TMP/clone"; mkdir -p "$CLONE"; git -C "$CLONE" init -q -b main 2>/dev/null
-H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
 HOME_OUTRA="$TMP/home-outra"; mkdir -p "$HOME_OUTRA/.claude/.cache/repo-sessions/$H"
 touch "$HOME_OUTRA/.claude/.cache/repo-sessions/$H/outra-sessao"
 
@@ -149,6 +149,15 @@ rc=$(roda 'ls -la' "$FEAT" default "$HOME" "$GAT")
 espera_rc 0 "$rc" "sem a palavra, o hook nem é aberto"
 rc=$(roda 'echo commit' "$FEAT" default "$HOME" "$GAT")
 espera_rc 2 "$rc" "com a palavra, o hook roda e decide"
+# Checkout no Windows com core.autocrlf=true (o padrão do Git para Windows) grava o hook
+# com CRLF: a última palavra do gatilho virava "commit\r", nunca casava, e o hook era
+# pulado calado. Era o block-main-commit inteiro desligado lá.
+GATW="$(árvore "$TMP/gatilho-crlf")"
+# Só a linha do gatilho com \r: o bash do Git para Windows aceita o resto com CRLF, o do
+# Mac/Linux não, e o que está em teste é a leitura do gatilho.
+printf '%s\n' '#!/bin/bash' $'# gatilho: checkout commit\r' 'cat >/dev/null' 'echo gatilho-casou >&2' 'exit 2' > "$GATW/block-main-commit.sh"
+rc=$(roda 'echo commit' "$FEAT" default "$HOME" "$GATW")
+espera_rc 2 "$rc" "hook com CRLF (checkout no Windows): a última palavra do gatilho ainda casa"
 # A linha de gatilho de cada hook real tem que cobrir o que ele bloqueia. Apagar a linha
 # só deixa o hook mais lento; estreitá-la quebra os casos de bloqueio acima.
 for par in 'block-main-commit.sh|commit' 'block-parallel-clone-switch.sh|checkout switch reset stash' 'block-delete-branch-with-children.sh|merge' 'block-cd-leitura-relativa.sh|cd'; do
