@@ -10,8 +10,9 @@
 # Traduzindo: depois do `cd` ele não sabe mais em qual pasta o `grep` vai procurar. Como
 # o kit configura regras `Read()` em `permissions.deny` (as que impedem o Claude de ler
 # `.env`, chave SSH e afins), ele não consegue PROVAR que essa leitura não cai num
-# arquivo proibido — e, na dúvida, pergunta para você. Essa pergunta aparece **até no
-# modo bypass**, que é onde as pessoas ligam justamente para não serem interrompidas.
+# arquivo proibido — e, na dúvida, pergunta para você. Em 03/09 essa pergunta aparecia
+# até no modo bypass; desde o Claude Code 2.1.296 (medido em 15/10/2026) ela só aparece em
+# acceptEdits e default, e em bypass o hook se cala (bloco de 15/10 abaixo).
 #
 # Apagar as regras `Read()` calaria o prompt e derrubaria junto a proteção dos seus
 # segredos, que é a única que vale em todos os modos. Então o conserto é o outro lado:
@@ -29,7 +30,10 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-c="$(cat | node "$H" tool_input.command)"
+# Uma chamada de node só: o permission_mode na 1ª linha, o comando cru (com heredoc) depois.
+info="$(cat | node "$H" permission_mode tool_input.command)"
+modo=$(printf '%s\n' "$info" | sed -n 1p)
+c=$(printf '%s\n' "$info" | sed '1d')
 [ -z "$c" ] && exit 0
 
 # Corpo de heredoc é conteúdo sendo escrito, não comando — some antes de qualquer match.
@@ -49,6 +53,12 @@ c_cmd=$(printf '%s\n' "$c" | awk '
     }
   }')
 case "$c_cmd" in *CD_LEITURA_OK=1*) exit 0 ;; esac
+
+# 15/10/2026, Claude Code 2.1.296: em bypassPermissions esse comando roda direto, sem pedir
+# nada; em acceptEdits e default ele segue pedindo ("…cannot be resolved statically while a
+# Read() deny rule is configured, so this needs approval"). Em bypass o bloqueio seria só
+# um passo a mais para o Claude. Payload sem permission_mode continua bloqueando.
+[ "$modo" = "bypassPermissions" ] && exit 0
 
 # Sem `cd` em posição de comando não há ambiguidade de pasta: nada a fazer.
 printf '%s\n' "$c_cmd" | grep -qE '(^|;|&&|\|\||\()[[:space:]]*cd[[:space:]]' || exit 0
@@ -127,5 +137,5 @@ dir=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+"(
 [ -z "$dir" ] && dir=$(printf '%s' "$c_cmd" | sed -nE 's/.*(^|[;&|(])[[:space:]]*cd[[:space:]]+([^[:space:]"'"'"';&|]+).*/\2/p' | head -1)
 
 if [ -n "$dir" ]; then sugestao="$dir/$rel"; else sugestao="<pasta absoluta>/$rel"; fi
-echo "BLOQUEADO pelo hook: ler '$rel' (caminho relativo) depois de um 'cd'. Depois do 'cd' o Claude Code não sabe em que pasta a leitura vai cair e, como há regra Read() em permissions.deny protegendo seus segredos, ele para e pede autorização ao usuário — inclusive no modo bypass. Refaça com caminho absoluto, sem o 'cd': '$sugestao' (ou 'grep -r <padrão> $dir', 'git -C $dir ...'). Se for mesmo necessário rodar assim, prefixe o comando com CD_LEITURA_OK=1." >&2
+echo "BLOQUEADO pelo hook: ler '$rel' (caminho relativo) depois de um 'cd'. Depois do 'cd' o Claude Code não sabe em que pasta a leitura vai cair e, como há regra Read() em permissions.deny protegendo seus segredos, ele para e pede autorização ao usuário. Refaça com caminho absoluto, sem o 'cd': '$sugestao' (ou 'grep -r <padrão> $dir', 'git -C $dir ...'). Se for mesmo necessário rodar assim, prefixe o comando com CD_LEITURA_OK=1." >&2
 exit 2

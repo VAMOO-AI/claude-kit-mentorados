@@ -1,0 +1,11 @@
+# Atualiza as actions pinadas por SHA nos workflows do kit (ci.yml e release.yml).
+# Revise o PR como mudança de CI: versão maior de action pode mudar input e output.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(ci)
+    open-pull-requests-limit: 5

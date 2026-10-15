@@ -202,6 +202,12 @@ symlink reabre o aviso). Não vai para o time: o hook de lá decide pelo hash qu
 do glob `*/SKILL.md`, que já segue o link. Os dois hooks continuam diferentes por desenho
 (marcador por mtime aqui, por hash lá).
 
+## Avaliado sem porte (15/10)
+
+| PR do time | Portado | Não portado, e por quê |
+|---|---|---|
+| #329 (`638952d`) | — | não se aplica: corrige a `n8n-workflow-agent` (`references/uazapi.md`) e a `whatsapp-inbox-stack`, que o plugin não tem (ver "Skills de domínio" acima). O que levar se uma referência de WhatsApp não-oficial entrar aqui está no comentário da #201 |
+
 ## Porte da 0.52.0 e da 0.53.0 (15/10)
 
 Ideias da leitura de soumatheusgomes/vibe-coding-toolkit (MIT), feitas nos dois kits na mesma
@@ -213,6 +219,12 @@ sessão.
 | #322 (env e log sem vazar segredo) | os mesmos blocos no `06` e no `07` (0.53.0) | — |
 | #323 (lotes por dependência, brief com `Status:`, segunda revisão) | lotes e brief na `orquestracao`, `Depends-on:` e `Status:` no `subagentes.md` e no `executor` (0.53.0) | a segunda revisão por risco é uma linha no `/revisar` (0.52.0), sem subagente: quem está aprendendo pede numa sessão nova |
 | #324, #325, #326, #327 (grilling, projeto existente e refactor, memória, find-docs) | mesmos textos, na voz de quem está aprendendo (0.52.0) | o refactor por costura é seção do `docs/programacao-avancada-com-claude.md`, não reference da `verificacao`; o exemplo do `find-docs` não usa `jq` |
+
+## Porte da 0.53.2 (15/10)
+
+| Origem no time | Aqui | Diverge, e por quê |
+|---|---|---|
+| VAMOO-AI/claude-config-team#337 (`isCronAuthorized` no pilar 04 do `collect.sh`) | mesma alternância em `plugin/skills/baseline/scripts/collect.sh` (0.53.2), fecha #209 | o comentário não cita o projeto de origem; aqui entrou `tests/test-baseline-edge-auth.sh` (função guardada por `isCronAuthorized`, por `verifyCronSecret` e uma aberta), que o time não tem |
 
 ## Como usar
 

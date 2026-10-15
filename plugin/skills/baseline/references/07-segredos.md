@@ -183,8 +183,8 @@ grep -nE '=.+' .env.example | grep -vE '=\s*$|=\s*(your|<|xxx|CHANGE)' | head
 # JWT no HEAD — o que o gate de diff nunca vai ver
 git grep -lE 'eyJ[A-Za-z0-9_-]{10,}\.eyJ' -- . ':!*.lock' ':!node_modules'
 
-# a chave existe no ambiente? (contagem, nunca valor)
-grep -c '^SUPABASE_SERVICE_ROLE_KEY=' .env.local 2>/dev/null
+# a chave existe no ambiente? (veredito, nunca valor; o deny nega grep -c no .env)
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/env-tem-chave.sh" .env.local SUPABASE_SERVICE_ROLE_KEY
 
 # o gate de CI varre só o diff?
 grep -rn 'gitleaks\|trufflehog' .github/workflows/ | head
