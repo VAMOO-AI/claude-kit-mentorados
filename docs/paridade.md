@@ -234,6 +234,12 @@ sessão.
 | #312 (`warn-sem-jq.sh`) | `warn-sem-node.sh` | o binário de que os guards daqui dependem é o node; o texto de instalação cobre Mac, Windows (Git Bash) e Linux. Par na paridade: `test-warn-sem-node.sh` ↔ `test-warn-sem-jq.sh` |
 | #308 (ship: merge pela metadata) | `plugin/skills/ship/SKILL.md`, §4 | texto na voz de quem aprende, sem o `--jq` do time; o caso real vai sem o nome do cliente |
 
+## 0.53.7 (15/10): Windows
+
+| Item | Lado | Por quê |
+|---|---|---|
+| Job `windows-latest`, `.gitattributes` com LF, `\r` tirado no `tem_gatilho` do `pre-bash.sh`, `sha1sum` como queda do `shasum` | só aqui por ora | o kit promete o Git Bash no Windows, e o time só roda em Mac e Linux. O `tem_gatilho` e o `shasum` do time têm o mesmo código, então o fix é barato lá se o time um dia rodar no Windows: issue espelho aberta no claude-config-team |
+
 ## Como usar
 
 ```bash

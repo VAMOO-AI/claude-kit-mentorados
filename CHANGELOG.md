@@ -13,6 +13,34 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.7] — 2026-10-15
+
+### Corrigido
+
+- **No Windows, três guard-rails eram pulados calados pelo `pre-bash.sh`** (achado pelo
+  job novo `windows-latest`, issue #196). O Git para Windows vem com `core.autocrlf=true`
+  e grava os hooks com CRLF. O `\r` no fim da linha `# gatilho:` fazia a última palavra
+  (`commit`, `cd`, `stash`) nunca casar com o comando. Resultado: o `block-main-commit`, o
+  `block-cd-leitura-relativa` e o `git stash` do `block-parallel-clone-switch` não rodavam,
+  sem erro nenhum. Agora o `.gitattributes` força LF no checkout, e o dispatcher tira o
+  `\r` antes de comparar, para quem clonou antes ou editou o hook no Windows. O caso novo
+  em `tests/test-pre-bash.sh` falha contra o dispatcher anterior.
+- **No Windows, o guard de clone paralelo nunca bloqueava.** O `repo-session.sh` e o
+  `block-parallel-clone-switch.sh` (e os avisos de branch atrás e de skills do projeto)
+  calculavam o marcador da sessão com `shasum`, que o Git Bash não tem: o hash saía vazio e
+  o hook saía 0. Agora caem para o `sha1sum`, que dá o mesmo SHA-1, então o marcador não
+  muda de nome no Mac e no Linux. O caso "sem shasum" em
+  `tests/test-block-parallel-clone-switch.sh` falha contra os hooks anteriores.
+
+### Adicionado
+
+- **Job `windows-latest` no CI** (fecha o item d da #196). Ele roda o boot dos hooks e as
+  suítes dos guard-rails no Git Bash, com o node do runner: `hooks-boot`, `pre-bash`,
+  `block-main-commit`, `check-careful`, `block-parallel-clone-switch`,
+  `block-delete-branch`, `block-cd-leitura-relativa` e `block-monitor-ci`. Três suítes
+  ficam de fora porque quebram pelo ambiente do teste, não pelo hook (detalhe no
+  `ci.yml`).
+
 ## [0.53.6] — 2026-10-15
 
 ### Mudou
