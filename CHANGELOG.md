@@ -13,6 +13,34 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.2] — 2026-10-15
+
+### Mudou
+
+- **O deny de segredo passa a valer fora da pasta do projeto** (espelho de
+  VAMOO-AI/claude-config-team#332 e #336, issue #204). As regras `Read(**/…)` do
+  `plugin/templates/settings.json` passam a `Read(//**/…)`. Pela documentação do Claude Code,
+  "a rule only matches files under its anchor": sem âncora, a regra só valia abaixo do
+  projeto. Medido em 15/10/2026 com um `.env.local` falso:
+  - com `Read(**/.env.local)`, `cat` no arquivo fora do projeto leu em bypass;
+  - com `Read(//**/.env.local)`, foi negado em bypass e em acceptEdits, e a ferramenta Read
+    também.
+
+  O `tests/test-merge-settings.sh` reprova regra sem âncora. O merge do deny é união, então
+  quem rodar o `/kit-vamoo:setup` fica com as duas formas.
+
+### Adicionado
+
+- **`plugin/scripts/env-tem-chave.sh` substitui o `grep -c '^CHAVE=' .env.local`**, que o deny
+  ancorado agora nega.
+  - Ele diz `presente`, `vazia` ou `ausente` por chave e nunca imprime o valor. Falha de
+    leitura sai com 2, em vez de dizer `ausente`.
+  - 19 casos em `tests/test-env-tem-chave.sh`, incluindo um que garante que nenhum valor sai
+    em stdout nem em stderr.
+  - A receita foi trocada na `baseline` (SKILL e referência 07) e na pergunta do
+    `check-careful`, que agora aponta o caminho do script dentro do plugin (2 casos novos em
+    `tests/test-check-careful.sh`, que falham contra o hook anterior).
+
 ## [0.53.1] — 2026-10-15
 
 ### Mudou
