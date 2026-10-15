@@ -13,11 +13,21 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## Não lançado
+## [0.53.1] — 2026-10-15
 
-Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de propósito: o
-`tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
-Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
+### Mudou
+
+- **`block-cd-leitura-relativa` se cala em `bypassPermissions`** (espelho de
+  VAMOO-AI/claude-config-team#331, issue #203). Medido em 15/10/2026, Claude Code 2.1.296,
+  com as regras `Read()` no deny, em sessões headless por modo:
+  - em `acceptEdits` (o modo padrão do kit) e em `default`, `cd /abs && grep … caminho/relativo`
+    ainda faz o Claude Code pedir aprovação, e o hook segue bloqueando como antes;
+  - em bypass o mesmo comando roda direto, e o bloqueio seria só um passo a mais.
+
+  Payload sem `permission_mode` continua bloqueando. A mensagem do hook e a linha do
+  `CLAUDE-global.md` deixam de dizer que a pergunta aparece "até no modo bypass" (rode
+  `/kit-vamoo:setup` para atualizar o CLAUDE.md). São 4 casos novos em
+  `tests/test-block-cd-leitura-relativa.sh`, e o de bypass falha contra o hook anterior.
 
 ### Corrigido
 

@@ -21,8 +21,12 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/cdrel.XXXXXX")
 [ -n "$TMP" ] && [ -d "$TMP" ] || { echo "mktemp -d falhou"; exit 2; }
 trap 'rm -rf "$TMP"' EXIT
 
+# MODO é o permission_mode do payload; vazio tira o campo (cliente que não manda o modo).
+# O padrão é acceptEdits, o modo dos mentorados e o modo em que a escalada foi medida de novo
+# em 15/10/2026.
+MODO=acceptEdits
 roda() {
-  CMD="$1" node -e 'process.stdout.write(JSON.stringify({session_id:"teste",cwd:"/tmp",permission_mode:"bypassPermissions",tool_input:{command:process.env.CMD}}))' \
+  CMD="$1" MODO="$MODO" node -e 'const o={session_id:"teste",cwd:"/tmp",tool_input:{command:process.env.CMD}}; if (process.env.MODO) o.permission_mode=process.env.MODO; process.stdout.write(JSON.stringify(o))' \
     | bash "$HOOK" >/dev/null 2>"$TMP/err"
   echo $?
 }
@@ -101,6 +105,23 @@ check passa "aspa desbalanceada engole até o fim (lado seguro)" \
                                               "cd $D && echo \"abre e nao fecha src/a.ts"
 check passa "texto de echo com palavra que parece arquivo" \
                                               "cd $D && cat $D/x.ts && echo \"pronto: config.json atualizado\""
+
+echo
+echo "== o modo decide: em bypass o Claude Code não pergunta mais, nos outros pergunta =="
+# Medido em 15/10/2026 (CLI 2.1.296, regras Read() no deny), em sessões headless por modo:
+# em acceptEdits e default o Claude Code respondeu "grep reads a file by a relative path
+# after a cd … needs approval"; em bypass o mesmo comando rodou direto. Espelho de
+# VAMOO-AI/claude-config-team#331.
+CANON="cd $D && grep -n \"cargos\" src/lib/database.types.ts | head -40"
+MODO=bypassPermissions
+check passa    "bypassPermissions: o hook se cala"                    "$CANON"
+MODO=default
+check bloqueia "default: continua bloqueando"                          "$CANON"
+MODO=plan
+check bloqueia "plan: continua bloqueando"                             "$CANON"
+MODO=""
+check bloqueia "payload sem permission_mode: continua bloqueando"      "$CANON"
+MODO=acceptEdits
 
 echo
 echo "== a mensagem tem que ensinar o conserto =="
