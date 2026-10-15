@@ -33,6 +33,9 @@
 #
 # Todo caso tem teste em tests/test-check-careful.sh — rode antes de commitar.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
+# Caminho do env-tem-chave.sh do próprio plugin, para a mensagem do segredo apontar o
+# comando pronto (o `grep -c` de antes é negado pelo deny desde a 0.53.2).
+ETC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/env-tem-chave.sh"
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
@@ -297,7 +300,7 @@ while IFS= read -r seg; do
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(test|\[|\[\[|ls|stat|echo|printf|touch|chmod|git[[:space:]]+(check-ignore|ls-files|commit|rm[[:space:]]+--cached)|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit))([[:space:]]|$)' && continue
     printf '%s' "$limpo" | grep -qiE '^[[:space:]]*test-path([[:space:]]|$)' && continue
   ;; esac
-  ask "[cuidado] o comando cita arquivo de segredo (.env, chave SSH, .pem, credencial de nuvem/gh/npm) e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe: grep -c '^CHAVE=' arquivo"
+  ask "[cuidado] o comando cita arquivo de segredo (.env, chave SSH, .pem, credencial de nuvem/gh/npm) e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe, sem ver o valor: bash $ETC arquivo CHAVE"
 done <<< "$segs"
 
 # Variáveis de ambiente inteiras (0.48.0): `env`, `printenv`, `export -p`, `set` e, no
