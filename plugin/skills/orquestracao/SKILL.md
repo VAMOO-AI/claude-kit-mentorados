@@ -66,6 +66,24 @@ testado" e ninguém sabe qual metade é qual.
 
 Vale igual para credencial faltando: continue tudo que não depende dela.
 
+## Quais executores rodam juntos: lotes por dependência
+
+Antes de despachar N executores, marque cada lote com dois campos:
+
+- `Files:` são os caminhos exatos que o lote cria ou edita ("os arquivos do front" não
+  é marcação). `Depends-on:` são os lotes de que ele precisa, ou `nenhum`. Usar função,
+  tipo ou tabela que outro lote cria é depender dele.
+- Dois lotes só saem juntos sem dependência entre eles, nem transitiva, **e** com os
+  `Files:` disjuntos. Mesmo arquivo em pontos diferentes desqualifica: o worktree adia o
+  choque para o merge, não o evita.
+- Dúvida em qualquer um dos dois campos → o lote depende de tudo que veio antes. O erro
+  seguro é perder paralelismo.
+- Dois lotes no mesmo arquivo → um executor só, com os dois.
+- `CHANGELOG.md`, lockfile e settings compartilhado não entram no `Files:` de executor:
+  ficam com a conversa principal, que escreve depois dos merges.
+- Cada executor continua em worktree próprio, com commit e PR próprios; o merge é
+  serializado (seção "N terminais", abaixo).
+
 ## Writes em paralelo (scope contract)
 
 - Subagents read-only por default (Grep/Read/Glob). Edit/Write na conversa
@@ -88,6 +106,11 @@ Vale igual para credencial faltando: continue tudo que não depende dela.
     nunca tire print de novo para conferir; veredito em texto): o subagente relê
     cada imagem em toda request dele, e a conta chega igual à da conversa
     principal.
+- **O brief é autossuficiente.** O executor não viu a conversa: "igual ao lote 3",
+  "trate os erros como no resto" e teste descrito em prosa não existem para ele. Cole o
+  trecho, o caminho e o comando. O report dele abre com a linha `Status:` (`FEITO`,
+  `FEITO_COM_RESSALVAS`, `PRECISA_CONTEXTO` ou `BLOQUEADO`), que é o que você lê primeiro
+  ao juntar N reports.
 
 ## N terminais no mesmo repo: escopo disjunto e merge em fila
 

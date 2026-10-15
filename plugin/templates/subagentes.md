@@ -19,11 +19,13 @@
 
 ## Contrato de escopo (writes em paralelo)
 - Cada agente recebe no prompt:
-  - A lista exata de arquivos que pode modificar.
+  - A lista exata de arquivos que pode modificar (`Files:`).
+  - Os lotes de que este depende (`Depends-on:`, ou `nenhum`): só sai junto com outro sem dependência e com `Files:` disjuntos (regra completa na skill `orquestracao`).
   - O que pode LER mas não alterar.
   - Uma frase descrevendo o comportamento esperado.
 - Edit fora do contrato → PARE e avise o orquestrador. Não expanda escopo no silêncio.
 - No final, reporte exatamente quais arquivos tocou.
+- `CHANGELOG.md`, lockfile e settings compartilhado ficam com o orquestrador, nunca no contrato do agente.
 
 ## Verify, don't claim
 - Não diga "lint passou", "testes passaram", "compila" sem colar o output REAL do comando na resposta final.
@@ -52,6 +54,7 @@
 - Não over-engineer. Não adicione abstração que ninguém pediu.
 
 ## Comunicação — formato do relatório final
+A 1ª linha é `Status: FEITO | FEITO_COM_RESSALVAS | PRECISA_CONTEXTO | BLOQUEADO` (`PRECISA_CONTEXTO` quando o pedido não basta: diga o que falta em vez de adivinhar). Depois:
 1. **Feito**: o que mudou (1-3 linhas).
 2. **Arquivos tocados**: lista exata, nada a mais.
 3. **Verificação**: output de tsc/lint/testes OU "não executado: <motivo>".

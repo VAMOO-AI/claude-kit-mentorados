@@ -28,23 +28,55 @@ cada um está*, inclusive os que estão em lugar errado por decisão consciente.
 - [ ] **O app recusa subir sem os segredos obrigatórios** — e recusa também com
       o valor default versionado. `${JWT_SECRET:-troque-isso}` no compose é um
       segredo público esperando um deploy distraído; sem validação de boot, o
-      deploy distraído não avisa ninguém.
+      deploy distraído não avisa ninguém. A validação confere o formato, e o erro
+      diz o nome da variável, nunca o valor.
 
 ## Como implementar
 
 **Validação de boot — a lista está no código, não no README:**
 
 ```ts
-// src/lib/env.ts, importado antes de qualquer handler
-const OBRIGATORIOS = ['DATABASE_URL', 'JWT_SECRET', 'SERVICE_ROLE_KEY'] as const
+// src/lib/env.ts (servidor) — a mensagem de erro leva o NOME, nunca o valor
 const PROIBIDOS = ['troque-isso', 'changeme', 'supersecret', 'dev']
+const FORMATO: Record<string, RegExp> = {
+  SUPABASE_URL: /^https:\/\/[a-z0-9]+\.supabase\.co$/,
+  SUPABASE_SERVICE_ROLE_KEY: /^[\w-]+\.[\w-]+\.[\w-]+$/, // JWT: três partes
+  APP_WEBHOOK_SECRET: /^.{32,}$/,
+}
 
-for (const k of OBRIGATORIOS) {
+function ler(k: keyof typeof FORMATO): string {
   const v = process.env[k]
   if (!v) throw new Error(`env obrigatória ausente: ${k}`)
   if (PROIBIDOS.includes(v)) throw new Error(`env ${k} está com valor default público`)
+  if (!FORMATO[k].test(v)) throw new Error(`env ${k} fora do formato esperado`)
+  return v
+}
+
+// getter: lê no primeiro uso, então build e lint rodam sem credencial; o handler falha alto
+export const env = {
+  get supabaseUrl() { return ler('SUPABASE_URL') },
+  get serviceRole() { return ler('SUPABASE_SERVICE_ROLE_KEY') },
+  get webhookSecret() { return ler('APP_WEBHOOK_SECRET') },
 }
 ```
+
+Três decisões no snippet:
+- **Formato, não só presença.** Uma chave `anon` colada no lugar da `service_role`
+  passa no "existe?" e quebra em produção com erro de permissão que ninguém liga à env.
+- **Erro só com o nome.** Validou com Zod? Capture com `safeParse` e relance uma
+  mensagem sua só com o nome. O que o issue carrega muda com a versão e com a opção
+  (no Zod 4 o `input` entra quando alguém liga `reportInput: true`), e a mensagem de
+  erro vai parar no log e no Sentry.
+- **Leitura no uso, não no import.** Validação no topo do módulo derruba o `next build`
+  e o CI que não têm a credencial. O getter adia para o boot do handler.
+
+Três armadilhas da stack:
+- `NEXT_PUBLIC_*` é inlinado no build: no cliente, o acesso tem que ser literal
+  (`process.env.NEXT_PUBLIC_X`); `process.env[k]` dinâmico chega `undefined`.
+- No Vite, `import.meta.env.VITE_*` é público por definição: ali só se valida URL e
+  anon key, e nenhum segredo de servidor tem esse prefixo (pilar 01).
+- Edge function do Supabase é Deno: `Deno.env.get(k)` no lugar de `process.env`, e o
+  mesmo `ler()` vale no topo do handler.
 
 Falhar no boot é barulhento de propósito: a alternativa é subir em produção com
 o segredo do exemplo e descobrir pelo incidente.
@@ -160,6 +192,20 @@ grep -rn 'gitleaks\|trufflehog' .github/workflows/ | head
 
 O terceiro comando é o que separa inventário de teatro. Se ele devolve arquivos e
 o CI passa verde, o gate está medindo a coisa errada.
+
+**A validação de boot não vaza o valor** — um teste, no runner do projeto:
+
+```ts
+it('erro de env diz o nome e não o valor', () => {
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'sensitive-test-value'
+  expect(() => env.serviceRole).toThrow(/SUPABASE_SERVICE_ROLE_KEY/)
+  expect(() => env.serviceRole).not.toThrow(/sensitive-test-value/)
+})
+```
+
+Em projeto Next, a fronteira se prova executando: um componente `"use client"` que
+importa o módulo do client admin (com `import "server-only"` no topo) tem que
+**quebrar o `next build`**. Se o build passa, o segredo chega ao bundle.
 
 ## Armadilhas
 

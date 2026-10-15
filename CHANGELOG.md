@@ -13,6 +13,28 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.0] — 2026-10-15
+
+### Mudou
+
+- **`baseline` 07: a validação de boot confere formato e não vaza valor.** Formato por
+  variável (URL do Supabase, JWT em três partes), erro só com o nome (com Zod: `safeParse` e
+  mensagem própria), leitura no uso para o build rodar sem credencial, as armadilhas de
+  `NEXT_PUBLIC_*`, Vite e Deno, e em "Como provar" o teste com `sensitive-test-value` e a prova
+  de `server-only` pelo `next build`.
+- **`baseline` 06: o log redige segredo por nome de chave** (`authorization`, `cookie`,
+  `*token`, `*_key`, `service_role`) em qualquer profundidade, com teste "segredo ausente na
+  saída" e item novo no contrato.
+- **`orquestracao`: lotes por dependência.** Cada lote declara `Files:` e `Depends-on:`; só
+  saem juntos lotes sem dependência e com arquivos disjuntos, mesmo arquivo vira um executor
+  só, e `CHANGELOG.md`, lockfile e settings ficam com a conversa principal. Cenário novo em
+  `tests/skills/orquestracao/cenario-02`.
+- **Brief autossuficiente e `Status:` no report** (`orquestracao`, `subagentes.md` e
+  `executor`): `FEITO`, `FEITO_COM_RESSALVAS`, `PRECISA_CONTEXTO` ou `BLOQUEADO` na 1ª linha.
+  Rode o `/kit-vamoo:setup` para receber o `subagentes.md` novo.
+- Ideias de soumatheusgomes/vibe-coding-toolkit (MIT), reescritas. Espelho de
+  VAMOO-AI/claude-config-team#322 e #323. Fecha #199.
+
 ## [0.51.4] — 2026-10-15
 
 ### Corrigido
