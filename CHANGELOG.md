@@ -13,7 +13,7 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.53.1] — 2026-10-15
+## [0.53.2] — 2026-10-15
 
 ### Corrigido
 
@@ -22,6 +22,25 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   da heurística, e a função protegida virava HIGH "Edge function sem verificação de
   identidade aparente", travando o `/ship`. Teste novo em `tests/test-baseline-edge-auth.sh`.
   Espelho de VAMOO-AI/claude-config-team#337. Fecha #209.
+
+## [0.53.1] — 2026-10-15
+
+### Mudou
+
+- **`block-cd-leitura-relativa` se cala em `bypassPermissions`** (espelho de
+  VAMOO-AI/claude-config-team#331, issue #203). Medido em 15/10/2026, Claude Code 2.1.296,
+  com as regras `Read()` no deny, em sessões headless por modo:
+  - em `acceptEdits` (o modo padrão do kit) e em `default`, `cd /abs && grep … caminho/relativo`
+    ainda faz o Claude Code pedir aprovação, e o hook segue bloqueando como antes;
+  - em bypass o mesmo comando roda direto, e o bloqueio seria só um passo a mais.
+
+  Payload sem `permission_mode` continua bloqueando. A mensagem do hook e a linha do
+  `CLAUDE-global.md` deixam de dizer que a pergunta aparece "até no modo bypass" (rode
+  `/kit-vamoo:setup` para atualizar o CLAUDE.md). São 4 casos novos em
+  `tests/test-block-cd-leitura-relativa.sh`, e o de bypass falha contra o hook anterior.
+
+### Corrigido
+
 - **CI da main vermelho de 0.51.1 a 0.53.0 no teste do `check-careful`** (#202). O caso
   "grep -f não é push force" rodava `git push` sem refspec no próprio checkout do kit: no CI
   de PR o checkout fica numa ref de PR (passa), no CI da main fica na main e a regra de push
