@@ -44,12 +44,13 @@ saida=""; codigo=0
 # O payload é montado no bash e chega ao hook pelo stdin, sem passar por variável de
 # ambiente para o node: no Git Bash o MSYS reescreve /tmp/... em C:/.../Temp/... ao
 # chamar programa nativo, e o caminho mudava antes de chegar ao hook. Os caminhos daqui
-# não têm aspas nem barra invertida, então o printf dá JSON válido.
+# não têm aspas; a barra invertida (caminho Windows) é dobrada para o JSON ser válido.
 roda() { # roda <sessao> <caminho> [cwd] [file_path|notebook_path]
-  local payload k="${4:-file_path}" ferramenta=Edit
+  local payload k="${4:-file_path}" ferramenta=Edit c="$2" d="${3:-}"
   [ "$k" = notebook_path ] && ferramenta=NotebookEdit
+  c="${c//\\/\\\\}"; d="${d//\\/\\\\}"
   payload=$(printf '{"session_id":"%s","hook_event_name":"PreToolUse","cwd":"%s","tool_input":{"%s":"%s"},"tool_name":"%s"}' \
-    "$1" "${3:-}" "$k" "$2" "$ferramenta")
+    "$1" "$d" "$k" "$c" "$ferramenta")
   saida=$(HOME="$FAKE" CLAUDE_PLUGIN_ROOT="$FAKE" PATH="$SEM_JQ" bash "$HOOK" <<<"$payload" 2>/dev/null)
   codigo=$?
 }
@@ -58,6 +59,7 @@ check() { # check <descrição> <ok|fail>
   else printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); fi
 }
 tem() { printf '%s' "$saida" | grep -q "$1" && echo ok || echo fail; }
+tem_literal() { printf '%s' "$saida" | grep -qF -- "$1" && echo ok || echo fail; }
 vazio() { [ -z "$saida" ] && echo ok || echo fail; }
 formato_pretooluse() {
   node -e '
@@ -114,6 +116,26 @@ roda c3 ./supabase/migrations/001.sql /Users/x/PROJ
 check "./ no meio não atrapalha"               "$(tem 'irreversível')"
 roda c4 supabase/migrations/001.sql
 check "relativo sem cwd não injeta nem quebra" "$([ "$(vazio)" = ok ] && [ "$codigo" -eq 0 ] && echo ok || echo fail)"
+
+# --- caminho no formato Windows ---------------------------------------------
+# O Claude Code no Windows manda C:\Users\... com barra invertida. Até 0.53.7 o hook só
+# tratava "/*" como absoluto: o "C:\..." ganhava o cwd na frente e os globs "*/..." do
+# conf não casavam com "\", então a regra sumia calada. Com "C:/..." e cwd ela chegava,
+# mas com o caminho dobrado (C:/Users/x/PROJ/C:/Users/x/PROJ/.env).
+roda w1 'C:\Users\x\PROJ\supabase\migrations\001.sql'
+check "Windows com \\, sem cwd: migration injeta"           "$(tem 'irreversível')"
+roda w2 'C:\Users\x\PROJ\supabase\migrations\001.sql' 'C:\Users\x\PROJ'
+check "Windows com \\ e cwd: migration injeta"              "$(tem 'irreversível')"
+check "…e o caminho não sai dobrado"                         "$(tem_literal 'deste caminho (C:/Users/x/PROJ/supabase/migrations/001.sql)')"
+roda w3 'C:/Users/x/PROJ/.env'
+check "Windows com /, sem cwd: .env injeta"                  "$(tem 'rotacione')"
+roda w4 'C:/Users/x/PROJ/.env' 'C:/Users/x/PROJ'
+check "Windows com / e cwd: .env injeta"                     "$(tem 'rotacione')"
+check "…e o caminho não sai dobrado"                         "$(tem_literal 'deste caminho (C:/Users/x/PROJ/.env)')"
+roda w5 'supabase\functions\webhook\index.ts' 'C:\Users\x\PROJ'
+check "relativo com \\ resolve pelo cwd Windows"            "$(tem_literal 'deste caminho (C:/Users/x/PROJ/supabase/functions/webhook/index.ts)')"
+roda w6 'd:\proj\package.json' 'C:\Users\x'
+check "drive minúsculo é absoluto"                           "$(tem_literal 'deste caminho (d:/proj/package.json)')"
 
 # --- silêncio onde tem que ser silêncio -------------------------------------
 roda s4 /Users/x/PROJ/src/App.tsx

@@ -241,6 +241,12 @@ sessão.
 | Job `windows-latest` | só aqui | o kit promete o Git Bash no Windows; o time só roda em Mac e Linux |
 | `.gitattributes` com LF, `\r` tirado no `tem_gatilho` do `pre-bash.sh`, `sha1sum` como queda do `shasum` | espelhado | entrou no time pelo VAMOO-AI/claude-config-team#343 (issue #342), com os mesmos casos de teste |
 
+## 0.53.8 (15/10): caminho Windows no path-rules
+
+| Item | Lado | Por quê |
+|---|---|---|
+| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | porte pendente | o time tem a mesma lógica no `case` (lendo com `jq`); issue espelho aberta no `claude-config-team` |
+
 ## Como usar
 
 ```bash
