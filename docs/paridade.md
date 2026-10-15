@@ -39,6 +39,7 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 | Item | Só no time | Por quê |
 |---|---|---|
 | `hooks/rtk-claude.sh`, `rtk-codex.sh`, `scripts/rtk-holdout.sh`, `docs/rtk-holdout.md` + suítes | sim | O RTK é uma ferramenta que o time usa; mentorado não instala. O holdout (grupo de controle da economia declarada pelo `rtk gain`) nasceu em 0.32.0 do time e não tem o que fazer aqui — sem o rtk instalado não há nem braço tratado nem ledger. |
+| Guards no Codex: leitura do comando em array (`["/bin/zsh","-lc","<cmd>"]`) e da pasta em `tool_input.workdir`, modo `--codex` nas suítes, `scripts/codex-optimize.sh` e o registro no `~/.codex/hooks.json` (time #345, que fechou a #315) | sim | Os hooks do plugin só rodam no Claude Code (`plugin/hooks/hooks.json`) e o kit não instala nada no `~/.codex`. Se o kit um dia levar guard para o Codex, o helper em node (`plugin/scripts/hookjson.js`) precisa tirar o script do `-lc` quando `tool_input.command` vier em array e ler o `tool_input.workdir`, e as suítes ganham um modo `--codex` como o do time. Issue #226. |
 | `check-careful`: `db-query.sh`, `.env.1password`, cofre de tokens | sim | Regras de um fluxo que só existe no time — 25 dos 66 casos da suíte de lá. |
 | `hooks/check-dev-server.sh` | sim | Depende do fluxo de dev server + `claude-in-chrome` do time. |
 | `scripts/publicar-memoria.sh`, `memoria-link.sh` completo | parcial | Aqui a memória é ensinada pela skill `memoria-projeto`; lá há automação de publicação. |
