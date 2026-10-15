@@ -3,7 +3,7 @@
 # perde linha (03/09/2026).
 #
 # O MEMORY.md entra no contexto de toda request e não tinha teto: 57 KB no
-# zullo-imoveis. O memoria-indice.sh redistribui as linhas entre MEMORY.md (curto,
+# repo de um cliente. O memoria-indice.sh redistribui as linhas entre MEMORY.md (curto,
 # até --cap bytes) e MEMORY-completo.md (cauda). Este teste cobre o que dói se
 # quebrar: ordem (feedback > user > reference > project > sem tipo; mais recente
 # primeiro; sem data por último), cap em bytes, linha fixa com o N certo,

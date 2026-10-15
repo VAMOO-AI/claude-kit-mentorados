@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **26 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **28 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -61,7 +61,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 26. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 28. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -104,6 +104,16 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 | **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod), o formato do veredito de QA e o método pra teste instável (esperar condição, achar o teste que suja o estado). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
 | **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
+
+### 💬 WhatsApp e n8n (você chama)
+
+Para quem monta agente ou inbox de WhatsApp sobre n8n. As duas são slash-only: o Claude
+não aciona sozinho, então não pesam nas suas requests quando você não está nesse assunto.
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **n8n-workflow-agent** | `/kit-vamoo:n8n-workflow-agent` — construir, editar, depurar e publicar workflow n8n, com ou sem agente de WhatsApp: layout sem cruzamento, baseline + diff antes de mexer pela API, Code Node, e referências de UAZAPI (motivo real de queda, escada de reconexão, nono dígito), NotificaMe, Chatwoot, Pipedrive, Postgres, disparo, pausa no Redis e QA simulada do agente (lead falso + juiz). | n8n com API key; o provedor de WhatsApp que você usa |
+| **whatsapp-inbox-stack** | `/kit-vamoo:whatsapp-inbox-stack` — a ponta do inbox no seu app (página própria ou Chatwoot): mídia que não chega ou não toca, áudio longo sem estourar a edge, IA e humano no mesmo fio, status da conexão que mente, entrega confirmada e relatório de quem falou com o lead. | n8n + Supabase; NotificaMe ou UAZAPI |
 
 ### 🎨 Bônus
 
@@ -209,7 +219,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 26 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 28 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash

@@ -156,7 +156,7 @@ caminho_de() {
 
 # `caminho_de` depende do transcript, e a instância poda os `.jsonl` antigos.
 # Projeto sem transcript perdia o caminho e o loop dava `continue` SEM UMA LINHA
-# de aviso: 131 fatos em 3 projetos (ZULLO 105, PROSPECTIQ 19, VERITAS 7) estavam
+# de aviso: 131 fatos em 3 projetos estavam
 # presos na máquina desde sempre, e a varredura terminava dizendo que estava tudo
 # em dia.
 #

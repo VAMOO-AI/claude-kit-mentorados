@@ -43,14 +43,13 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 | `hooks/check-dev-server.sh` | sim | Depende do fluxo de dev server + `claude-in-chrome` do time. |
 | `scripts/publicar-memoria.sh`, `memoria-link.sh` completo | parcial | Aqui a memória é ensinada pela skill `memoria-projeto`; lá há automação de publicação. |
 | `update.sh` e suítes `test-update-*` | sim | Aqui quem instala é o plugin; o equivalente é `kit-setup.sh` (`test-kit-setup-keep-local.sh`). |
-| Skills de domínio (`n8n-workflow-agent`, `whatsapp-inbox-stack`, `pipedrive-automation`, `vamoo-infra`, `ambientes-clientes`, `vps-hardening-clientes`, `graphify`, `video-watch`, `notebooklm-project-ops`, `pulso-mentorado`, `rsc-client-boundary`, `vamoo-memoria`) | sim | Conhecimento de cliente e de infra da casa. O kit público leva o método, não o cliente. |
+| Skills de domínio (`pipedrive-automation`, `vamoo-infra`, `ambientes-clientes`, `vps-hardening-clientes`, `graphify`, `video-watch`, `notebooklm-project-ops`, `pulso-mentorado`, `rsc-client-boundary`, `vamoo-memoria`) | sim | Conhecimento de cliente e de infra da casa. O kit público leva o método, não o cliente. |
 | `skills/diretor-imagem`, `gerar-imagem`, `guardrails-ia`, `setup` | só aqui | Nasceram para o mentorado; o time não tem o problema. A `gerar-imagem` roda a geração (API de imagens da OpenAI, chave da pessoa) que a `diretor-imagem` só escreve. |
 | Aviso de novidades no SessionStart (`scripts/warn-kit-updated.sh`, `plugin/novidades.txt`, `test-warn-kit-updated.sh`) | só aqui | O time instala por `update.sh`, rodado por quem sabe o que mudou. Aqui a instalação é plugin com auto-update: o kit se troca sozinho e o único sinal é o indicador dentro do `/plugin`, que ninguém abre. O problema não existe lá — **divergência deliberada, não porte atrasado.** |
 | Guarda de convidado: todo comando do `hooks/hooks.json` sai 0 antes de abrir o script quando existe `~/.claude/.team-manifest`, e o `kit-setup.sh` sai sem tocar em nada pelo mesmo motivo (salvo `--force`) | só aqui | Com os dois kits ligados na mesma máquina, cada hook rodava duas vezes: 2 sons por turno, texto repetido no contexto, corrida no dotcontext criando sessões órfãs, e o modelo lendo a mensagem de bloqueio daqui no lugar da do time. O replay de 1.110 comandos nos dois dispatchers deu 0 decisões divergentes, então calar este lado não tira barreira nenhuma. Cede o plugin porque é o convidado: o `update.sh` do time grava o `.team-manifest`, e o plugin nunca grava. O setup também cede porque já tinha rodado uma vez por cima do kit do time. `KIT_VAMOO_HOOKS=1` religa os hooks daqui para dogfooding. A guarda não esconde as skills do plugin. Perda conhecida: a regra `*/package.json` do `path-rules.conf` só existe aqui e deixa de chegar em máquina com os dois kits até ser portada para o time. Provas: `tests/test-hooks-convidado.sh` e o caso do `.team-manifest` em `test-kit-setup-keep-local.sh`. Decisão do mantenedor em 22/09/2026. |
 | `agents/revisor.md`, `agents/executor.md` | diverge | Mesmo contrato, inclusive o passo 4 de 0.42.0 (juiz da `auditoria-seguranca` dá `mantido`/`refutado`; fora disso é cobertura, com confiança, e quem filtra é a conversa principal — time 0.55.3, #237). Desde a 0.43.0 os dois rodam em `effort: medium` e o revisor ganhou o parágrafo do report no modo juiz (time 0.59.0, #247, `673490c`, e 0.59.1, #246, `72c4041`); o `executor` tem o texto do time, e a linha de roteamento (executor para implementação, revisor para review) está no `subagentes.md` e na `orquestracao`. Agente de plugin respeita `effort` (a doc de subagentes só ignora `hooks`, `mcpServers`, `permissionMode` e `initialPrompt` em plugin). Lá cita `bun run type-check` e a tabela do agents.md do time; aqui o typecheck do projeto e o `~/.claude/subagentes.md`. |
 | `hooks/block-merge-base-velha.sh` (time 0.42.0) | sim | Nasceu de premissa falsa e foi revertido no 0.42.1 (#182). Daqui só foi portado o texto que sobrou (base velha nas skills `worktrees`/`ship`/`orquestracao`). |
 | `vamoo-infra` e seus scripts (`db-query.sh` etc.) | sim | Infra da casa (#103). Único ponto de contato: `baseline/scripts/splinter.sh`, que já tenta `--psql` e cai para `-f` — cópia derivada, não espelho. A `ship` daqui não tem o deploy prebuilt/vercel do time. |
-| QA simulada de agente WhatsApp (time #239, 0.56.0) | sim | fica no time — depende da `n8n-workflow-agent`, que o plugin não tem (decisão de 28/09) |
 | Marca VAMOO no template de projeto (design system, logo, paleta) | sim | #107: o `AGENTS-projeto.md.exemplo` já tem a seção `## Visual` genérica; marca e logo não vão para plugin público. |
 | Apagar worktree e branch (`worktrees` "Limpeza no fim", `git-sync --cleanup-apply`, `limpeza-mac`) | diverge | Aqui só com pedido da pessoa ("pode limpar"). A prova completa é: PR mergeado, head do PR igual ao tip, `status --porcelain` vazio e `worktree-gc.sh --verificar <caminho>` saindo 0 — desde a 0.43.0 o `--verificar` substitui a conferência manual de `ls-files`/`cmp`/`--ignored` na skill `worktrees` e no fallback da `git-sync`. Os scripts seguram qualquer ignorado de valor (env, `.npmrc`, `bunfig`, repo aninhado, `outputs/`, build que não é regenerável; time 0.59.2, #248), mas ainda aceitam branch ancestral da branch padrão sem PR nenhum (merge que não foi squash), e o `is_merged` do `worktree-gc.sh` aceita tip contido no head do PR. Desde a 0.43.1 (time #257, `a596dd6`) a branch padrão é a do origin (`origin/HEAD`, `git remote show origin` ou `gh repo view`; sem nenhuma, keep), o squash sem `gh` é provado pela API REST com o token de `git-sync.tokenVar`, e o detached cujo HEAD é o head de um PR mergeado na padrão sai no `--verificar`; na `limpeza-mac` o squash detached continua à mão, com o OK da pessoa. Lá a prova completa remove sem perguntar e a `ship` limpa o worktree no próprio §6. Quem está aprendendo não sabe o que some junto com um worktree. 0.42.0 (M2, achado 2); 0.43.0 (#248). |
 | `--no-verify` no push (`worktrees`, banco local compartilhado entre worktrees) | diverge | Aqui é decisão da pessoa, alinhado à `ship`, que só pula hook com pedido explícito: o agente propõe, com o gate completo verde antes do drift e o motivo à vista. Lá o agente pode pular e dizer na resposta. 0.42.0 (M2, achado 1). |
@@ -177,7 +176,7 @@ linhas da tabela acima.
 | #271 (`3dd1633`) | buscas 3 e 4 da A4 alinhadas à Fase 6; listas livres do relatório (pontos fortes e fracos, hardening, recomendações) redigidas | — |
 | #272 (`8af642b`) | a frase das listas livres no parágrafo de redação da `auditoria-seguranca`, igual à de lá | — |
 | #263 (`ed82452`) | — | não se aplica: tirou da §2c da `ship` do time as citações de racionalização medidas no Sonnet, e a `ship` daqui nunca teve esse bloco |
-| #267 (`3b458be`) | — | não se aplica: corrige a `whatsapp-inbox-stack`, que o plugin não tem |
+| #267 (`3b458be`) | — | não se aplicava quando entrou: a `whatsapp-inbox-stack` só chegou ao plugin na porta de 15/10 (ver "WhatsApp e n8n" abaixo), já com o texto do time |
 
 ## Porte da 0.51.3 (15/10)
 
@@ -206,7 +205,7 @@ do glob `*/SKILL.md`, que já segue o link. Os dois hooks continuam diferentes p
 
 | PR do time | Portado | Não portado, e por quê |
 |---|---|---|
-| #329 (`638952d`) | — | não se aplica: corrige a `n8n-workflow-agent` (`references/uazapi.md`) e a `whatsapp-inbox-stack`, que o plugin não tem (ver "Skills de domínio" acima). O que levar se uma referência de WhatsApp não-oficial entrar aqui está no comentário da #201 |
+| #329 (`638952d`) | — | absorvido pelo porte de 15/10 (ver "WhatsApp e n8n" abaixo): a `n8n-workflow-agent` e a `whatsapp-inbox-stack` vieram com o `references/uazapi.md` do #329, sem o dado interno (host, versão do servidor, contagem e nome de instância) |
 
 ## Porte da 0.52.0 e da 0.53.0 (15/10)
 
@@ -240,6 +239,18 @@ sessão.
 |---|---|---|
 | Job `windows-latest` | só aqui | o kit promete o Git Bash no Windows; o time só roda em Mac e Linux |
 | `.gitattributes` com LF, `\r` tirado no `tem_gatilho` do `pre-bash.sh`, `sha1sum` como queda do `shasum` | espelhado | entrou no time pelo VAMOO-AI/claude-config-team#343 (issue #342), com os mesmos casos de teste |
+
+## WhatsApp e n8n (15/10)
+
+Decisão do mantenedor em 15/10/2026: a `n8n-workflow-agent` e a `whatsapp-inbox-stack` entram
+no plugin. Até então eram "skills de domínio" que ficavam só no time. A partir daqui são
+**espelhadas**: todo PR do time nelas pede porte, como as outras.
+
+| Item | Aqui | Diverge, e por quê |
+|---|---|---|
+| `n8n-workflow-agent` (com `references/` e o `scripts/simular-conversa.mjs` da QA simulada) | `plugin/skills/n8n-workflow-agent` | **slash-only** (`disable-model-invocation: true`): com quase 3 mil linhas e assunto de nicho, não deve pesar na request de quem não está mexendo com n8n. Sem nome de cliente, telefone real, host do servidor UAZAPI, contagem de instância nem data de incidente interno; telefones de exemplo com DDD `00`. O `db-query.sh`, o 1Password e a `vamoo-infra` viram "o cliente SQL do projeto" e "segredo no ambiente". O `references/guardrails-ia.md` fica só com o que é de n8n e aponta para a skill `guardrails-ia` daqui |
+| `whatsapp-inbox-stack` | `plugin/skills/whatsapp-inbox-stack` | slash-only, mesma limpeza; o `hitl-loop.sh` é o do plugin (`${CLAUDE_PLUGIN_ROOT}/scripts/`) |
+| `tests/test-sem-dado-de-cliente.sh` | só aqui | o kit é público: o gate reprova nome de cliente (lista guardada como sha256, para o teste não publicar a carteira), telefone com DDD real e host `*.uazapi.com` que não seja exemplo, em todo arquivo versionado |
 
 ## Como usar
 
