@@ -179,6 +179,24 @@ linhas da tabela acima.
 | #263 (`ed82452`) | — | não se aplica: tirou da §2c da `ship` do time as citações de racionalização medidas no Sonnet, e a `ship` daqui nunca teve esse bloco |
 | #267 (`3b458be`) | — | não se aplica: corrige a `whatsapp-inbox-stack`, que o plugin não tem |
 
+## Porte da 0.51.3 (15/10)
+
+| Origem no time | Portado | Não portado, e por quê |
+|---|---|---|
+| #305 (`c95263b`) | regra de imagem na seção "Atenção ao contexto" do `plugin/templates/subagentes.md` e no bloco de subagentes da `orquestracao` (sub-item ao lado do "com writes, cole…") | os dois `templates/CLAUDE*.md` de lá: não se aplica. O `CLAUDE-global.md` daqui já tem a regra de imagem para a conversa principal e não manda QA visual para subagente, então não há dispatch a corrigir nele. O `docs/licoes-do-harness.md` não existe aqui |
+| #98 (`b526cfd`), `vamoo-baseline/references/07-segredos.md` | item de checklist e bloco "Validação de boot" (`src/lib/env.ts`) | — |
+| #98 (`b526cfd`), `vamoo-baseline/references/06-observabilidade.md` | itens de PII mascarada na escrita e de erro ao cliente como código + `request_id`; blocos `src/lib/mask.ts` e "Erro para o cliente vs. erro para o log"; as duas linhas de sinal | **porte atrasado, fica para outro PR:** saúde detalhada com autenticação, alerta de requisição lenta (p95 por rota) e backlog/falha silenciosa de trabalho assíncrono (item, bloco e linha de sinal). Não é desenho: o pilar `08` existe aqui e nada disso depende do fluxo do time |
+
+Divergências que continuam de propósito no `07`: o dono dos exemplos é "dev responsável" (lá,
+o nome do mantenedor) e o `trufflehog --only-verified` mora num bloco próprio, depois da frase
+que exige a autorização registrada no contrato.
+
+Nasceu aqui e vale para o time (issue aberta lá com o link do PR): `--ignore-pattern` dos três
+layouts de worktree no `eslint .` da `ship`, `globalIgnores` no AGENTS de projeto e
+`gitignore.exemplo` com `.env.*`, `!.env.example`, `.claude/settings.local.json` e os
+worktrees; `tests/test-readme-contagem.sh` não tem par lá porque o README do time não conta
+skills.
+
 ## Como usar
 
 ```bash

@@ -13,6 +13,42 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.51.3] — 2026-10-15
+
+### Corrigido
+
+- **Regra de imagem colada no dispatch** (porte do time #305). O `subagentes.md` (Atenção ao
+  contexto) e o bloco de subagentes da `orquestracao` passam a dizer que o subagente com
+  browser ou QA visual recebe a regra de imagem no prompt: screenshot só quando o pixel é a
+  evidência, estado/texto/erro/DOM como texto, sem re-screenshot, veredito em texto. No time,
+  com a regra só na conversa principal, um projeto fez 5 imagens na principal e 674 nos
+  subagentes numa semana. Para receber o `subagentes.md` novo, rode `/kit-vamoo:setup`.
+- **`baseline`**: o pilar 07 volta a ter a validação de env no boot (obrigatória ausente ou com
+  valor default público derruba o app) e o pilar 06 volta a ter o mascarador único de PII
+  (`src/lib/mask.ts`) e o erro para o cliente como código + `request_id`, com os dois sinais na
+  tabela. Os três existiam no time desde o #98 e nunca tinham chegado aqui.
+- **`ship` e worktrees**: o `eslint .` do §1 ganhou `--ignore-pattern` para `.claude/worktrees/`,
+  `.claude-worktrees/` e `.worktrees/`. O ESLint 9 (flat config) não lê o `.gitignore` e não
+  ignora mais pasta com ponto, então, rodado no clone principal, ele lintava as cópias das
+  outras sessões (medido numa fixture com ESLint 9.39). O `tsc` não muda: o `**/*.ts` do
+  `include` não entra em pasta com ponto. O `AGENTS-projeto.md.exemplo` passa a pedir o
+  `globalIgnores` com os três caminhos no `eslint.config.*`.
+- **`gitignore.exemplo`**: `.env.*` com `!.env.example` (antes `.env.production` entrava no git),
+  `.claude/settings.local.json` e os três layouts de worktree. O resto de `.claude/` continua
+  versionado.
+- **README**: "São 25" virou "São 26", igual às outras duas contagens e às 26 pastas.
+
+### Adicionado
+
+- `tests/test-readme-contagem.sh`: as três contagens de skills do README e as linhas da tabela
+  batem com `plugin/skills/`. Falha no base ("README diz 25, a pasta tem 26").
+- `tests/test-gitignore-exemplo.sh`: `git check-ignore` num repo descartável, com o
+  `excludesFile` global desligado. Falha no base em 5 casos.
+- `docs/pagina-plugin-mentoria.md` descreve as cinco telas, as cinco chaves, a seção
+  Templates, o menu que rola de lado, o bloco "Por onde começar", as peças que uma tela nova
+  precisa (`VIEWS`, `VIEW_ROOT` e as duas regras
+  `body[data-view=…]`) e a regra de manter o hash antigo como alias ao renomear uma tela.
+
 ## [0.51.2] — 2026-10-13
 
 ### Mudou

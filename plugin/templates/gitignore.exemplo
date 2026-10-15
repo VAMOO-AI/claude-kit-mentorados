@@ -2,9 +2,18 @@
 node_modules/
 
 # Segredos — NUNCA commitar
+# .env.* pega .env.production, .env.staging e o que vier; o modelo de chaves sem valor
+# (.env.example) continua versionado.
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
+
+# Claude Code: a config da sua máquina e os worktrees das sessões ficam fora do git.
+# O resto de .claude/ (settings.json, agents, skills do projeto) é do time e entra.
+.claude/settings.local.json
+.claude/worktrees/
+.claude-worktrees/
+.worktrees/
 
 # Build
 .next/
