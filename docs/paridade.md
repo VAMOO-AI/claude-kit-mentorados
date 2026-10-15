@@ -185,7 +185,7 @@ linhas da tabela acima.
 |---|---|---|
 | #305 (`c95263b`) | regra de imagem na seção "Atenção ao contexto" do `plugin/templates/subagentes.md` e no bloco de subagentes da `orquestracao` (sub-item ao lado do "com writes, cole…") | os dois `templates/CLAUDE*.md` de lá: não se aplica. O `CLAUDE-global.md` daqui já tem a regra de imagem para a conversa principal e não manda QA visual para subagente, então não há dispatch a corrigir nele. O `docs/licoes-do-harness.md` não existe aqui |
 | #98 (`b526cfd`), `vamoo-baseline/references/07-segredos.md` | item de checklist e bloco "Validação de boot" (`src/lib/env.ts`) | — |
-| #98 (`b526cfd`), `vamoo-baseline/references/06-observabilidade.md` | itens de PII mascarada na escrita e de erro ao cliente como código + `request_id`; blocos `src/lib/mask.ts` e "Erro para o cliente vs. erro para o log"; as duas linhas de sinal | **porte atrasado, fica para outro PR:** saúde detalhada com autenticação, alerta de requisição lenta (p95 por rota) e backlog/falha silenciosa de trabalho assíncrono (item, bloco e linha de sinal). Não é desenho: o pilar `08` existe aqui e nada disso depende do fluxo do time |
+| #98 (`b526cfd`), `vamoo-baseline/references/06-observabilidade.md` | itens de PII mascarada na escrita e de erro ao cliente como código + `request_id`; blocos `src/lib/mask.ts` e "Erro para o cliente vs. erro para o log"; as duas linhas de sinal. Na 0.51.4, o resto: saúde detalhada com autenticação, alerta de requisição lenta (p95 por rota) e backlog/falha silenciosa (item, bloco e linha de sinal). O arquivo ficou igual ao de lá | — |
 
 Divergências que continuam de propósito no `07`: o dono dos exemplos é "dev responsável" (lá,
 o nome do mantenedor) e o `trufflehog --only-verified` mora num bloco próprio, depois da frase
@@ -196,6 +196,11 @@ layouts de worktree no `eslint .` da `ship`, `globalIgnores` no AGENTS de projet
 `gitignore.exemplo` com `.env.*`, `!.env.example`, `.claude/settings.local.json` e os
 worktrees; `tests/test-readme-contagem.sh` não tem par lá porque o README do time não conta
 skills.
+
+Na 0.51.4 o `warn-skills-projeto.sh` daqui passou a usar `find -L` (skill que entra por
+symlink reabre o aviso). Não vai para o time: o hook de lá decide pelo hash que o scan tira
+do glob `*/SKILL.md`, que já segue o link. Os dois hooks continuam diferentes por desenho
+(marcador por mtime aqui, por hash lá).
 
 ## Como usar
 

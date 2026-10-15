@@ -32,7 +32,9 @@ marker="$CACHE/$h"
 
 if [ -f "$marker" ]; then
   # Nada mudou desde o último aviso? Então não há novidade para contar.
-  [ -n "$(find "$DIR/.claude/skills" -name SKILL.md -newer "$marker" -print -quit 2>/dev/null)" ] || exit 0
+  # -L: o `npx skills add` no modo symlink põe a skill em .agents/skills e só um link em
+  # .claude/skills; sem seguir o link, a skill nova nunca reabria o aviso.
+  [ -n "$(find -L "$DIR/.claude/skills" -name SKILL.md -newer "$marker" -print -quit 2>/dev/null)" ] || exit 0
 fi
 
 saida="$(bash "$SCAN" "$DIR" --resumo 2>/dev/null)"

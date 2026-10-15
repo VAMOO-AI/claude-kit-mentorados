@@ -13,6 +13,26 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.51.4] — 2026-10-15
+
+### Corrigido
+
+- **Aviso das skills do projeto ignorava skill instalada por symlink.** O `npx skills add` no
+  modo symlink põe a skill em `.agents/skills/<nome>` e só um link em `.claude/skills/<nome>`.
+  O Claude Code carrega pelo link (medido na 2.1.296, que não lê `.agents/skills` direto) e o
+  scan conta, mas o `find` do `warn-skills-projeto.sh` não seguia o link: a skill nova nunca
+  reabria o aviso. Agora é `find -L`, com o caso no `tests/test-skills-projeto.sh` (falha sem o
+  `-L`).
+- **`baseline` 06** completa a paridade com o time (#98): saúde detalhada só com autenticação,
+  alerta de requisição lenta com número (p95 por rota) e backlog/falha silenciosa de trabalho
+  assíncrono, com o bloco "Backlog e falha silenciosa" e a linha de sinal.
+
+### Mudou
+
+- `skills-projeto` explica o link de `.agents/skills` (pesa no Codex, não no Claude Code) e,
+  com a `find-skills`, que skill nova entra na sessão aberta sozinha; se não aparecer no menu,
+  `/reload-skills`, sem reiniciar.
+
 ## [0.51.3] — 2026-10-15
 
 ### Corrigido
