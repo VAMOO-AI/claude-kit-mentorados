@@ -27,13 +27,19 @@ SO="$TMP/hooks"; mkdir -p "$SO"
 cp "$HOOK" "$SO/pre-prompt.sh"
 [ -f "$HOOKS_DIR/warn-sem-node.sh" ] && cp "$HOOKS_DIR/warn-sem-node.sh" "$SO/"
 
+# Cada comando entra no PATH falso como um script que chama o binário pelo caminho
+# absoluto, e não por `ln -s`: no Git Bash o MSYS copia o .exe em vez de ligar, e a cópia,
+# longe da msys-2.0.dll de /usr/bin, nem carrega. O cat que lê o payload morria e o
+# dispatcher via payload vazio.
+liga() { printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v "$2")" > "$1/$2"; chmod +x "$1/$2"; }
+
 # PATH sem node: o cat, que o dispatcher usa para ler o payload, o sed do emite e o mkdir
 # do marcador.
 SEM="$TMP/bin-sem-node"; mkdir -p "$SEM"
-for c in cat sed mkdir; do ln -s "$(command -v "$c")" "$SEM/$c"; done
+for c in cat sed mkdir; do liga "$SEM" "$c"; done
 # PATH com node: o mesmo, mais um node de mentira — basta existir.
 COM="$TMP/bin-com-node"; mkdir -p "$COM"
-for c in cat sed mkdir; do ln -s "$(command -v "$c")" "$COM/$c"; done
+for c in cat sed mkdir; do liga "$COM" "$c"; done
 printf '%s\n' '#!/bin/sh' 'exit 0' > "$COM/node"; chmod +x "$COM/node"
 
 # roda <PATH> <session_id> → rc; stdout em $TMP/out

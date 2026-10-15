@@ -22,7 +22,18 @@ Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de p
 `tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
 Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
 
-### Adicionado
+### CI
+
+- **O job `windows-latest` roda 12 suítes, não 8** (issue #220): entram
+  `test-pre-prompt`, `test-path-rules`, `test-merge-settings` e `test-warn-sem-node`.
+  Elas quebravam no Git Bash por causa do próprio teste, não do hook, e cada uma levou o
+  contorno do que o MSYS faz. O `test-path-rules` monta o payload no bash em vez de passar
+  `/tmp/...` por variável para o node, que recebia `C:/.../Temp/...` e não casava o glob.
+  O `test-merge-settings` lê o JSON com node pelo stdin: o python nativo do runner não
+  acha o `/tmp/...` escrito dentro do código. O `test-pre-prompt` e o
+  `test-warn-sem-node` montam o PATH sem node com scripts que chamam o binário pelo
+  caminho absoluto, porque o `ln -s` do MSYS copia o `.exe` e a cópia não carrega longe
+  da `msys-2.0.dll`. Nada em `plugin/` mudou.
 
 - **Prova de que o gate de spec não reprova por link externo fora do ar.** O
   `scripts/skill-spec-check.sh` roda `skill-validator check --skip links` desde a 0.47.5,

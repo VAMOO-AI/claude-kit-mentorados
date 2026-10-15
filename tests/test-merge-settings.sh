@@ -86,50 +86,52 @@ JSON
 
 SAIDA="$(node "$MERGE" "$TMP/kit.json" "$TMP/meu.json" 2>&1)"
 
-check() { # check <descrição> <filtro jq> <esperado>
-  local got; got="$(python3 -c "
-import json,sys
-d=json.load(open('$TMP/meu.json',encoding='utf-8'))
-print(json.dumps($2, ensure_ascii=False))
-" 2>/dev/null)"
+# O JSON é lido pelo node, pré-requisito do kit (python não é), e chega pelo stdin, aberto
+# pelo bash. No Git Bash o interpretador é nativo do Windows: o /tmp/... escrito dentro do
+# código não existe para ele, e o leitor devolvia vazio em todos os casos.
+check() { # check <descrição> <expressão JS sobre d> <esperado>
+  local got; got="$(node -e "
+const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+process.stdout.write(String(JSON.stringify($2)));
+" < "$TMP/meu.json" 2>/dev/null)"
   if [ "$got" = "$3" ]; then printf '  ok    %s\n' "$1"
   else printf '  FALHA %s (esperado %s, veio %s)\n' "$1" "$3" "$got"; falhas=$((falhas+1)); fi
 }
 
 echo "== o que o kit precisa entregar =="
 check "deny do kit chega em quem já tinha o kit" \
-  "len(d['permissions'].get('deny') or [])" "2"
+  "(d.permissions.deny || []).length" "2"
 check "allow vira união, sem duplicar o que já havia" \
-  "len(d['permissions']['allow'])" "4"
-check "chave nova do kit é preenchida" "d.get('language')" '"portuguese"'
+  "d.permissions.allow.length" "4"
+check "chave nova do kit é preenchida" "d.language" '"portuguese"'
 
 echo "== o que é seu e não pode ser tocado =="
-check "tema que você escolheu continua o seu" "d['theme']" '"light"'
-check "statusLine própria sobrevive" "d['statusLine']['command']" '"meu-script.sh"'
+check "tema que você escolheu continua o seu" "d.theme" '"light"'
+check "statusLine própria sobrevive" "d.statusLine.command" '"meu-script.sh"'
 check "sua permissão própria continua na lista" \
-  "'Bash(meu-script:*)' in d['permissions']['allow']" "true"
+  "d.permissions.allow.includes('Bash(meu-script:*)')" "true"
 check "modo Manual (\"default\") vira o do kit (acceptEdits)" \
-  "d['permissions']['defaultMode']" '"acceptEdits"'
+  "d.permissions.defaultMode" '"acceptEdits"'
 
 echo "== o kit precisa se manter atualizado sozinho =="
 check "auto-update do kit é ligado em quem já tinha o marketplace" \
-  "d['extraKnownMarketplaces']['vamoo-ai'].get('autoUpdate')" "true"
+  "d.extraKnownMarketplaces['vamoo-ai'].autoUpdate" "true"
 check "a fonte que você já tinha NÃO é trocada pela do kit" \
-  "d['extraKnownMarketplaces']['vamoo-ai']['source']['source']" '"directory"'
+  "d.extraKnownMarketplaces['vamoo-ai'].source.source" '"directory"'
 check "marketplace de outro time continua no arquivo" \
-  "'marketplace-do-meu-time' in d['extraKnownMarketplaces']" "true"
+  "'marketplace-do-meu-time' in d.extraKnownMarketplaces" "true"
 printf '%s' "$SAIDA" | grep -q 'extraKnownMarketplaces.vamoo-ai.autoUpdate' \
   && echo "  ok    a saída nomeia o auto-update que ligou" \
   || { echo "  FALHA a saída não nomeia o auto-update: $SAIDA"; falhas=$((falhas+1)); }
 
 echo "== o hook antigo do dotcontext sai; o resto dos hooks é seu =="
 check "o dispatch do dotcontext não sobrevive ao setup" \
-  "[h['command'] for gs in d.get('hooks',{}).values() for g in gs for h in g.get('hooks',[]) if '@dotcontext/cli@latest hook dispatch' in h['command']]" "[]"
+  "Object.values(d.hooks || {}).flat().flatMap((g) => g.hooks || []).map((h) => h.command).filter((c) => c.includes('@dotcontext/cli@latest hook dispatch'))" "[]"
 check "hook seu no mesmo grupo continua" \
-  "[h['command'] for g in d['hooks']['SessionStart'] for h in g['hooks']]" '["meu-hook.sh"]'
-check "evento que só tinha o dispatch some, sem grupo vazio" "'PostToolUse' in d['hooks']" "false"
+  "d.hooks.SessionStart.flatMap((g) => g.hooks).map((h) => h.command)" '["meu-hook.sh"]'
+check "evento que só tinha o dispatch some, sem grupo vazio" "'PostToolUse' in d.hooks" "false"
 check "dispatch que você configurou de outro jeito fica" \
-  "d['hooks']['Stop'][0]['hooks'][0]['command']" '"npx -y @dotcontext/cli@1.2.0 hook dispatch --source claude-code"'
+  "d.hooks.Stop[0].hooks[0].command" '"npx -y @dotcontext/cli@1.2.0 hook dispatch --source claude-code"'
 
 echo "== quem desligou o auto-update de propósito não é religado =="
 cat > "$TMP/desligado.json" <<'JSON'
@@ -143,11 +145,10 @@ cat > "$TMP/desligado.json" <<'JSON'
 }
 JSON
 SAIDA_OFF="$(node "$MERGE" "$TMP/kit.json" "$TMP/desligado.json" 2>&1)"
-python3 -c "
-import json,sys
-d=json.load(open('$TMP/desligado.json',encoding='utf-8'))
-sys.exit(0 if d['extraKnownMarketplaces']['vamoo-ai']['autoUpdate'] is False else 1)
-" 2>/dev/null \
+node -e "
+const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+process.exit(d.extraKnownMarketplaces['vamoo-ai'].autoUpdate === false ? 0 : 1);
+" < "$TMP/desligado.json" 2>/dev/null \
   && echo "  ok    autoUpdate:false continua false" \
   || { echo "  FALHA o kit religou um auto-update que a pessoa desligou"; falhas=$((falhas+1)); }
 printf '%s' "$SAIDA_OFF" | grep -qi 'auto-update' \
@@ -157,18 +158,16 @@ printf '%s' "$SAIDA_OFF" | grep -qi 'auto-update' \
 echo "== quem nunca teve marketplace nenhum ganha o bloco inteiro =="
 echo '{}' > "$TMP/zerado.json"
 node "$MERGE" "$TMP/kit.json" "$TMP/zerado.json" >/dev/null 2>&1
-python3 -c "
-import json,sys
-d=json.load(open('$TMP/zerado.json',encoding='utf-8'))
-m=d.get('extraKnownMarketplaces',{}).get('vamoo-ai',{})
-sys.exit(0 if m.get('autoUpdate') is True and m.get('source',{}).get('repo')=='VAMOO-AI/claude-kit-mentorados' else 1)
-" 2>/dev/null \
+node -e "
+const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const m = (d.extraKnownMarketplaces || {})['vamoo-ai'] || {};
+process.exit(m.autoUpdate === true && (m.source || {}).repo === 'VAMOO-AI/claude-kit-mentorados' ? 0 : 1);
+" < "$TMP/zerado.json" 2>/dev/null \
   && echo "  ok    fonte e auto-update chegam juntos" \
   || { echo "  FALHA settings zerado não recebeu o marketplace do kit"; falhas=$((falhas+1)); }
-python3 -c "
-import json,sys
-sys.exit(0 if 'hooks' not in json.load(open('$TMP/zerado.json',encoding='utf-8')) else 1)
-" 2>/dev/null \
+node -e "
+process.exit('hooks' in JSON.parse(require('fs').readFileSync(0, 'utf8')) ? 1 : 0);
+" < "$TMP/zerado.json" 2>/dev/null \
   && echo "  ok    settings sem hooks não ganha a chave" \
   || { echo "  FALHA a limpeza do hook antigo criou a chave hooks em quem não tinha"; falhas=$((falhas+1)); }
 
