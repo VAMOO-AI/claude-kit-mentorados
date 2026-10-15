@@ -48,6 +48,14 @@
       ]
     },
     {
+      "title": "WhatsApp e n8n",
+      "description": "Agente e inbox de WhatsApp sobre n8n: workflow, provedores (UAZAPI, NotificaMe, Chatwoot), mídia, IA e humano no mesmo fio e QA simulada do agente. Você chama; o Claude não aciona sozinho.",
+      "skills": [
+        "n8n-workflow-agent",
+        "whatsapp-inbox-stack"
+      ]
+    },
+    {
       "title": "Construir coisas específicas",
       "description": "Receitas que vão do zero ao que está no ar, com a verificação de que subiu de verdade.",
       "skills": [

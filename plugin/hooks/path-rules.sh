@@ -37,7 +37,7 @@ info="$(node "$H" session_id cwd tool_input.file_path tool_input.notebook_path)"
 # O "~" e o "/./" casam por acaso hoje (o "*" cobre os dois), mas só enquanto todo
 # padrão começar com "*/": normalizar aqui é o que segura um padrão absoluto.
 # No Windows o caminho chega como C:\Users\...: a barra invertida vira "/" antes de
-# tudo (sem ela nenhum "*/..." casa) e "C:/" conta como absoluto. Até 0.53.7 o "C:..."
+# tudo (sem ela nenhum "*/..." casa) e "C:/" conta como absoluto. Até 0.53.8 o "C:..."
 # ganhava o cwd na frente e a regra sumia calada para quem usa Windows.
 caminho="${caminho//\\//}"; cwd="${cwd//\\//}"
 case "$caminho" in

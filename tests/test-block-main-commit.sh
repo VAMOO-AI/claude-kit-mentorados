@@ -4,7 +4,7 @@
 # O falso positivo que originou esta suíte (30/08/2026): `cd` com o path ENTRE ASPAS não
 # era reconhecido — o char class do sed excluía `"`, o cdp saía vazio, o hook caía no cwd
 # da SESSÃO e bloqueava commit legítimo dentro de worktree. E aspas é a prática correta
-# aqui: há repo com espaço no nome ("WELD MENTORIA /"). O hook punia o jeito certo.
+# aqui: há repo com espaço no nome ("MEU PROJETO /"). O hook punia o jeito certo.
 #
 # `cd $VAR` sem aspas "passava" por acidente, não por acerto: o tgt virava a string
 # literal `$VAR`, o git não resolvia, a branch saía vazia e o case não casava.

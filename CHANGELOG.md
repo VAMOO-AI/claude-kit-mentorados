@@ -16,7 +16,7 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.53.8] — 2026-10-15
+## [0.53.9] — 2026-10-15
 
 ### Corrigido
 
@@ -29,7 +29,36 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   invertida vira `/` (no caminho e no cwd) antes do `case`, e `C:/...` conta como
   absoluto, com letra de drive maiúscula ou minúscula. Dos 10 checks novos em
   `tests/test-path-rules.sh` (barra invertida e barra normal, com e sem cwd, relativo com
-  `\` e drive minúsculo), 6 falham contra o hook da 0.53.7.
+  `\` e drive minúsculo), 6 falham contra o hook da 0.53.8.
+
+## [0.53.8] — 2026-10-15
+
+### Adicionado
+
+- **Duas skills de WhatsApp e n8n, slash-only** (decisão do mantenedor em 15/10, issue
+  #201). Vêm do kit do time, sem nome de cliente, telefone real, host de servidor, project
+  ref, contagem de instância nem data de incidente interno:
+  - `/kit-vamoo:n8n-workflow-agent`: construir, editar, depurar e publicar workflow n8n,
+    com referências de UAZAPI (motivo real de queda em `lastDisconnectReason`, escada de
+    reconexão, pareamento por código, nono dígito, os 14/30 dias de aparelho conectado),
+    NotificaMe, Chatwoot, Pipedrive, Postgres, disparo, pausa no Redis e a QA simulada do
+    agente (lead falso + juiz), com o `tests/test-simular-conversa.sh`.
+  - `/kit-vamoo:whatsapp-inbox-stack`: a ponta do inbox no app: mídia que não chega ou
+    não toca, áudio longo sem estourar a edge, IA e humano no mesmo fio, status da conexão
+    que mente e entrega confirmada.
+  - As duas só disparam quando você chama, então não pesam nas suas requests fora desse
+    assunto. O `references/guardrails-ia.md` da n8n fica só com o que é de n8n e aponta
+    para a skill `guardrails-ia`.
+- **`tests/test-sem-dado-de-cliente.sh` no CI.** O kit é público: o gate reprova nome de
+  cliente (a lista é guardada como sha256, para o teste não publicar quem são),
+  telefone com DDD real, host `*.uazapi.com` que não seja exemplo e project ref do
+  Supabase, em todo arquivo versionado. Começa por um autoteste com um erro plantado de
+  cada tipo. Na primeira rodada contra a main ele achou nomes em três comentários antigos,
+  que saíram neste mesmo PR.
+
+Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de propósito: o
+`tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
+Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
 
 ### CI
 

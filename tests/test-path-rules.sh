@@ -118,7 +118,7 @@ roda c4 supabase/migrations/001.sql
 check "relativo sem cwd não injeta nem quebra" "$([ "$(vazio)" = ok ] && [ "$codigo" -eq 0 ] && echo ok || echo fail)"
 
 # --- caminho no formato Windows ---------------------------------------------
-# O Claude Code no Windows manda C:\Users\... com barra invertida. Até 0.53.7 o hook só
+# O Claude Code no Windows manda C:\Users\... com barra invertida. Até 0.53.8 o hook só
 # tratava "/*" como absoluto: o "C:\..." ganhava o cwd na frente e os globs "*/..." do
 # conf não casavam com "\", então a regra sumia calada. Com "C:/..." e cwd ela chegava,
 # mas com o caminho dobrado (C:/Users/x/PROJ/C:/Users/x/PROJ/.env).
