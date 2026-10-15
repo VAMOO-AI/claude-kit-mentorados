@@ -27,6 +27,9 @@ instabilidade.
 - [ ] **PII é mascarada na escrita do log, não na leitura.** Telefone, e-mail,
       documento e id externo saem truncados por uma função única — "não logue
       PII" sem mascarador é regra que ninguém consegue cumprir.
+- [ ] **Segredo é redigido por nome de chave** (`authorization`, `cookie`,
+      `*token`, `*_key`) em qualquer objeto logado, com teste que prova que ele
+      não aparece na saída.
 - [ ] **O erro que chega ao cliente é código + id de correlação.** Stack,
       mensagem do banco e nome de tabela ficam no log do servidor.
 - [ ] **Saúde detalhada exige autenticação** (versão, dependência, fila, pool).
@@ -84,6 +87,28 @@ log('info', 'whatsapp.enviado', { request_id, telefone: mascara.telefone(to) })
 Num stack de WhatsApp o telefone **é** o identificador do usuário: ele aparece
 em log de webhook, de fila, de erro e de retry. Sem mascarador único, ele vaza
 em todos, e a correção vira caça a `console.log` espalhado.
+
+O `mascara` cobre o campo que você sabe que é PII. Segredo chega por outro caminho:
+dentro do objeto que alguém logou inteiro (o `req.headers`, o payload do webhook, o
+erro do SDK com a config). Por isso o `log()` redige **por nome de chave**, em qualquer
+profundidade, antes do `JSON.stringify`:
+
+```ts
+// no mesmo src/lib/mask.ts
+const REDIGIR = /^(authorization|cookie|set-cookie|x-api-key|apikey|password|senha|secret|.*token|.*_key|service_role)$/i
+
+export function redigir(v: unknown, prof = 0): unknown {
+  if (prof > 6 || v === null || typeof v !== 'object') return v
+  if (Array.isArray(v)) return v.map((x) => redigir(x, prof + 1))
+  return Object.fromEntries(Object.entries(v).map(([k, x]) =>
+    [k, REDIGIR.test(k) ? '[redigido]' : redigir(x, prof + 1)]))
+}
+// log(level, evento, dados) → console[level](JSON.stringify({ evento, ...redigir(dados) }))
+```
+
+Vale igual no Deno: é `console` com JSON, sem lib de log. Valor solto numa string
+(`"Bearer eyJ…"` dentro de `err.message`) a chave não pega; o gitleaks no CI e o
+"erro para o cliente" abaixo cobrem essa metade.
 
 **Erro para o cliente vs. erro para o log:**
 
@@ -245,6 +270,21 @@ select count(*) as total, max(created_at) as ultimo from public.audit_log;
 select jobname, command from cron.job;   -- procure net.http_post, não só insert
 ```
 
+**O log não carrega segredo** — teste no runner do projeto, sobre a saída real do
+`log()`, não sobre o `redigir()` isolado:
+
+```ts
+it('segredo não aparece na saída do log', () => {
+  const linhas: string[] = []
+  vi.spyOn(console, 'info').mockImplementation((s) => { linhas.push(String(s)) })
+  log('info', 'webhook.recebido', {
+    headers: { authorization: 'Bearer sensitive-test-value', cookie: 'sb=sensitive-test-value' },
+    config: { service_role: 'sensitive-test-value', supabase_key: 'sensitive-test-value' },
+  })
+  expect(linhas.join('\n')).not.toContain('sensitive-test-value')
+})
+```
+
 **O teste que fecha o pilar** — provoque um erro real em produção (um botão que
 chama uma rota inexistente, num ambiente autorizado) e cronometre: quanto tempo
 até o stack trace com a linha do código? Se não aparecer em minutos, o pilar é
@@ -262,6 +302,7 @@ até o stack trace com a linha do código? Se não aparecer em minutos, o pilar 
 | Assert sobre `net.http_request_queue` sempre zero | `body` é `bytea`; use `convert_from(body,'UTF8')` |
 | Tabela de auditoria existe, com policy e grant, e vazia | Ninguém escreve. Cobertura aparente é pior que ausência declarada |
 | Telefone do cliente inteiro no log de erro | "Não logue PII" sem função de máscara. A regra não é executável; o mascarador é |
+| Token no log, com o mascarador no lugar | Alguém logou `req.headers` inteiro. O mascarador é por campo; o redact por nome de chave pega o objeto |
 | Usuário mandou print do erro com o nome da tabela | Mensagem do banco devolvida ao cliente. Código + `request_id` é o que sai |
 | Fila parou e ninguém viu por dois dias | Backlog não é medido. Item pendente há muito tempo é alerta, não gráfico |
 | Log de produção existe mas é inútil | Texto livre sem prefixo nem request id. Não dá pra filtrar nem correlacionar |
