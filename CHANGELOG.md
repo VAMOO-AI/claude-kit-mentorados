@@ -35,6 +35,38 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - Ideias de soumatheusgomes/vibe-coding-toolkit (MIT), reescritas. Espelho de
   VAMOO-AI/claude-config-team#322 e #323. Fecha #199.
 
+## [0.52.0] — 2026-10-15
+
+### Adicionado
+
+- **Modelo de produto** (`plugin/templates/produto.md.exemplo`), para salvar em
+  `.context/docs/produto.md` do projeto: problema, quem usa, fluxos da 1ª versão, o que entra
+  primeiro, fora desta versão, hipóteses × pendências, aceite observável, próxima entrega e um
+  bloco "decida antes de codar" (login e papéis, dinheiro com unidade e arredondamento, dados
+  pessoais, mensagem para pessoa, idioma e fuso). O `AGENTS-projeto.md.exemplo` aponta para ele,
+  e `docs/como-trabalhar-com-claude.md` §4 ensina a preencher "comigo, uma pergunta por vez".
+- **`docs/programacao-avancada-com-claude.md` §9, quebrar um arquivo gigante:** corte por
+  responsabilidade, o arquivo antigo vira re-export, type-check do projeto inteiro e lint de
+  novo depois, nada de compactar para caber.
+
+### Mudou
+
+- **Ideias de soumatheusgomes/vibe-coding-toolkit (MIT), reescritas; nenhum arquivo copiado.**
+  Rode o `/kit-vamoo:setup` para receber o `CLAUDE.md` global novo.
+- **`CLAUDE-global.md`:** projeto que já existe roda os checks antes de editar e separa falha
+  antiga de nova no fim; regra de lint nova em código antigo começa como aviso; check afrouxado
+  é dito no PR. Os 300 linhas por arquivo viram aviso com o roteiro do §9, nunca erro.
+- **`setup` §3:** a primeira sessão num projeto existente é `--check`, "init the context" e a
+  linha de base.
+- **`grilling`:** o plano final sai em passos, cada um com o check que o prova.
+- **`/revisar`:** em mudança de login, permissão do banco, pagamento ou mensagem para pessoa,
+  sugere uma segunda revisão com foco em segurança numa sessão nova, levando o que já foi
+  descartado.
+- **`memoria-projeto` e `docs/memoria-e-contexto.md`:** "vale salvar?" (uma sessão daqui a um
+  mês ficaria surpresa e grata?), o que não se salva e quatro pares de exemplo.
+- **`find-docs`:** em projeto com `package.json`, escolhe o ID do Context7 pela versão
+  instalada (mesma major, sem `canary`) e avisa quando a doc é da última indexada.
+
 ## [0.51.4] — 2026-10-15
 
 ### Corrigido

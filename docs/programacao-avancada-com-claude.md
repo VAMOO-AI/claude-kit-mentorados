@@ -139,6 +139,37 @@ todos de uma vez.
 
 ---
 
+## 9. Quebrar um arquivo gigante sem quebrar o app
+
+Arquivo com mais de 300 linhas é um **aviso**: diz onde olhar, não trava nada. Quando for
+mexer, peça ao Claude para quebrar **por responsabilidade**, nunca por número de linha:
+
+| Corte | Como você reconhece |
+|---|---|
+| Tipos | `type`/`interface` que outros arquivos também usam |
+| Conta × acesso | função que só calcula ao lado de função que chama o banco ou uma API |
+| Estado × tela | componente com `useEffect`/fetch e uma tela enorme embaixo |
+| Pedaço que outro quer | alguém já copiou aquele trecho em outro lugar |
+
+O que sobra e não se encaixa em nenhum vira `utils.ts`? Isso não é corte, é bagunça com
+outro nome. Se não há corte natural, o certo é parar: um arquivo grande e coerente é
+melhor que três pequenos amarrados.
+
+Três cuidados que o Claude esquece:
+
+1. **O arquivo antigo vira um "re-export"** (`export { calcularTotal } from './precos-calculo'`):
+   ninguém que importava dele precisa mudar.
+2. **Type-check do projeto inteiro depois**, não só do arquivo. Ao mover uma função, o tipo
+   que o TypeScript adivinhava pode ficar mais frouxo e quebrar quem usa, em arquivos que
+   ninguém abriu.
+3. **Lint de novo depois**: mover 120 linhas para um arquivo que já tinha 220 só troca um
+   aviso por outro. E nada de "compactar" o código para caber no limite.
+
+Um arquivo por commit, numa branch, e pare a cada três para revisar o diff. Ideia de
+soumatheusgomes/vibe-coding-toolkit (MIT).
+
+---
+
 ## Mentalidade do usuário avançado
 
 - **Estrutura > pedido solto.** Skill, worktree, contrato de escopo — o método multiplica.

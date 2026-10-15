@@ -46,6 +46,12 @@ Cada coisa tem um lugar. Misturar incha o contexto e degrada tudo.
 | **Documentação de implementação** (como tal feature funciona, decisão de arquitetura) | `docs/` (ou `.context/docs/`) | É consultado sob demanda, não a cada sessão. |
 | **Fato durável do projeto** (credencial está em X, esse cliente usa Y) | memória / `.context/` | Lembrado entre sessões, sem inflar o `AGENTS.md`. |
 
+**Vale guardar na memória?** Pergunte: daqui a um mês, numa conversa nova, o Claude
+ficaria surpreso ao descobrir isso e grato por já saber? "O projeto usa Supabase" não
+passa: está no código. "O preview da Vercel pede login e o cliente aprova pelo WhatsApp"
+passa: ninguém descobre isso lendo o projeto. O que só vale hoje (prazo, quem revisa
+amanhã) também não entra. A skill `memoria-projeto` tem mais exemplos dos dois lados.
+
 > **Anti-pattern comum:** "toda vez que termino uma feature, mando atualizar o
 > AGENTS.md". NÃO. O AGENTS.md entra **inteiro** no contexto em **toda** sessão (o
 > `CLAUDE.md` o importa) — changelog ali dentro é peso morto que você paga sempre.
