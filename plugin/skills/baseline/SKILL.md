@@ -242,7 +242,8 @@ outros, e emendar dois na mesma sessão só encarece o contexto.
 - **Semgrep sempre com `--metrics=off` e ruleset fixo.** `--config auto` faz login
   no registry e envia a URL do projeto. **Proibido em repo de cliente.**
 - **Nunca traga o valor de um segredo pro contexto.** Para provar que existe:
-  `grep -c '^KEY=' .env.local`. Fingerprint no report, nunca o valor.
+  `bash "${CLAUDE_PLUGIN_ROOT}/scripts/env-tem-chave.sh" .env.local KEY` (diz `presente`,
+  `vazia` ou `ausente`; o deny nega `grep -c` no `.env`). Fingerprint no report, nunca o valor.
 - **Nunca faça DDL no banco auditado.** Nem `create schema lint`, nem tabela
   temporária. Os lints do splinter rodam como `select` puro.
 - **Exceção aceita é artefato, não silêncio.** Se a decisão foi ficar fora do
