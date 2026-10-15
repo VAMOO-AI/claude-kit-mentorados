@@ -178,11 +178,14 @@ jobs:
       - name: Monitor esperando CI/deploy é bloqueado; stream de eventos passa
         run: bash tests/test-block-monitor-ci.sh
 
-      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados
+      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
       - name: O dispatcher do UserPromptSubmit devolve o que os quatro hooks devolviam
         run: bash tests/test-pre-prompt.sh
+
+      - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
+        run: bash tests/test-warn-sem-node.sh
 
       - name: Os zips de downloads/ batem com a skill do plugin
         # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
