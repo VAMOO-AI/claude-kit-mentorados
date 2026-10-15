@@ -220,6 +220,12 @@ sessão.
 | #323 (lotes por dependência, brief com `Status:`, segunda revisão) | lotes e brief na `orquestracao`, `Depends-on:` e `Status:` no `subagentes.md` e no `executor` (0.53.0) | a segunda revisão por risco é uma linha no `/revisar` (0.52.0), sem subagente: quem está aprendendo pede numa sessão nova |
 | #324, #325, #326, #327 (grilling, projeto existente e refactor, memória, find-docs) | mesmos textos, na voz de quem está aprendendo (0.52.0) | o refactor por costura é seção do `docs/programacao-avancada-com-claude.md`, não reference da `verificacao`; o exemplo do `find-docs` não usa `jq` |
 
+## Porte da 0.53.2 (15/10)
+
+| Origem no time | Aqui | Diverge, e por quê |
+|---|---|---|
+| VAMOO-AI/claude-config-team#337 (`isCronAuthorized` no pilar 04 do `collect.sh`) | mesma alternância em `plugin/skills/baseline/scripts/collect.sh` (0.53.2), fecha #209 | o comentário não cita o projeto de origem; aqui entrou `tests/test-baseline-edge-auth.sh` (função guardada por `isCronAuthorized`, por `verifyCronSecret` e uma aberta), que o time não tem |
+
 ## Como usar
 
 ```bash

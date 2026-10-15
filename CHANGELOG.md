@@ -13,7 +13,7 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
-## [0.53.2] — 2026-10-15
+## [0.53.3] — 2026-10-15
 
 ### Mudou
 
@@ -40,6 +40,11 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   - A receita foi trocada na `baseline` (SKILL e referência 07) e na pergunta do
     `check-careful`, que agora aponta o caminho do script dentro do plugin (2 casos novos em
     `tests/test-check-careful.sh`, que falham contra o hook anterior).
+
+## [0.53.2] — 2026-10-15
+
+### Adicionado
+
 - **CI reprova link relativo, âncora e `href`/`src` quebrados nos `.md`, e `.json` que não
   parseia** (porte de VAMOO-AI/claude-config-team#313, issue #196). O
   `tests/test-docs-consistencia.sh` varre `git ls-files` (nunca os worktrees), calcula o
@@ -52,6 +57,14 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - **Actions pinadas por SHA** (`actions/checkout` v4.4.0 no `ci.yml` e no `release.yml`,
   `actions/setup-go` v5.6.0), com `.github/dependabot.yml` semanal abrindo o PR de
   atualização. Tag móvel pode ser reescrita por quem controla o repo da action.
+
+### Corrigido
+
+- **`baseline` 04: `isCronAuthorized` conta como guard de edge function.** O guard de
+  cron-secret em `_shared` (fail-closed, comparação em tempo constante) não estava na lista
+  da heurística, e a função protegida virava HIGH "Edge function sem verificação de
+  identidade aparente", travando o `/ship`. Teste novo em `tests/test-baseline-edge-auth.sh`.
+  Espelho de VAMOO-AI/claude-config-team#337. Fecha #209.
 
 ## [0.53.1] — 2026-10-15
 
