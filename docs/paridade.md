@@ -226,6 +226,7 @@ sessão.
 |---|---|---|
 | VAMOO-AI/claude-config-team#309 (hook com bug não desliga a cadeia) | `pre-bash.sh` e `pre-prompt.sh` | lá o aviso entra na fusão por jq; aqui o pre-bash não funde JSON (só o check-careful fala), então o `systemMessage` é escrito à mão no mesmo objeto do `ask`, sem node. O texto do aviso é só nome de hook e número, sem nada a escapar |
 | #312 (`warn-sem-jq.sh`) | `warn-sem-node.sh` | o binário de que os guards daqui dependem é o node; o texto de instalação cobre Mac, Windows (Git Bash) e Linux. Par na paridade: `test-warn-sem-node.sh` ↔ `test-warn-sem-jq.sh` |
+| #308 (ship: merge pela metadata) | `plugin/skills/ship/SKILL.md`, §4 | texto na voz de quem aprende, sem o `--jq` do time; o caso real vai sem o nome do cliente |
 
 ## Como usar
 

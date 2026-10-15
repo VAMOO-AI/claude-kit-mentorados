@@ -149,6 +149,26 @@ eventos, cada redesenho acorda a sessão e faz reler a conversa toda — dezenas
 despertares sem uma linha de informação nova. Em background você recebe **uma**
 notificação, no fim, e `--fail-fast` aborta no primeiro check obrigatório vermelho.
 
+**Não pendure nada atrás do watch.** Com `; echo "exit=$?"` no fim, a notificação mostra o
+exit do `echo` (sempre 0) e esconde o do watch. Foi assim que um PR real (14/10/2026) entrou
+com os checks ainda pendentes: o watch saiu 1, a notificação disse 0.
+
+**Logo depois do push os checks podem ainda não existir.** O watch sai 1 em segundos com
+`no checks reported on the '<branch>' branch`. Isso não é verde nem vermelho: rode o watch de
+novo, ou acompanhe a execução com `gh run list --branch <branch>` e `gh run watch <id>`.
+
+**O gate do merge é a metadata do PR, não o exit do watch.** Com o watch terminado:
+
+```bash
+gh pr view <n> --json mergeStateStatus,headRefOid,statusCheckRollup
+```
+
+Só mergeie com `mergeStateStatus` igual a `CLEAN`, todo check com conclusão `SUCCESS` e o
+`headRefOid` igual ao seu `git rev-parse HEAD`. `UNSTABLE` (check pendente ou falho que não é
+obrigatório), conclusão vazia ou `BLOCKED`: não mergeia. O contrário também acontece: o
+`gh run watch` sai 1 por queda de rede com a execução verde. Na dúvida entre o exit e a
+metadata, vale a metadata.
+
 ### O verde é de um SHA — e `--admin` não é um atalho para ele
 
 "CI verde basta" quer dizer verde **do commit que vai para a main**, não do anterior.

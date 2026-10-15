@@ -15,6 +15,15 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 ## [0.53.2] — 2026-10-15
 
+### Mudou
+
+- **`ship`: o merge espera a metadata do PR, não o exit do watch** (porte de
+  VAMOO-AI/claude-config-team#308, issue #191). Três avisos novos na espera do CI: não
+  pendurar `; echo` atrás do `gh pr checks --watch` (a notificação passa a mostrar o exit do
+  `echo`); `no checks reported` logo depois do push não é verde nem vermelho; e o gate antes
+  do `gh pr merge` é `mergeStateStatus` `CLEAN`, checks `SUCCESS` e `headRefOid` igual ao
+  `HEAD`. Caso real de 14/10/2026: PR mergeado `UNSTABLE` porque a notificação disse exit 0.
+
 ### Corrigido
 
 - **Hook com bug não desliga mais os guards seguintes** (porte de
