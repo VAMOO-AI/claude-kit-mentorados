@@ -27,8 +27,13 @@ BASH_BIN="$(command -v bash)"
 # Hook do plugin resolve o hookjson.js em ../scripts: pasta de hooks avulsa precisa do
 # helper ao lado, senão o hook sai 0 fail-open e o teste aprovaria um dispatcher mudo.
 árvore() { mkdir -p "$1/hooks" "$1/scripts"; cp "$SCRIPTS_DIR/hookjson.js" "$1/scripts/"; printf '%s' "$1/hooks"; }
+# Cada comando entra no PATH falso como um script que chama o binário pelo caminho
+# absoluto, e não por `ln -s`: no Git Bash o MSYS copia o .exe em vez de ligar, e a cópia,
+# longe da msys-2.0.dll de /usr/bin, nem carrega. O cat que lê o payload morria e o
+# dispatcher via payload vazio.
+liga() { printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v "$2")" > "$1/$2"; chmod +x "$1/$2"; }
 # PATH só com o que o dispatcher e os hooks falsos usam — sem node.
-sem_node() { mkdir -p "$1"; for c in cat sed; do ln -s "$(command -v "$c")" "$1/$c"; done; printf '%s' "$1"; }
+sem_node() { mkdir -p "$1"; for c in cat sed; do liga "$1" "$c"; done; printf '%s' "$1"; }
 
 falhas=0
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT

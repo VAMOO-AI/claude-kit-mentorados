@@ -41,15 +41,15 @@ done
 
 falhas=0
 saida=""; codigo=0
+# O payload é montado no bash e chega ao hook pelo stdin, sem passar por variável de
+# ambiente para o node: no Git Bash o MSYS reescreve /tmp/... em C:/.../Temp/... ao
+# chamar programa nativo, e o caminho mudava antes de chegar ao hook. Os caminhos daqui
+# não têm aspas nem barra invertida, então o printf dá JSON válido.
 roda() { # roda <sessao> <caminho> [cwd] [file_path|notebook_path]
-  local payload
-  payload=$(S="$1" F="$2" C="${3:-}" K="${4:-file_path}" node -e '
-    const e = process.env, entrada = {};
-    entrada[e.K] = e.F;
-    process.stdout.write(JSON.stringify({
-      session_id: e.S, hook_event_name: "PreToolUse", cwd: e.C, tool_input: entrada,
-      tool_name: e.K === "notebook_path" ? "NotebookEdit" : "Edit",
-    }));')
+  local payload k="${4:-file_path}" ferramenta=Edit
+  [ "$k" = notebook_path ] && ferramenta=NotebookEdit
+  payload=$(printf '{"session_id":"%s","hook_event_name":"PreToolUse","cwd":"%s","tool_input":{"%s":"%s"},"tool_name":"%s"}' \
+    "$1" "${3:-}" "$k" "$2" "$ferramenta")
   saida=$(HOME="$FAKE" CLAUDE_PLUGIN_ROOT="$FAKE" PATH="$SEM_JQ" bash "$HOOK" <<<"$payload" 2>/dev/null)
   codigo=$?
 }
