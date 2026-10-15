@@ -44,8 +44,9 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   batem com `plugin/skills/`. Falha no base ("README diz 25, a pasta tem 26").
 - `tests/test-gitignore-exemplo.sh`: `git check-ignore` num repo descartável, com o
   `excludesFile` global desligado. Falha no base em 5 casos.
-- `docs/pagina-plugin-mentoria.md` descreve as quatro telas, as quatro chaves, a seção
-  Templates, as peças que uma tela nova precisa (`VIEWS`, `VIEW_ROOT` e as duas regras
+- `docs/pagina-plugin-mentoria.md` descreve as cinco telas, as cinco chaves, a seção
+  Templates, o menu que rola de lado, o bloco "Por onde começar", as peças que uma tela nova
+  precisa (`VIEWS`, `VIEW_ROOT` e as duas regras
   `body[data-view=…]`) e a regra de manter o hash antigo como alias ao renomear uma tela.
 
 ## [0.51.2] — 2026-10-13

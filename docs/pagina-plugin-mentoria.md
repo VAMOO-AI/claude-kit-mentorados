@@ -36,22 +36,30 @@ O que eu quero agora: [DESCREVA AQUI]
 - **Design system LEADSTER**: papel `#fcfcfc`, Plus Jakarta Sans, botão em pílula preta, azul
   `#007dff` só como acento, faixa escura `#05070a`. Toda cor vem dos tokens do `:root`, com os
   blocos de tema escuro (`prefers-color-scheme` e `[data-theme]`).
-- **Visão geral** com as seções do menu: Guia, Instalar, Skills, Comandos, MCP do sistema,
-  Proteções, Secretária, Gestão de RH, Dúvidas. A seção **Templates** (`#templates`, entre
+- **Visão geral** com as seções do menu: Guia, Primeiro projeto, Instalar, Skills, Comandos,
+  MCP do sistema, Proteções, Secretária, Gestão de RH, Dúvidas (10 links). A seção **Templates** (`#templates`, entre
   MCP do sistema e Dúvidas) apresenta a secretária e o RH e abre os guias deles; ela não tem item
   no menu.
-- **Guias como telas separadas**, abertas por hash. São quatro, cada uma com checklist próprio
+- **Guias como telas separadas**, abertas por hash. São cinco, cada uma com checklist próprio
   salvo no navegador:
 
   | Hash | Tela (`data-view`) | Do quê | Chave no `localStorage` |
   |---|---|---|---|
   | `#guia` | `guia` | instalação do kit | `kit-steps` |
+  | `#guia-primeiro-projeto` | `proj` | primeiro pedido num projeto, do começo ao PR | `kit-proj-steps` |
   | `#guia-mcp` | `mcp` | skill `mcp-sistema` | `kit-mcp-steps` |
   | `#guia-secretaria` | `secretaria` | template da secretária de WhatsApp | `kit-sec-steps` |
   | `#guia-rh` | `rh` | template da Gestão de RH | `kit-rh-steps` |
 
   A troca de tela fica na função `setView` e em dois mapas do script: `VIEWS` (hash → tela) e
   `VIEW_ROOT` (tela → seletor da raiz).
+- **Menu do topo que rola de lado.** Os links não cabem numa linha (pedem 1034px e o espaço
+  disponível é de no máximo 716px), então o `.nav` rola na horizontal, com esmaecido na borda.
+  Quem faz isso são as variáveis `--fl`/`--fr` e a função `navFade` do script, que também
+  converte a roda do mouse em rolagem lateral. Item novo no menu não quebra o header, mas fica
+  mais escondido na rolagem.
+- **Bloco "Por onde começar"** no topo de `#instalar`: uma tabela "seu momento → por onde ir"
+  com 6 linhas (classes `.paths` e `.path`), sem item no menu. Guia novo ganha uma linha ali.
 - **Skills** no array `SKILLS` do script, um objeto por skill: `n` nome, `c` área, `m:1` se é
   manual, `w` o que faz, `a` frase para pedir, `r` pré-requisito, `g` link de guia (opcional).
 - O prompt de instalação (`#prompt-text`) leva o link do repositório e os comandos
@@ -60,7 +68,7 @@ O que eu quero agora: [DESCREVA AQUI]
 
 ### 3. Guia novo
 
-Vira mais uma tela `#guia-<nome>`, no molde das quatro que existem: topo com marca e voltar,
+Vira mais uma tela `#guia-<nome>`, no molde das cinco que existem: topo com marca e voltar,
 selo, título, barra de progresso, cards de passo com checklist, "Deu erro? Resolva aqui" e
 fechamento na faixa escura. Uma tela nova só aparece com todas estas peças:
 
@@ -70,7 +78,8 @@ fechamento na faixa escura. Uma tela nova só aparece com todas estas peças:
   `body:not([data-view="<tela>"]) #guia-<nome>{display:none}`. Sem a primeira, a visão geral
   aparece por cima do guia; sem a segunda, o guia aparece no fim da visão geral;
 - o array de passos e as funções de pintar e salvar, com chave própria `kit-<nome>-steps`;
-- o item no menu e, se for de uma skill, o campo `g` do card dela.
+- o item no menu, uma linha no bloco "Por onde começar" e, se for de uma skill, o campo `g`
+  do card dela.
 
 **Renomear uma tela mantém o hash antigo.** O link já circulou no grupo e no vídeo, então o
 hash antigo fica em `VIEWS` como alias apontando para a mesma tela
@@ -91,6 +100,10 @@ Confira contra a `main` deste repositório:
 
 Para leigo, em português simples. Sem número sem referência e sem travessão. Nome de coisa pelo
 que a pessoa reconhece, não pelo nome técnico.
+
+Por essa regra o "2 minutos" saiu da página e a métrica virou "5 guias", que conta as telas de
+guia. O `#guia` tem o carimbo "Passos conferidos em <data> com o kit v<versão>": atualize a
+data e a versão sempre que conferir os passos de novo.
 
 ### 6. Antes e depois de publicar
 
