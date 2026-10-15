@@ -28,7 +28,12 @@ falhas=0
 REPO_GIT=$(cd "$(dirname "$0")/.." && pwd)
 FORA_GIT=$(mktemp -d)
 CLONE=$(mktemp -d); git -C "$CLONE" init -q 2>/dev/null
-trap 'rm -rf "$FORA_GIT" "$CLONE"' EXIT
+# `git push` sem refspec decide pela branch atual do cwd. Caso que depende disso roda numa
+# destas duas, nunca no REPO_GIT: no CI de PR o checkout está numa ref de PR, no CI da main
+# está na main, e o mesmo caso dava pass num e ask no outro (main vermelha de 0.51.1 a 0.53.0).
+NA_MAIN=$(mktemp -d); git -C "$NA_MAIN" init -q 2>/dev/null; git -C "$NA_MAIN" symbolic-ref HEAD refs/heads/main
+NA_FEAT=$(mktemp -d); git -C "$NA_FEAT" init -q 2>/dev/null; git -C "$NA_FEAT" symbolic-ref HEAD refs/heads/feat/x
+trap 'rm -rf "$FORA_GIT" "$CLONE" "$NA_MAIN" "$NA_FEAT"' EXIT
 
 decide() { # decide <comando> [cwd] [modo]
   local modo="${3:-default}" on="" out
@@ -86,7 +91,8 @@ check pass "git rm -r é versionado"          'git rm -r -q "src/app/proposta"'
 check pass "git rm -r --cached"              'git rm -r --cached --ignore-unmatch app/scripts/pgtest'
 check pass "trap de limpeza de mktemp"       'T=$(mktemp -d); trap "rm -rf $T" EXIT; echo ok'
 check pass "git add com paths explícitos depois do -A" 'git add -A src supabase && git commit -m wip'
-check pass "grep -f não é push force"        'git push && grep -f padroes.txt arquivo.log'
+check pass "grep -f não é push force"        'git push && grep -f padroes.txt arquivo.log' "$NA_FEAT"
+check pass "push sem refspec fora da main"   'git push' "$NA_FEAT"
 check pass "heredoc escrevendo .sql com TRUNCATE (não executa)" \
   'cat > /tmp/race.sql <<SQL
 truncate public.crm_conversations cascade;
@@ -133,6 +139,8 @@ check ask  "rm -rf fora de repo git"         'rm -rf minha-pasta' "$FORA_GIT"
 # 0.48.0: o git não é undo de pasta ignorada (outputs/, mídia). Só descartável passa.
 check ask  "rm -rf relativo dentro do repo (pasta que não é descartável)" 'rm -rf app/api/n8n'
 check ask  "push nomeando a main"            'git push origin main && rm -f /tmp/lixo.txt'
+check ask  "push sem refspec estando na main" 'git push' "$NA_MAIN"
+check ask  "push na main com grep -f depois (a regra da main vale)" 'git push && grep -f padroes.txt arquivo.log' "$NA_MAIN"
 check ask  "git add -A sozinho em clone compartilhado" 'git add -A && git commit -m wip' "$CLONE"
 check ask  "git add . sozinho"               'git add .' "$CLONE"
 check ask  "DROP TABLE executado no psql"    'psql -c "drop table clientes;"'
