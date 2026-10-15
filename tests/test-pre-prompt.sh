@@ -70,7 +70,7 @@ echo "== primeiro prompt: silêncio, e o repo-session registrou a sessão =="
 rc=$(roda s1 "$REPO")
 espera_rc 0 "$rc" "sai 0"
 [ -s "$TMP/out" ] && falha "stdout deveria estar vazio: $(cat "$TMP/out")" || ok "stdout vazio (nenhum hook tinha o que dizer)"
-H=$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+H=$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
 [ -f "$HOME/.claude/.cache/repo-sessions/$H/s1" ] && ok "repo-session marcou s1 no repo" || falha "repo-session não marcou a sessão"
 
 echo

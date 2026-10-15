@@ -30,7 +30,7 @@ MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
 # clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
 CLONE="$TMP/clone"; mkdir -p "$CLONE"; git -C "$CLONE" init -q -b main 2>/dev/null
-H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | shasum | awk '{print $1}')
+H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
 HOME_OUTRA="$TMP/home-outra"; mkdir -p "$HOME_OUTRA/.claude/.cache/repo-sessions/$H"
 touch "$HOME_OUTRA/.claude/.cache/repo-sessions/$H/outra-sessao"
 

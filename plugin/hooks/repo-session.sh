@@ -19,7 +19,7 @@ cwd="$(printf '%s\n' "$info" | sed '1d')"
 [ -z "$cwd" ] && cwd="$PWD"
 root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
 [ -z "$root" ] && exit 0
-h=$(printf '%s' "$root" | shasum 2>/dev/null | awk '{print $1}')
+h=$(printf '%s' "$root" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')
 [ -z "$h" ] && exit 0
 d="$HOME/.claude/.cache/repo-sessions/$h"
 case "$mode" in
