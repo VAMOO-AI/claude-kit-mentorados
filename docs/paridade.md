@@ -224,7 +224,7 @@ sessão.
 
 | Origem no time | Aqui | Diverge, e por quê |
 |---|---|---|
-| VAMOO-AI/claude-config-team#337 (`isCronAuthorized` no pilar 04 do `collect.sh`) | mesma alternância em `plugin/skills/baseline/scripts/collect.sh` (0.53.2), fecha #209 | o comentário não cita o projeto de origem; aqui entrou `tests/test-baseline-edge-auth.sh` (função guardada por `isCronAuthorized`, por `verifyCronSecret` e uma aberta), que o time não tem |
+| VAMOO-AI/claude-config-team#337 (`isCronAuthorized` no pilar 04 do `collect.sh`) | mesma alternância em `plugin/skills/baseline/scripts/collect.sh` (0.53.2), fecha #209 | o comentário não cita o projeto de origem; aqui entrou `tests/test-baseline-edge-auth.sh` (função guardada por `isCronAuthorized`, por `verifyCronSecret` e uma aberta). Time: portado em VAMOO-AI/claude-config-team#341 (15/10), lá com o caminho `skills/vamoo-baseline/scripts/collect.sh` |
 
 ## Porte da 0.53.5 (15/10)
 
