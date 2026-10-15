@@ -192,4 +192,48 @@ if grep -qF 'Se foi proposital' "$ERR-ok"; then
 else printf '  ok    %s\n' "a mensagem não deixa o modelo julgar o próprio commit na main"; fi
 
 echo
+echo "== falsos positivos da medição de 15/10/2026 (docs/medicao-guards-2026-10-15.md) =="
+# 22 dos 30 bloqueios em 30 dias eram commit que não cairia na main. Três famílias.
+#
+# 1) A branch nasce no mesmo comando. O hook lê a branch ANTES de o comando rodar, então
+#    vê main. Só `&&` puro do checkout até o commit garante que o commit roda na branch
+#    nova: com pipe (`2>&1 | tail -1 &&`), `;` ou nova linha, um checkout que falha deixa
+#    o commit cair na main — esses 7 casos estavam certos e continuam bloqueando.
+NOVO_WT="$GEMEO/wt-novo"
+check passa    "checkout -b && add && commit"              "git checkout -b feat/n && git add a && git commit -m x"
+check passa    "checkout -q -b … && commit"                "git checkout -q -b feat/n && git commit -m x"
+check passa    "switch -c && commit"                       "git switch -c feat/n && git commit -m x"
+check passa    "-C igual nos dois"                         "git -C $MAIN switch -c feat/n && git -C $MAIN add -- a && git -C $MAIN commit -q -F - <<'EOF'${NL}msg${NL}EOF" "$FEAT"
+check passa    "worktree add -b e commit no worktree novo" "git -C $MAIN worktree add -q -b docs/w $NOVO_WT origin/main && git -C $NOVO_WT commit -m x"
+check passa    "o mesmo com variáveis literais encadeadas" "R=$MAIN; W=$GEMEO/wt-var && git -C \$R worktree add -q -b docs/w \$W && git -C \$W commit -m x"
+check bloqueia "pipe entre o checkout e o commit"          "git checkout -b feat/n 2>&1 | tail -1 && git add a && git commit -m x"
+check bloqueia "; entre o checkout e o commit"             "git checkout -b feat/n; git commit -m x"
+check bloqueia "nova linha entre o checkout e o commit"    "git checkout -b feat/n${NL}git commit -m x"
+check bloqueia "|| entre o checkout e o commit"            "git checkout -b feat/n || git commit -m x"
+check bloqueia "volta pra main antes do commit"            "git checkout -b feat/n && git checkout main && git commit -m x"
+check bloqueia "cd pra outro repo antes do commit"         "git checkout -b feat/n && cd $MAIN && git commit -m x" "$FEAT"
+check bloqueia "branch criada em outro repo"               "git -C $FEAT checkout -b feat/n && git -C $MAIN commit -m x"
+check bloqueia "worktree add para um path, commit em outro" "git -C $MAIN worktree add -q -b docs/w $NOVO_WT && git -C $MAIN commit -m x"
+check bloqueia "checkout sem -b não cria branch"           "git checkout main && git commit -m x" "$FEAT"
+# Worktree criado no comando, commit com `git -C <path>`: seguro com QUALQUER separador. Se
+# o `worktree add` falhar, o path não existe e o `git -C` falha sem commitar em lugar nenhum.
+# Com `cd <path>` não: o cd falha e o commit roda no cwd.
+check passa    "worktree novo, commit com -C em outra linha" "git -C $MAIN worktree add -q -b docs/w $NOVO_WT origin/main${NL}git -C $NOVO_WT add a${NL}git -C $NOVO_WT commit -m x"
+check bloqueia "worktree novo, cd e commit em outra linha" "git -C $MAIN worktree add -q -b docs/w $NOVO_WT${NL}cd $NOVO_WT${NL}git commit -m x"
+check bloqueia "worktree add para path que já existe não libera" "git -C $MAIN worktree add -q -b docs/w $MAIN${NL}git -C $MAIN commit -m x"
+#
+# 2) Variável que se reatribui a partir dela mesma (`KW=…; KW="$KW" python3 …`): o hook
+#    pegava a última atribuição, `$KW`, e não resolvia nunca.
+check passa    "variável reatribuída a partir dela mesma" "KW=$FEAT; KW=\"\$KW\" true; git -C \$KW commit -m x"
+#
+# 3) Fixture na raiz de scratch do Claude (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`):
+#    é onde o modelo monta repo descartável, e o repo muitas vezes nasce no próprio comando.
+#    Só essa raiz: o `mktemp -d` comum (que no CI Linux cai em /tmp) segue falha fechada,
+#    como manda o caso de 17/09 acima.
+check passa    "scratchpad do Claude em /private/tmp"     "S=/private/tmp/claude-501/s/scratchpad/edge; git -C \$S/r commit -m x"
+check passa    "scratch do Claude em /tmp"                "git -C /tmp/claude-1000/sessao/fixture commit -m x"
+check bloqueia "/tmp comum não é descartável por nome"    "git -C /tmp/outra/coisa commit -m x"
+check bloqueia "claude- sem uid não é a raiz de scratch"  "git -C /tmp/claude-x/coisa commit -m x"
+
+echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -13,6 +13,27 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.4] — 2026-10-15
+
+### Mudou
+
+- **`block-main-commit` deixa passar a branch criada no próprio comando e fecha a volta para a
+  main** (espelho de VAMOO-AI/claude-config-team#334, issue #207). No kit do time, 22 dos 30
+  bloqueios medidos em 30 dias eram commit que não cairia na main. Agora passam:
+  - `git checkout -b|switch -c X && … && git commit`, só com `&&` puro do checkout até o
+    commit. Com pipe, `;`, nova linha ou `||`, um checkout que falha deixa o commit na main,
+    e esses casos continuam bloqueados;
+  - `git worktree add -b X <path>` com o commit em `<path>` (via `git -C <path>` vale
+    qualquer separador, porque se o add falhar o path não existe);
+  - fixture na pasta temporária do Claude (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`);
+  - variável que se reatribui a partir dela mesma (`KW=…; KW="$KW" …`), que resolve pelo
+    valor literal.
+
+  O furo inverso fecha: `git checkout main && git commit`, com a sessão numa feature branch,
+  passava e agora bloqueia. `$(mktemp -d)` comum segue em falha fechada. São 23 casos novos
+  em `tests/test-block-main-commit.sh`, 11 falham contra o hook anterior, e os 69 antigos
+  passam.
+
 ## [0.53.3] — 2026-10-15
 
 ### Mudou
