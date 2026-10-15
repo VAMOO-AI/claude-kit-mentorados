@@ -30,6 +30,9 @@ O que eu quero agora: [DESCREVA AQUI]
   `</body></html>` na última). Tire os dois antes de republicar; o publish coloca de novo.
 - Se outra sessão estiver mexendo na página, combine com ela antes de publicar.
 - Publique sempre no mesmo link (parâmetro `url`). Nunca crie um artefato novo.
+- A página tem arquivos publicados junto com ela (o vídeo e a capa, ver "Peças ligadas"). Publicar
+  só a página mantém esses arquivos. Ao mandar `files`, não passe `null` neles nem os remova sem
+  pedido. Confira com a listagem de arquivos do artefato (`scope: "files"`) depois de publicar.
 
 ### 2. Manter o que já existe
 
@@ -79,3 +82,10 @@ que a pessoa reconhece, não pelo nome técnico.
 - **Vídeo do kit** com a chamada do guia nos primeiros segundos: projeto
   `VIDEOEDITION/projects/claude-kit-mentorados-filme-guia/` (o `capture.mjs` dali recaptura a
   página para a miniatura do vídeo).
+- **O mesmo vídeo no topo da página**: o bloco `<figure class="film">` no começo do hero toca
+  `filme-kit-mentorados.mp4` com a capa `filme-poster.jpg`. Os dois são arquivos publicados junto
+  com a página, não ficam dentro do HTML. O artefato só aceita até 15 MB por arquivo e não carrega
+  vídeo de outro site, então a versão da página é 540 × 960, com cerca de 14 MB (sai do
+  `filme-kit-mentorados-guia-9x16.mp4` em duas passadas, vídeo a 280 kbps e áudio a 56 kbps).
+  Trocar o vídeo é publicar o arquivo novo com o mesmo nome. Ao abrir um guia, o `setView`
+  pausa o vídeo.
