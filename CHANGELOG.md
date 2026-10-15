@@ -16,6 +16,20 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [Não lançado]
+
+### Adicionado
+
+- **Prova de que o gate de spec não reprova por link externo fora do ar.** O
+  `scripts/skill-spec-check.sh` roda `skill-validator check --skip links` desde a 0.47.5,
+  mas nenhum caso do `tests/test-skill-spec.sh` provava isso: tirar a flag deixava a suíte
+  verde. Agora um stub que imita o `context deadline exceeded` do HEAD (o que deixou a main
+  do kit do time vermelha duas vezes em 15/10/2026, nos links da
+  `reverse-engineer-anything`) tem que passar, e um stub de frontmatter quebrado tem que
+  reprovar. Com o binário real, link `https://exemplo.invalid/...` passa e frontmatter
+  quebrado continua reprovando. Contra o wrapper de antes da 0.47.5 o teste dá 2 falhas. Só
+  CI, nada muda para o aluno.
+
 ## [0.53.7] — 2026-10-15
 
 ### Corrigido

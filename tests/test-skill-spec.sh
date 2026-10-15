@@ -12,8 +12,16 @@
 # skills/. O wrapper sem argumento tem que apontar para lá — senão o gate valida uma
 # pasta que não existe e o default vira armadilha para quem roda à mão.
 #
+# Link externo fora do ar não é erro de spec. O wrapper roda `check --skip links`
+# desde a 0.47.5 (o github.com respondia 503 ao runner em ondas, 10/10/2026), mas
+# nenhum caso provava isso: tirar a flag deixava a suíte verde. Em 15/10/2026 o kit do
+# time, que não pulava, ficou vermelho com `context deadline exceeded` nos links da
+# reverse-engineer-anything. O bloco de link prova que o timeout não reprova e que o
+# frontmatter quebrado continua reprovando.
+#
 # O último bloco é ponta a ponta e só roda quando o skill-validator real está
-# instalado (é o caso do CI): fixture com frontmatter quebrado tem que reprovar.
+# instalado (é o caso do CI): fixture com frontmatter quebrado tem que reprovar, e
+# fixture com link externo morto tem que passar.
 #
 # Uso: bash tests/test-skill-spec.sh
 set -uo pipefail
@@ -47,6 +55,27 @@ stub() { # stub <codigo-de-saida> — instala um skill-validator falso que sai c
 echo "stub do skill-validator (saída $1)"
 echo "alvo: \${@: -1}"
 exit $1
+STUB
+  chmod +x "$TMP/stub/skill-validator"
+}
+
+stub_link() { # imita o v1.6.1 com link externo em timeout: o grupo `links` reprova, a menos que o wrapper o pule
+  cat > "$TMP/stub/skill-validator" <<'STUB'
+#!/usr/bin/env bash
+case " $* " in
+  *" --skip links"*|*" --skip=links"*) echo "stub: spec ok, links pulados"; exit 0 ;;
+esac
+echo 'request failed: Head "https://github.com/morluto/rea": context deadline exceeded (Client.Timeout exceeded while awaiting headers)'
+exit 1
+STUB
+  chmod +x "$TMP/stub/skill-validator"
+}
+
+stub_spec() { # frontmatter quebrado: erro de spec, que nenhuma flag de link pode calar
+  cat > "$TMP/stub/skill-validator" <<'STUB'
+#!/usr/bin/env bash
+echo "parsing frontmatter YAML: yaml: line 2: mapping values are not allowed in this context"
+exit 1
 STUB
   chmod +x "$TMP/stub/skill-validator"
 }
@@ -90,6 +119,12 @@ echo "== alvo inválido =="
 stub 0
 check "pasta inexistente reprova" "$([ "$(roda "$COM_STUB" 0 "$TMP/nao-existe")" = 1 ] && echo ok || echo fail)"
 
+echo "== link externo fora do ar não é erro de spec =="
+stub_link
+check "timeout de link externo não reprova"         "$([ "$(roda "$COM_STUB" 0 "$TMP/skills")" = 0 ] && echo ok || echo fail)"
+stub_spec
+check "frontmatter quebrado continua reprovando"    "$([ "$(roda "$COM_STUB" 0 "$TMP/skills")" = 1 ] && echo ok || echo fail)"
+
 echo "== ponta a ponta (só com o skill-validator real) =="
 real=""
 command -v skill-validator > /dev/null 2>&1 && real="$(command -v skill-validator)"
@@ -106,6 +141,8 @@ description: Use quando algo acontecer. Triggers: "/ruim", "quebra o YAML".
 ---
 
 # Ruim
+
+Veja [o repo](https://exemplo.invalid/repo).
 MD
   PATH="$(dirname "$real"):$SEM_BIN" SKILL_SPEC_STRICT=1 \
     bash "$WRAPPER" "$TMP/quebrada" > "$TMP/saida.txt" 2>&1
@@ -116,6 +153,23 @@ MD
     bash "$WRAPPER" "$TMP/skills" > "$TMP/saida.txt" 2>&1
   rc=$?
   check "fixture válida passa de verdade" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+
+  # .invalid nunca resolve (RFC 2606): é o link fora do ar sem depender da rede.
+  mkdir -p "$TMP/linkmorto/linkmorto"
+  cat > "$TMP/linkmorto/linkmorto/SKILL.md" <<'MD'
+---
+name: linkmorto
+description: Skill de fixture com link externo que nunca responde.
+---
+
+# Link morto
+
+Veja [o repo](https://exemplo.invalid/repo).
+MD
+  PATH="$(dirname "$real"):$SEM_BIN" SKILL_SPEC_STRICT=1 \
+    bash "$WRAPPER" "$TMP/linkmorto" > "$TMP/saida.txt" 2>&1
+  rc=$?
+  check "link externo fora do ar não reprova de verdade" "$([ "$rc" = 0 ] && echo ok || echo fail)"
 fi
 
 echo
