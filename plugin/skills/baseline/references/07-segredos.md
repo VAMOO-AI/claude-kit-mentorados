@@ -25,8 +25,29 @@ cada um está*, inclusive os que estão em lugar errado por decisão consciente.
 - [ ] **Runbook de rotação escrito** e testado ao menos uma vez.
 - [ ] Chave com prazo tem data de expiração conhecida e anotada.
 - [ ] Um token por escopo: token de cliente A não abre porta de cliente B.
+- [ ] **O app recusa subir sem os segredos obrigatórios** — e recusa também com
+      o valor default versionado. `${JWT_SECRET:-troque-isso}` no compose é um
+      segredo público esperando um deploy distraído; sem validação de boot, o
+      deploy distraído não avisa ninguém.
 
 ## Como implementar
+
+**Validação de boot — a lista está no código, não no README:**
+
+```ts
+// src/lib/env.ts, importado antes de qualquer handler
+const OBRIGATORIOS = ['DATABASE_URL', 'JWT_SECRET', 'SERVICE_ROLE_KEY'] as const
+const PROIBIDOS = ['troque-isso', 'changeme', 'supersecret', 'dev']
+
+for (const k of OBRIGATORIOS) {
+  const v = process.env[k]
+  if (!v) throw new Error(`env obrigatória ausente: ${k}`)
+  if (PROIBIDOS.includes(v)) throw new Error(`env ${k} está com valor default público`)
+}
+```
+
+Falhar no boot é barulhento de propósito: a alternativa é subir em produção com
+o segredo do exemplo e descobrir pelo incidente.
 
 **O inventário.** Uma tabela no contrato do projeto, e ela é o entregável central
 deste pilar:

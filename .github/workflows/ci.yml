@@ -388,6 +388,16 @@ jobs:
         # some sem erro nenhum. Nada disso quebra a instalação — por isso é teste.
         run: bash tests/test-skills-sh-catalogo.sh
 
+      - name: O README anuncia o número de skills que existe
+        # Três frases do README dizem quantas skills o kit tem. Em 15/10/2026 uma dizia 25
+        # e as outras 26, com 26 pastas: skill nova entra e um dos números fica para trás.
+        run: bash tests/test-readme-contagem.sh
+
+      - name: O gitignore de projeto segura o que é da máquina e deixa passar o do time
+        # .env.* fora e .env.example dentro; settings.local.json e worktrees fora,
+        # settings.json, agents e skills do projeto dentro.
+        run: bash tests/test-gitignore-exemplo.sh
+
       - name: Secrets (gitleaks)
         run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 \

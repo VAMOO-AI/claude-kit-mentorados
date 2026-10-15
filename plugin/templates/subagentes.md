@@ -44,6 +44,7 @@
 ## Atenção ao contexto
 - Arquivos grandes (>500 linhas): leia em pedaços (offset/limit).
 - Resultados de ferramenta podem truncar. Output que parece cortado → rode de novo com escopo menor.
+- Imagem que você tira é relida em toda request sua até o fim da tarefa. Screenshot só quando o pixel é a evidência (layout, cor, alinhamento); estado, texto, erro ou DOM → leia a página como texto (`read_page`/`get_page_text`). Nunca tire print de novo para conferir o que já viu. O veredito volta em texto, sem a imagem.
 
 ## Código
 - Código humano, sem comentário robótico nem header desnecessário.

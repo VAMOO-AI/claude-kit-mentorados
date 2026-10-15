@@ -37,10 +37,21 @@ O que eu quero agora: [DESCREVA AQUI]
   `#007dff` só como acento, faixa escura `#05070a`. Toda cor vem dos tokens do `:root`, com os
   blocos de tema escuro (`prefers-color-scheme` e `[data-theme]`).
 - **Visão geral** com as seções do menu: Guia, Instalar, Skills, Comandos, MCP do sistema,
-  Proteções, Dúvidas.
-- **Guias como telas separadas**, abertas por hash: `#guia` (instalação) e `#guia-mcp` (skill
-  `mcp-sistema`). Cada uma tem checklist próprio salvo no navegador (`kit-steps`,
-  `kit-mcp-steps`). A troca de tela fica na função `setView` e no mapa `VIEWS` do script.
+  Proteções, Secretária, Gestão de RH, Dúvidas. A seção **Templates** (`#templates`, entre
+  MCP do sistema e Dúvidas) apresenta a secretária e o RH e abre os guias deles; ela não tem item
+  no menu.
+- **Guias como telas separadas**, abertas por hash. São quatro, cada uma com checklist próprio
+  salvo no navegador:
+
+  | Hash | Tela (`data-view`) | Do quê | Chave no `localStorage` |
+  |---|---|---|---|
+  | `#guia` | `guia` | instalação do kit | `kit-steps` |
+  | `#guia-mcp` | `mcp` | skill `mcp-sistema` | `kit-mcp-steps` |
+  | `#guia-secretaria` | `secretaria` | template da secretária de WhatsApp | `kit-sec-steps` |
+  | `#guia-rh` | `rh` | template da Gestão de RH | `kit-rh-steps` |
+
+  A troca de tela fica na função `setView` e em dois mapas do script: `VIEWS` (hash → tela) e
+  `VIEW_ROOT` (tela → seletor da raiz).
 - **Skills** no array `SKILLS` do script, um objeto por skill: `n` nome, `c` área, `m:1` se é
   manual, `w` o que faz, `a` frase para pedir, `r` pré-requisito, `g` link de guia (opcional).
 - O prompt de instalação (`#prompt-text`) leva o link do repositório e os comandos
@@ -49,10 +60,23 @@ O que eu quero agora: [DESCREVA AQUI]
 
 ### 3. Guia novo
 
-Vira mais uma tela `#guia-<nome>`, no molde das duas que existem: topo com marca e voltar, selo,
-título, barra de progresso, cards de passo com checklist (chave própria no `localStorage`),
-"Deu erro? Resolva aqui" e fechamento na faixa escura. Entra também no mapa `VIEWS`, no menu e,
-se for de uma skill, no campo `g` do card dela.
+Vira mais uma tela `#guia-<nome>`, no molde das quatro que existem: topo com marca e voltar,
+selo, título, barra de progresso, cards de passo com checklist, "Deu erro? Resolva aqui" e
+fechamento na faixa escura. Uma tela nova só aparece com todas estas peças:
+
+- entrada em `VIEWS` (`"#guia-<nome>": "<tela>"`) e em `VIEW_ROOT` (`<tela>: "#guia-<nome>"`);
+- as duas regras de CSS, que usam o nome da tela e não o hash: acrescentar
+  `body[data-view="<tela>"]` à lista que esconde `.top`, `.widget`, `.progress` e `#inicio`, e
+  `body:not([data-view="<tela>"]) #guia-<nome>{display:none}`. Sem a primeira, a visão geral
+  aparece por cima do guia; sem a segunda, o guia aparece no fim da visão geral;
+- o array de passos e as funções de pintar e salvar, com chave própria `kit-<nome>-steps`;
+- o item no menu e, se for de uma skill, o campo `g` do card dela.
+
+**Renomear uma tela mantém o hash antigo.** O link já circulou no grupo e no vídeo, então o
+hash antigo fica em `VIEWS` como alias apontando para a mesma tela
+(`"#guia-velho": "<tela>", "#guia-novo": "<tela>"`). Só o `VIEWS` ganha a linha: o `VIEW_ROOT`
+e o CSS continuam com o nome da tela, que não muda. A chave do checklist também não muda, senão
+quem já marcou passos perde o progresso.
 
 ### 4. Bater com o kit
 
