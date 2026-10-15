@@ -202,6 +202,12 @@ symlink reabre o aviso). Não vai para o time: o hook de lá decide pelo hash qu
 do glob `*/SKILL.md`, que já segue o link. Os dois hooks continuam diferentes por desenho
 (marcador por mtime aqui, por hash lá).
 
+## Avaliado sem porte (15/10)
+
+| PR do time | Portado | Não portado, e por quê |
+|---|---|---|
+| #329 (`638952d`) | — | não se aplica: corrige a `n8n-workflow-agent` (`references/uazapi.md`) e a `whatsapp-inbox-stack`, que o plugin não tem (ver "Skills de domínio" acima). O que levar se uma referência de WhatsApp não-oficial entrar aqui está no comentário da #201 |
+
 ## Porte da 0.52.0 e da 0.53.0 (15/10)
 
 Ideias da leitura de soumatheusgomes/vibe-coding-toolkit (MIT), feitas nos dois kits na mesma

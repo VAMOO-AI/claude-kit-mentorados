@@ -18,7 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      # Actions pinadas por SHA (tag móvel pode ser reescrita por quem controla o repo da
+      # action); o Dependabot (.github/dependabot.yml) abre o PR de atualização.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -32,6 +34,9 @@ jobs:
                    skills.sh.json; do
             python3 -m json.tool "$f" > /dev/null && echo "ok $f"
           done
+
+      - name: Link relativo, âncora e href/src dos .md resolvem, e todo .json parseia
+        run: bash tests/test-docs-consistencia.sh
 
       - name: A versão do plugin bate com a do kit-setup
         run: |
@@ -191,7 +196,7 @@ jobs:
         run: bash tests/test-skills-projeto.sh
 
       - name: Go para o validador de spec de skill
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
 

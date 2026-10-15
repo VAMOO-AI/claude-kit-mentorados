@@ -15,6 +15,21 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 ## [0.53.2] — 2026-10-15
 
+### Adicionado
+
+- **CI reprova link relativo, âncora e `href`/`src` quebrados nos `.md`, e `.json` que não
+  parseia** (porte de VAMOO-AI/claude-config-team#313, issue #196). O
+  `tests/test-docs-consistencia.sh` varre `git ls-files` (nunca os worktrees), calcula o
+  slug da âncora como o GitHub (acento mantido, título repetido ganha `-1`) e começa por
+  um autoteste com um erro plantado de cada tipo. Uma linha que começa com
+  ```` ```text … ``` ```` é código inline, não abre bloco: a versão do time tratava como
+  cerca e acusava a âncora do glossário da `diretor-imagem`, que funciona no GitHub. O
+  caso entrou no autoteste e falha com a regex antiga. A contagem de skills do README já
+  tem gate próprio desde a 0.51.3 (`tests/test-readme-contagem.sh`).
+- **Actions pinadas por SHA** (`actions/checkout` v4.4.0 no `ci.yml` e no `release.yml`,
+  `actions/setup-go` v5.6.0), com `.github/dependabot.yml` semanal abrindo o PR de
+  atualização. Tag móvel pode ser reescrita por quem controla o repo da action.
+
 ### Corrigido
 
 - **`baseline` 04: `isCronAuthorized` conta como guard de edge function.** O guard de
