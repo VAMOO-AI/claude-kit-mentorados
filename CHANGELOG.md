@@ -18,6 +18,10 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
 ## Não lançado
 
+Mudança que não toca `plugin/` e por isso não pede versão. Sem colchete de propósito: o
+`tests/test-versao-changelog.sh` exige que o primeiro `## [` seja a versão do plugin.json.
+Na próxima release, troque este cabeçalho por `## [x.y.z] — data` e funda as seções.
+
 ### CI
 
 - **O job `windows-latest` roda 12 suítes, não 8** (issue #220): entram
@@ -30,6 +34,16 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   `test-warn-sem-node` montam o PATH sem node com scripts que chamam o binário pelo
   caminho absoluto, porque o `ln -s` do MSYS copia o `.exe` e a cópia não carrega longe
   da `msys-2.0.dll`. Nada em `plugin/` mudou.
+
+- **Prova de que o gate de spec não reprova por link externo fora do ar.** O
+  `scripts/skill-spec-check.sh` roda `skill-validator check --skip links` desde a 0.47.5,
+  mas nenhum caso do `tests/test-skill-spec.sh` provava isso: tirar a flag deixava a suíte
+  verde. Agora um stub que imita o `context deadline exceeded` do HEAD (o que deixou a main
+  do kit do time vermelha duas vezes em 15/10/2026, nos links da
+  `reverse-engineer-anything`) tem que passar, e um stub de frontmatter quebrado tem que
+  reprovar. Com o binário real, link `https://exemplo.invalid/...` passa e frontmatter
+  quebrado continua reprovando. Contra o wrapper de antes da 0.47.5 o teste dá 2 falhas. Só
+  CI, nada muda para o aluno.
 
 ## [0.53.7] — 2026-10-15
 
