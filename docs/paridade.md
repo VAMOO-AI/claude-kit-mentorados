@@ -252,6 +252,12 @@ no plugin. Até então eram "skills de domínio" que ficavam só no time. A part
 | `whatsapp-inbox-stack` | `plugin/skills/whatsapp-inbox-stack` | slash-only, mesma limpeza; o `hitl-loop.sh` é o do plugin (`${CLAUDE_PLUGIN_ROOT}/scripts/`) |
 | `tests/test-sem-dado-de-cliente.sh` | só aqui | o kit é público: o gate reprova nome de cliente (lista guardada como sha256, para o teste não publicar a carteira), telefone com DDD real e host `*.uazapi.com` que não seja exemplo, em todo arquivo versionado |
 
+## 0.53.9 (15/10): caminho Windows no path-rules
+
+| Item | Lado | Por quê |
+|---|---|---|
+| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | porte pendente | o time tem a mesma lógica no `case` (lendo com `jq`); issue espelho VAMOO-AI/claude-config-team#348 |
+
 ## Como usar
 
 ```bash

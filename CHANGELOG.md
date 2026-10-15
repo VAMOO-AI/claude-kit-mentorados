@@ -16,6 +16,21 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.9] — 2026-10-15
+
+### Corrigido
+
+- **No Windows, as regras por caminho não chegavam** (achado na issue #220). O
+  `path-rules.sh` só tratava `/...` como absoluto. Com `C:\Users\...\supabase\migrations\x.sql`,
+  o caminho ganhava o cwd na frente e os globs `*/...` do `path-rules.conf` não casavam
+  com barra invertida: o hook saía 0 sem injetar nada, e a regra de migration, de `.env` e
+  de edge function sumia calada para quem usa Windows. Com `C:/...` e cwd a regra chegava,
+  mas o caminho saía dobrado (`C:/Users/x/PROJ/C:/Users/x/PROJ/.env`). Agora a barra
+  invertida vira `/` (no caminho e no cwd) antes do `case`, e `C:/...` conta como
+  absoluto, com letra de drive maiúscula ou minúscula. Dos 10 checks novos em
+  `tests/test-path-rules.sh` (barra invertida e barra normal, com e sem cwd, relativo com
+  `\` e drive minúsculo), 6 falham contra o hook da 0.53.8.
+
 ## [0.53.8] — 2026-10-15
 
 ### Adicionado

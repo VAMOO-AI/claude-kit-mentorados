@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.53.9|no Windows, a regra do caminho (migration, .env, edge function) volta a chegar quando você abre o arquivo: o C:\... com barra invertida passava sem regra nenhuma
 0.53.8|o kit ganhou duas skills que você chama quando for mexer com WhatsApp e n8n: /kit-vamoo:n8n-workflow-agent para o workflow e /kit-vamoo:whatsapp-inbox-stack para o inbox no seu app
 0.53.7|no Windows, os freios de commit na main, de cd seguido de leitura e de troca de branch no clone em uso voltam a funcionar: eles eram pulados sem aviso
 0.53.6|o freio que protege a pasta principal do projeto quando há outra sessão aberta para de barrar os testes que o Claude monta na pasta temporária dele
