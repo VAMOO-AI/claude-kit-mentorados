@@ -61,6 +61,13 @@ request pelo resto do projeto. Antes de instalar qualquer coisa de terceiro:
 Depois de instalar, rode o scan. Se o total pulou, desinstale o que você não
 consegue explicar em uma frase.
 
+O `npx skills add` costuma pôr a skill em `.agents/skills/<nome>` e só um link em
+`.claude/skills/<nome>`. O Claude Code carrega pelo link: ele não lê
+`.agents/skills` direto, então o que só existe lá não pesa aqui (pesa no Codex,
+que lê). O scan e o aviso da abertura contam as skills que chegam pelo link.
+A skill nova entra na sessão aberta sozinha; se não aparecer no menu, rode
+`/reload-skills` em vez de reiniciar.
+
 ## O que faz uma skill rotear de verdade
 
 O Claude Code escolhe a skill pelo `name` do frontmatter e decide pela
