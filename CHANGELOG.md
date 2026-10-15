@@ -31,7 +31,7 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 
   O furo inverso fecha: `git checkout main && git commit`, com a sessão numa feature branch,
   passava e agora bloqueia. `$(mktemp -d)` comum segue em falha fechada. São 23 casos novos
-  em `tests/test-block-main-commit.sh`, 11 falham contra o hook anterior, e os 81 antigos
+  em `tests/test-block-main-commit.sh`, 11 falham contra o hook anterior, e os 69 antigos
   passam.
 
 ## [0.53.3] — 2026-10-15
