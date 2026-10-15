@@ -13,6 +13,40 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.5] — 2026-10-15
+
+### Mudou
+
+- **`ship`: o merge espera a metadata do PR, não o exit do watch** (porte de
+  VAMOO-AI/claude-config-team#308, issue #191). Três avisos novos na espera do CI: não
+  pendurar `; echo` atrás do `gh pr checks --watch` (a notificação passa a mostrar o exit do
+  `echo`); `no checks reported` logo depois do push não é verde nem vermelho; e o gate antes
+  do `gh pr merge` é `mergeStateStatus` `CLEAN`, checks `SUCCESS` e `headRefOid` igual ao
+  `HEAD`. Caso real de 14/10/2026: PR mergeado `UNSTABLE` porque a notificação disse exit 0.
+
+### Corrigido
+
+- **Hook com bug não desliga mais os guards seguintes** (porte de
+  VAMOO-AI/claude-config-team#309, issue #194). O `pre-bash.sh` e o `pre-prompt.sh`
+  encerravam a cadeia no primeiro hook com código ≠ 0. Só que exit 1 não bloqueia no Claude
+  Code ("non-blocking error" na doc de hooks): um guard com bug deixava o comando rodar sem
+  os guards de depois, e o `set -eu` do `memoria-worktree-link.sh` desligava o
+  `worktree-seed-env.sh`. Agora só o exit 2 encerra. Outro código vai para o stderr como
+  `[pre-bash] <hook> saiu <rc> (bug do hook; cadeia segue)` e aparece para você na tela (no
+  Bash, no mesmo JSON do pedido de confirmação do `check-careful`, quando ele também fala).
+  Os casos novos em `tests/test-pre-bash.sh` e `tests/test-pre-prompt.sh` falham contra os
+  dispatchers anteriores.
+
+### Adicionado
+
+- **Sem node, a sessão fica sabendo** (porte de VAMOO-AI/claude-config-team#312, issue
+  #195). Os guard-rails do kit leem o payload com node e, sem ele, saem calados para não
+  travar a sessão: nada protegia, sem aviso. O `warn-sem-node.sh` roda primeiro no
+  `pre-prompt.sh` e, sem node no PATH, pede ao Claude que avise você uma vez por sessão,
+  com os guards desligados e como instalar o Node.js no Mac, no Windows e no Linux. Só
+  builtins e um `mkdir`. Sem como gravar o marcador, avisa em todo prompt.
+  `tests/test-warn-sem-node.sh` monta o PATH à mão.
+
 ## [0.53.4] — 2026-10-15
 
 ### Mudou
