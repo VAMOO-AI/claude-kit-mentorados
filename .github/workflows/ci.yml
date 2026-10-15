@@ -181,11 +181,14 @@ jobs:
       - name: Monitor esperando CI/deploy é bloqueado; stream de eventos passa
         run: bash tests/test-block-monitor-ci.sh
 
-      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados
+      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
       - name: O dispatcher do UserPromptSubmit devolve o que os quatro hooks devolviam
         run: bash tests/test-pre-prompt.sh
+
+      - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
+        run: bash tests/test-warn-sem-node.sh
 
       - name: Os zips de downloads/ batem com a skill do plugin
         # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
@@ -199,7 +202,7 @@ jobs:
         run: bash tests/test-skills-projeto.sh
 
       - name: Go para o validador de spec de skill
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
 

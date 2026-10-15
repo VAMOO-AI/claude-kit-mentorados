@@ -164,6 +164,26 @@ contem "$TMP/err" 'motivo' "stderr do hook que saiu ≠ 0 é repassado"
 nao_contem "$TMP/out" 'NAO-DEVIA-RODAR' "o hook seguinte não roda"
 
 echo
+echo "== cadeia: exit fora de 0 e 2 é bug do hook, e os seguintes rodam =="
+# O memoria-worktree-link.sh tem `set -eu` e roda antes do worktree-seed-env.sh: um erro
+# nele desligava o seed de env do worktree. Entries separados rodavam todos.
+BUG="$(árvore "$TMP/bug")"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo aviso-do-primeiro' 'exit 0' > "$BUG/session-size-guard.sh"
+printf '%s\n' '#!/bin/bash' 'echo saida-do-bug' 'echo erro-do-bug >&2' 'exit 1' > "$BUG/memoria-worktree-link.sh"
+printf '%s\n' '#!/bin/bash' 'echo seed-rodou' 'exit 0' > "$BUG/worktree-seed-env.sh"
+rc=$(roda s9 "$REPO" "$BUG")
+espera_rc 0 "$rc" "hook com exit 1 não encerra a cadeia: sai 0"
+modelo=$(json hookSpecificOutput.additionalContext)
+pessoa=$(json systemMessage)
+tem 'seed-rodou' "$modelo" "o hook seguinte roda e chega ao modelo"
+tem 'aviso-do-primeiro' "$modelo" "o que os anteriores disseram continua chegando"
+nao_tem 'saida-do-bug' "$modelo" "o stdout do hook com bug não vira contexto"
+tem 'memoria-worktree-link.sh saiu 1' "$pessoa" "a pessoa vê qual hook falhou (systemMessage)"
+contem "$TMP/err" '[pre-prompt] memoria-worktree-link.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
+contem "$TMP/err" 'erro-do-bug' "stderr do hook com bug é repassado"
+contem "$TMP/err" 'saida-do-bug' "…e o stdout dele também, para diagnóstico"
+
+echo
 echo "== fail-open =="
 rc=$(printf '' | bash "$HOOK" >/dev/null 2>&1; echo $?)
 espera_rc 0 "$rc" "payload vazio sai 0"

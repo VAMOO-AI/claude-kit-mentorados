@@ -7,6 +7,11 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.53.6|o freio que protege a pasta principal do projeto quando há outra sessão aberta para de barrar os testes que o Claude monta na pasta temporária dele
+
+0.53.5|se um guard-rail do kit tiver um bug, os outros continuam valendo e você vê qual falhou; sem o Node.js instalado, o Claude avisa que os guard-rails estão desligados e como instalar; o ship só faz merge com o PR limpo e o CI verde no GitHub, não pelo código de saída da espera
+0.53.4|o freio que impede commit direto na main para de barrar o commit feito numa branch criada no próprio comando, e passa a barrar a troca para a main seguida de commit
+
 0.53.3|a proteção que impede o Claude de ler o seu .env passa a valer também fora da pasta do projeto, e para saber se uma chave existe sem ver o valor o kit traz o env-tem-chave|setup
 
 0.53.2|a baseline para de acusar como aberta a edge function de cron protegida por isCronAuthorized, que travava o /ship

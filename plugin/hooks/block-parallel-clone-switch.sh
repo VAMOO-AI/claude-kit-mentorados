@@ -71,9 +71,11 @@ expand_shell_path() {
     case "$p" in *'$'*) ;; *) break ;; esac
     name=$(printf '%s' "$p" | sed -nE 's/^[^$]*\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?.*/\1/p')
     [ -z "$name" ] && break
-    val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=\"([^\"]*)\".*/\2/p" | head -1)
-    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}='([^']*)'.*/\2/p" | head -1)
-    [ -z "$val" ] && val=$(printf '%s' "$c" | sed -nE "s/.*(^|[;&|(]|[[:space:]])${name}=([^[:space:];&|\"']+).*/\2/p" | head -1)
+    # A ÚLTIMA atribuição que não cita a própria variável (`W=/x; W="$W" cmd`, 15/10/2026):
+    # a reatribuição a partir dela mesma vinha por último e o path nunca resolvia.
+    val=$(printf '%s' "$c" | grep -oE "(^|[;&|(]|[[:space:]])${name}=(\"[^\"]*\"|'[^']*'|[^[:space:];&|\"']+)" \
+      | sed -E "s/^[^=]*${name}=//; s/^\"(.*)\"$/\1/; s/^'(.*)'$/\1/" \
+      | grep -vE "\\\$\{?${name}([^A-Za-z0-9_]|$)" | tail -1)
     [ -z "$val" ] && break
     # `D=$(mktemp -d)` ou `D=`pwd``: o valor só existe depois de o shell EXECUTAR aquilo.
     # Expandir o pedaço de texto (`$(mktemp`) fabricaria um path que ninguém pediu.
@@ -128,6 +130,15 @@ alvo_de() { # <trecho que termina no verbo> — define tgt e alvo_incerto
   p_cru="$p"
   p=$(expand_shell_path "$p" "$c_cmd")
   case "$p" in /*) ;; *) p="${cwd:-.}/$p" ;; esac
+  # Raiz de scratch do Claude Code (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`): é onde
+  # o modelo monta repo de fixture, muitas vezes criado no próprio comando — o path ainda não
+  # existe, e cair no cwd bloqueava o clone principal por um repo descartável (5 dos 14
+  # bloqueios medidos em 30 dias, 15/10/2026). O alvo fica sendo o próprio path: se for repo,
+  # não é o clone compartilhado; se não existir, o checa_clone sai 0. Só essa raiz — o
+  # `/tmp` comum segue caindo no cwd (falha fechada).
+  if printf '%s' "$p" | grep -qE '^(/private)?/tmp/claude-[0-9]+/'; then
+    tgt="$p"; return 0
+  fi
   if git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
     tgt="$p"
   else

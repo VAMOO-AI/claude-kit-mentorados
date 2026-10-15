@@ -101,17 +101,37 @@ espera_rc 0 "$rc" "pasta sem nenhum hook sai 0"
 [ -s "$TMP/out" ] && falha "stdout deveria estar vazio" || ok "stdout vazio"
 
 echo
-echo "== cadeia: o primeiro código ≠ 0 encerra, com o stdout e o stderr dele =="
+echo "== cadeia: só o exit 2 encerra; outro código é bug do hook e a cadeia segue =="
+# Até a 0.25.0 eram entries separados no hooks.json, e o harness roda todos em paralelo:
+# um hook com bug (exit 1) não desligava os guards seguintes. O dispatcher passou a
+# encerrar no primeiro rc ≠ 0 — e exit 1 não bloqueia no Claude Code ("non-blocking
+# error"), então o comando rodava sem os guards de depois. Agora só o exit 2 encerra.
 FALSOS="$(árvore "$TMP/falsos")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-primeiro' 'echo erro-do-primeiro >&2' 'exit 1' > "$FALSOS/check-careful.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo NAO-DEVIA-RODAR' 'exit 0' > "$FALSOS/block-cd-leitura-relativa.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo guard-seguinte-bloqueou >&2' 'exit 2' > "$FALSOS/block-parallel-clone-switch.sh"
 rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
-espera_rc 1 "$rc" "exit 1 do hook vira exit 1 da cadeia"
-contem "$TMP/out" 'saida-do-primeiro' "stdout do hook que saiu ≠ 0 é repassado"
-contem "$TMP/err" 'erro-do-primeiro' "stderr do hook que saiu ≠ 0 é repassado"
-nao_contem "$TMP/out" 'NAO-DEVIA-RODAR' "o hook seguinte não roda"
+espera_rc 2 "$rc" "exit 1 de um hook não desliga o guard seguinte, que bloqueia com exit 2"
+contem "$TMP/err" 'guard-seguinte-bloqueou' "stderr traz a mensagem do guard que bloqueou"
+contem "$TMP/err" 'erro-do-primeiro' "stderr do hook com bug é repassado"
+contem "$TMP/err" '[pre-bash] check-careful.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
+rm "$FALSOS/block-parallel-clone-switch.sh"
+rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
+espera_rc 0 "$rc" "hook com bug e o resto calado: a cadeia sai 0"
+aviso=$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).systemMessage||""))' "$TMP/out" 2>/dev/null)
+case "$aviso" in *'check-careful.sh saiu 1'*) ok "a pessoa vê o aviso no systemMessage (JSON válido)" ;; *) falha "sem systemMessage do bug: $(cat "$TMP/out")" ;; esac
+nao_contem "$TMP/out" 'saida-do-primeiro' "o stdout do hook com bug não entra na decisão"
+contem "$TMP/err" 'saida-do-primeiro' "…vai para o stderr, para diagnóstico"
+# O ask do check-careful depois de um hook com bug: os dois no MESMO objeto JSON.
+rm "$FALSOS/check-careful.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'exit 1' > "$FALSOS/block-main-commit.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' \
+  'echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"[careful] teste\"}}"' > "$FALSOS/check-careful.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'exit 3' > "$FALSOS/block-cd-leitura-relativa.sh"
+rc=$(roda 'git commit -m x' "$FEAT" default "$HOME" "$FALSOS")
+espera_rc 0 "$rc" "dois hooks com bug e um ask: a cadeia sai 0"
+lido=$(node -e 'const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(o.hookSpecificOutput.permissionDecision+"|"+o.systemMessage)' "$TMP/out" 2>/dev/null)
+case "$lido" in ask\|*'block-main-commit.sh saiu 1'*'block-cd-leitura-relativa.sh saiu 3'*) ok "o ask chega intacto e os dois avisos vão no systemMessage do mesmo JSON" ;; *) falha "veio '$lido': $(cat "$TMP/out")" ;; esac
 
-echo
 echo "== o JSON do check-careful é repassado como o harness recebia =="
 FUSAO="$(árvore "$TMP/fusao")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' \

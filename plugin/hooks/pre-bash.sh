@@ -14,8 +14,14 @@
 # NECESSÁRIA, nunca suficiente: falso positivo só custa rodar o hook, que decide sozinho.
 #
 # Semântica da cadeia antiga, preservada:
-#   - o primeiro hook que sai com código ≠ 0 encerra a cadeia com o MESMO código, o stdout
-#     e o stderr dele (exit 2 = bloqueio; o stderr vira a mensagem para o agente);
+#   - o primeiro hook que sai 2 encerra a cadeia com exit 2, o stdout e o stderr dele
+#     (bloqueio; o stderr vira a mensagem para o agente);
+#   - hook que sai com outro código ≠ 0 tem bug, e o bug não desliga os guards seguintes:
+#     com entries separados o harness rodava todos, e exit 1 não bloqueia ("non-blocking
+#     error" na doc de hooks). O stdout dele vai para o stderr, a linha
+#     "[pre-bash] <hook> saiu <rc> (bug do hook; cadeia segue)" sai no stderr e no
+#     systemMessage, e a cadeia continua. Até a 0.53 qualquer rc ≠ 0 encerrava, e o
+#     comando rodava sem os guards de depois;
 #   - hook que sai 0 e emite algo no stdout tem o stdout repassado e a cadeia continua
 #     (é o `ask` do check-careful, o único que fala aqui);
 #   - hook que não está instalado é pulado.
@@ -59,6 +65,7 @@ powershell=0
 [[ $payload =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"PowerShell\" ]] && powershell=1
 
 saidas=""
+avisos=""
 for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
          block-parallel-clone-switch.sh block-delete-branch-with-children.sh; do
   f="$HOOKS_DIR/$h"
@@ -67,13 +74,30 @@ for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
   tem_gatilho "$f" || continue
   out=$(printf '%s' "$payload" | ( . "$f" ))
   rc=$?
-  if [ "$rc" -ne 0 ]; then
+  if [ "$rc" -eq 2 ]; then
     [ -n "$saidas" ] && printf '%s\n' "$saidas"
     [ -n "$out" ] && printf '%s\n' "$out"
-    exit "$rc"
+    exit 2
+  fi
+  if [ "$rc" -ne 0 ]; then
+    [ -n "$out" ] && printf '%s\n' "$out" >&2
+    aviso="[pre-bash] $h saiu $rc (bug do hook; cadeia segue)"
+    printf '%s\n' "$aviso" >&2
+    avisos="${avisos:+$avisos\\n}$aviso"
+    continue
   fi
   [ -n "$out" ] && saidas="${saidas:+$saidas
 }$out"
 done
+# O aviso de bug vai para a pessoa no systemMessage. Sem node para montar JSON: o texto
+# do aviso é só nome de hook, número e pontuação fixa, então dá para escrever à mão. Se o
+# check-careful falou (um objeto JSON), o systemMessage entra no MESMO objeto — dois
+# objetos no stdout o Claude Code não lê.
+if [ -n "${avisos:-}" ]; then
+  case "$saidas" in
+    "") saidas="{\"systemMessage\":\"$avisos\"}" ;;
+    "{"*) saidas="{\"systemMessage\":\"$avisos\",${saidas#\{}" ;;
+  esac
+fi
 [ -n "$saidas" ] && printf '%s\n' "$saidas"
 exit 0

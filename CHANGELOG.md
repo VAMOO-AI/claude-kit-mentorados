@@ -13,6 +13,78 @@ cache do Claude Code; sem bump, ninguém recebe a mudança, nem com auto-update 
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.53.6] — 2026-10-15
+
+### Mudou
+
+- **`block-parallel-clone-switch` não bloqueia o clone por fixture na pasta temporária do
+  Claude** (espelho de VAMOO-AI/claude-config-team#335, issue #208).
+  - **Origem:** no kit do time, nenhum dos 14 bloqueios medidos em 30 dias tinha outra sessão
+    escrevendo no clone principal, e 5 eram repo descartável em `/tmp/claude-<uid>/` ou
+    `/private/tmp/claude-<uid>/`, criado no próprio comando. O path não resolvia e o hook caía
+    no cwd, que era o clone.
+  - **Agora:** o alvo nessa pasta é o próprio path. O `/tmp` comum e o `$(mktemp)` seguem
+    caindo no cwd, e a variável que se reatribui a partir dela mesma (`W=/x; W="$W" …`) passa
+    a resolver pelo valor literal.
+  - **Continua bloqueado:** trocar de branch no clone principal com outra sessão ativa.
+  - **Testes:** 7 casos novos em `tests/test-block-parallel-clone-switch.sh`, 4 falham contra
+    o hook anterior.
+
+## [0.53.5] — 2026-10-15
+
+### Mudou
+
+- **`ship`: o merge espera a metadata do PR, não o exit do watch** (porte de
+  VAMOO-AI/claude-config-team#308, issue #191). Três avisos novos na espera do CI: não
+  pendurar `; echo` atrás do `gh pr checks --watch` (a notificação passa a mostrar o exit do
+  `echo`); `no checks reported` logo depois do push não é verde nem vermelho; e o gate antes
+  do `gh pr merge` é `mergeStateStatus` `CLEAN`, checks `SUCCESS` e `headRefOid` igual ao
+  `HEAD`. Caso real de 14/10/2026: PR mergeado `UNSTABLE` porque a notificação disse exit 0.
+
+### Corrigido
+
+- **Hook com bug não desliga mais os guards seguintes** (porte de
+  VAMOO-AI/claude-config-team#309, issue #194). O `pre-bash.sh` e o `pre-prompt.sh`
+  encerravam a cadeia no primeiro hook com código ≠ 0. Só que exit 1 não bloqueia no Claude
+  Code ("non-blocking error" na doc de hooks): um guard com bug deixava o comando rodar sem
+  os guards de depois, e o `set -eu` do `memoria-worktree-link.sh` desligava o
+  `worktree-seed-env.sh`. Agora só o exit 2 encerra. Outro código vai para o stderr como
+  `[pre-bash] <hook> saiu <rc> (bug do hook; cadeia segue)` e aparece para você na tela (no
+  Bash, no mesmo JSON do pedido de confirmação do `check-careful`, quando ele também fala).
+  Os casos novos em `tests/test-pre-bash.sh` e `tests/test-pre-prompt.sh` falham contra os
+  dispatchers anteriores.
+
+### Adicionado
+
+- **Sem node, a sessão fica sabendo** (porte de VAMOO-AI/claude-config-team#312, issue
+  #195). Os guard-rails do kit leem o payload com node e, sem ele, saem calados para não
+  travar a sessão: nada protegia, sem aviso. O `warn-sem-node.sh` roda primeiro no
+  `pre-prompt.sh` e, sem node no PATH, pede ao Claude que avise você uma vez por sessão,
+  com os guards desligados e como instalar o Node.js no Mac, no Windows e no Linux. Só
+  builtins e um `mkdir`. Sem como gravar o marcador, avisa em todo prompt.
+  `tests/test-warn-sem-node.sh` monta o PATH à mão.
+
+## [0.53.4] — 2026-10-15
+
+### Mudou
+
+- **`block-main-commit` deixa passar a branch criada no próprio comando e fecha a volta para a
+  main** (espelho de VAMOO-AI/claude-config-team#334, issue #207). No kit do time, 22 dos 30
+  bloqueios medidos em 30 dias eram commit que não cairia na main. Agora passam:
+  - `git checkout -b|switch -c X && … && git commit`, só com `&&` puro do checkout até o
+    commit. Com pipe, `;`, nova linha ou `||`, um checkout que falha deixa o commit na main,
+    e esses casos continuam bloqueados;
+  - `git worktree add -b X <path>` com o commit em `<path>` (via `git -C <path>` vale
+    qualquer separador, porque se o add falhar o path não existe);
+  - fixture na pasta temporária do Claude (`/tmp/claude-<uid>/`, `/private/tmp/claude-<uid>/`);
+  - variável que se reatribui a partir dela mesma (`KW=…; KW="$KW" …`), que resolve pelo
+    valor literal.
+
+  O furo inverso fecha: `git checkout main && git commit`, com a sessão numa feature branch,
+  passava e agora bloqueia. `$(mktemp -d)` comum segue em falha fechada. São 23 casos novos
+  em `tests/test-block-main-commit.sh`, 11 falham contra o hook anterior, e os 69 antigos
+  passam.
+
 ## [0.53.3] — 2026-10-15
 
 ### Mudou
