@@ -245,7 +245,7 @@ sessão.
 
 | Item | Lado | Por quê |
 |---|---|---|
-| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | porte pendente | o time tem a mesma lógica no `case` (lendo com `jq`); issue espelho aberta no `claude-config-team` |
+| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | porte pendente | o time tem a mesma lógica no `case` (lendo com `jq`); issue espelho VAMOO-AI/claude-config-team#348 |
 
 ## Como usar
 
