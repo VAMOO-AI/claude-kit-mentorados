@@ -238,7 +238,8 @@ sessão.
 
 | Item | Lado | Por quê |
 |---|---|---|
-| Job `windows-latest`, `.gitattributes` com LF, `\r` tirado no `tem_gatilho` do `pre-bash.sh`, `sha1sum` como queda do `shasum` | só aqui por ora | o kit promete o Git Bash no Windows, e o time só roda em Mac e Linux. O `tem_gatilho` e o `shasum` do time têm o mesmo código, então o fix é barato lá se o time um dia rodar no Windows: issue espelho aberta no claude-config-team |
+| Job `windows-latest` | só aqui | o kit promete o Git Bash no Windows; o time só roda em Mac e Linux |
+| `.gitattributes` com LF, `\r` tirado no `tem_gatilho` do `pre-bash.sh`, `sha1sum` como queda do `shasum` | espelhado | entrou no time pelo VAMOO-AI/claude-config-team#343 (issue #342), com os mesmos casos de teste |
 
 ## Como usar
 
