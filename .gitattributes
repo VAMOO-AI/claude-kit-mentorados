@@ -1,0 +1,11 @@
+# Texto sempre com LF no checkout, em qualquer sistema. No Windows o Git vem com
+# core.autocrlf=true e gravava os hooks com CRLF: o "\r" no fim da linha `# gatilho:`
+# fazia o pre-bash.sh pular o block-main-commit, o block-cd-leitura-relativa e o stash do
+# block-parallel-clone-switch, sem erro nenhum. Visto no job windows-latest do CI.
+* text=auto eol=lf
+*.zip binary
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary

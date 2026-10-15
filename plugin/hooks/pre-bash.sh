@@ -35,6 +35,10 @@ tem_gatilho() {
   local linha p n=0
   while IFS= read -r linha && [ "$n" -lt 40 ]; do
     n=$((n+1))
+    # Checkout no Windows com core.autocrlf=true deixa \r no fim da linha: "commit\r"
+    # nunca casaria e o hook seria pulado calado (o .gitattributes já força LF; isto
+    # cobre quem clonou antes dele ou editou o hook no Windows).
+    linha="${linha%$'\r'}"
     case "$linha" in
       '# gatilho:'*)
         for p in ${linha#\# gatilho:}; do
