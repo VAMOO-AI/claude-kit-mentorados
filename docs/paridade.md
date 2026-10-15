@@ -256,7 +256,7 @@ no plugin. Até então eram "skills de domínio" que ficavam só no time. A part
 
 | Item | Lado | Por quê |
 |---|---|---|
-| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | porte pendente | o time tem a mesma lógica no `case` (lendo com `jq`); issue espelho VAMOO-AI/claude-config-team#348 |
+| `path-rules.sh` normaliza `\` para `/` e trata `C:/` como absoluto | espelhado | entrou no time pelo VAMOO-AI/claude-config-team#349 (issue #348), com os mesmos 10 checks; só o miolo, porque lá o payload é lido com `jq` |
 
 ## Como usar
 
