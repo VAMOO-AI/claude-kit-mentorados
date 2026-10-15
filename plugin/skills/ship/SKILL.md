@@ -44,9 +44,15 @@ não "deploye mesmo assim".
 
 ```bash
 npx tsc --noEmit                  # se TEM_TS
-npx eslint . --quiet              # se eslint configurado
+npx eslint . --quiet --ignore-pattern '.claude/worktrees/' \
+  --ignore-pattern '.claude-worktrees/' --ignore-pattern '.worktrees/'   # se eslint configurado
 npm test                          # se existe script "test" (pnpm/yarn/bun: o do projeto)
 ```
+
+Os `--ignore-pattern` existem porque o ESLint 9 (flat config) não lê o `.gitignore` e não
+ignora mais pasta que começa com ponto. Rodado no clone principal, `eslint .` entra nos
+worktrees que moram dentro do repo e reprova o seu PR pelo código de outra sessão. O
+`tsc` não precisa disso: o `**/*.ts` do `include` não entra em pasta com ponto.
 
 Se um comando não está configurado, diga explicitamente: "sem config de eslint — pulado".
 Nunca afirme que um gate passou se ele não rodou.

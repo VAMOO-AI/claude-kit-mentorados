@@ -83,6 +83,11 @@ Vale igual para credencial faltando: continue tudo que não depende dela.
     prompt: cite só a regra de que aquele estágio precisa;
   - com writes, cole no prompt o scope contract e o formato de report do
     `subagentes.md`, que o resumo do CLAUDE.md não traz.
+  - com browser ou QA visual, cole a regra de imagem (screenshot só quando o
+    pixel é a evidência; estado/texto/erro/DOM → `read_page`/`get_page_text`;
+    nunca tire print de novo para conferir; veredito em texto): o subagente relê
+    cada imagem em toda request dele, e a conta chega igual à da conversa
+    principal.
 
 ## N terminais no mesmo repo: escopo disjunto e merge em fila
 

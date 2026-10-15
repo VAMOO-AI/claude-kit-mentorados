@@ -26,6 +26,7 @@
 - Env local: `<ex.: cp .env.example .env.local>` (e preencha as chaves)
 - Rodar: `<ex.: npm run dev>`
 - Antes de dizer "pronto": `<ex.: npx tsc --noEmit && npx eslint . && npm test>`
+- Lint: o `eslint.config.*` abre com `globalIgnores(['.claude/worktrees/', '.claude-worktrees/', '.worktrees/'])` (de `eslint/config`). O ESLint 9 não lê o `.gitignore`, e sem isso o `eslint .` varre as cópias dos worktrees que moram dentro do repo.
 
 ## Estrutura (o essencial)
 - `<ex.: src/app/>` — rotas

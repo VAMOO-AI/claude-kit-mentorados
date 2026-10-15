@@ -167,6 +167,23 @@ check "skill nova reabre o aviso"           "$(printf '%s' "$s4" | grep -q 'skil
 s5="$(roda_hook "$MUITAS")"
 check "e depois cala de novo"               "$([ -z "$s5" ] && echo ok || echo fail)"
 
+echo "== skill que entra por symlink (npx skills add no modo symlink): o hook também fala =="
+# O `npx skills add` copia a skill para .agents/skills/<nome> e liga um symlink em
+# .claude/skills/<nome>. O Claude Code carrega pelo symlink (medido na 2.1.296; ele não lê
+# .agents/skills direto) e o scan conta, mas um `find` sem -L não entra no symlink e o
+# hook achava que nada tinha mudado.
+sleep 1
+mkdir -p "$MUITAS/.agents/skills/skill-link"
+printf -- '---\nname: skill-link\ndescription: Use quando o caso do link aparecer.\n---\n\n# skill-link\n%s\n' \
+  "$(printf 'linha %s\n' 1 2 3 4 5 6)" > "$MUITAS/.agents/skills/skill-link/SKILL.md"
+ln -s ../../.agents/skills/skill-link "$MUITAS/.claude/skills/skill-link"
+s6="$(roda_hook "$MUITAS")"
+check "skill por symlink reabre o aviso"    "$(printf '%s' "$s6" | grep -q 'skills deste projeto' && echo ok || echo fail)"
+tabela="$(bash "$SCAN" "$MUITAS")"   # sai 1: o projeto passa do teto
+check "o scan conta a skill do symlink"     "$(printf '%s\n' "$tabela" | grep -q '^skill-link ' && echo ok || echo fail)"
+s7="$(roda_hook "$MUITAS")"
+check "e depois cala de novo (symlink)"     "$([ -z "$s7" ] && echo ok || echo fail)"
+
 echo "== o hook nunca derruba a abertura da sessão =="
 codigo=0; roda_hook "$MUITAS" >/dev/null 2>&1 || codigo=$?
 check "hook sai 0 mesmo com projeto estourado" "$([ $codigo -eq 0 ] && echo ok || echo fail)"

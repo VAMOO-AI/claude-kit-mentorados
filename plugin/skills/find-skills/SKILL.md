@@ -76,7 +76,8 @@ Ver antes: https://skills.sh/vercel-labs/agent-skills/react-best-practices
 
 Instalação global (vale em todo projeto) é `-g`; sem `-g`, entra só neste
 projeto — que costuma ser o que você quer quando a skill é de um stack
-específico.
+específico. A skill instalada entra na sessão aberta sozinha; se não aparecer
+no menu, `/reload-skills` resolve sem reiniciar.
 
 ## Quando não existe skill para o caso
 

@@ -24,6 +24,18 @@ instabilidade.
 - [ ] Trilha de auditoria **viva** para ação sensível — tabela que ninguém escreve
       é pior que nenhuma, porque parece cobertura.
 - [ ] O caminho "erro em produção → linha de código" está escrito em algum lugar.
+- [ ] **PII é mascarada na escrita do log, não na leitura.** Telefone, e-mail,
+      documento e id externo saem truncados por uma função única — "não logue
+      PII" sem mascarador é regra que ninguém consegue cumprir.
+- [ ] **O erro que chega ao cliente é código + id de correlação.** Stack,
+      mensagem do banco e nome de tabela ficam no log do servidor.
+- [ ] **Saúde detalhada exige autenticação** (versão, dependência, fila, pool).
+      A pública responde só vivo/morto. (Pilar `08`.)
+- [ ] **Requisição lenta em produção dispara alerta com número** (p95 por rota,
+      teto por endpoint). O pilar `05` mede gargalo quando alguém reclama; aqui
+      o sistema é quem reclama primeiro.
+- [ ] **Trabalho assíncrono tem backlog e falha visíveis**: quantos itens
+      pendentes, há quanto tempo, e quantos falharam sem ninguém ver.
 
 ## Como implementar
 
@@ -56,6 +68,43 @@ por cliente ativo saem de um `group by` — e é essa razão, contra a receita d
 mesmo lead, que diz se a automação dá lucro ou se você está comprando conversa
 com desconto. Automação de IA sem custo por unidade é a única categoria de
 sistema em que "está funcionando" e "está dando prejuízo" convivem em silêncio.
+
+**Mascarar na escrita — um lugar só:**
+
+```ts
+// src/lib/mask.ts — o log chama isto, sempre; ninguém decide caso a caso
+export const mascara = {
+  telefone: (t?: string) => t ? `${t.slice(0, 4)}****${t.slice(-2)}` : '—',
+  email:    (e?: string) => e ? e.replace(/^(.).*(@.*)$/, '$1***$2') : '—',
+  id:       (i?: string) => i ? `${i.slice(0, 8)}…` : '—',
+}
+log('info', 'whatsapp.enviado', { request_id, telefone: mascara.telefone(to) })
+```
+
+Num stack de WhatsApp o telefone **é** o identificador do usuário: ele aparece
+em log de webhook, de fila, de erro e de retry. Sem mascarador único, ele vaza
+em todos, e a correção vira caça a `console.log` espalhado.
+
+**Erro para o cliente vs. erro para o log:**
+
+```ts
+catch (err) {
+  log('error', 'proposta.falhou', { request_id, code: err.code, msg: err.message })
+  return json({ error: 'PROPOSTA_INVALIDA', request_id }, { status: 400 })
+  // nunca: { error: err.message } — a mensagem do Postgres entrega tabela e coluna
+}
+```
+
+O `request_id` na resposta é o que liga a reclamação do usuário ao log sem
+precisar entregar nada a ele.
+
+**Backlog e falha silenciosa** — a versão sem infraestrutura nova: uma query
+agendada que compara o que entrou com o que saiu. No n8n, execuções com status
+`error` nas últimas 24h e a mais antiga ainda `running` (lease preso) são os dois
+sinais que pegam quase tudo; em fila própria, item pendente há mais de N minutos
+e item que estourou o número de tentativas (o equivalente local de *dead letter*).
+Alerta sai do sistema monitorado — se a fila morreu, o alerta dela não pode
+depender dela.
 
 **Error tracking (Sentry como default do stack):**
 
@@ -212,5 +261,8 @@ até o stack trace com a linha do código? Se não aparecer em minutos, o pilar 
 | "Está ativo" e nada chega há horas | Status mente. Monitore ausência de evento, não flag de ativo |
 | Assert sobre `net.http_request_queue` sempre zero | `body` é `bytea`; use `convert_from(body,'UTF8')` |
 | Tabela de auditoria existe, com policy e grant, e vazia | Ninguém escreve. Cobertura aparente é pior que ausência declarada |
+| Telefone do cliente inteiro no log de erro | "Não logue PII" sem função de máscara. A regra não é executável; o mascarador é |
+| Usuário mandou print do erro com o nome da tabela | Mensagem do banco devolvida ao cliente. Código + `request_id` é o que sai |
+| Fila parou e ninguém viu por dois dias | Backlog não é medido. Item pendente há muito tempo é alerta, não gráfico |
 | Log de produção existe mas é inútil | Texto livre sem prefixo nem request id. Não dá pra filtrar nem correlacionar |
 | Sentry cheio de ruído e ninguém olha | Sem `tracesSampleRate`, sem agrupamento, sem dono. Alerta que ninguém lê não é alerta |
