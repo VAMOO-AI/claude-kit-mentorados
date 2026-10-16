@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **28 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
@@ -61,7 +61,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 28. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 29. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -114,6 +114,15 @@ não aciona sozinho, então não pesam nas suas requests quando você não está
 |---|---|---|
 | **n8n-workflow-agent** | `/kit-vamoo:n8n-workflow-agent` — construir, editar, depurar e publicar workflow n8n, com ou sem agente de WhatsApp: layout sem cruzamento, baseline + diff antes de mexer pela API, Code Node, e referências de UAZAPI (motivo real de queda, escada de reconexão, nono dígito), NotificaMe, Chatwoot, Pipedrive, Postgres, disparo, pausa no Redis e QA simulada do agente (lead falso + juiz). | n8n com API key; o provedor de WhatsApp que você usa |
 | **whatsapp-inbox-stack** | `/kit-vamoo:whatsapp-inbox-stack` — a ponta do inbox no seu app (página própria ou Chatwoot): mídia que não chega ou não toca, áudio longo sem estourar a edge, IA e humano no mesmo fio, status da conexão que mente, entrega confirmada e relatório de quem falou com o lead. | n8n + Supabase; NotificaMe ou UAZAPI |
+
+### 🛰️ Monitoramento e VPS (você chama)
+
+Para quem tem sistema no ar — app, n8n, WhatsApp, VPS — e quer saber que caiu antes do
+cliente. Slash-only: o Claude não aciona sozinho.
+
+| Skill | Pra que serve | Pré-requisito |
+|---|---|---|
+| **monitoramento-infra** | `/kit-vamoo:monitoramento-infra` — monitorar o que está no ar e ser avisado no celular: sondas com pg_cron, antiflap, confirmação de queda, recovery que não mente, lembrete enquanto continua fora e quem vigia o vigia; ntfy como canal de push (tópico é credencial, Title só ASCII, prioridade por severidade); e os cuidados de VPS com Docker: Traefik que dá 404 depois do Docker 29, netdata que põe o daemon em 95% de CPU, reboot em Swarm que sobe container sem rede, firewall que o Docker atravessa e backup cruzado que deixa apagar. | Supabase (para as sondas) ou n8n; app ntfy no celular; VPS só se for mexer nela |
 
 ### 🎨 Bônus
 
@@ -219,7 +228,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 28 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 29 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash

@@ -16,6 +16,40 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.54.0] — 2026-10-16
+
+### Adicionado
+
+- **Skill `/kit-vamoo:monitoramento-infra`, slash-only.** Monitoramento, alertas e os
+  cuidados de VPS que rodam em produção, empacotados para quem monta o próprio:
+  - `references/arquitetura-monitor.md`: sondas, antiflap por tipo, cegueira que não vira
+    queda, recovery só com evidência, pares abertura/volta por destino, lembrete, dedup
+    por lane com assinatura do erro, tempestade numa mensagem só, selfcheck de "zero
+    alvo" e o monitor que não derruba o banco que vigia. Cada regra traz o número que a
+    motivou.
+  - `references/ntfy.md`: tópico é credencial (entropia, fora do git), publicação em JSON
+    para título com acento, RFC 2047, prioridade por severidade, formato da mensagem,
+    exemplo para n8n e para edge function. Conferido na doc oficial do ntfy.
+  - `references/supabase-cron.md`: guarda de JWT que é sempre falsa no pg_cron, o
+    `verify_jwt` que volta no deploy (e como o corpo do 401 separa gateway de função), o
+    gate que abre com segredo vazio, o job que pula ciclo, e o `net._http_response` que
+    incha até parar tudo.
+  - `references/sondas.md`: o que engana em n8n (fluxo mudo, `SAVE_ON_SUCCESS=none`, pool
+    de 2 conexões), Portainer, WhatsApp, Vercel e job agendado.
+  - `references/vps.md` + `assets/fix-vps-hardening.sh`: diagnóstico, Traefik que dá 404
+    com o Docker 29, socket proxy, netdata a 1s que põe o daemon em 95%, medição por
+    jiffies em 60s, reboot em Swarm com detector de netns, porta do Docker que atravessa o
+    ufw, backup cruzado com `rrsync -no-del`, acesso SSH. O script troca qualquer Traefik v3.0–v3.4 pela v3.5
+    e aborta com rollback se o `stack.yml` não ficou na v3.5.
+  - `assets/sonda-http.sh`: ponto de partida sem Supabase. Antiflap, aviso único, causa
+    fixada na abertura, lembrete, recovery só do que foi avisado, guarda de checker cego
+    com teto de 10 min, reenvio quando o ntfy estava fora, e heartbeat externo. Lê o
+    `sonda.env` ao lado (o cron não herda ambiente). Testado ramo a ramo contra um servidor
+    HTTP e um ntfy falsos, e com `env -i` como o cron roda.
+
+  Sem cliente, host, IP, domínio, tópico ntfy nem data de incidente interno. Slash-only
+  porque a lista de skills visíveis do kit já ocupa metade do budget.
+
 ## [0.53.9] — 2026-10-15
 
 ### Corrigido
