@@ -320,19 +320,30 @@ Sempre 3 canais (não 1, não 2). Razões reais por que cada um pode falhar isol
 
 Pelo menos 1 dos 3 chega em ~100% dos cenários reais.
 
-### Gotcha: ntfy.sh Title header não aceita Unicode
+### Gotcha: emoji/acento no `Title` do ntfy quebra no cliente, não no servidor
 
-`Title:` header é RFC-7230 (ASCII strict). Mandar emoji direto:
-```
-Title: ⚠️ UAZAPI CLIENTE-X desconectada
-```
-retorna `Invalid character in header content ["title"]`. Mover emoji pro **body** (que é UTF-8 livre) ou strip-and-encode na expressão:
-```
-Title: UAZAPI CLIENTE-X desconectada  ← ASCII puro no header
-body:  ⚠️ Detalhes aqui...           ← emoji vai no body
-```
+O servidor do ntfy aceita UTF-8 em header e entende RFC 2047 (doc oficial,
+docs.ntfy.sh/publish). Quem quebra é o **cliente HTTP**: o nó HTTP Request do n8n
+devolve `Invalid character in header content ["title"]` com emoji no header, e o
+`fetch` do Deno lança erro com caractere fora de ISO-8859-1. Tirar tudo que não é
+ASCII "resolve" e estraga o texto ("CRÍTICO — AINDA EM FALHA" vira
+"CRTICO  AINDA EM FALHA").
 
-Tags do ntfy (`Tags: warning,rotating_light`) podem usar nomes de emoji curtos — renderiza no app.
+Da melhor para a pior saída:
+
+1. **Publicar em JSON na raiz do servidor**: o título vai no corpo, em UTF-8.
+   ```
+   POST https://ntfy.sh
+   Content-Type: application/json
+   {"topic":"<topico>","title":"⚠️ UAZAPI <cliente> desconectada",
+    "message":"Detalhes aqui...","priority":5,"tags":["rotating_light"],
+    "click":"<link>"}
+   ```
+   `priority` é inteiro 1–5; `topic` é o único campo obrigatório.
+2. **Header em RFC 2047**: `Title: =?UTF-8?B?<base64 do título>?=`.
+3. Título ASCII puro e emoji no body (UTF-8 livre) ou nas `Tags`, que aceitam
+   nomes curtos de emoji (`warning`, `rotating_light`, `white_check_mark`) e o app
+   desenha.
 
 ### Tabela schema (referência)
 
