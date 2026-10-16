@@ -16,6 +16,15 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.54.1] — 2026-10-16
+
+### Corrigido
+
+- **`n8n-workflow-agent`: a pegadinha do ntfy dizia que o `Title` "não aceita Unicode".** O
+  servidor aceita UTF-8 e RFC 2047 (docs.ntfy.sh/publish); quem recusa é o cliente HTTP (o nó
+  HTTP Request do n8n, o `fetch` do Deno). A saída recomendada passou a ser publicar em JSON na
+  raiz, como a `monitoramento-infra` já ensina. Espelho de VAMOO-AI/claude-config-team#358.
+
 ## [0.54.0] — 2026-10-16
 
 ### Adicionado
