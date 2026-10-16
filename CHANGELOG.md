@@ -39,11 +39,13 @@ Se a mudança tocar a barra de status ou as preferências, rode também
   - `references/vps.md` + `assets/fix-vps-hardening.sh`: diagnóstico, Traefik que dá 404
     com o Docker 29, socket proxy, netdata a 1s que põe o daemon em 95%, medição por
     jiffies em 60s, reboot em Swarm com detector de netns, porta do Docker que atravessa o
-    ufw, backup cruzado com `rrsync -no-del`, acesso SSH.
+    ufw, backup cruzado com `rrsync -no-del`, acesso SSH. O script troca qualquer Traefik v3.0–v3.4 pela v3.5
+    e aborta com rollback se o `stack.yml` não ficou na v3.5.
   - `assets/sonda-http.sh`: ponto de partida sem Supabase. Antiflap, aviso único, causa
     fixada na abertura, lembrete, recovery só do que foi avisado, guarda de checker cego
-    com teto de 10 min, reenvio quando o ntfy estava fora, e heartbeat externo. Testado
-    ramo a ramo contra um servidor HTTP e um ntfy falsos.
+    com teto de 10 min, reenvio quando o ntfy estava fora, e heartbeat externo. Lê o
+    `sonda.env` ao lado (o cron não herda ambiente). Testado ramo a ramo contra um servidor
+    HTTP e um ntfy falsos, e com `env -i` como o cron roda.
 
   Sem cliente, host, IP, domínio, tópico ntfy nem data de incidente interno. Slash-only
   porque a lista de skills visíveis do kit já ocupa metade do budget.

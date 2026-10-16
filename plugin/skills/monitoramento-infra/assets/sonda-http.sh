@@ -5,17 +5,20 @@
 # Rode FORA da máquina que ela vigia (outra VPS, um Raspberry, o cron de
 # um serviço externo). Sonda na mesma VPS do sistema morre junto com ele.
 #
-# Uso:  NTFY_URL=https://ntfy.sh/<topico> ALVOS=/opt/sonda/alvos.txt \
-#         bash sonda-http.sh
-# Cron: */5 * * * * /usr/bin/flock -n /tmp/sonda.lock \
-#         /opt/sonda/sonda-http.sh >> /var/log/sonda.log 2>&1
+# Uso: crie sonda.env ao lado do script (chmod 600; o tópico é senha):
+#   NTFY_URL=https://ntfy.sh/<topico>
+#   HEARTBEAT_URL=https://<seu-servico-de-heartbeat>/<id>
+# e rode: bash sonda-http.sh
+# O cron não herda o seu ambiente: é por isso que existe o sonda.env.
+# Linha do crontab (UMA linha só; crontab não aceita "\"):
+# */5 * * * * /usr/bin/flock -n /tmp/sonda.lock /opt/sonda/sonda-http.sh >> /var/log/sonda.log 2>&1
 #
 # alvos.txt — uma linha por alvo:  <nome> <url> [status,aceitos]
 #   site  https://meusite.com.br
 #   n8n   https://n8n.meudominio.com/healthz
 #   painel https://painel.meudominio.com 200,401
 #
-# Variáveis:
+# Variáveis (no sonda.env, que vence o ambiente, ou exportadas):
 #   NTFY_URL       URL completa do tópico (obrigatória; é credencial: fora do git)
 #   NTFY_TOKEN     token tk_... se o tópico for protegido (opcional)
 #   ALVOS          arquivo de alvos (padrão: alvos.txt ao lado do script)
@@ -27,12 +30,14 @@
 set -uo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+[ -f "$AQUI/sonda.env" ] && . "$AQUI/sonda.env"
 ALVOS="${ALVOS:-$AQUI/alvos.txt}"
 ESTADO="${ESTADO:-/var/tmp/sonda-http}"
 LIMIAR="${LIMIAR:-2}"
 LEMBRETE_H="${LEMBRETE_H:-24}"
 TIMEOUT="${TIMEOUT:-10}"
-: "${NTFY_URL:?defina NTFY_URL (https://ntfy.sh/<topico>)}"
+: "${NTFY_URL:?defina NTFY_URL no $AQUI/sonda.env}"
 [ -f "$ALVOS" ] || { echo "arquivo de alvos não existe: $ALVOS"; exit 2; }
 mkdir -p "$ESTADO" && chmod 700 "$ESTADO"
 

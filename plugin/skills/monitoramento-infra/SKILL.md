@@ -52,12 +52,17 @@ Esta skill é o lado da operação.
 2. **Uma máquina que não seja a vigiada**: outra VPS, um Raspberry, o servidor de
    um amigo. Copie `assets/sonda-http.sh` para lá **por arquivo** (`scp`, `curl`),
    não colando no terminal.
-3. **`alvos.txt`**, uma linha por alvo: `nome url [status,aceitos]`.
+3. Ao lado do script: **`alvos.txt`**, uma linha por alvo (`nome url
+   [status,aceitos]`), e **`sonda.env`** com `NTFY_URL=` (e depois
+   `HEARTBEAT_URL=`), com `chmod 600` — o cron não herda o seu ambiente, e o
+   tópico não vai no crontab.
 4. **Teste com um alvo que vai falhar** (`quebrado http://127.0.0.1:9/`): rode
    três vezes e confira que o celular tocou **uma** vez (na segunda). Depois
    aponte um alvo para um servidor que você pode desligar e religar, e veja a
    queda **e** a volta chegarem. Apague o alvo de teste e a pasta de estado dele.
-5. **Cron** a cada 5 min com `flock` (a linha está no cabeçalho do script).
+5. **Cron** a cada 5 min com `flock`: a linha está no cabeçalho do script e vai
+   no `crontab -e` numa linha só. Confira em `/var/log/sonda.log` que a primeira
+   rodada do cron não reclamou de `NTFY_URL`.
 6. **Heartbeat**: crie um check gratuito num serviço de dead man's switch
    (healthchecks.io, por exemplo), ponha a URL em `HEARTBEAT_URL` e configure o
    aviso dele para o mesmo celular. Agora, se a máquina da sonda morrer, você

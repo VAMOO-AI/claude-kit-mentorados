@@ -15,7 +15,8 @@
 #   3. Ctrl+O, Enter, Ctrl+X
 #   4. bash /tmp/fix.sh
 #
-# ANTES DE RODAR: ajuste TD, T, DOMAIN_BASE e a lista de subdomínios
+# ANTES DE RODAR: ajuste TD (pasta do stack), T (serviço do Traefik),
+# NET (rede overlay do Traefik), DOMAIN_BASE e a lista de subdomínios
 # em [7]. O script para se DOMAIN_BASE continuar com o placeholder.
 
 set -e
@@ -25,6 +26,7 @@ F=$TD/nginx-docker-proxy.conf
 S=/var/run/docker.sock
 T=traefik_traefik
 D=docker-socket-proxy
+NET=proxy
 DOMAIN_BASE=SEUDOMINIO.com  # <-- AJUSTAR
 case $DOMAIN_BASE in SEUDOMINIO*)
   echo "Ajuste DOMAIN_BASE antes"; exit 1;;
@@ -64,7 +66,7 @@ docker service rm $D 2>/dev/null || true
 sleep 2
 docker service create \
   --name $D \
-  --network proxy \
+  --network $NET \
   --mount type=bind,source=$S,target=$S,readonly \
   --mount type=bind,source=$F,target=/etc/nginx/nginx.conf,readonly \
   --constraint node.role==manager \
@@ -84,12 +86,21 @@ grep endpoint $TD/traefik.yml
 
 echo "[5/9] EDIT stack.yml"
 # image upgrade
-sed -i 's|traefik:v3.1|traefik:v3.5|' $TD/stack.yml
+# v3.0 a v3.4 (com ou sem patch) viram v3.5
+V='traefik:v3\.[0-4](\.[0-9]+)?\b'
+sed -i -E "s|$V|traefik:v3.5|" $TD/stack.yml
 # remove docker.sock mount
 sed -i '\|/var/run/docker.sock:/var/run/docker.sock|d' $TD/stack.yml
 # fix labels vazio (causa "deploy.labels must be a mapping")
 sed -i '/^[[:space:]]*labels:[[:space:]]*$/d' $TD/stack.yml
 grep -E 'image:|docker.sock' $TD/stack.yml || true
+if ! grep -q 'traefik:v3\.5' $TD/stack.yml; then
+  echo "ABORTA: stack.yml não ficou em traefik:v3.5"
+  cp $TD/traefik.yml.bak-$TS $TD/traefik.yml
+  cp $TD/stack.yml.bak-$TS $TD/stack.yml
+  docker service rm $D 2>/dev/null || true
+  exit 1
+fi
 
 echo "[6/9] DEPLOY TRAEFIK v3.5"
 cd $TD
