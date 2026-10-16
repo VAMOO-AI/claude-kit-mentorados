@@ -79,8 +79,9 @@ o job só enfileirou a requisição. Aconteceu mesmo com a função declarada no
   ```
 - **Diagnóstico em 10 segundos:** mande um token que não é JWT e leia o corpo.
   ```bash
+  FALSO=nao-e-jwt   # de propósito: não é um JWT
   curl -s -X POST https://<ref>.supabase.co/functions/v1/sonda-http \
-       -H 'Authorization: Bearer nao-e-jwt'
+       -H "Authorization: Bearer $FALSO"
   ```
   Corpo com `UNAUTHORIZED_INVALID_JWT_FORMAT` = o gateway barrou, sua função nem
   rodou. Corpo com o erro **da sua função** (ex.: `{"error":"unauthorized"}`) =
