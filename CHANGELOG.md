@@ -37,6 +37,14 @@ Se a mudança tocar a barra de status ou as preferências, rode também
     copia para `public/serif-italic.ttf`; `--serif <ttf>` põe a da sua marca.
   - `src/film-base.tsx` guarda tipos e utilitários do Film para cena nova importar sem ciclo;
     o `film-scenes.tsx` reexporta tudo.
+## [0.54.1] — 2026-10-16
+
+### Corrigido
+
+- **`n8n-workflow-agent`: a pegadinha do ntfy dizia que o `Title` "não aceita Unicode".** O
+  servidor aceita UTF-8 e RFC 2047 (docs.ntfy.sh/publish); quem recusa é o cliente HTTP (o nó
+  HTTP Request do n8n, o `fetch` do Deno). A saída recomendada passou a ser publicar em JSON na
+  raiz, como a `monitoramento-infra` já ensina. Espelho de VAMOO-AI/claude-config-team#358.
 
 ## [0.54.0] — 2026-10-16
 
