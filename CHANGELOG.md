@@ -16,6 +16,28 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.55.0] — 2026-10-16
+
+### Adicionado
+
+- **motion-reel: presets de apresentação pessoal e lançamento de app** (#232, porte do
+  claude-config-team#350). Dois `film.json` prontos em `presets/`, renderizáveis nos dois
+  formatos, sem voz e na batida:
+  - `apresentacao.json` (15 s): `pillname` (a pílula vira o "o" do nome), `orbit` (foto com
+    texto em órbita e a frase com *uma palavra* em itálico serifado), `highlights` (número
+    que conta dentro de um anel) e `follow` (cartão de perfil e o botão Seguir clicado).
+    Sem `photo`, as cenas mostram as iniciais.
+  - `lancamento-app.json` (30 s): `logo3d` de abertura, 5 × `appline` (uma frase por cena,
+    palavra por palavra com rastro, e a UI da frase) e `assemble` (peças que pousam na forma
+    do logo, lida do alfa do `marca.png`).
+  - Transição nova `echo` (rastro horizontal, sem blur), som próprio de cada cena no
+    `track_cinema.py` e a galeria lista os presets (`--lista` e a página).
+  - Acento de conteúdo `C.hot` na paleta do exemplo (laranja; troque pela cor da sua marca)
+    e serifada itálica da ênfase: Instrument Serif Italic (OFL) empacotada, que o `new.sh`
+    copia para `public/serif-italic.ttf`; `--serif <ttf>` põe a da sua marca.
+  - `src/film-base.tsx` guarda tipos e utilitários do Film para cena nova importar sem ciclo;
+    o `film-scenes.tsx` reexporta tudo.
+
 ## [0.54.0] — 2026-10-16
 
 ### Adicionado

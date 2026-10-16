@@ -21,9 +21,11 @@ zero: copia o template e troca roteiro, marca e cenas. Ele traz duas bases:
   - Reel: `src/timeline.json` (fonte única de tempo), `src/scenes.tsx` (cenas-modelo), `src/Reel.tsx`
   - Film: `film.json` (roteiro por formato), `vo.json` (falas), `blocks.json` (blocos de TTS), `src/Film.tsx`, `src/film-scenes.tsx` (cenas responsivas), `src/desktop.tsx` (Claude Code Desktop estilizado), `src/motifs.tsx` (mini-animações de painel)
   - presets do Film: `launch` (título cinético + revelação), `beats` (3 batidas de benefício), `glass` (vidro com refração para cards de texto e número) e `logo3d` (o símbolo da pessoa extrudado, assinatura); `presets/lancamento.json` é um `film.json` pronto com os quatro (16:9 + corte 9:16, sem voz, na batida). Quando usar cada um: `references/vocabulario.md`
-  - comuns: `src/transitions.tsx` (as 10 transições, nos dois formatos) e `src/lib.tsx` (primitivas, paleta `C`, fonte, `BRAND`)
+  - `presets/apresentacao.json`: apresentação pessoal de 15 s (`pillname` → `orbit` → `highlights` → `follow`): nome com a pílula que vira o "O", foto com texto em órbita, 3 destaques com número que conta e o botão Seguir clicado; cenas em `src/scenes-apresentacao.tsx`
+  - `presets/lancamento-app.json`: lançamento de app de 30 s (`logo3d` → 5 × `appline` → `assemble`): uma frase por cena, palavra por palavra com rastro, a UI de cada frase e as peças que montam o logo; cenas em `src/scenes-app.tsx`, transição `echo`
+  - comuns: `src/transitions.tsx` (as 11 transições, nos dois formatos) e `src/lib.tsx` (primitivas, paleta `C`, fonte, `BRAND`)
   - `assets/template/scripts/`: `track.py` (trilha do Reel), `track_cinema.py` (trilha do Film), `build-timeline.py`, `blocks-text.py`, `dl.sh`, `split-vo.py`, `stills.mjs`, `grain.py`
-- `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"
+- `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"; Instrument Serif Italic (OFL), a serifada da ênfase dos presets, que o `new.sh` copia para `public/serif-italic.ttf` (`--serif <ttf>` põe a da sua marca)
 - `scripts/new.sh`, `qa.sh`, `final.sh`: criar, revisar, entregar (os dois últimos recebem a composição)
 - `scripts/voz.py`: narração grátis do Film na voz do sistema (`say` no macOS, System.Speech no Windows), uma fala por WAV
 - `scripts/galeria.py`: um quadro de cada cena do Film, de cada transição e de cada cena do Reel, com a marca do projeto, para escolher antes de roteirizar
@@ -47,7 +49,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro) e `--mark`
    (símbolo) no `new.sh`. Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
    - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
-3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] <pasta>`
+3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] [--serif <ttf>] <pasta>`
    - Passe os logos por flag, não por `MOTION_*=… new.sh`: a pré-aprovação da skill (`allowed-tools`) não vale para comando precedido de variável, e a pessoa teria de clicar em Permitir.
    - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
    - Por padrão, use o scratchpad da sessão; se o usuário quiser guardar, a pasta que ele indicar.
@@ -95,10 +97,12 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 ## Linguagem visual (padrão do template)
 
 Papel, ink, um azul como acento de dado e um fundo night; sans geométrica pesada; ênfase de
-título vazada (nunca itálico nem cor); CTA em pílula preta; mono só em comando. Sem gradiente
+título vazada (nunca itálico nem cor; a exceção é o preset de apresentação, abaixo); CTA em pílula preta; mono só em comando. Sem gradiente
 decorativo, glow ou glass: o impacto vem da coreografia. A exceção são os presets `glass` e
 `logo3d`, que trazem vidro, luz e reflexo de propósito: use quando a peça pede (lançamento, número
-em destaque, assinatura), não como fundo de toda cena. Com outra marca, troque as cores e
+em destaque, assinatura), não como fundo de toda cena. O preset `apresentacao` põe UMA palavra por frase em itálico
+serifado no acento de conteúdo (`*palavra*` no texto; a serifada em `SERIF`, a cor em `C.hot`, laranja no
+exemplo): é o pedido do formato, não vale para o resto. O acento nunca vai em dado nem em CTA. Com outra marca, troque as cores e
 mantenha as regras. Curva da casa: `cubic-bezier(.22,1,.36,1)`.
 
 ## Abertura e assinatura

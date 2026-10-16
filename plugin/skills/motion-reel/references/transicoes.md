@@ -20,6 +20,7 @@ na cena (sem ela, centro da tela).
 | `glitch` | fatias deslocadas + riscos azuis/brancos | 10 | entrar em algo técnico/digital | cliques |
 | `panel` | dois painéis em chanfro (azul e night) varrem | 18 | mudança de fundo escuro → claro | whoosh |
 | `spin` | as duas cenas giram no mesmo sentido com escala e blur | 12 | virada de frase | whoosh |
+| `echo` | as duas cenas correm na horizontal com dois ecos atrasados e apagados (rastro), sem blur | 12 | sequência rápida de frases sem corte seco (lançamento de app) | whoosh + pop |
 | `cut` | corte seco (`d: 0`) | 0 | **match cut** (mosaico → título) e **smash cut** depois de riser | — |
 
 ## Regras
@@ -27,7 +28,7 @@ na cena (sem ela, centro da tela).
 - **O meio da transição cai na batida.** Com 120 BPM a 30 fps, `cut` é múltiplo de 15; o `qa.sh` avisa no Reel, e no Film o `build-timeline.py` arredonda cada cena para cima até a batida.
 - Não repita a mesma transição em sequência. Varie o eixo: horizontal → cascata → vertical → íris.
 - A cena de entrada já está rodando durante a transição, com `f < 0`. Se ela começar vazia, a transição revela um fundo liso. Faça a cena já ter conteúdo em `f` negativo (ex.: `Terminals` começa com 40% das janelas). No Film, o primeiro elemento de toda cena entra em `first(p)` (`min(fala0 − 6, −8)`), e cena nova faz o mesmo.
-- Transição que deforma a cena (`glitch` em fatias, `spin` com rotate/blur) devolve os filhos intactos quando o progresso está em 0 ou 1: o Remotion mantém a cena envolvida pela apresentação antes e depois da troca, e fatias ou `blur(0)` paradas deixam emenda de 1 px. Transição nova segue a mesma guarda (`p <= 0.001 || p >= 0.999`).
+- Transição que deforma a cena (`glitch` em fatias, `spin` com rotate/blur) devolve os filhos intactos quando o progresso está em 0 ou 1: o Remotion mantém a cena envolvida pela apresentação antes e depois da troca, e fatias ou `blur(0)` paradas deixam emenda de 1 px. `echo` segue a mesma guarda, e transição nova também (`p <= 0.001 || p >= 0.999`).
 - Transições que escondem a troca atrás de um painel (`bars`, `panel`) trocam a cena exatamente em `p = 0.5`: o painel tem que cobrir 100% nesse instante.
 - `Breathe` (zoom lento de 3,5% no Reel, 3% no Film) envolve toda cena, **exceto** as duas pontas de um match cut: senão a escala não bate e o corte pula.
 - Blur direcional vem de um filtro SVG (`feGaussianBlur stdDeviation="x 0"`), não do CSS `blur()`, que é igual em todos os eixos.

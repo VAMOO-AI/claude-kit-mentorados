@@ -10,7 +10,10 @@
 #   3. render que falha sai com erro e mesmo assim devolve o tl-reel.json;
 #   4. pasta sem projeto recusa;
 #   5. os presets (logo3d, launch, beats, glass) estão no SCENES com props, som e vocabulário,
-#      e o filme de lançamento (presets/lancamento.json) vira timeline na batida nos dois formatos.
+#      e o filme de lançamento (presets/lancamento.json) vira timeline na batida nos dois formatos;
+#   6. a apresentação pessoal (presets/apresentacao.json, 15 s) e o lançamento de app
+#      (presets/lancamento-app.json, 30 s) também: cenas novas com props, som e vocabulário,
+#      timeline na batida nos dois formatos, e a galeria lista os presets.
 #
 # Uso: bash tests/test-motion-reel-galeria.sh [raiz-do-repo]
 set -uo pipefail
@@ -67,6 +70,7 @@ echo "1. --lista sem projeto"
 "$PY" "$GAL" --lista > "$TMP/lista.log" 2>&1; rc=$?
 check "sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
 for c in $CENAS $TRANS $REEL; do check "lista cita $c" "$(tem "$TMP/lista.log" "$c")"; done
+for pr in lancamento apresentacao lancamento-app; do check "lista cita o preset $pr" "$(tem "$TMP/lista.log" "$pr.json")"; done
 # Terminal do Windows em cp1252: "→" e "×" da listagem não podem derrubar o script.
 PYTHONIOENCODING=cp1252 "$PY" "$GAL" --lista > "$TMP/lista-cp1252.log" 2>&1; rc=$?
 check "--lista com stdout cp1252 sai 0 sem UnicodeEncodeError (veio $rc)" "$([ "$rc" = 0 ] && ! /usr/bin/grep -q 'UnicodeEncodeError' "$TMP/lista-cp1252.log" && echo ok || echo fail)"
@@ -93,6 +97,7 @@ done
 for r in $REEL; do
   check "quadro e card do Reel $r" "$([ -f "$G/reel-$r.png" ] && /usr/bin/grep -qF "src=\"reel-$r.png\"" "$G/index.html" && echo ok || echo fail)"
 done
+for pr in lancamento apresentacao lancamento-app; do check "a página cita o preset $pr" "$(tem "$G/index.html" "$pr.json")"; done
 check "a página escapa o nome da marca" "$(tem "$G/index.html" 'Ateliê &lt;Ana&gt;')"
 check "um render só (um bundle)" "$([ "$(/usr/bin/grep -c '^node' "$NODE_LOG")" = 1 ] && echo ok || echo fail)"
 check "film.json, vo.json e tl-reel.json iguais" "$([ "$(hashes)" = "$ANTES" ] && echo ok || echo fail)"
@@ -121,14 +126,18 @@ for c in $PRESETS; do
   check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
   check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
 done
-"$PY" - "$A/src/film-scenes.tsx" "$A/scripts/track_cinema.py" $PRESETS > "$TMP/presets-src.log" 2>&1 <<'PY'
-import re, sys
-tsx, track = (open(p, encoding="utf-8").read() for p in sys.argv[1:3])
+# Cena pode morar em outro src/*.tsx (importado no SCENES): o // props: é procurado em todos.
+presets_src() { # presets_src <types...> → "<type> props|som ok|fail"
+"$PY" - "$A/src" "$A/scripts/track_cinema.py" "$@" <<'PY'
+import pathlib, re, sys
+src = pathlib.Path(sys.argv[1])
+tsx = (src / "film-scenes.tsx").read_text(encoding="utf-8")
+track = open(sys.argv[2], encoding="utf-8").read()
 bloco = tsx[tsx.index("export const SCENES"):]
 mapa = dict(re.findall(r"(\w+)\s*:\s*(\w+)", bloco[bloco.index("{") + 1:bloco.index("};")]))
 sfx = track[track.index("SFX_BY_TYPE = {"):]
 sfx = sfx[:sfx.index("}") + 1]
-linhas = tsx.splitlines()
+linhas = [l for f in sorted(src.glob("*.tsx")) for l in f.read_text(encoding="utf-8").splitlines() + [""]]
 for tipo in sys.argv[3:]:
     comp = mapa.get(tipo, "?")
     i = next((k for k, l in enumerate(linhas) if l.startswith(f"export const {comp}:")), None)
@@ -138,6 +147,8 @@ for tipo in sys.argv[3:]:
     print(f"{tipo} props", "ok" if any(l.startswith("// props:") for l in acima) else "fail")
     print(f"{tipo} som", "ok" if f'"{tipo}":' in sfx else "fail")
 PY
+}
+presets_src $PRESETS > "$TMP/presets-src.log" 2>&1
 for c in $PRESETS; do
   check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/presets-src.log" && echo ok || echo fail)"
   check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/presets-src.log" && echo ok || echo fail)"
@@ -171,8 +182,8 @@ check "o lançamento vira timeline nos dois formatos (veio $rc)" "$([ "$rc" = 0 
 "$PY" - "$LZ" "$CENAS" > "$TMP/lanc-tl.log" 2>&1 <<'PY'
 import json, pathlib, sys
 raiz, cenas = pathlib.Path(sys.argv[1]), sys.argv[2].split()
-film = json.loads((raiz / "film.json").read_text())
-tl = {n: json.loads((raiz / f"src/tl-{n}.json").read_text()) for n in ("master", "reel")}
+film = json.loads((raiz / "film.json").read_text(encoding="utf-8"))
+tl = {n: json.loads((raiz / f"src/tl-{n}.json").read_text(encoding="utf-8")) for n in ("master", "reel")}
 tipos = {n: [s["type"] for s in film[n]] for n in ("master", "reel")}
 print("tipos", "ok" if all(t in cenas for n in tipos for t in tipos[n]) else "fail")
 print("ordem", "ok" if tipos["master"][:2] == ["launch", "beats"] and tipos["master"][-1] == "logo3d" else "fail")
@@ -183,6 +194,44 @@ PY
 for k in "tipos:toda cena do lançamento existe no SCENES" "ordem:abre com launch e beats e assina com logo3d" \
          "corte:o reel é corte do master" "batida:todo corte cai na batida (múltiplo de 15)" "sem-voz:sem fala (o ritmo é da trilha)"; do
   check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/lanc-tl.log" && echo ok || echo fail)"
+done
+
+echo "6. presets: apresentação pessoal e lançamento de app"
+# Mesmo molde do lançamento: cada cena nova no SCENES com // props: (em qualquer src/*.tsx), som
+# próprio e linha no vocabulário; cada preset vira timeline na batida nos dois formatos, sem voz,
+# com a duração prometida (15 s e 30 s, ±1 s) e uma linha "sobre" que a galeria lista.
+NOVAS="pillname orbit highlights follow appline assemble"
+presets_src $NOVAS > "$TMP/novas-src.log" 2>&1
+for c in $NOVAS; do
+  check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
+  check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
+  check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/novas-src.log" && echo ok || echo fail)"
+  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/novas-src.log" && echo ok || echo fail)"
+done
+for par in apresentacao:15 lancamento-app:30; do
+  pr="${par%%:*}"; seg="${par#*:}"
+  check "SKILL.md cita presets/$pr.json" "$(tem "$SK/SKILL.md" "presets/$pr.json")"
+  Z="$TMP/preset-$pr"; mkdir -p "$Z/src" "$Z/scripts"
+  cp "$A/scripts/build-timeline.py" "$Z/scripts/"
+  cp "$A/presets/$pr.json" "$Z/film.json" 2>/dev/null
+  "$PY" "$Z/scripts/build-timeline.py" > "$TMP/$pr.log" 2>&1; rc=$?
+  check "$pr vira timeline nos dois formatos (veio $rc)" "$([ "$rc" = 0 ] && [ -f "$Z/src/tl-master.json" ] && [ -f "$Z/src/tl-reel.json" ] && echo ok || echo fail)"
+  "$PY" - "$Z" "$CENAS" "$seg" > "$TMP/$pr-tl.log" 2>&1 <<'PY'
+import json, pathlib, sys
+raiz, cenas, seg = pathlib.Path(sys.argv[1]), sys.argv[2].split(), int(sys.argv[3])
+film = json.loads((raiz / "film.json").read_text(encoding="utf-8"))
+tl = {n: json.loads((raiz / f"src/tl-{n}.json").read_text(encoding="utf-8")) for n in ("master", "reel")}
+tipos = {n: [s["type"] for s in film[n]] for n in ("master", "reel")}
+print("tipos", "ok" if all(t in cenas for n in tipos for t in tipos[n]) else "fail")
+print("batida", "ok" if all(s["cut"] % 15 == 0 for n in tl for s in tl[n]["scenes"]) else "fail")
+print("sem-voz", "ok" if all(not s.get("vo") for n in tipos for s in film[n]) else "fail")
+print("duracao", "ok" if all(abs(tl[n]["total"] / 30 - seg) <= 1 for n in tl) else "fail")
+print("sobre", "ok" if film.get("sobre") else "fail")
+PY
+  for k in "tipos:toda cena existe no SCENES" "batida:todo corte cai na batida" "sem-voz:sem fala" \
+           "duracao:dura ${seg} s (±1) nos dois formatos" "sobre:tem a linha sobre que a galeria lista"; do
+    check "$pr: ${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/$pr-tl.log" && echo ok || echo fail)"
+  done
 done
 
 echo

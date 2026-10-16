@@ -75,6 +75,30 @@ troque os textos de exemplo ("Seu Produto", os números) pelos da pessoa e rode 
 - O vidro é desenhado, não `backdrop-filter`: dentro de uma transição o que o backdrop amostra muda. Sobre fundo liso a refração some; o `glass` traz o próprio fundo. Texto vazado sobre o vidro deixa o fill aparecer: o texto ali é sólido.
 - Clipe curto (~6 s) só com o `logo3d`: o `mark: "finale"` pode empurrar o integrado para fora do alvo e o `final.sh` reprova. Em peça curta, tire o `mark` e deixe o som próprio da cena.
 
+### Presets de apresentação pessoal e lançamento de app
+
+Mesmo molde dos de cima, em arquivo próprio (`scenes-apresentacao.tsx`, `scenes-app.tsx`). Texto com
+`*palavra*` marca a ênfase: no de apresentação ela sai em itálico serifado no acento de conteúdo (`SERIF`
+e `C.hot`, no `lib.tsx`); no de app, no acento de conteúdo na fonte da marca.
+
+| `type` | O que faz | Quando usar | `props` |
+|---|---|---|---|
+| `pillname` | uma linha corta a tela, engrossa em pílula e encolhe num anel que vira o primeiro "o" do nome; as letras nascem do anel para fora, cargo embaixo | abertura de apresentação pessoal; nome sem "o" ganha o anel na frente | `name`, `role?`, `kicker?` |
+| `orbit` | a foto abre num círculo, um texto gira em volta dela, a frase entra palavra a palavra com a palavra marcada em itálico; fundo na cor de destaque | quem é a pessoa, em uma frase | `photo?` (em `public/`; sem foto, iniciais), `name?`, `ring`, `quote` |
+| `highlights` | um destaque por batida: anel (ou barra) que enche enquanto o número conta | 1–3 números da pessoa ou do produto | `title?`, `items` `[{v, label, prefix?, suffix?, of?, kind?}]`, `step?` |
+| `follow` | cartão de perfil (foto, nome, @) e a chamada; o cursor clica e o botão vira "Seguindo ✓"; some no fim se for a última | CTA de seguir | `name`, `handle`, `photo?`, `cta`, `button?`, `done?`, `click?` |
+| `appline` | headline palavra por palavra com rastro (echo trail) e o mockup da UI da frase (um motif) entrando com rastro; régua `01 / 05` | uma frase de benefício por cena, em sequência com `in: "echo"` | `line`, `ui` `{kind, ...}`, `n?`, `total?`, `kicker?`, `dark?` |
+| `assemble` | peças nas cores da marca voam de fora e pousam numa grade com a forma do logo (lida do alfa do PNG); o PNG assume, nome e tagline sobem | fechamento de lançamento de app | `logo?` (padrão `marca.png`), `name?`, `tag?`, `cols?`, `land?` |
+
+A **apresentação pessoal** pronta é `presets/apresentacao.json` (15 s, `iris` e `panel` alternando
+fundo escuro e cor de destaque); o **lançamento de app** é `presets/lancamento-app.json` (30 s,
+`logo3d` de abertura, 5 `appline` com `echo`, `assemble`). Mesmo uso do lançamento: `cp` para
+`film.json`, troque os textos de exemplo ("Seu Nome", "@seunome", os números) pelos da pessoa (e
+`photo`, `logo`) e rode o `qa.sh`.
+
+- Foto e logo ficam em `public/`. Sem `photo` a cena não renderiza `<Img>` (arquivo ausente derruba o render): mostra as iniciais.
+- O itálico serifado é a Instrument Serif Italic (OFL, `assets/fonts/` da skill), que o `new.sh` copia para `public/serif-italic.ttf` e o `useFont` carrega; com a serifada da marca da pessoa, passe `--serif <ttf>` no `new.sh`. A palavra marcada sai no acento de conteúdo (`C.hot`; no exemplo, laranja `#ee591b`: troque pela cor de acento da marca) sobre escuro e claro, e em night sobre o azul de destaque (acento quente no azul não tem contraste). O acento nunca vai em dado (azul) nem em CTA (pílula preta).
+
 Utilitários exportados para cena nova: `useL()` (W, H, `v` = vertical, guia `l r t b`), `bt`,
 `first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura de todas: `Breathe` (zoom de
 3%), grão de película (`public/grain.png`) e letterbox opcional até a cena-âncora (`letterbox`).
@@ -119,8 +143,8 @@ nome, visível na folha de QA.
 - **Uma ideia por tela, 0,5–1,5 s cada.** Frase de mais de 3 palavras fica ≥ ~1,3 s. No Film, uma ideia por fala, e a animação entra quando a voz diz a coisa.
 - **Mesmo roteiro, dois formatos:** o `reel` do `film.json` é um corte do `master` (título, 2–3 cenas fortes, CTA, assinatura), não um roteiro novo.
 - Frase longa do briefing vira **beats**: o número grande primeiro, o apoio depois.
-- **Paleta do exemplo** (troque em `C`, no `lib.tsx`): papel `#fcfcfc`, ink `#000`, azul `#007dff` (dado), night `#05070a`. Azul sobre night é `#4da3ff`; preenchimento azul com texto branco é `#0063cc`. Alternar fundo claro/escuro marca o ritmo.
-- **Mono só em comando/terminal.** Ênfase de título = vazado.
+- **Paleta do exemplo** (troque em `C`, no `lib.tsx`): papel `#fcfcfc`, ink `#000`, azul `#007dff` (dado), night `#05070a`; laranja `#ee591b` (`hot`) só como acento de conteúdo. Azul sobre night é `#4da3ff`; preenchimento azul com texto branco é `#0063cc`. Alternar fundo claro/escuro marca o ritmo.
+- **Mono só em comando/terminal.** Ênfase de título = vazado (o preset de apresentação é a exceção: itálico serifado colorido numa palavra).
 - Nada de gradiente decorativo, glow ou glass. O impacto vem da coreografia: máscara, escala, corte pela borda, câmera 3D, match cut. Exceção: os presets `glass` e `logo3d` (acima) usam vidro, luz e reflexo por escolha; no máximo uma cena de cada por peça.
 - Comando que aparece na tela tem que ser **real** (o público digita o que vê). Busque no README do produto.
 - Logo é sempre o PNG oficial da marca, sem esticar (altura manda). Nunca redesenhe o logo em CSS ou SVG.

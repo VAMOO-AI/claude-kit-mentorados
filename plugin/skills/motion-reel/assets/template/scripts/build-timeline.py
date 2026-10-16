@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 FPS, BEAT = 30, 15
 CPS = 14  # estimativa sem WAV
 CYCLE = ["whip", "push", "spin", "whipUp", "glitch", "whip", "push", "iris"]
-D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "cut": 0}
+D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "echo": 12, "cut": 0}
 FORMATS = ("master", "reel")
 
 

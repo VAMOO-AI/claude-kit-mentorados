@@ -1,0 +1,142 @@
+{
+ "sobre": "apresentação pessoal, 15 s: nome com a pílula que vira o O, foto com texto em órbita, 3 destaques com número que conta, botão Seguir clicado",
+ "letterbox": null,
+ "master": [
+  {
+   "type": "pillname",
+   "vo": [],
+   "min": 90,
+   "energy": 1,
+   "props": {
+    "name": "Seu Nome",
+    "role": "Designer de produto",
+    "kicker": "Prazer,"
+   }
+  },
+  {
+   "type": "orbit",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "energy": 2,
+   "props": {
+    "name": "Seu Nome",
+    "ring": "@seunome · designer de produto",
+    "quote": "Eu transformo ideia em *produto* que vende."
+   }
+  },
+  {
+   "type": "highlights",
+   "vo": [],
+   "min": 135,
+   "in": "panel",
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "title": "Em *números*",
+    "items": [
+     {
+      "v": 120,
+      "prefix": "+",
+      "label": "projetos entregues",
+      "of": 150
+     },
+     {
+      "v": 98,
+      "suffix": "%",
+      "label": "clientes que voltam",
+      "kind": "bar"
+     },
+     {
+      "v": 12,
+      "label": "anos de estrada",
+      "of": 15
+     }
+    ]
+   }
+  },
+  {
+   "type": "follow",
+   "vo": [],
+   "min": 105,
+   "in": "iris",
+   "energy": 1,
+   "props": {
+    "name": "Seu Nome",
+    "handle": "@seunome",
+    "cta": "Bora *crescer* junto?",
+    "button": "Seguir",
+    "done": "Seguindo"
+   }
+  }
+ ],
+ "reel": [
+  {
+   "type": "pillname",
+   "vo": [],
+   "min": 90,
+   "energy": 1,
+   "props": {
+    "name": "Seu Nome",
+    "role": "Designer de produto",
+    "kicker": "Prazer,"
+   }
+  },
+  {
+   "type": "orbit",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "energy": 2,
+   "props": {
+    "name": "Seu Nome",
+    "ring": "@seunome · designer de produto",
+    "quote": "Eu transformo ideia em *produto* que vende."
+   }
+  },
+  {
+   "type": "highlights",
+   "vo": [],
+   "min": 135,
+   "in": "panel",
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "title": "Em *números*",
+    "items": [
+     {
+      "v": 120,
+      "prefix": "+",
+      "label": "projetos entregues",
+      "of": 150
+     },
+     {
+      "v": 98,
+      "suffix": "%",
+      "label": "clientes que voltam",
+      "kind": "bar"
+     },
+     {
+      "v": 12,
+      "label": "anos de estrada",
+      "of": 15
+     }
+    ]
+   }
+  },
+  {
+   "type": "follow",
+   "vo": [],
+   "min": 105,
+   "in": "iris",
+   "energy": 1,
+   "props": {
+    "name": "Seu Nome",
+    "handle": "@seunome",
+    "cta": "Bora *crescer* junto?",
+    "button": "Seguir",
+    "done": "Seguindo"
+   }
+  }
+ ]
+}

@@ -26,10 +26,18 @@ export const C = {
   line: "#e6e8ec",
   shellLine: "rgba(255,255,255,0.12)",
   white: "#ffffff",
+  // Laranja editorial: acento de CONTEÚDO (a palavra em ênfase dos presets de apresentação, o anel
+  // do nome). Nunca dado (isso é o azul) nem CTA (pílula preta). Sobre o azul de destaque o
+  // contraste é ruim (~1,6:1): ali a ênfase fica em night.
+  hot: "#ee591b",
 };
 
 export const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
 export const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
+// Serifada da palavra em itálico dos presets (frase com *uma palavra*). Não é o par da casa: só a
+// palavra marcada usa. Instrument Serif Italic (OFL), copiada pelo new.sh para public/serif-italic.ttf
+// e carregada no useFont; Georgia só se o arquivo faltar.
+export const SERIF = "'Motion Serif', Georgia, serif";
 
 export const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 export const EASE_IN = Easing.bezier(0.64, 0, 0.78, 0);
@@ -50,21 +58,19 @@ export const ip = (
 export const useFont = () => {
   const [handle] = useState(() => delayRender("font"));
   useEffect(() => {
-    const face = new FontFace(
-      "Plus Jakarta Sans",
-      `url(${staticFile("PlusJakartaSans.ttf")})`,
-      { weight: "200 800" },
-    );
-    face
-      .load()
-      .then((f) => {
-        document.fonts.add(f);
-        continueRender(handle);
-      })
-      .catch((e) => {
-        console.error(e);
-        continueRender(handle);
-      });
+    const faces = [
+      new FontFace("Plus Jakarta Sans", `url(${staticFile("PlusJakartaSans.ttf")})`, { weight: "200 800" }),
+      new FontFace("Motion Serif", `url(${staticFile("serif-italic.ttf")})`, { style: "italic", weight: "400" }),
+    ];
+    // Cada fonte carrega sozinha: projeto antigo sem serif-italic.ttf cai no Georgia, não trava.
+    Promise.all(
+      faces.map((face) =>
+        face
+          .load()
+          .then((f) => document.fonts.add(f))
+          .catch((e) => console.error(e)),
+      ),
+    ).then(() => continueRender(handle));
   }, [handle]);
 };
 

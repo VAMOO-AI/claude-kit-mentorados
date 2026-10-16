@@ -275,7 +275,7 @@ for s in SC:
 BY_TRANSITION = {"iris": [("soft-whoosh", 0.55), ("dry-pop", 0.4)], "ink": [("soft-whoosh", 0.55), ("soft-chime", 0.6)],
                  "whip": [("soft-whoosh", 0.7)], "whipUp": [("soft-whoosh", 0.7)], "push": [("soft-whoosh", 0.5)],
                  "bars": [("paper-tap", 0.6), ("soft-whoosh", 0.45)], "glitch": [], "panel": [("soft-whoosh", 0.7)],
-                 "spin": [("soft-whoosh", 0.7)], "cut": []}
+                 "spin": [("soft-whoosh", 0.7)], "echo": [("soft-whoosh", 0.6), ("dry-pop", 0.2)], "cut": []}
 for s in SC[1:]:
     ts = (s["cut"] - s["d"] / 2) / FPS
     for nm, g in BY_TRANSITION.get(s["in"], []):
@@ -375,9 +375,53 @@ def sfx_logo3d(s, p):
     at(s, settle, "low-hit", 0.5); at(s, settle + 4, "soft-chime", 0.5)
 
 
+# Apresentação pessoal (scenes-apresentacao.tsx) e lançamento de app (scenes-app.tsx).
+def sfx_pillname(s, p):
+    A = first(s)
+    at(s, A, "soft-whoosh", 0.4)                              # a linha corta a tela
+    at(s, A + 24, "dry-pop", 0.45)                            # a pílula encolhe no anel
+    at(s, A + 36, "soft-chime", 0.45)                         # as letras nascem do anel
+
+
+def sfx_orbit(s, p):
+    A = first(s)
+    at(s, A, "soft-whoosh", 0.45)
+    at(s, bt(s, 0) - 4 if s["beats"] else A + 26, "paper-tap", 0.4)
+
+
+def sfx_highlights(s, p):
+    for i in range(len(p.get("items", []))):
+        f0 = hit_at(s, i, p.get("step", 30)) + (10 if i == 0 else 0)
+        at(s, f0, "dry-pop", 0.45); at(s, f0 + 2, "soft-click", 0.1, rep=6, every=4)
+
+
+def sfx_follow(s, p):
+    click = p.get("click", bt(s, 1) if len(s["beats"]) > 1 else 48)
+    at(s, click, "soft-click", 0.7)
+    at(s, click + 3, "soft-chime", 0.5)
+
+
+def sfx_appline(s, p):
+    n = len([w for w in p.get("line", "").split() if w])
+    A = first(s)
+    gap = max(2, (bt(s, 0, 0.6) - A) // max(1, n)) if s["beats"] else 4
+    for i in range(min(n, 8)):
+        at(s, A + i * gap, "soft-click", 0.12)
+    if p.get("ui"):
+        at(s, bt(s, 0, 0.3) if s["beats"] else A + n * gap + 6, "soft-whoosh", 0.35)
+
+
+def sfx_assemble(s, p):
+    land = p.get("land", bt(s, 0, 0.5) if s["beats"] else 46)
+    at(s, first(s), "short-rise", 0.35)
+    at(s, land, "low-hit", 0.5); at(s, land + 4, "soft-chime", 0.5)
+
+
 SFX_BY_TYPE = {"desk": sfx_desk, "numbers": sfx_numbers, "commands": sfx_commands, "card": sfx_card,
                "cta": sfx_cta, "outro": sfx_outro,
-               "launch": sfx_launch, "beats": sfx_beats, "glass": sfx_glass, "logo3d": sfx_logo3d}
+               "launch": sfx_launch, "beats": sfx_beats, "glass": sfx_glass, "logo3d": sfx_logo3d,
+               "pillname": sfx_pillname, "orbit": sfx_orbit, "highlights": sfx_highlights, "follow": sfx_follow,
+               "appline": sfx_appline, "assemble": sfx_assemble}
 
 # "cues": [{"at": 12 | "first+6" | "b1" | "b0@0.5-4", "sfx": "dry-pop", "gain": 0.5, "repeat": 1, "every": 0}]
 CUE = re.compile(r"^(?:b(\d+)(?:@([\d.]+))?|first)([+-]\d+)?$")
