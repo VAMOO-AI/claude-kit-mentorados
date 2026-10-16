@@ -8,7 +8,7 @@ Serve para escolher cena e transição antes de roteirizar. Tudo vem do código 
 template da skill, sem projeto): as cenas do mapa SCENES de src/film-scenes.tsx com o comentário de
 props de cada uma, as transições do D do scripts/build-timeline.py e as cenas do src/timeline.json.
 O Film sai em 9:16 (Reel916) com as props de exemplo do film.json (master) e, para cena que não está
-nele, dos film.json prontos em presets/ (lancamento.json); cada transição aparece a
+nele, dos film.json prontos em presets/ (que a lista e a página também mostram); cada transição aparece a
 um quarto da troca antes do corte. O film.json e o vo.json não mudam; o src/tl-reel.json é trocado durante o render e
 devolvido no fim, mesmo se o render falhar.
 """
@@ -52,12 +52,19 @@ def ler_json(caminho):
 
 
 def cenas_do_film(projeto):
-    """{tipo: (componente, descrição)} na ordem do SCENES de film-scenes.tsx."""
+    """{tipo: (componente, descrição)} na ordem do SCENES de film-scenes.tsx.
+
+    O componente pode morar em outro src/*.tsx importado no film-scenes.tsx (scenes-app.tsx…):
+    o comentário de props é procurado nele também."""
     tsx = arquivo(projeto, "src/film-scenes.tsx").read_text(encoding="utf-8")
     bloco = re.search(r"export const SCENES[^=]*=\s*\{(.*?)\};", tsx, re.S)
     if not bloco:
         raise SystemExit("!! não achei o mapa SCENES em src/film-scenes.tsx")
     linhas = tsx.splitlines()
+    for mod in re.findall(r'^import [^;]*? from "\./([\w-]+)";', tsx, re.M):
+        alvo = arquivo(projeto, f"src/{mod}.tsx")
+        if alvo.is_file():
+            linhas += [""] + alvo.read_text(encoding="utf-8").splitlines()
     cenas = {}
     for tipo, comp in re.findall(r"(\w+)\s*:\s*(\w+)", bloco.group(1)):
         desc = ""
@@ -72,6 +79,16 @@ def cenas_do_film(projeto):
                 break
         cenas[tipo] = (comp, desc)
     return cenas
+
+
+def presets(projeto):
+    """[(arquivo, sequência de types do master, sobre)] dos film.json prontos em presets/."""
+    pasta = (projeto / "presets") if projeto and (projeto / "presets").is_dir() else TEMPLATE / "presets"
+    out = []
+    for f in sorted(pasta.glob("*.json")):
+        d = ler_json(f)
+        out.append((f.name, [c["type"] for c in d.get("master", [])], d.get("sobre", "")))
+    return out
 
 
 def transicoes(projeto):
@@ -124,9 +141,14 @@ def listar(projeto=None):
     print("  " + ", ".join(transicoes(projeto)) + "  (e cut, o corte seco)")
     print("Cenas do Reel (src/timeline.json → id, layout fixo em 1080×1920):")
     print("  " + ", ".join(i for i, _, _ in cenas_do_reel(projeto)))
+    print("Presets do Film (cp presets/<arquivo> film.json e troque os textos):")
+    for nome, tipos, sobre in presets(projeto):
+        print(f"  {nome:<22} {' → '.join(tipos)}")
+        if sobre:
+            print(f"  {'':<22} {sobre}")
 
 
-def pagina(nome, cenas, mostradas, trans, reel):
+def pagina(nome, cenas, mostradas, trans, reel, pre):
     e = html.escape
 
     def fig(arq, titulo, texto):
@@ -135,6 +157,7 @@ def pagina(nome, cenas, mostradas, trans, reel):
     film = "\n".join(fig(f"cena-{t}", t, f"{cenas[t][0]}: {cenas[t][1]}") for t in mostradas)
     trs = "\n".join(fig(f"transicao-{t}", t, "durante a troca") for t in trans)
     rl = "\n".join(fig(f"reel-{i}", i, "Reel (música)") for i, _, _ in reel)
+    pr = "\n".join(f"  <li><b>{e(n)}</b>: {e(' → '.join(t))}<br>{e(s)}</li>" for n, t, s in pre)
     return f"""<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -149,11 +172,16 @@ def pagina(nome, cenas, mostradas, trans, reel):
   figure {{ margin: 0; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.12); }}
   img {{ display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; background: #000; }}
   figcaption {{ padding: 8px 10px 12px; font-size: 13px; color: #3f3f46; }}
+  ul {{ margin: 0; padding-left: 20px; }} li {{ margin: 0 0 10px; color: #3f3f46; }}
 </style>
 </head>
 <body>
 <h1>Galeria motion-reel: {e(nome)}</h1>
 <p>Um quadro de cada cena e de cada transição que o template já tem, com a marca do projeto. Os textos são os de exemplo.</p>
+<h2>Presets do Film (cp presets/&lt;arquivo&gt; film.json)</h2>
+<ul>
+{pr}
+</ul>
 <h2>Cenas do Film (type no film.json)</h2>
 <main>
 {film}
@@ -214,7 +242,7 @@ def galeria(projeto):
             tl_reel.unlink(missing_ok=True)
         else:
             tl_reel.write_bytes(salvo)
-    (saida / "index.html").write_text(pagina(marca(projeto), cenas, mostradas, trans, reel), encoding="utf-8")
+    (saida / "index.html").write_text(pagina(marca(projeto), cenas, mostradas, trans, reel, presets(projeto)), encoding="utf-8")
     return saida
 
 

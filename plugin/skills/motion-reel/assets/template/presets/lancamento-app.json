@@ -1,0 +1,286 @@
+{
+ "sobre": "lançamento de app, 30 s: logo, 5 frases com a UI de cada uma (palavra por palavra, com rastro), peças que montam o logo e a tagline",
+ "letterbox": null,
+ "master": [
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "name": "Seu App",
+    "sub": "chega hoje"
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 1,
+    "total": 5,
+    "line": "Sua agenda se *organiza* sozinha.",
+    "ui": {
+     "kind": "rows",
+     "title": "Hoje",
+     "items": [
+      "Reunião 9h",
+      "Entrega 14h",
+      "Academia 18h"
+     ],
+     "foot": "tudo no lugar"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 2,
+    "total": 5,
+    "line": "Um *toque* e a equipe já sabe.",
+    "ui": {
+     "kind": "chat",
+     "title": "Equipe",
+     "msgs": [
+      {
+       "t": "Reunião movida pra 15h"
+      },
+      {
+       "me": true,
+       "t": "Avisado ✓"
+      },
+      {
+       "t": "Valeu!"
+      }
+     ]
+    },
+    "dark": true
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 3,
+    "total": 5,
+    "line": "Você vê o *progresso* em tempo real.",
+    "ui": {
+     "kind": "lanes",
+     "title": "Projetos",
+     "labels": [
+      "Design",
+      "App",
+      "Site"
+     ],
+     "foot": "ao vivo"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 4,
+    "total": 5,
+    "line": "Nada se *perde* no caminho.",
+    "ui": {
+     "kind": "pipeline",
+     "title": "Pedido",
+     "gates": [
+      "Recebido",
+      "Feito",
+      "Entregue"
+     ],
+     "foot": "nenhuma etapa pulada"
+    },
+    "dark": true
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 3,
+   "props": {
+    "n": 5,
+    "total": 5,
+    "line": "E o mês fecha *no azul*.",
+    "ui": {
+     "kind": "meter",
+     "title": "Este mês",
+     "from": 40,
+     "to": 92,
+     "label": "metas batidas"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "assemble",
+   "vo": [],
+   "min": 120,
+   "in": "echo",
+   "energy": 1,
+   "props": {
+    "name": "Seu App",
+    "tag": "Seu dia, no automático."
+   }
+  }
+ ],
+ "reel": [
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "name": "Seu App",
+    "sub": "chega hoje"
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 1,
+    "total": 5,
+    "line": "Sua agenda se *organiza* sozinha.",
+    "ui": {
+     "kind": "rows",
+     "title": "Hoje",
+     "items": [
+      "Reunião 9h",
+      "Entrega 14h",
+      "Academia 18h"
+     ],
+     "foot": "tudo no lugar"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 2,
+    "total": 5,
+    "line": "Um *toque* e a equipe já sabe.",
+    "ui": {
+     "kind": "chat",
+     "title": "Equipe",
+     "msgs": [
+      {
+       "t": "Reunião movida pra 15h"
+      },
+      {
+       "me": true,
+       "t": "Avisado ✓"
+      },
+      {
+       "t": "Valeu!"
+      }
+     ]
+    },
+    "dark": true
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 3,
+    "total": 5,
+    "line": "Você vê o *progresso* em tempo real.",
+    "ui": {
+     "kind": "lanes",
+     "title": "Projetos",
+     "labels": [
+      "Design",
+      "App",
+      "Site"
+     ],
+     "foot": "ao vivo"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 2,
+   "props": {
+    "n": 4,
+    "total": 5,
+    "line": "Nada se *perde* no caminho.",
+    "ui": {
+     "kind": "pipeline",
+     "title": "Pedido",
+     "gates": [
+      "Recebido",
+      "Feito",
+      "Entregue"
+     ],
+     "foot": "nenhuma etapa pulada"
+    },
+    "dark": true
+   }
+  },
+  {
+   "type": "appline",
+   "vo": [],
+   "min": 135,
+   "in": "echo",
+   "energy": 3,
+   "props": {
+    "n": 5,
+    "total": 5,
+    "line": "E o mês fecha *no azul*.",
+    "ui": {
+     "kind": "meter",
+     "title": "Este mês",
+     "from": 40,
+     "to": 92,
+     "label": "metas batidas"
+    },
+    "dark": false
+   }
+  },
+  {
+   "type": "assemble",
+   "vo": [],
+   "min": 120,
+   "in": "echo",
+   "energy": 1,
+   "props": {
+    "name": "Seu App",
+    "tag": "Seu dia, no automático."
+   }
+  }
+ ]
+}

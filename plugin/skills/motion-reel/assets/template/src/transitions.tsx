@@ -203,6 +203,27 @@ const Spin: React.FC<TP> = ({ children, presentationDirection, presentationProgr
   );
 };
 
+/* Echo: as duas cenas correm na horizontal com dois ecos atrasados e apagados (rastro); sem
+   corte seco e sem blur. Os ecos só existem no meio da troca. */
+const EchoTrail: React.FC<TP> = ({ children, presentationDirection, presentationProgress }) => {
+  const p = presentationProgress;
+  if (p <= 0.001 || p >= 0.999) return <AbsoluteFill>{children}</AbsoluteFill>;
+  const enter = presentationDirection === "entering";
+  const lag = 0.14;
+  const at = (k: number) => EASE_INOUT(Math.min(1, Math.max(0, (p - k * lag) / (1 - k * lag))));
+  const off = (k: number) => (enter ? (1 - at(k)) * 100 : -at(k) * 100);
+  return (
+    <AbsoluteFill>
+      {[2, 1].map((k) => (
+        <AbsoluteFill key={k} style={{ transform: `translateX(${off(k)}%)`, opacity: 0.32 / k }}>
+          {children}
+        </AbsoluteFill>
+      ))}
+      <AbsoluteFill style={{ transform: `translateX(${off(0)}%)` }}>{children}</AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
 const byKind: Record<string, React.FC<TP>> = {
   iris: Iris,
   ink: Iris,
@@ -213,6 +234,7 @@ const byKind: Record<string, React.FC<TP>> = {
   glitch: Glitch,
   panel: Panel,
   spin: Spin,
+  echo: EchoTrail,
 };
 
 const Router: React.FC<TP> = (props) => {
