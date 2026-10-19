@@ -53,6 +53,9 @@ echo "== em bypassPermissions o hook não pergunta NADA =="
 check pass "push --force em bypass"   'git push --force origin main'   "$REPO_GIT" bypassPermissions
 check pass "DROP TABLE em bypass"     'psql -c "drop table clientes;"' "$REPO_GIT" bypassPermissions
 check ask  "CAREFUL_ON=1 traz de volta" 'git push --force origin main' "$REPO_GIT" bypassPermissions_com_careful_on
+# Só o bypass desarma o hook: o auto, que o setup põe desde a 0.56.0, continua perguntando.
+check ask  "push --force em auto"     'git push --force origin main'   "$REPO_GIT" auto
+check ask  "DROP TABLE em auto"       'psql -c "drop table clientes;"' "$REPO_GIT" auto
 
 echo
 echo "== ...mas avisa UMA vez que está calado (senão o silêncio vira falsa segurança) =="

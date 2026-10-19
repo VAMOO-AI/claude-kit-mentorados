@@ -14,10 +14,10 @@ Retrieve current documentation and code examples for any library using the Conte
 Use the installed CLI; only install it if missing:
 
 ```bash
-command -v ctx7 >/dev/null || npm install -g ctx7@latest
+command -v ctx7 >/dev/null || npm install -g ctx7@0.5.13
 ```
 
-Or run directly without installing: `npx ctx7@latest <command>`.
+Or run directly without installing: `npx ctx7@0.5.13 <command>`.
 
 ## Workflow
 

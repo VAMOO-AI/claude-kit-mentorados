@@ -29,7 +29,6 @@ jobs:
           for f in .claude-plugin/marketplace.json \
                    plugin/.claude-plugin/plugin.json \
                    plugin/hooks/hooks.json \
-                   plugin/.mcp.json \
                    plugin/templates/settings.json \
                    skills.sh.json; do
             python3 -m json.tool "$f" > /dev/null && echo "ok $f"
@@ -159,6 +158,9 @@ jobs:
         # No ubuntu o disco diferencia maiúscula: roda o caso (d). O (b), que só existe em
         # disco que não diferencia (Mac, Windows), roda na máquina de quem mantém.
         run: bash tests/test-kit-setup-subagentes.sh
+
+      - name: O setup em HOME temporário termina em auto e sem allow de execução arbitrária
+        run: bash tests/test-kit-setup-permissoes.sh
 
       - name: Com o kit do time na máquina, os hooks do plugin saem sem fazer nada
         # Sem a guarda, cada hook rodava duas vezes: dois sons por turno, texto repetido no

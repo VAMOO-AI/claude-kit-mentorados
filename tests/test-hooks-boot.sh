@@ -8,8 +8,8 @@
 # conta. Em três repos medidos em 24/09/2026 foram de 33 mil a 110 mil arquivos por
 # checagem; com o teto de 10 s, 45 de 76 execuções foram cortadas no meio. O dispatch saiu
 # de todo evento — nenhum hook chama `dotcontext hook dispatch`, direto ou pelo script que
-# o embrulhava. O MCP do dotcontext continua (plugin/.mcp.json). Correção pedida em
-# vinilana/dotcontext#93.
+# o embrulhava. Correção pedida em vinilana/dotcontext#93; na 0.56.0 o MCP saiu também
+# (plugin/.mcp.json removido), e a trava fica contra a volta do hook.
 #
 # Uso: bash tests/test-hooks-boot.sh [raiz-do-repo]
 set -uo pipefail

@@ -9,9 +9,12 @@
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
-//   • allow, deny e ask são UNIÃO: o kit acrescenta e nunca tira o que é seu;
-//   • defaultMode: Manual ("default") ou ausente vira o do kit, salvo o marcador
-//     kit-vamoo/manter-modo-manual; auto, bypass, plan e dontAsk ficam;
+//   • allow, deny e ask são UNIÃO: o kit acrescenta e nunca tira o que é seu — a
+//     exceção são os allows de execução arbitrária que o próprio kit gravou até a
+//     0.55.0 (ALLOWS_LEGADOS), casados pelo texto exato;
+//   • defaultMode: Manual ("default") ou ausente vira o do kit (auto), salvo o
+//     marcador kit-vamoo/manter-modo-manual; acceptEdits fica, com aviso; bypass,
+//     plan e dontAsk ficam;
 //   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
 //     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta;
 //   • hooks são seus — o único que sai é o dispatch do dotcontext que o
@@ -87,6 +90,22 @@ if (Object.keys(kitMarkets).length) {
 
 const kitPerms = kit.permissions || {};
 user.permissions = user.permissions || {};
+
+// Até a 0.55.0 o template liberava estes allows, e com eles o Claude roda código que
+// ele mesmo pode ter acabado de escrever, sem pergunta: `awk 'BEGIN{system(...)}'`, um
+// `.ts` novo pelo `npx tsx`, o `package.json` editado e chamado pelo `npm run`. O modo
+// Auto descarta sozinho as regras de "run" de gerenciador de pacote, mas devolve todas
+// quando a pessoa sai dele (Accept edits, Manual), e a doc não garante que `awk` e
+// `npx tsx` entrem nessa lista. Como o allow é união, tirar do template não tirava de ninguém que já
+// tinha rodado o setup: sai aqui o texto exato que o kit gravou. Quem escreveu a mesma
+// regra por conta própria perde junto — não dá pra distinguir —, e a saída diz como
+// liberar o comando exato no projeto.
+const ALLOWS_LEGADOS = ['Bash(awk:*)', 'Bash(npx tsx:*)', 'Bash(npm run:*)', 'PowerShell(npm run *)', 'PowerShell(npx tsx *)'];
+const allowsTirados = Array.isArray(user.permissions.allow)
+  ? user.permissions.allow.filter((p) => ALLOWS_LEGADOS.includes(p))
+  : [];
+if (allowsTirados.length) user.permissions.allow = user.permissions.allow.filter((p) => !ALLOWS_LEGADOS.includes(p));
+
 const allowAntes = [...(user.permissions.allow || [])];
 const askAntes = new Set(user.permissions.ask || []);
 for (const lista of ['allow', 'deny', 'ask']) {
@@ -97,12 +116,16 @@ for (const lista of ['allow', 'deny', 'ask']) {
   if (meus.length || acrescentar.length) user.permissions[lista] = [...meus, ...acrescentar];
 }
 
-// Modo de permissão (0.48.0). Manual (`default`) ou modo ausente vira o do kit
-// (`acceptEdits`): o kit não quer mentorado aprovando edição por edição. `auto`,
-// `bypassPermissions`, `plan` e `dontAsk` ficam — são escolhas mais permissivas ou
-// deliberadas. Quem quer o manual de vez cria o marcador ao lado do settings.json
-// (~/.claude/kit-vamoo/manter-modo-manual) e o kit não troca mais. O marcador sai de
-// dirname(userPath) para o teste nunca tocar o ~/.claude de verdade.
+// Modo de permissão (0.48.0; `auto` desde a 0.56.0). Manual (`default`) ou modo ausente
+// vira o do kit (`auto`, o padrão do próprio Claude Code desde a v2.1.283): o kit não
+// quer mentorado aprovando edição por edição, e no Auto quem revisa o comando é o
+// classificador, não um allow largo. Sem Auto disponível na conta ou no modelo, o
+// Claude Code abre em Manual. `acceptEdits` fica: foi o modo que o kit impôs da 0.48.0
+// à 0.55.0, e não dá pra separar quem ficou nele de propósito — a saída recomenda o
+// Auto. `bypassPermissions`, `plan` e `dontAsk` ficam calados. Quem quer o manual de
+// vez cria o marcador ao lado do settings.json (~/.claude/kit-vamoo/manter-modo-manual)
+// e o kit não troca mais. O marcador sai de dirname(userPath) para o teste nunca tocar
+// o ~/.claude de verdade.
 // Um `ask` do kit vence o allow que a pessoa escreveu de propósito (ordem deny → ask →
 // allow). Quem tinha `Bash(git push origin main)` ou `Bash(env)` passa a ver pergunta — o
 // setup diz quais, em vez de a pessoa descobrir no meio do trabalho. Mesmo casamento da doc
@@ -142,9 +165,12 @@ if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'def
   } else {
     user.permissions.defaultMode = modoKit;
     novas.push(`permissions.defaultMode (${meuModo || 'sem modo'} → ${modoKit})`);
-    console.log(`  modo de permissão: ${meuModo === 'default' ? 'Manual ("default")' : 'sem modo definido'} → "${modoKit}" (Accept edits: edita e roda os comandos comuns sem pedir; o que é destrutivo continua pedindo).`);
+    console.log(`  modo de permissão: ${meuModo === 'default' ? 'Manual ("default")' : 'sem modo definido'} → "${modoKit}" (Auto: um classificador revisa cada comando no lugar do "Permitir"; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
     console.log(`  pra voltar ao manual de vez: crie o arquivo ${MARCADOR} e ponha permissions.defaultMode em "default" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
   }
+} else if (meuModo === 'acceptEdits' && modoKit === 'auto') {
+  console.log('  modo de permissão: mantive o seu "acceptEdits" (Accept edits). O kit agora recomenda "auto": um classificador revisa cada comando, em vez de liberar o que está no allow.');
+  console.log('  pra trocar: ponha permissions.defaultMode em "auto" no settings.json.');
 } else if (meuModo && modoKit && meuModo !== modoKit && !MODOS_MANTIDOS.includes(meuModo)) {
   console.log(`  seu modo de permissão é "${meuModo}", que o kit não conhece — mantive o seu.`);
 }
@@ -179,4 +205,8 @@ if (user.hooks && typeof user.hooks === 'object' && !Array.isArray(user.hooks)) 
 fs.writeFileSync(userPath, JSON.stringify(user, null, 2) + '\n');
 if (novas.length) console.log(`  acrescentado: ${novas.join(', ')}`);
 if (legados) console.log(`  removido: hook antigo do dotcontext (${legados}) — o instalador de antes da 0.7.0 tinha gravado no seu settings.json`);
-if (!novas.length && !legados) console.log('  já estava tudo lá — nada mudou');
+if (allowsTirados.length) {
+  console.log(`  removido do allow: ${allowsTirados.join(', ')} — rodam código arbitrário sem pergunta, e o kit tinha gravado até a 0.55.0.`);
+  console.log('  projeto que precisa libera o comando exato no próprio .claude/settings.json (ex.: "Bash(npm run build)").');
+}
+if (!novas.length && !legados && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');

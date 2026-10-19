@@ -16,6 +16,76 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.56.0] — 2026-10-19
+
+### Segurança
+
+- **Fora do allow: `Bash(awk:*)`, `Bash(npx tsx:*)` e `Bash(npm run:*)`**, mais os gêmeos
+  `PowerShell(npm run *)` e `PowerShell(npx tsx *)`. Com eles o Claude roda sem pergunta
+  código que ele mesmo pode ter acabado de escrever: `awk 'BEGIN{system(...)}'`, um `.ts`
+  novo pelo `npx tsx`, o `package.json` editado e chamado pelo `npm run`. O template não traz
+  mais, e o `merge-settings.js` tira de quem já tinha, casando o texto exato que o kit gravou
+  (o allow é união, então só tirar do template não tirava de ninguém). Um allow exato seu,
+  como `Bash(npm run build)`, fica. A saída do setup diz o que saiu e como liberar o comando
+  exato no `.claude/settings.json` do projeto.
+- **O MCP do dotcontext saiu do plugin** (`plugin/.mcp.json` removido). A leitura de arquivo
+  dele não passa pelo `permissions.deny` de `.env` e chave, que vale para Read e Bash mas não
+  para ferramenta de MCP. Além disso, quase ninguém usava, e o pacote não recebe atualização
+  desde junho. Quem atualiza o plugin perde o servidor sozinho.
+
+### Mudado
+
+- **O `/kit-vamoo:setup` deixa você no Auto (`auto`)**, o padrão do próprio Claude Code desde a
+  v2.1.283, em vez do Accept edits. Manual (`default`) ou sem modo vira `auto`. No Auto um
+  classificador revisa cada comando no lugar do "Permitir", e os `ask` do kit (force push,
+  push na main, descartar alteração, ler segredo…) continuam perguntando. Se o Auto não
+  estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual, e a saída do
+  setup diz isso. Quem já está em `acceptEdits` continua lá, com um aviso de que o kit agora
+  recomenda `auto`: foi o modo que o setup impôs da 0.48.0 à 0.55.0, e não dá pra saber quem
+  ficou de propósito. O marcador `~/.claude/kit-vamoo/manter-modo-manual` continua valendo.
+- **"init the context" saiu** do `CLAUDE-global.md`, da `setup`, do README e das docs. O lugar
+  dele vai para o que o kit já tem, sem ferramenta nova:
+  - projeto novo → `/kit-vamoo:memoria-projeto`;
+  - implementação grande → `grilling` + plan mode → execução → `verificacao` → `/ship`.
+  O setup não edita o `~/.claude/CLAUDE.md` que já existe: quando ele ainda cita o
+  dotcontext, a saída avisa e aponta a seção "Projeto: memória, instruções e fluxo" do
+  `CLAUDE.kit.md`.
+- **A `setup` é só-slash** (`disable-model-invocation: true`). Ela roda uma vez, e de novo
+  depois de atualização grande, então não precisa ocupar a lista de skills em toda conversa.
+  Chame por `/kit-vamoo:setup`.
+- **Versões fixas:** `ctx7@0.5.13` no `install.sh` e na `find-docs` (era `@latest`, e o
+  pacote foi da 0.5 à 0.8 em dez dias) e `@playwright/mcp@0.0.83` na `mcps-recomendados.md`.
+
+### Corrigido
+
+- **`docs/pagina-plugin-mentoria.md` dizia "kit 0.53.9, 28 skills"** com a 0.55.0 e 29
+  pastas. A linha agora traz só as contagens, e a versão é a do `plugin.json`. O
+  `tests/test-readme-contagem.sh` passou a conferir a linha, que nenhum teste lia: skills,
+  comandos, a lista dos comandos e, se ela citar versão, a do `plugin.json`.
+
+### Testes
+
+- `tests/test-kit-setup-permissoes.sh` (novo, no CI): o setup inteiro em HOME temporário.
+  O HOME vazio termina em `auto` e sem os cinco allows. O HOME de quem instalou até a 0.55.0
+  perde os allows do kit, mantém o allow próprio e o `acceptEdits`, e o `CLAUDE.md` que
+  ainda cita o dotcontext ganha aviso sem ser editado. O marcador segura o Manual. Falha em
+  15 casos contra o setup da 0.55.0.
+- `tests/test-merge-settings.sh`: casos de remoção dos allows legados (com a 2ª passada
+  calada), `auto` no lugar do `acceptEdits`, o aviso para quem fica em `acceptEdits` e
+  `awk`/`npx tsx`/`npm run` entre os que continuam pedindo. Falha em 22 casos contra o merge
+  e o template da 0.55.0.
+- `tests/test-check-careful.sh` e `tests/test-block-cd-leitura-relativa.sh`: o modo `auto`
+  cai no ramo que pergunta, como o `default`. Só o bypass desarma os dois hooks.
+
+### Depois de atualizar
+
+- Rode `/kit-vamoo:setup` uma vez: é ele que troca o modo e tira os allows antigos do seu
+  `settings.json`. O auto-update traz só o plugin.
+- Instalou antes de 24/08/2026 pelo `install.sh`? O dotcontext pode ter ficado registrado na
+  sua máquina: `claude mcp list` mostra, e `claude mcp remove dotcontext --scope user` tira.
+- Seu `~/.claude/CLAUDE.md` ainda tem a seção "dotcontext (memória do projeto)"? Troque pela
+  "Projeto: memória, instruções e fluxo" do `~/.claude/CLAUDE.kit.md`.
+
 ## [0.55.0] — 2026-10-16
 
 ### Adicionado

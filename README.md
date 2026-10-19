@@ -35,10 +35,9 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
-| `plugin/.mcp.json` | plugin | O **dotcontext**, que dá ao Claude uma memória do projeto em `.context/`. Vem junto com o plugin — sem `claude mcp add` à mão. |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
-| `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (`npm run`, `npm test`, git read-only). É **mesclado** com o que você já tem — nada seu é perdido. |
+| `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (git local, `npm test`, `npx tsc`, leitura de arquivo). É **mesclado** com o que você já tem — nada seu é perdido. |
 | `plugin/scripts/statusline.js` | `~/.claude/scripts/` | **Barra de status** (sempre visível): diretório, branch, alterações não salvas (`✗`), à frente/atrás do remoto (`↑`/`↓`), **GitHub conectado** (`gh✓`/`gh✗`), **PR aberto** (`PR#`) e o contexto **em número absoluto**. Resolve a cegueira do Desktop, que não mostra nada disso. |
 | `plugin/skills/setup/` | — | O `/kit-vamoo:setup`, que instala as quatro linhas acima. |
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
@@ -148,8 +147,8 @@ abrir terminal, nem instalar MCP à mão.
 O que cada uma faz:
 
 1. **`marketplace add`** — diz ao Claude Code onde este kit mora.
-2. **`install`** — instala skills, comandos, guard-rails de git e o MCP
-   dotcontext. Se ele pedir, rode `/reload-plugins`.
+2. **`install`** — instala skills, comandos e guard-rails de git. Se ele pedir,
+   rode `/reload-plugins`.
 3. **`/kit-vamoo:setup`** — instala o que um plugin não consegue declarar
    (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o
    CLAUDE.md com os seus dados, ali na conversa mesmo.
@@ -158,12 +157,14 @@ Depois **reinicie o Claude Code**. Não é só pela barra: a sessão aberta come
 com as configurações antigas, então idioma, permissões e barra de status só
 valem no próximo start.
 
-### Modo de permissão: Accept edits
+### Modo de permissão: Auto
 
-O setup deixa você em **Accept edits** (`acceptEdits`), inclusive se você estava no
-Manual: o Claude edita arquivo e roda o comando do dia a dia (git local, `git push`,
-`gh pr create`, `npm run`, `ffprobe`) sem pedir "Permitir". Continua
-pedindo o que não tem volta: `git push --force` (em qualquer forma), push na main,
+O setup deixa você no **Auto** (`auto`), o padrão do próprio Claude Code desde a v2.1.283,
+inclusive se você estava no Manual. No Auto, um segundo modelo (o classificador) revisa
+cada comando antes de rodar e barra o que foge do que você pediu, mexe em
+infraestrutura que ele não reconhece ou parece vir de texto que o Claude leu. O
+kit põe por cima um `ask` que pergunta sempre, em qualquer modo, o que não tem volta:
+`git push --force` (em qualquer forma), push na main,
 apagar branch remota, `git reset --hard`, `git clean`, `git branch -D`, descartar
 alteração local (`checkout -f`, `switch --discard-changes`, `restore .`, `stash drop`),
 `gh pr merge`, `gh repo delete`, `rm -r`/`Remove-Item -Recurse` fora das pastas
@@ -171,11 +172,18 @@ descartáveis (`node_modules`, `.next`, `dist`, `build`…), `find -delete`/`-ex
 as variáveis de ambiente e qualquer comando que cite arquivo de segredo (`.env`, chave
 SSH, `.pem`, credencial de AWS/gh/npm). Vale no Bash e no PowerShell, e os bloqueios de
 login do Supabase/Vercel continuam em todo modo.
-Se você já usa `auto`, `bypassPermissions`, `plan` ou `dontAsk`, o setup não mexe.
 
+- **O Auto não está disponível na sua conta ou no seu modelo?** O Claude Code abre a
+  sessão em **Manual** e pede "Permitir" a cada passo. Não é o setup que falhou. Se
+  preferir, escolha **Accept edits** no seletor de modo.
+- **Já estava em Accept edits (`acceptEdits`)?** O setup não troca: até a 0.55.0 era o
+  modo que ele mesmo escolhia, e não dá pra saber se você ficou nele de propósito. A
+  saída avisa que o kit agora recomenda o Auto. Pra trocar, ponha
+  `permissions.defaultMode` em `"auto"` no `~/.claude/settings.json`.
+- Se você já usa `bypassPermissions`, `plan` ou `dontAsk`, o setup não mexe.
 - **App de desktop:** o seletor de modo ao lado do botão de enviar vence o
   `settings.json` e é lembrado por pasta. Se ele mostrar **Manual** (ou **Ask
-  permissions**, em versão antiga do app), troque uma vez para **Accept edits** em
+  permissions**, em versão antiga do app), troque uma vez para **Auto** em
   cada pasta onde você tinha escolhido Manual.
 - **Quer o Manual de vez?** Crie o arquivo `~/.claude/kit-vamoo/manter-modo-manual`
   (`mkdir -p ~/.claude/kit-vamoo && touch ~/.claude/kit-vamoo/manter-modo-manual`; no
@@ -187,11 +195,14 @@ Se você já usa `auto`, `bypassPermissions`, `plan` ou `dontAsk`, o setup não 
   de `.env` e chave SSH por qualquer comando) são scripts bash chamados pelos hooks. Sem o
   Git Bash o hook falha aberto e nenhuma guarda roda; sobram as regras `ask`/`deny` do
   `settings.json`, que pegam menos. O `/kit-vamoo:setup` confere e avisa.
-- **Runner de script e `ffmpeg` não são liberados globalmente.** Com `acceptEdits` o Claude
-  pode escrever `scripts/x.py` e rodar em seguida; `ffmpeg` grava fora do projeto e manda
-  saída para `http://`. Projeto que precisa libera o script exato no próprio
-  `.claude/settings.json` (ex.: `"Bash(node scripts/build-sitemap.mjs)"`). O `npm run *`
-  continua liberado: editar o `package.json` e rodar é o risco que sobra.
+- **Runner de script e `ffmpeg` não são liberados globalmente.** Fora do Auto (Accept
+  edits, por exemplo) o Claude pode escrever `scripts/x.py` e rodar em seguida, ou editar o
+  `package.json` e chamar `npm run`; `ffmpeg` grava fora do projeto e manda saída para
+  `http://`. Por isso `node scripts/*`, `npx tsx`, `npm run` e `awk` ficam fora do allow, e
+  o setup tira os `Bash(awk:*)`, `Bash(npx tsx:*)` e `Bash(npm run:*)` que versões
+  anteriores dele gravaram no seu `settings.json`. Projeto que precisa libera o comando
+  exato no próprio `.claude/settings.json` (ex.: `"Bash(npm run build)"`,
+  `"Bash(node scripts/build-sitemap.mjs)"`).
 
 > **Instalou o kit antes de 24/08/2026, pelo `install.sh`?** Você precisa de um passo a
 > mais, senão fica com cada skill duas vezes — a cópia velha em `~/.claude/skills/` e a
@@ -353,12 +364,13 @@ a release com o bloco daquela versão do `CHANGELOG.md`. Não crie tag na mão.
 
 ## Como usar no dia a dia
 
-- **Memória de projeto:** num projeto novo, na primeira conversa, peça
-  **"init the context"**. O Claude cria a pasta `.context/` e passa a lembrar do projeto.
-- **Memória que sobrevive à máquina:** rode `/kit-vamoo:memoria-projeto` num
-  projeto em git. O que o Claude aprende passa a morar em `.context/memoria/`,
-  dentro do repositório — vai junto no commit, e continua lá no próximo
-  computador ou pra quem mais trabalhar no projeto.
+- **Memória de projeto:** num projeto novo em git, na primeira conversa, rode
+  `/kit-vamoo:memoria-projeto`. O que o Claude aprende passa a morar em
+  `.context/memoria/`, dentro do repositório — vai junto no commit, e continua lá
+  na próxima sessão, no próximo computador ou pra quem mais trabalhar no projeto.
+- **Implementação grande** (vários sistemas, banco, login, infra, algo sem volta):
+  skill `grilling` + plan mode pra fechar o plano antes de codar → execução →
+  skill `verificacao` antes do "pronto" → `/ship` pra commit, PR e deploy.
 - **Modo aprendizado:** diga **"explica"** ou **"modo aula"** e o Claude passa a ensinar
   o porquê de cada coisa, passo a passo (definido no seu CLAUDE.md).
 - **Skills de decisão:** use `/kit-vamoo:grill-me` quando quiser testar um plano e

@@ -34,8 +34,9 @@ Não foi excesso de uso — foi a conversa acumulando peso.
 1. **Sessão nova por tarefa.** Terminou o bug do login? Vai mexer no layout?
    Abra uma sessão nova no mesmo projeto. Tudo que ficou pra trás na conversa
    (aquele arquivo de 800 linhas lido há uma hora) continua sendo relido a
-   cada passo; a sessão nova zera a conta, e seu `CLAUDE.md` e o `.context/`
-   do dotcontext recuperam o contexto necessário — barato. Evite o `/clear`:
+   cada passo; a sessão nova zera a conta, e seu `CLAUDE.md`, o `AGENTS.md`
+   do projeto e a memória em `.context/memoria/` recuperam o contexto
+   necessário — barato. Evite o `/clear`:
    no Claude Code desktop ele apaga o histórico da sessão, e a sessão nova
    deixa a anterior guardada na lista pra você consultar.
 

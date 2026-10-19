@@ -23,7 +23,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.55.0"
+KIT_VERSION="0.56.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -135,6 +135,11 @@ if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ "$FORCE" -eq 0 ]; then
   # arquivo é dela: o setup aponta, não edita. Sem -i: AGENTS.md no texto é o do projeto.
   if grep -q 'agents\.md' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
     warn "  Ele ainda cita agents.md: as regras de subagente agora ficam em ~/.claude/subagentes.md."
+  fi
+  # O MCP do dotcontext saiu do plugin na 0.56.0; o CLAUDE.md de quem instalou antes
+  # continua mandando pedir "init the context". Mesmo trato do agents.md: aponta, não edita.
+  if grep -qiE 'init the context|dotcontext' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+    warn "  Ele ainda manda usar o dotcontext (\"init the context\"), que saiu do kit: troque a seção pela \"Projeto: memória, instruções e fluxo\" do CLAUDE.kit.md."
   fi
 else
   backup "CLAUDE.md"
@@ -261,9 +266,10 @@ rotaciona_backups
 
 echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
-say "Modo de permissão: quem estava no Manual passa para \"Accept edits\" (acceptEdits) — edita e roda o comando comum sem pedir; force push, reset --hard e afins continuam pedindo. auto, bypass e plan ficam."
+say "Modo de permissão: quem estava no Manual passa para \"Auto\" (auto) — um classificador revisa cada comando no lugar do \"Permitir\"; force push, reset --hard e afins continuam pedindo. Accept edits, bypass e plan ficam."
+say "  Sem Auto disponível na sua conta ou no modelo, o Claude Code abre em Manual: não é o setup que falhou."
 say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o settings.json e é lembrado por pasta:"
-say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Accept edits\" em cada pasta onde escolheu Manual."
+say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Auto\" em cada pasta onde escolheu Manual."
 say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"

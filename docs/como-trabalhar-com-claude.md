@@ -60,11 +60,13 @@ O Claude pode errar com confiança. Defesas simples:
 
 ---
 
-## 5. Memória do projeto (dotcontext)
+## 5. Memória do projeto
 
-Em projeto novo, na 1ª conversa: peça **"init the context"**. O Claude cria a pasta
-`.context/` e passa a lembrar das decisões do projeto entre sessões. Documentação
-nova vai pra `.context/docs/`. Isso evita explicar tudo de novo toda vez.
+Em projeto novo, na 1ª conversa: rode **`/kit-vamoo:memoria-projeto`**. Ele cria a pasta
+`.context/memoria/` dentro do repositório e liga nela a memória do Claude, então o que ele
+aprende sobre o projeto vai junto no commit e continua lá na próxima sessão e no próximo
+computador. Documentação nova vai pra `.context/docs/`. Isso evita explicar tudo de novo
+toda vez.
 
 > 📌 Quer entender como o Claude "lembra" das coisas (global vs projeto, o que vai no
 > CLAUDE.md vs em `docs/`)? Leia [`memoria-e-contexto.md`](memoria-e-contexto.md). É o

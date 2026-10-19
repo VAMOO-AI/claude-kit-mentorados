@@ -22,8 +22,8 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/cdrel.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
 # MODO é o permission_mode do payload; vazio tira o campo (cliente que não manda o modo).
-# O padrão é acceptEdits, o modo dos mentorados e o modo em que a escalada foi medida de novo
-# em 15/10/2026.
+# O padrão é acceptEdits, o modo em que a escalada foi medida de novo em 15/10/2026 (e o dos
+# mentorados até a 0.55.0; desde a 0.56.0 o setup põe em auto, que também cai no bloqueio).
 MODO=acceptEdits
 roda() {
   CMD="$1" MODO="$MODO" node -e 'const o={session_id:"teste",cwd:"/tmp",tool_input:{command:process.env.CMD}}; if (process.env.MODO) o.permission_mode=process.env.MODO; process.stdout.write(JSON.stringify(o))' \
@@ -119,6 +119,8 @@ MODO=default
 check bloqueia "default: continua bloqueando"                          "$CANON"
 MODO=plan
 check bloqueia "plan: continua bloqueando"                             "$CANON"
+MODO=auto
+check bloqueia "auto (o modo do setup desde a 0.56.0): continua bloqueando" "$CANON"
 MODO=""
 check bloqueia "payload sem permission_mode: continua bloqueando"      "$CANON"
 MODO=acceptEdits

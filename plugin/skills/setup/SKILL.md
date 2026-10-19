@@ -4,9 +4,9 @@ description: >-
   Termina de instalar o Claude Starter Kit depois do /plugin install — escreve o
   CLAUDE.md global, liga a barra de status e mescla as preferências, que são as
   partes que um plugin não consegue instalar sozinho. Depois ajuda a preencher o
-  CLAUDE.md com os dados de quem está instalando. Use em "/kit-vamoo:setup",
-  "terminar de instalar o kit", "configurar o kit", "instalei o plugin e agora?",
-  "a barra de status não apareceu", "o kit não está pegando as regras".
+  CLAUDE.md com os dados de quem está instalando. Roda uma vez, e de novo depois
+  de atualização grande. Só dispara quando você chama: /kit-vamoo:setup.
+disable-model-invocation: true
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/kit-setup.sh *)'
@@ -16,8 +16,8 @@ allowed-tools:
 
 # Terminar a instalação do kit
 
-O `/plugin install` entregou as skills, os comandos, os guard-rails de git e o
-MCP dotcontext. Falta o resto — e falta por um motivo técnico, não por descuido:
+O `/plugin install` entregou as skills, os comandos e os guard-rails de git.
+Falta o resto — e falta por um motivo técnico, não por descuido:
 o `settings.json` de um plugin só aceita as chaves `agent` e
 `subagentStatusLine`. **CLAUDE.md global, barra de status, idioma e lista de
 permissões não podem vir num plugin.** É isto que esta skill instala.
@@ -76,19 +76,26 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
-- **O modo de permissão vira "Accept edits" (`acceptEdits`).** Quem estava no
-  Manual (`default`) ou sem modo passa para `acceptEdits`, e a saída diz isso numa
-  linha. `auto`, `bypassPermissions`, `plan` e `dontAsk` ficam como
+- **O modo de permissão vira Auto (`auto`).** Quem estava no Manual (`default`) ou
+  sem modo passa para `auto`, o padrão do próprio Claude Code desde a v2.1.283, e a
+  saída diz isso numa linha. No Auto, um segundo modelo (o classificador) revisa cada
+  comando antes de rodar no lugar do "Permitir" manual. Se o Auto não estiver
+  disponível para a conta ou o modelo, o Claude Code abre a sessão em Manual: não é o
+  setup que falhou. Quem já está em `acceptEdits` continua lá, e a saída avisa que o
+  kit agora recomenda `auto`. `bypassPermissions`, `plan` e `dontAsk` ficam como
   estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
   não tem volta (force push, push na main, descartar alteração local, `rm -r` fora das
   pastas descartáveis, listar variáveis de ambiente, ler arquivo de segredo), com espelho
-  em `PowerShell(...)`. Runner de script (`node scripts/*`) e `ffmpeg` não entram no allow
-  global: o projeto libera o script exato no próprio `.claude/settings.json`. Quem quer o
-  manual de vez cria `~/.claude/kit-vamoo/manter-modo-manual` e o setup não troca mais.
+  em `PowerShell(...)`. Runner de script (`node scripts/*`, `npx tsx`, `npm run`, `awk`)
+  e `ffmpeg` não entram no allow global, e o setup tira de quem já tinha os
+  `Bash(awk:*)`, `Bash(npx tsx:*)` e `Bash(npm run:*)` que versões anteriores do kit
+  gravaram: o projeto libera o comando exato no próprio `.claude/settings.json`. Quem
+  quer o manual de vez cria `~/.claude/kit-vamoo/manter-modo-manual` e o setup não
+  troca mais.
 - **No app de desktop, o seletor vence o arquivo.** O modo escolhido no seletor ao
   lado do botão de enviar é lembrado por pasta e ganha do `defaultMode`. Se ele
   mostrar **Manual** (ou **Ask permissions**, em versão antiga), diga à pessoa para
-  trocar uma vez para **Accept edits** em cada pasta onde escolheu Manual.
+  trocar uma vez para **Auto** em cada pasta onde escolheu Manual.
 - **O setup liga o auto-update do kit** (`extraKnownMarketplaces.vamoo-ai.autoUpdate`).
   É o que faz o kit parar de envelhecer na máquina de quem instalou: o Claude
   Code desliga a atualização automática de marketplace de terceiro por padrão, e
@@ -107,7 +114,10 @@ pessoa: não edite. Mostre o que o modelo do kit traz de diferente
 (`diff ~/.claude/CLAUDE.md ~/.claude/CLAUDE.kit.md`) e pergunte o que ela quer
 trazer. Se ele também avisou que esse CLAUDE.md ainda cita `agents.md`, mostre a
 linha (`grep -n 'agents\.md' ~/.claude/CLAUDE.md`) e proponha trocar o nome por
-`subagentes.md`; edite só com o OK dela. O resto deste passo vale quando o setup
+`subagentes.md`; edite só com o OK dela. Se ele avisou que o CLAUDE.md ainda manda
+usar o dotcontext, mostre a seção (`grep -n -i 'init the context\|dotcontext'
+~/.claude/CLAUDE.md`) e proponha trocá-la pela "Projeto: memória, instruções e fluxo" do
+`CLAUDE.kit.md`; também só com o OK dela. O resto deste passo vale quando o setup
 instalou o CLAUDE.md.
 
 Leia `~/.claude/CLAUDE.md`, colete o que falta **numa pergunta só** e edite o
@@ -143,7 +153,7 @@ a pessoa conclui que o setup não pegou e vai debugar um problema que não exist
 Depois de reiniciar, a barra mostra diretório, branch, alterações não salvas,
 à frente/atrás do remoto, `gh✓`, PR aberto e o contexto em número absoluto.
 
-Projeto que já existia, com `CLAUDE.md` ou `AGENTS.md` próprio, migra para o `AGENTS.md` como fonte com `bash "${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh" --check <repo>` (classe e proposta, só lê) e depois `--apply`, que grava só nas classes seguras e mostra o diff antes. Na primeira sessão de trabalho nesse projeto, a ordem é: o `--check`, depois "init the context", depois a linha de base (rodar type-check, lint e testes e anotar o que já falhava antes de mexer).
+Projeto que já existia, com `CLAUDE.md` ou `AGENTS.md` próprio, migra para o `AGENTS.md` como fonte com `bash "${CLAUDE_PLUGIN_ROOT}/scripts/instrucoes-projeto.sh" --check <repo>` (classe e proposta, só lê) e depois `--apply`, que grava só nas classes seguras e mostra o diff antes. Na primeira sessão de trabalho nesse projeto, a ordem é: o `--check`, depois o `/kit-vamoo:memoria-projeto` (põe a memória do projeto em `.context/memoria/`), depois a linha de base (rodar type-check, lint e testes e anotar o que já falhava antes de mexer).
 
 ## Se algo não estiver funcionando
 

@@ -13,7 +13,7 @@
 # mesma coisa que os três comandos acima:
 #
 #   1. registra este diretório como marketplace e instala o plugin
-#      (skills, comandos, hooks de git e o MCP dotcontext)
+#      (skills, comandos e hooks de git)
 #   2. roda o kit-setup.sh, que instala o que um plugin não consegue declarar:
 #      CLAUDE.md global, barra de status e preferências
 #
@@ -22,7 +22,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.55.0"
+KIT_VERSION="0.56.0"
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKETPLACE="vamoo-ai"
 PLUGIN="kit-vamoo"
@@ -56,7 +56,7 @@ else
   say "Registrando o marketplace e instalando o plugin…"
   claude plugin marketplace add "$KIT_DIR" 2>&1 | tail -1
   claude plugin install "$PLUGIN@$MARKETPLACE" 2>&1 | tail -1
-  ok "plugin instalado ($(ls -d "$KIT_DIR/plugin/skills"/*/ | wc -l | tr -d ' ') skills, $(ls "$KIT_DIR/plugin/commands"/*.md | wc -l | tr -d ' ') comandos, guard-rails de git, MCP dotcontext)"
+  ok "plugin instalado ($(ls -d "$KIT_DIR/plugin/skills"/*/ | wc -l | tr -d ' ') skills, $(ls "$KIT_DIR/plugin/commands"/*.md | wc -l | tr -d ' ') comandos, guard-rails de git)"
 fi
 
 # ── 2. o que o plugin não consegue instalar ─────────────────────────────────
@@ -73,8 +73,8 @@ if [ "$DRY" -eq 1 ]; then
   say "[dry-run] pularia a instalação do ctx7"
 elif command -v npm >/dev/null 2>&1; then
   say "Instalando o ctx7 (busca de documentação oficial)…"
-  npm install -g ctx7@latest >/dev/null 2>&1 && ok "ctx7 instalado" \
-    || warn "Não consegui instalar o ctx7 global. A skill funciona via 'npx ctx7@latest'."
+  npm install -g ctx7@0.5.13 >/dev/null 2>&1 && ok "ctx7 instalado" \
+    || warn "Não consegui instalar o ctx7 global. A skill funciona via 'npx ctx7@0.5.13'."
 else
   warn "npm não encontrado — instale o Node.js LTS. A skill find-docs precisa dele."
 fi

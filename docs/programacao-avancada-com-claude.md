@@ -73,8 +73,9 @@ do kit. Até a 0.18.0 ele rodava depois de todo `Write`/`Edit`/`Bash`: 1,27 s po
 para devolver `{"continue":true}` sem tocar arquivo nenhum. Ficou só na abertura da sessão
 e, na 0.39.0, saiu de lá também: o dotcontext 1.1.1 recalcula a impressão digital do repo
 a cada sessão lendo todo arquivo, inclusive `node_modules` aninhado e worktrees, e com o
-teto de 10 s a maioria das execuções era cortada no meio. O MCP continua: o Claude consulta
-o `.context/` quando precisa, em vez de pagar a leitura do repo em toda sessão.
+teto de 10 s a maioria das execuções era cortada no meio. Na 0.56.0 o MCP saiu também: quase
+ninguém usava, o projeto parou de ser atualizado e a leitura de arquivo dele não respeitava o
+bloqueio de `.env` do `settings.json`.
 
 Outros úteis pra você adicionar:
 - Rodar testes do módulo afetado depois de salvar.
@@ -96,9 +97,10 @@ skill com o comando do seu projeto.
 
 ---
 
-## 6. dotcontext para projetos sérios
+## 6. Projetos sérios: plano, memória e documentação
 
-Além do `init the context`, em projetos grandes:
+Além do `/kit-vamoo:memoria-projeto` na primeira sessão, em projetos grandes:
+- Implementação grande (vários sistemas, banco, login, infra, algo sem volta): skill `grilling` + plan mode pra fechar o plano antes de codar → execução → skill `verificacao` antes de dizer "pronto" → `/ship` pra commit, PR e deploy.
 - Documente decisões de arquitetura em `.context/docs/` — vira contexto permanente.
 - Regras do projeto no `AGENTS.md` da raiz (Claude/Codex/Cursor leem o mesmo arquivo); o `CLAUDE.md` do projeto só importa, com a linha `@AGENTS.md`.
 - Cada coisa num lugar só: regra no `AGENTS.md`, conhecimento em `.context/` — sem cópia espalhada pelo repo.
@@ -132,8 +134,8 @@ em todo PR. Branch só entra na `main` com o verde. É a versão "time" do verif
 
 ## 8. MCPs: dê novas mãos ao Claude
 
-MCPs conectam o Claude a serviços (banco, browser, GitHub). O kit já instala o
-**dotcontext**. Veja [`docs/mcps-recomendados.md`](mcps-recomendados.md) pra adicionar
+MCPs conectam o Claude a serviços (banco, browser, GitHub). O kit não instala nenhum: veja
+[`docs/mcps-recomendados.md`](mcps-recomendados.md) pra adicionar
 Playwright (testar UI de verdade), GitHub (PRs/issues) e outros — **sob demanda**, não
 todos de uma vez.
 
