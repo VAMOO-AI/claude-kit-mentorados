@@ -247,16 +247,19 @@ if node -e 'process.exit(require(process.argv[1]).permissions.deny.some(r => r.s
   echo "  FALHA regra Read(**/…) sem âncora: só vale abaixo da pasta do projeto"; falhas=$((falhas+1))
 else echo "  ok    toda regra Read de segredo é ancorada na raiz (//)"; fi
 
-echo "== modo de permissão: Manual e ausente viram auto; o resto fica =="
+echo "== modo de permissão: Manual, ausente e acceptEdits viram auto; o resto fica =="
 # Pedido do Ruan (10/10/2026): mentorado não fica no manual pedindo "Permitir" a cada
 # edição. Até a 0.47.x o kit só avisava; quem estava em "default" continuava lá. Da 0.48.0
-# à 0.55.0 o destino era acceptEdits; desde a 0.56.0 (decisão de 18/10/2026) é auto, e
-# quem já está em acceptEdits fica, com aviso — o kit pôs todo mundo lá.
-modo_apos() { # modo_apos <modo-inicial|-> [marcador] → imprime o defaultMode final
+# à 0.55.0 o destino era acceptEdits; desde a 0.56.0 (decisão de 18/10/2026) é auto. Na
+# 0.56.0 quem já estava em acceptEdits só ganhava aviso; desde a 0.56.1 (decisão de
+# 19/10/2026) vira auto também, salvo o marcador kit-vamoo/manter-accept-edits — ou o
+# manter-modo-manual, que promete "o setup não troca mais o seu modo".
+modo_apos() { # modo_apos <modo-inicial|-> [marcador|marcador-accept] → imprime o defaultMode final
   local dir="$TMP/modo-$RANDOM$RANDOM"; mkdir -p "$dir"
   if [ "$1" = "-" ]; then echo '{"permissions":{}}' > "$dir/settings.json"
   else printf '{"permissions":{"defaultMode":"%s"}}\n' "$1" > "$dir/settings.json"; fi
   [ "${2:-}" = marcador ] && { mkdir -p "$dir/kit-vamoo"; : > "$dir/kit-vamoo/manter-modo-manual"; }
+  [ "${2:-}" = marcador-accept ] && { mkdir -p "$dir/kit-vamoo"; : > "$dir/kit-vamoo/manter-accept-edits"; }
   node "$MERGE" "$TMP/kit.json" "$dir/settings.json" > "$dir/saida.txt" 2>&1
   node -e 'const m=require(process.argv[1]).permissions.defaultMode; console.log(m===undefined?"(nenhum)":m)' "$dir/settings.json"
   ULTIMO_DIR="$dir"
@@ -266,13 +269,26 @@ esperado() { # esperado <descrição> <obtido> <esperado>
 }
 esperado "sem modo nenhum vira auto" "$(modo_apos -)" "auto"
 esperado "default vira auto" "$(modo_apos default)" "auto"
-for m in auto bypassPermissions plan dontAsk acceptEdits; do
+for m in auto bypassPermissions plan dontAsk; do
   esperado "$m é mantido" "$(modo_apos "$m")" "$m"
 done
+esperado "acceptEdits vira auto" "$(modo_apos acceptEdits)" "auto"
 modo_apos acceptEdits >/dev/null
-grep -q 'recomenda "auto"' "$ULTIMO_DIR/saida.txt" \
-  && echo "  ok    acceptEdits mantido, com aviso de que o kit recomenda auto" \
-  || { echo "  FALHA acceptEdits sem o aviso do auto: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+grep -qF 'Accept edits ("acceptEdits") → "auto"' "$ULTIMO_DIR/saida.txt" && grep -q 'manter-accept-edits' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    a saída diz que saiu do acceptEdits e como voltar (com o marcador)" \
+  || { echo "  FALHA a troca do acceptEdits não explica o que mudou nem como voltar: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+ANTES_AE="$(cat "$ULTIMO_DIR/settings.json")"
+SEGUNDA_AE="$(node "$MERGE" "$TMP/kit.json" "$ULTIMO_DIR/settings.json" 2>&1)"
+[ "$ANTES_AE" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA_AE" | grep -q 'modo de permissão' \
+  && echo "  ok    depois de migrar o acceptEdits, a segunda passada fica calada" \
+  || { echo "  FALHA segunda passada depois do acceptEdits mexeu ou anunciou: $SEGUNDA_AE"; falhas=$((falhas+1)); }
+esperado "marcador kit-vamoo/manter-accept-edits segura o acceptEdits" "$(modo_apos acceptEdits marcador-accept)" "acceptEdits"
+modo_apos acceptEdits marcador-accept >/dev/null
+grep -q 'porque existe .*manter-accept-edits' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    com o marcador a saída diz que manteve o Accept edits" \
+  || { echo "  FALHA com o marcador a saída não explica: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+esperado "manter-modo-manual também segura o acceptEdits" "$(modo_apos acceptEdits marcador)" "acceptEdits"
+esperado "manter-accept-edits não segura o Manual (cada marcador vale para o seu modo)" "$(modo_apos default marcador-accept)" "auto"
 for m in auto bypassPermissions plan dontAsk; do
   modo_apos "$m" >/dev/null
   if grep -q 'modo de permissão' "$ULTIMO_DIR/saida.txt"; then

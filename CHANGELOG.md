@@ -16,6 +16,33 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.56.1] — 2026-10-19
+
+### Mudado
+
+- **Quem está em Accept edits (`acceptEdits`) também vai para o Auto.** Na 0.56.0 o setup só
+  avisava, e como foi ele mesmo que pôs todo mundo em `acceptEdits` da 0.48.0 à 0.55.0, o Auto
+  quase não chegava à base instalada. Agora o `/kit-vamoo:setup` troca `acceptEdits` por
+  `auto` e diz na saída o que mudou e como voltar. Pra ficar no Accept edits, crie
+  `~/.claude/kit-vamoo/manter-accept-edits` e ponha `permissions.defaultMode` em
+  `"acceptEdits"`: com o arquivo lá, o setup não troca mais. O `manter-modo-manual` também
+  segura o `acceptEdits`, porque a promessa dele é "o setup não troca mais o seu modo". Já o
+  `manter-accept-edits` não segura o Manual: cada um vale para o seu modo. Decisão do Ruan de
+  19/10/2026.
+
+### Testes
+
+- `tests/test-merge-settings.sh`: `acceptEdits` vira `auto` com a saída dizendo como voltar.
+  A segunda passada fica calada, os dois marcadores seguram o modo e o `manter-accept-edits`
+  não segura o Manual. Falha em 4 casos contra o merge da 0.56.0.
+- `tests/test-kit-setup-permissoes.sh`: o HOME de quem instalou até a 0.55.0 termina em `auto`,
+  e um caso (d) novo prova que o marcador segura o Accept edits no setup inteiro. Falha em 2
+  casos contra a 0.56.0.
+
+### Depois de atualizar
+
+- Rode `/kit-vamoo:setup`: é ele que troca o modo no seu `settings.json`.
+
 ## [0.56.0] — 2026-10-19
 
 ### Segurança

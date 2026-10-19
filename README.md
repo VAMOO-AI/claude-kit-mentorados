@@ -160,7 +160,7 @@ valem no próximo start.
 ### Modo de permissão: Auto
 
 O setup deixa você no **Auto** (`auto`), o padrão do próprio Claude Code desde a v2.1.283,
-inclusive se você estava no Manual. No Auto, um segundo modelo (o classificador) revisa
+inclusive se você estava no Manual ou no Accept edits. No Auto, um segundo modelo (o classificador) revisa
 cada comando antes de rodar e barra o que foge do que você pediu, mexe em
 infraestrutura que ele não reconhece ou parece vir de texto que o Claude leu. O
 kit põe por cima um `ask` que pergunta sempre, em qualquer modo, o que não tem volta:
@@ -176,10 +176,12 @@ login do Supabase/Vercel continuam em todo modo.
 - **O Auto não está disponível na sua conta ou no seu modelo?** O Claude Code abre a
   sessão em **Manual** e pede "Permitir" a cada passo. Não é o setup que falhou. Se
   preferir, escolha **Accept edits** no seletor de modo.
-- **Já estava em Accept edits (`acceptEdits`)?** O setup não troca: até a 0.55.0 era o
-  modo que ele mesmo escolhia, e não dá pra saber se você ficou nele de propósito. A
-  saída avisa que o kit agora recomenda o Auto. Pra trocar, ponha
-  `permissions.defaultMode` em `"auto"` no `~/.claude/settings.json`.
+- **Quer ficar no Accept edits (`acceptEdits`)?** Até a 0.55.0 era o modo que o setup
+  escolhia, e desde a 0.56.1 ele passa quem está nele para o Auto. Pra ficar, crie o
+  arquivo `~/.claude/kit-vamoo/manter-accept-edits` (`mkdir -p ~/.claude/kit-vamoo && touch
+  ~/.claude/kit-vamoo/manter-accept-edits`; no PowerShell, `New-Item -Force
+  ~/.claude/kit-vamoo/manter-accept-edits`) e ponha `permissions.defaultMode` em
+  `"acceptEdits"`. Com o arquivo lá, o setup não troca mais.
 - Se você já usa `bypassPermissions`, `plan` ou `dontAsk`, o setup não mexe.
 - **App de desktop:** o seletor de modo ao lado do botão de enviar vence o
   `settings.json` e é lembrado por pasta. Se ele mostrar **Manual** (ou **Ask
@@ -188,7 +190,8 @@ login do Supabase/Vercel continuam em todo modo.
 - **Quer o Manual de vez?** Crie o arquivo `~/.claude/kit-vamoo/manter-modo-manual`
   (`mkdir -p ~/.claude/kit-vamoo && touch ~/.claude/kit-vamoo/manter-modo-manual`; no
   PowerShell, `New-Item -Force ~/.claude/kit-vamoo/manter-modo-manual`) e ponha
-  `permissions.defaultMode` em `"default"`. Com o arquivo lá, o setup não troca mais.
+  `permissions.defaultMode` em `"default"`. Com o arquivo lá, o setup não troca mais o
+  seu modo, qualquer que seja.
 - Um `defaultMode` no `.claude/settings.json` de um projeto vence o seu nessa pasta.
 - **Windows: instale o [Git para Windows](https://git-scm.com/download/win).** Os
   guard-rails (commit na main, push forçado, `rm -r` fora das pastas descartáveis, leitura

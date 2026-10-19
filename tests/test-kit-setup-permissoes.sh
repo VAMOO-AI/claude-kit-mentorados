@@ -5,10 +5,11 @@
 # O test-merge-settings.sh prova o merge sozinho. Este roda o kit-setup.sh de ponta a
 # ponta, que é o que o mentorado executa: template + merge + avisos do CLAUDE.md.
 #   (a) HOME vazio: defaultMode auto e nenhum dos allows de execução arbitrária;
-#   (b) HOME de quem instalou até a 0.55.0: acceptEdits fica, com aviso do auto, os
-#       allows que o kit gravou saem, o allow próprio fica, e o CLAUDE.md que ainda
-#       manda pedir "init the context" ganha aviso sem ser editado;
-#   (c) Manual com o marcador kit-vamoo/manter-modo-manual continua Manual.
+#   (b) HOME de quem instalou até a 0.55.0: acceptEdits vira auto (0.56.1; na 0.56.0 só
+#       avisava), os allows que o kit gravou saem, o allow próprio fica, e o CLAUDE.md
+#       que ainda manda pedir "init the context" ganha aviso sem ser editado;
+#   (c) Manual com o marcador kit-vamoo/manter-modo-manual continua Manual;
+#   (d) acceptEdits com o marcador kit-vamoo/manter-accept-edits continua acceptEdits.
 #
 # Uso: bash tests/test-kit-setup-permissoes.sh [caminho-do-kit-setup.sh]
 set -uo pipefail
@@ -60,8 +61,9 @@ JSON
 printf '%s\n' '# Minhas regras' '## dotcontext (memória do projeto)' '- Em projeto novo, na 1ª sessão: peça **"init the context"**.' > "$B/.claude/CLAUDE.md"
 CLAUDE_ANTES="$(cat "$B/.claude/CLAUDE.md")"
 roda_setup "$B" || falha "setup saiu com erro: $(tail -5 "$B.log")"
-[ "$(modo "$B")" = acceptEdits ] && ok "acceptEdits é mantido" || falha "modo virou $(modo "$B")"
-grep -q 'recomenda "auto"' "$B.log" && ok "a saída recomenda o auto" || falha "a saída não recomenda o auto"
+[ "$(modo "$B")" = auto ] && ok "acceptEdits vira auto" || falha "modo ficou $(modo "$B"), esperado auto"
+grep -q 'manter-accept-edits' "$B.log" && ok "a saída ensina o marcador para voltar ao Accept edits" \
+  || falha "a saída não diz como voltar ao Accept edits"
 for r in "${LEGADOS[@]}"; do
   tem_allow "$B" "$r" && falha "$r sobreviveu ao setup" || ok "$r saiu"
 done
@@ -79,6 +81,13 @@ echo '{ "permissions": { "defaultMode": "default" } }' > "$C/.claude/settings.js
 : > "$C/.claude/kit-vamoo/manter-modo-manual"
 roda_setup "$C" || falha "setup saiu com erro: $(tail -5 "$C.log")"
 [ "$(modo "$C")" = default ] && ok "o marcador segura o Manual" || falha "o marcador não segurou: $(modo "$C")"
+
+echo "== (d) Accept edits com o marcador =="
+D="$TMP/d"; mkdir -p "$D/.claude/kit-vamoo"
+echo '{ "permissions": { "defaultMode": "acceptEdits" } }' > "$D/.claude/settings.json"
+: > "$D/.claude/kit-vamoo/manter-accept-edits"
+roda_setup "$D" || falha "setup saiu com erro: $(tail -5 "$D.log")"
+[ "$(modo "$D")" = acceptEdits ] && ok "o marcador segura o Accept edits" || falha "o marcador não segurou: $(modo "$D")"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; exit 0; fi

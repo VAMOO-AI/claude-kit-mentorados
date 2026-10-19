@@ -76,14 +76,14 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.
-- **O modo de permissão vira Auto (`auto`).** Quem estava no Manual (`default`) ou
-  sem modo passa para `auto`, o padrão do próprio Claude Code desde a v2.1.283, e a
+- **O modo de permissão vira Auto (`auto`).** Quem estava no Manual (`default`), no
+  Accept edits (`acceptEdits`) ou sem modo passa para `auto`, o padrão do próprio Claude Code desde a v2.1.283, e a
   saída diz isso numa linha. No Auto, um segundo modelo (o classificador) revisa cada
   comando antes de rodar no lugar do "Permitir" manual. Se o Auto não estiver
   disponível para a conta ou o modelo, o Claude Code abre a sessão em Manual: não é o
-  setup que falhou. Quem já está em `acceptEdits` continua lá, e a saída avisa que o
-  kit agora recomenda `auto`. `bypassPermissions`, `plan` e `dontAsk` ficam como
-  estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
+  setup que falhou. Quem quer ficar no Accept edits cria
+  `~/.claude/kit-vamoo/manter-accept-edits`, e a saída ensina isso quando troca.
+  `bypassPermissions`, `plan` e `dontAsk` ficam como estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
   não tem volta (force push, push na main, descartar alteração local, `rm -r` fora das
   pastas descartáveis, listar variáveis de ambiente, ler arquivo de segredo), com espelho
   em `PowerShell(...)`. Runner de script (`node scripts/*`, `npx tsx`, `npm run`, `awk`)
