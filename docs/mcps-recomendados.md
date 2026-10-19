@@ -4,7 +4,10 @@ MCP dá ao Claude novas "mãos" — conectar a um banco, controlar um browser, f
 uma API. **Não instale todos de uma vez.** Cada MCP é mais superfície pra dar erro e
 mais contexto consumido. Adicione quando a necessidade aparecer.
 
-> O kit já instala o **dotcontext** (servidor `dotcontext`). O resto abaixo é opcional.
+> O kit não instala MCP nenhum: tudo abaixo é opcional. Até a 0.55.0 ele trazia o
+> **dotcontext**. Instalou o kit antes de 24/08/2026 pelo `install.sh`? Ele pode ter ficado
+> registrado na sua máquina: `claude mcp list` mostra, e `claude mcp remove dotcontext --scope user`
+> tira.
 
 Todos os comandos usam `--scope user` (vale em todos os seus projetos). Troque por
 `--scope project` se quiser versionar a config junto com um repo específico.
@@ -17,7 +20,7 @@ Deixa o Claude abrir um browser, clicar, preencher formulário e ler a página. 
 verificar que uma tela funciona de fato, não só que o código compila.
 
 ```bash
-claude mcp add playwright --scope user -- npx @playwright/mcp@latest
+claude mcp add playwright --scope user -- npx @playwright/mcp@0.0.83
 ```
 
 Quando usar: "abre essa página e confirma que o login funciona", testes E2E, screenshots.
@@ -68,6 +71,6 @@ claude mcp remove <nome>   # remover
 
 ## Regra de bolso
 
-Comece com o mínimo (dotcontext). Sentiu falta de uma capacidade concreta — testar UI,
+Comece sem nenhum. Sentiu falta de uma capacidade concreta — testar UI,
 mexer num serviço específico — aí sim adicione o MCP correspondente. Menos é mais
 estável.

