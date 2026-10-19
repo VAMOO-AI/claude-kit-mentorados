@@ -23,7 +23,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.56.0"
+KIT_VERSION="0.56.1"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -266,11 +266,12 @@ rotaciona_backups
 
 echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
-say "Modo de permissão: quem estava no Manual passa para \"Auto\" (auto) — um classificador revisa cada comando no lugar do \"Permitir\"; force push, reset --hard e afins continuam pedindo. Accept edits, bypass e plan ficam."
+say "Modo de permissão: quem estava no Manual ou no Accept edits passa para \"Auto\" (auto) — um classificador revisa cada comando no lugar do \"Permitir\"; force push, reset --hard e afins continuam pedindo. bypass e plan ficam."
 say "  Sem Auto disponível na sua conta ou no modelo, o Claude Code abre em Manual: não é o setup que falhou."
 say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o settings.json e é lembrado por pasta:"
 say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Auto\" em cada pasta onde escolheu Manual."
 say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
+say "  Quer ficar no Accept edits? Crie ~/.claude/kit-vamoo/manter-accept-edits e ponha permissions.defaultMode em \"acceptEdits\"."
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"
 if [ "$INSTALOU_CLAUDE" -eq 1 ]; then

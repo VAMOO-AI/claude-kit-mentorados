@@ -12,9 +12,9 @@
 //   • allow, deny e ask são UNIÃO: o kit acrescenta e nunca tira o que é seu — a
 //     exceção são os allows de execução arbitrária que o próprio kit gravou até a
 //     0.55.0 (ALLOWS_LEGADOS), casados pelo texto exato;
-//   • defaultMode: Manual ("default") ou ausente vira o do kit (auto), salvo o
-//     marcador kit-vamoo/manter-modo-manual; acceptEdits fica, com aviso; bypass,
-//     plan e dontAsk ficam;
+//   • defaultMode: Manual ("default"), ausente ou acceptEdits vira o do kit (auto),
+//     salvo os marcadores kit-vamoo/manter-modo-manual e kit-vamoo/manter-accept-edits;
+//     bypass, plan e dontAsk ficam;
 //   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
 //     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta;
 //   • hooks são seus — o único que sai é o dispatch do dotcontext que o
@@ -120,12 +120,13 @@ for (const lista of ['allow', 'deny', 'ask']) {
 // vira o do kit (`auto`, o padrão do próprio Claude Code desde a v2.1.283): o kit não
 // quer mentorado aprovando edição por edição, e no Auto quem revisa o comando é o
 // classificador, não um allow largo. Sem Auto disponível na conta ou no modelo, o
-// Claude Code abre em Manual. `acceptEdits` fica: foi o modo que o kit impôs da 0.48.0
-// à 0.55.0, e não dá pra separar quem ficou nele de propósito — a saída recomenda o
-// Auto. `bypassPermissions`, `plan` e `dontAsk` ficam calados. Quem quer o manual de
-// vez cria o marcador ao lado do settings.json (~/.claude/kit-vamoo/manter-modo-manual)
-// e o kit não troca mais. O marcador sai de dirname(userPath) para o teste nunca tocar
-// o ~/.claude de verdade.
+// Claude Code abre em Manual. `acceptEdits` também vira `auto` (0.56.1, decisão do Ruan
+// de 19/10/2026): foi o modo que o kit impôs da 0.48.0 à 0.55.0, e na 0.56.0 ele só
+// ganhava um aviso, então o Auto não chegava a quase ninguém. Quem quer ficar no Accept
+// edits cria ~/.claude/kit-vamoo/manter-accept-edits. O manter-modo-manual também segura:
+// a promessa dele é "o setup não troca mais o seu modo". `bypassPermissions`, `plan` e
+// `dontAsk` ficam calados. Os marcadores saem de dirname(userPath) para o teste nunca
+// tocar o ~/.claude de verdade.
 // Um `ask` do kit vence o allow que a pessoa escreveu de propósito (ordem deny → ask →
 // allow). Quem tinha `Bash(git push origin main)` ou `Bash(env)` passa a ver pergunta — o
 // setup diz quais, em vez de a pessoa descobrir no meio do trabalho. Mesmo casamento da doc
@@ -156,6 +157,7 @@ if (anulados.length) {
 }
 
 const MARCADOR = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-modo-manual');
+const MARCADOR_ACCEPT = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-accept-edits');
 const MODOS_MANTIDOS = ['auto', 'bypassPermissions', 'plan', 'dontAsk', 'acceptEdits'];
 const meuModo = user.permissions.defaultMode;
 const modoKit = kitPerms.defaultMode;
@@ -169,8 +171,15 @@ if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'def
     console.log(`  pra voltar ao manual de vez: crie o arquivo ${MARCADOR} e ponha permissions.defaultMode em "default" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
   }
 } else if (meuModo === 'acceptEdits' && modoKit === 'auto') {
-  console.log('  modo de permissão: mantive o seu "acceptEdits" (Accept edits). O kit agora recomenda "auto": um classificador revisa cada comando, em vez de liberar o que está no allow.');
-  console.log('  pra trocar: ponha permissions.defaultMode em "auto" no settings.json.');
+  const segura = [MARCADOR_ACCEPT, MARCADOR].find((m) => fs.existsSync(m));
+  if (segura) {
+    console.log(`  modo de permissão: mantive o "acceptEdits" (Accept edits) porque existe ${segura}`);
+  } else {
+    user.permissions.defaultMode = modoKit;
+    novas.push(`permissions.defaultMode (acceptEdits → ${modoKit})`);
+    console.log(`  modo de permissão: Accept edits ("acceptEdits") → "${modoKit}" (Auto: um classificador revisa cada comando, em vez de liberar sem pergunta o que está no allow; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
+    console.log(`  pra voltar ao Accept edits de vez: crie o arquivo ${MARCADOR_ACCEPT} e ponha permissions.defaultMode em "acceptEdits" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
+  }
 } else if (meuModo && modoKit && meuModo !== modoKit && !MODOS_MANTIDOS.includes(meuModo)) {
   console.log(`  seu modo de permissão é "${meuModo}", que o kit não conhece — mantive o seu.`);
 }
