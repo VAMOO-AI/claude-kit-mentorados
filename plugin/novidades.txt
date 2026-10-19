@@ -7,7 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
-0.56.0|rode /kit-vamoo:setup: ele te põe no modo Auto e tira três permissões que rodavam código sem pergunta (awk, npx tsx e npm run); o dotcontext saiu do kit, e projeto novo começa com /kit-vamoo:memoria-projeto|setup
+0.56.0|rode /kit-vamoo:setup: ele tira três permissões que rodavam código sem pergunta (awk, npx tsx e npm run); quem estava no Manual vai para o Auto e quem está em Accept edits recebe a recomendação; o dotcontext saiu e projeto novo começa com /kit-vamoo:memoria-projeto|setup
 0.55.0|motion-reel ganhou dois filmes prontos: apresentação pessoal de 15 s (nome, foto em órbita, números e o botão Seguir) e lançamento de app de 30 s (uma frase por cena e o logo montado no fim)
 0.54.1|na n8n-workflow-agent, acento e emoji no título do ntfy: quem recusa é o cliente HTTP, e a saída é publicar em JSON
 0.54.0|skill nova /kit-vamoo:monitoramento-infra: sonda com alerta no celular pelo ntfy, monitor que não grita à toa e os cuidados de VPS com Docker e Traefik

@@ -114,7 +114,10 @@ pessoa: não edite. Mostre o que o modelo do kit traz de diferente
 (`diff ~/.claude/CLAUDE.md ~/.claude/CLAUDE.kit.md`) e pergunte o que ela quer
 trazer. Se ele também avisou que esse CLAUDE.md ainda cita `agents.md`, mostre a
 linha (`grep -n 'agents\.md' ~/.claude/CLAUDE.md`) e proponha trocar o nome por
-`subagentes.md`; edite só com o OK dela. O resto deste passo vale quando o setup
+`subagentes.md`; edite só com o OK dela. Se ele avisou que o CLAUDE.md ainda manda
+usar o dotcontext, mostre a seção (`grep -n -i 'init the context\|dotcontext'
+~/.claude/CLAUDE.md`) e proponha trocá-la pela "Projeto: memória, instruções e fluxo" do
+`CLAUDE.kit.md`; também só com o OK dela. O resto deste passo vale quando o setup
 instalou o CLAUDE.md.
 
 Leia `~/.claude/CLAUDE.md`, colete o que falta **numa pergunta só** e edite o
