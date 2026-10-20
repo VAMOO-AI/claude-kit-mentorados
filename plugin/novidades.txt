@@ -8,6 +8,7 @@
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
 0.57.0|motion-reel mais segura na entrega: fala editada sai com a voz nova sozinha, o pico do áudio é limitado no final, o MP4 bom não se perde quando o novo falha, aviso de cena parada e quadro preto, legenda .srt do filme e zoom de revisão nas transições
+0.56.2|as skills que mandam rodar ferramenta de fora (ccusage, semgrep, a CLI skills e a da Vercel) usam versão fixa e conferida, em vez da última do dia
 0.56.1|rode /kit-vamoo:setup: quem estava em Accept edits passa para o modo Auto também; pra ficar no Accept edits, crie ~/.claude/kit-vamoo/manter-accept-edits|setup
 0.56.0|rode /kit-vamoo:setup: ele tira três permissões que rodavam código sem pergunta (awk, npx tsx e npm run); quem estava no Manual vai para o Auto e quem está em Accept edits recebe a recomendação; o dotcontext saiu e projeto novo começa com /kit-vamoo:memoria-projeto|setup
 0.55.0|motion-reel ganhou dois filmes prontos: apresentação pessoal de 15 s (nome, foto em órbita, números e o botão Seguir) e lançamento de app de 30 s (uma frase por cena e o logo montado no fim)

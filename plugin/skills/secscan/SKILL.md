@@ -24,7 +24,7 @@ mas NÃO testa nada rodando/deployado/produção. Aponta os problemas; quem corr
 - **Zero findings ≠ seguro.** Relatório limpo só diz que ESTE scan + as ferramentas disponíveis não acharam nada no escopo. O relatório TEM que deixar isso claro.
 - **Só o workspace local.** Ler código, rodar SAST/SCA local, ler o SQL do projeto. Nunca cutucar endpoint externo/deployado. Ler doc oficial (OWASP/CWE) pra embasar um fix é permitido.
 - **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode os scanners reais (`semgrep`, `gitleaks`, `npm/pnpm audit`, `osv-scanner`) ANTES de confiar em grep. Esta é a única definição de `Confiança` da skill: achado é `CONFIRMED` quando ferramenta real e heurística concordam **ou** quando um teste do próprio projeto exercita o mesmo ponto; qualquer outro é `heuristic` (pode ser falso positivo). *(Modelo adaptado do `decksoftware/csreview`, MIT — crédito preservado.)*
-- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: ferramenta Python (`semgrep`) vai pelo gerenciador oficial (`pipx install semgrep`, `uv tool install semgrep` ou `brew install semgrep`); binário baixado à mão (`gitleaks`, `osv-scanner`) vem só da página de releases oficial, com o **SHA-256 conferido antes de rodar**. Nos dois casos, fora do projeto auditado e nunca com `sudo`. Não deu → siga em modo só-heurística.
+- **Ferramenta faltando → ofereça instalar, nunca silencioso, nunca automático.** Se faltar um scanner, diga (confiança menor) + o comando de install. Se o usuário topar: ferramenta Python (`semgrep`) vai pelo gerenciador oficial (`pipx install semgrep==1.181.0`, `uv tool install semgrep==1.181.0` ou `brew install semgrep`); binário baixado à mão (`gitleaks`, `osv-scanner`) vem só da página de releases oficial, com o **SHA-256 conferido antes de rodar**. Nos dois casos, fora do projeto auditado e nunca com `sudo`. Não deu → siga em modo só-heurística.
 - **Na dúvida, pesquise.** Não chute comportamento de framework / detalhe de CVE. Use a skill `find-docs` e cite a fonte no finding.
 
 ## Fase 0 — Recon
@@ -41,7 +41,7 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 ```bash
 mkdir -p secscan-reports
 # AUSENTE é só binário que não existe. Scanner que roda e sai ≠ 0 falhou ou achou algo.
-if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep"
+if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep==1.181.0"
 else
   out=$(semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif . 2>&1); rc=$?
   if [ "$rc" -eq 0 ]; then echo "semgrep OK → achados em secscan-reports/secscan.sarif"

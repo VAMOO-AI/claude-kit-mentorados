@@ -1,7 +1,7 @@
 ---
 name: find-skills
 description: >-
-  Procura e instala skill de terceiro pelo ecossistema aberto (npx skills,
+  Procura e instala skill de terceiro pelo ecossistema aberto (npx skills@1.7.4,
   skills.sh). Use em "acha uma skill pra X", "existe skill pra isso?", "dá pra
   instalar algo que faça X". Só dispara quando você chama — o Claude não aciona
   sozinho. Verifica procedência antes de recomendar, porque SKILL.md é
@@ -11,14 +11,16 @@ disable-model-invocation: true
 
 # Achar skill pronta — e não engolir o que vier junto
 
-`npx skills` é o gerenciador do ecossistema aberto de skills; o catálogo fica em
-https://skills.sh/.
+`npx skills@1.7.4` é o gerenciador do ecossistema aberto de skills; o catálogo fica em
+https://skills.sh/. A versão fica fixa: a 1.7.4 foi conferida em 20/10/2026 (`find`, `add`,
+`update` e `init` no `--help`; o `check` roda, mas não aparece lá). Sem versão, o `npx`
+baixaria a do dia sem perguntar, porque fora de um terminal interativo ele assume `--yes`.
 
 ```bash
-npx skills find <termo>          # procura (aceita --owner <dono>)
-npx skills add <pacote>          # instala
-npx skills check                 # vê o que tem atualização
-npx skills update                # atualiza tudo
+npx skills@1.7.4 find <termo>          # procura (aceita --owner <dono>)
+npx skills@1.7.4 add <pacote>          # instala
+npx skills@1.7.4 check                 # vê o que tem atualização
+npx skills@1.7.4 update                # atualiza tudo
 ```
 
 ## Antes de qualquer coisa: procedência
@@ -34,7 +36,7 @@ teórica:
    sistema). Então: **abra e leia o SKILL.md antes de aceitar**, e desconfie de
    qualquer coisa que peça para "só rodar isso rapidinho".
 2. **Custo por request.** A description de toda skill visível é relida a cada
-   request, dispare ela ou não. `npx skills add` de um pacote inteiro costuma
+   request, dispare ela ou não. `npx skills@1.7.4 add` de um pacote inteiro costuma
    trazer dezenas — o total sobe de uma vez e nada avisa. Depois de instalar,
    rode o scan da skill `skills-projeto`.
 
@@ -50,7 +52,7 @@ Checklist de procedência, na ordem:
 
 ## Como procurar
 
-Ranking do skills.sh primeiro, depois `npx skills find <domínio + tarefa>`
+Ranking do skills.sh primeiro, depois `npx skills@1.7.4 find <domínio + tarefa>`
 (`--owner` se souber o dono).
 
 | Domínio | Termos que costumam render |
@@ -70,7 +72,7 @@ instalação e o link. Uma frase por item; a decisão é de quem pediu.
 
 ```
 Achei a "react-best-practices" (Vercel, 185K instalações): guia de performance
-de React/Next. Instalar: npx skills add vercel-labs/agent-skills@react-best-practices
+de React/Next. Instalar: npx skills@1.7.4 add vercel-labs/agent-skills@react-best-practices
 Ver antes: https://skills.sh/vercel-labs/agent-skills/react-best-practices
 ```
 

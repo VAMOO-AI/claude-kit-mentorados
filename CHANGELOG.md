@@ -60,7 +60,31 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - `tests/test-motion-reel-srt.sh` (novo) e `tests/test-motion-reel-fonte.sh` (render real, só com
   `MOTION_RENDER_REAL=1`).
 
+## [0.56.2] — 2026-10-20
+
+### Mudado
+
+- **O que o plugin manda baixar e rodar tem versão fixa, conferida em 20/10/2026** (porte de
+  VAMOO-AI/claude-config-team#374). Cada CLI rodou em cache efêmero, sem instalar nada global:
+  - `ccusage@20.0.37` na `harness-check` (tem `daily` e `session`) e em
+    `docs/economia-de-tokens.md`;
+  - `semgrep==1.181.0` na `secscan`, no `doctor.sh` da `baseline` e no `templates/ci.yml`;
+  - `skills@1.7.4` na `find-skills`, na `skills-projeto` e nos comentários do
+    `warn-skills-projeto.sh`. O `check` dela roda, mas saiu do `--help`;
+  - `numpy==2.5.4` no venv da `motion-reel`;
+  - `vercel@59.25.0` no exemplo do `AGENTS-projeto.md.exemplo`.
+
+  Antes, essas linhas baixavam a versão do dia, e fora de um terminal interativo o `npx`
+  faz isso sem perguntar.
+
 ### CI
+
+- **O `tests/test-pin-versao.sh` reprova `npx pacote` sem versão também sem `-y`.** Pela
+  doc do `npm exec`, sem terminal interativo, que é o caso do agente, o `npx` assume
+  `--yes`. O mesmo vale para `bunx`, `pnpm dlx` e `yarn dlx`. Só o binário do projeto passa
+  sem versão (`tsc`, `eslint`, `vitest`, `supabase`, `remotion`…), e só sem `-y`. A
+  allowlist cai de 13 para 5: o histórico de novidades, o comentário de hook, o literal do
+  `merge-settings.js` e as duas linhas da `reverse-engineer-anything`. Teste igual ao do time.
 
 - **Nada em `plugin/` manda rodar pacote sem versão nem sobe MCP sozinho**
   (`tests/test-pin-versao.sh`, porte de VAMOO-AI/claude-config-team#371). O gate reprova

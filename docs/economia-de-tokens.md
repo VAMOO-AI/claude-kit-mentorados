@@ -99,7 +99,7 @@ higiene de sessão, não ferramenta que falta.
 
 - **`/usage`** dentro do Claude Code — mostra quanto do limite do plano você
   já usou.
-- **`npx -y ccusage@latest daily`** no terminal — lê o histórico local das
+- **`npx -y ccusage@20.0.37 daily`** no terminal — lê o histórico local das
   suas sessões e mostra consumo por dia e por modelo. Rode uma vez por semana;
   se um dia explodiu, você vai ver na hora qual foi.
 

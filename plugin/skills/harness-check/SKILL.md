@@ -65,8 +65,8 @@ com ~74K tokens e 340 tools de 26 servidores, e o terminal com ~41K.
 ## Passo 2 — o gasto durante o uso
 
 ```bash
-npx -y ccusage@latest daily      # custo por dia e por modelo
-npx -y ccusage@latest session    # custo por sessão — ache as caras
+npx -y ccusage@20.0.37 daily      # custo por dia e por modelo
+npx -y ccusage@20.0.37 session    # custo por sessão — ache as caras
 ```
 
 Olhe **cache read**: numa sessão longa ele costuma ser a maior linha da conta,

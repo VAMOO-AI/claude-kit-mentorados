@@ -2,7 +2,7 @@
 name: skills-projeto
 description: >-
   Skill de projeto (.claude/skills) cobra contexto em TODA request, mesmo sem
-  disparar. Use ao criar, instalar (npx skills add) ou revisar skill de projeto,
+  disparar. Use ao criar, instalar (npx skills@1.7.4 add) ou revisar skill de projeto,
   quando a sessão nasce cara, ou em "vale a pena virar skill?". Não é o
   harness-check, que mede a sessão inteira.
 allowed-tools:
@@ -39,7 +39,7 @@ total, o custo estimado por request e o que está quebrado. O hook do kit roda o
 mesmo scan na abertura da sessão e fala **uma vez por mudança** — não a cada
 sessão nova.
 
-## O risco maior é o `npx skills add`
+## O risco maior é o `npx skills@1.7.4 add`
 
 Instalar é uma linha, e o que entra pode ser um pacote com dezenas de skills.
 Você não vê o custo: nada trava, nada avisa, e a conta chega diluída em toda
@@ -54,14 +54,14 @@ request pelo resto do projeto. Antes de instalar qualquer coisa de terceiro:
    05/09/2026 no kit do time). O que sai desse comando entra no seu contexto
    como se fosse do sistema.
 3. **Procedência**: quem publicou, quantas instalações, o repositório existe e
-   tem histórico. Para procurar, rode `npx skills find <termo>`; a
+   tem histórico. Para procurar, rode `npx skills@1.7.4 find <termo>`; a
    `/kit-vamoo:find-skills` faz a mesma busca com o checklist de procedência, mas
    só a pessoa aciona.
 
 Depois de instalar, rode o scan. Se o total pulou, desinstale o que você não
 consegue explicar em uma frase.
 
-O `npx skills add` costuma pôr a skill em `.agents/skills/<nome>` e só um link em
+O `npx skills@1.7.4 add` costuma pôr a skill em `.agents/skills/<nome>` e só um link em
 `.claude/skills/<nome>`. O Claude Code carrega pelo link: ele não lê
 `.agents/skills` direto, então o que só existe lá não pesa aqui (pesa no Codex,
 que lê). O scan e o aviso da abertura contam as skills que chegam pelo link.
@@ -94,7 +94,7 @@ description genérica, sai `name` errado. A regra:
 > mesma explicação para o Claude pela terceira vez, aí existe uma skill — e o
 > corpo dela já está escrito, é o que você repetiu.
 
-Quando chegar essa hora, o esqueleto sai de `npx skills init <nome>` (ou de uma
+Quando chegar essa hora, o esqueleto sai de `npx skills@1.7.4 init <nome>` (ou de uma
 cópia de uma skill deste kit que você entenda). Volte aqui depois com o rascunho
 e rode o scan.
 

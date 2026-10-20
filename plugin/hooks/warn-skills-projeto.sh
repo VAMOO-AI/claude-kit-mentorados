@@ -7,7 +7,7 @@
 # Fala uma vez por mudança, não uma vez por sessão: o marcador em
 # ~/.claude/.cache/kit-vamoo/skills-projeto/ guarda o momento do último aviso, e o
 # hook só volta a olhar quando algum SKILL.md do projeto é mais novo que ele. Sem
-# isso, o `npx skills add` de ontem viraria o mesmo parágrafo em todo /clear.
+# isso, o `npx skills@1.7.4 add` de ontem viraria o mesmo parágrafo em todo /clear.
 #
 # Lê o cwd do payload por node (scripts/hookjson.js) — jq não é pré-requisito de
 # quem está aprendendo. Falha-aberta: qualquer coisa fora do lugar, exit 0 calado.
@@ -32,7 +32,7 @@ marker="$CACHE/$h"
 
 if [ -f "$marker" ]; then
   # Nada mudou desde o último aviso? Então não há novidade para contar.
-  # -L: o `npx skills add` no modo symlink põe a skill em .agents/skills e só um link em
+  # -L: o `npx skills@1.7.4 add` no modo symlink põe a skill em .agents/skills e só um link em
   # .claude/skills; sem seguir o link, a skill nova nunca reabria o aviso.
   [ -n "$(find -L "$DIR/.claude/skills" -name SKILL.md -newer "$marker" -print -quit 2>/dev/null)" ] || exit 0
 fi
