@@ -60,7 +60,46 @@ Se a mudança tocar a barra de status ou as preferências, rode também
 - `tests/test-motion-reel-srt.sh` (novo) e `tests/test-motion-reel-fonte.sh` (render real, só com
   `MOTION_RENDER_REAL=1`).
 
+### CI
+
+- **Nada em `plugin/` manda rodar pacote sem versão nem sobe MCP sozinho**
+  (`tests/test-pin-versao.sh`, porte de VAMOO-AI/claude-config-team#371). O gate reprova
+  quatro coisas:
+  - `@latest`;
+  - `npx -y`/`npx --yes` com pacote sem `@versão`, e os runners que nunca perguntam (`bunx`,
+    `pnpm dlx`, `yarn dlx`, `uvx`, `uv tool run`, `pipx run`);
+  - instalação global sem versão (`npm install -g`, `uv tool install`, `pipx install` e
+    família) e `pip install` sem `==`;
+  - `.mcp.json`, ou `mcpServers` em `.json` (o `plugin.json` aceita o bloco inline): MCP que
+    sobe em toda sessão de quem instala.
+
+  `@12` conta como versão, `@next` não, e regra de permissão (`Bash(…)`) fica de fora. A
+  exceção vai em `tests/pin-versao.allow`, por `arquivo:linha` e com motivo. O
+  `plugin/novidades.txt`, que ganha uma linha no topo a cada versão, entra inteiro. Entrada sem
+  achado reprova. Hoje são 13 exceções:
+  - o `ccusage` da `harness-check`;
+  - o `rea-agents` da `reverse-engineer-anything` (cópia do upstream);
+  - as dicas de instalação do `semgrep`, inclusive o template de CI;
+  - o `numpy` da `motion-reel`;
+  - três textos que só citam o comando: um comentário de hook, o literal que o
+    `merge-settings.js` procura para limpar e o histórico de novidades.
+
+  A `find-docs` já fixava `ctx7@0.5.13`. Origem da ideia: afonsoft/skills (MIT).
+- **O teste de docs confere o link absoluto deste repo** (`tests/test-docs-consistencia.sh`,
+  igual ao do time). `github.com/<dono>/<repo>/(blob|tree|raw)/main/<caminho>#âncora` vira
+  caminho local, em `[x](…)` e também solto no texto, com dono e repo lidos do `origin`. Antes
+  o teste pulava todo `https:`. São 4 links assim: `README.md:271`, `secscan/SKILL.md:215` (âncora
+  acentuada), `secscan/SKILL.md:411` e `skills-projeto/SKILL.md:128` (URL solta). Com a âncora da
+  `:215` trocada por uma que não existe, o teste reprova; o de antes passava. Outro repo, outra
+  branch ou SHA ficam de fora. No CI, checkout sem `origin` do GitHub sai 2 em vez de pular
+  calado. Origem da ideia: soumatheusgomes/vibe-coding-toolkit (MIT).
+- **Toda action dos workflows é pinada por SHA, com a versão em comentário**
+  (`tests/test-actions-por-sha.sh`, porte de VAMOO-AI/claude-config-team#370). Aqui elas já
+  eram; o teste segura a recaída. Reprova tag, `uses:` sem ref e SHA sem o `# vX.Y.Z` que o
+  Dependabot atualiza.
+
 Porte de VAMOO-AI/claude-config-team (lote 1 do plano de motion).
+
 
 ## [0.56.1] — 2026-10-19
 
