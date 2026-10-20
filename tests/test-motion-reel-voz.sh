@@ -295,9 +295,11 @@ check "taxa nova refaz todas as falas da máquina ($(falou) say de $n_ger)" "$([
 roda "$TMP/9g.log" "$P9" --taxa 200 --refazer; rc=$?
 check "--refazer não passa por cima da gravação da pessoa" "$([ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n1.wav")" = "$HN1" ] && [ "$(hash_de "$P9/public/vo/n2.wav")" = "$HN2" ] && echo ok || echo fail)"
 check "--refazer gera de novo as falas da máquina ($(falou) say)" "$([ "$(falou)" = "$n_ger" ] && echo ok || echo fail)"
+check "nenhum .tmp.wav sobra em public/vo" "$(ls "$P9/public/vo/".*.tmp.wav >/dev/null 2>&1 && echo fail || echo ok)"
 : > "$LOG"
 roda "$TMP/9h.log" "$P9" --taxa 200 n2; rc=$?
 check "id na linha de comando substitui a gravação, se pedido" "$([ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n2.wav")" != "$HN2" ] && echo ok || echo fail)"
+[ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n2.wav")" != "$HN2" ] || { echo "        exit $rc, hash $HN2"; sed 's/^/        /' "$TMP/9h.log"; }
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

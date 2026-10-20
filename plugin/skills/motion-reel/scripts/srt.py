@@ -6,7 +6,7 @@
 Cada fala começa em (cut + beats[i]) / fps da cena no src/tl-<formato>.json, o mesmo ponto em que o
 track_cinema.py põe a voz, e dura o WAV dela (public/vo/<id>.wav). Fala sem WAV deixa a legenda sem
 tempo de verdade: o script recusa (exit 1) em vez de entregar tempo estimado. Filme sem voz nenhuma
-sai com exit 3 e sem arquivo (não há o que legendar).
+ou só com falas de texto vazio sai com exit 3 e sem arquivo (não há o que legendar).
 """
 import json
 from pathlib import Path
@@ -36,7 +36,9 @@ def legendas(projeto, formato):
             with wave.open(str(wav)) as w:
                 dur = w.getnframes() / w.getframerate()
             ini = (cena["cut"] + cena["beats"][i]) / fps
-            saida.append((ini, ini + dur, textos.get(vid, "").strip()))
+            texto = "\n".join(l.strip() for l in textos.get(vid, "").splitlines() if l.strip())
+            if texto:
+                saida.append((ini, ini + dur, texto))
     return saida, faltas
 
 
@@ -51,7 +53,7 @@ def main():
     if not falas:
         print("sem legenda: o filme não tem fala")
         sys.exit(3)
-    blocos = [f"{n}\n{carimbo(a)} --> {carimbo(b)}\n{t}\n" for n, (a, b, t) in enumerate(falas, 1) if t]
+    blocos = [f"{n}\n{carimbo(a)} --> {carimbo(b)}\n{t}\n" for n, (a, b, t) in enumerate(falas, 1)]
     destino.write_text("\n".join(blocos), encoding="utf-8")
     print(f"legenda: {destino} ({len(blocos)} falas)")
 

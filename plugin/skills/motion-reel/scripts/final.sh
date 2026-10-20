@@ -81,7 +81,7 @@ verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit
       for (s = 0; s <= ultimo; s++) if (n[s]) printf "%4ds  %6.1f  %6.1f\n", s, L[s], pico[s]; else printf "%4ds  silêncio\n", s
     }' > "$D/$N-loudness.txt"
   sed -n '2,3p;5,8p' "$D/$N-loudness.txt"
-  echo "folha do final: $D/$N-folha.jpg"; echo "loudness por segundo: $D/$N-loudness.txt"
+  [ -n "${STG:-}" ] || { echo "folha do final: $D/$N-folha.jpg"; echo "loudness por segundo: $D/$N-loudness.txt"; }
   parado_e_preto "$MP4" "$DUR"
   awk -v f="$D/$N-loudness.txt" '
     /^integrado:/ { I = $2 + 0 } /^pico verdadeiro:/ { TP = $3 + 0 }
@@ -94,7 +94,7 @@ verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit
         r = 1
       }
       if (TP > -1) {
-        printf "!! REPROVADO: pico de %.1f dBTP acima de -1. Baixe o SFX ou o golpe da trilha no segundo do \"pico mais alto\" (em %s) e rode o final.sh de novo.\n", TP, f
+        printf "!! REPROVADO: pico de %.1f dBTP acima de -1. Baixe o SFX ou o golpe da trilha no segundo do \"pico mais alto\" (no loudness.txt) e rode o final.sh de novo.\n", TP
         r = 1
       }
       if (!r) print "áudio aprovado: integrado e pico dentro do alvo"
@@ -116,7 +116,7 @@ print("measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s
   LOG="$(ffmpeg -hide_banner -nostats -y -i "$RAW" ${SRT:+-i "$SRT"} -map 0:v:0 -map "0:a?" ${SRT:+-map 1:s -c:s mov_text -metadata:s:s:0 language=por} \
     -vf "scale=in_range=full:out_range=tv,format=yuv420p" \
     -c:v libx264 -crf 17 -preset slow -profile:v high -movflags +faststart \
-    -af "loudnorm=$LN:$MEAS:linear=true:print_format=summary,aresample=192000,alimiter=limit=$LIMITE:level=false:attack=5:release=50,aresample=48000" \
+    -af "loudnorm=$LN:$MEAS:linear=true:print_format=summary,aresample=192000,alimiter=limit=$LIMITE:level=false:attack=5:release=50:latency=1,aresample=48000" \
     -ar 48000 -c:a aac -b:a 320k "$OUT" 2>&1)" || { printf '%s\n' "$LOG" | tail -20; echo "!! o encode falhou"; return 1; }
   printf '%s\n' "$LOG" | /usr/bin/grep -i "normalization type" | sed 's/^ */loudnorm: /' || true
 }
@@ -160,7 +160,7 @@ encodar "$STG/raw.mp4" "$STG/$NAME.mp4" "$([ "$COMP" = Master169 ] && echo "$SRT
 rm -f "$STG/raw.mp4"
 ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height,r_frame_rate,sample_rate -show_entries format=duration,size -of compact "$STG/$NAME.mp4"
 if ! verificar "$STG/$NAME.mp4"; then
-  for x in .mp4 -folha.jpg -loudness.txt; do mv -f "$STG/$NAME$x" "$O/$NAME-reprovado$x"; done
+  for x in .mp4 -folha.jpg -loudness.txt; do [ ! -f "$STG/$NAME$x" ] || mv -f "$STG/$NAME$x" "$O/$NAME-reprovado$x"; done
   echo "!! REPROVADO: o novo ficou em $O/$NAME-reprovado.mp4 e não se entrega (folha e loudness com o mesmo nome)."
   [ -f "$O/$NAME.mp4" ] && echo "   O $O/$NAME.mp4 anterior continua lá, intacto."
   echo "   Ajuste e rode o final.sh de novo."

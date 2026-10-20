@@ -147,7 +147,7 @@ def gravar_manifesto(destino, falas):
 
 def da_pessoa(wav, registro):
     """WAV que o voz.py não gerou (sem entrada) ou que mudou depois de gerado."""
-    return wav.is_file() and (not registro or registro.get("wav") != sha(wav.read_bytes()))
+    return wav.is_file() and (not isinstance(registro, dict) or registro.get("wav") != sha(wav.read_bytes()))
 
 
 def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=False):
@@ -202,8 +202,11 @@ def gerar(projeto, ids=(), voz=None, taxa=None, refazer=False, qualquer_voz=Fals
                 rodar(["say", *(["-v", nome] if nome else []), "-r", str(taxa), "-f", str(texto),
                        "-o", str(brutos[f["id"]])])
         for f in pendentes:
+            # grava ao lado e troca no fim: WAV pela metade (Ctrl-C, ffmpeg que falha) não vira "gravação da pessoa"
+            novo = wav[f["id"]].with_name(f".{f['id']}.tmp.wav")
             rodar(["ffmpeg", "-v", "error", "-y", "-i", str(brutos[f["id"]]), "-af", APARA, "-ac", "1",
-                   "-ar", "48000", str(wav[f["id"]])])
+                   "-ar", "48000", str(novo)])
+            os.replace(novo, wav[f["id"]])
             manifesto[f["id"]] = {"entrada": hashes[f["id"]], "wav": sha(wav[f["id"]].read_bytes())}
             gravar_manifesto(destino, manifesto)
             print(f"  {f['id']}: public/vo/{f['id']}.wav")
@@ -221,7 +224,8 @@ def main():
     parser.add_argument("--taxa", type=int, help=f"palavras por minuto do say, só macOS (padrão: {TAXA})")
     parser.add_argument("--refazer", action="store_true", help="gera de novo todas as falas")
     parser.add_argument("--qualquer-voz", action="store_true", help="sem voz pt-BR, usa a voz padrão do sistema")
-    args = parser.parse_args()
+    # intermixed: id depois de flag (--taxa 200 n2) também vale; o parse_args do Python 3.9 a 3.13.0 recusa
+    args = parser.parse_intermixed_args()
     projeto = args.projeto.resolve()
     if not (projeto / "vo.json").is_file():
         raise SystemExit(f"!! {projeto / 'vo.json'} não existe: crie o projeto com o new.sh da skill")

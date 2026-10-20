@@ -43,7 +43,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refa
   do `blocks.json` ("Claude" → "Cláudi"); a tela e o `vo.json` continuam com a grafia original.
 - Cada WAV sai em 48 kHz mono, sem silêncio nas pontas.
 - Cache por hash em `public/vo/.voz.json`: cada WAV gerado guarda o hash do texto (depois da troca
-  do `say`), da voz e da taxa, e o do próprio arquivo. Editou a fala, a troca ou a `--taxa`: rodar
+  do `say`), da voz e da taxa, e o do próprio arquivo. Editou a fala, a troca ou a `--taxa` (só no macOS): rodar
   de novo gera só o que mudou. WAV sem entrada no manifesto, ou trocado depois de gerado, é
   gravação da pessoa e fica como está, mesmo com `--refazer`; o script lista quais e diz para passar
   o id se quiser substituir. Projeto criado antes do cache: todo WAV conta como gravação; passe os

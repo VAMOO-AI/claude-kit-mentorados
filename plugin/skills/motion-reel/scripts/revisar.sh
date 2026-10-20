@@ -4,7 +4,8 @@
 #                                                     (<nome>-faixa-<início>-<fim>.jpg)
 #   revisar.sh recorte <mp4> <t_s> [x y largura altura] um quadro em resolução cheia, sem reduzir
 #                                                     (<nome>-recorte-<t>.png); sem caixa, o quadro inteiro
-#   revisar.sh transicoes <mp4> <timeline.json>       12 quadros seguidos em volta de cada corte
+#   revisar.sh transicoes <mp4> <timeline.json>       12 quadros seguidos em volta de cada transição
+#                                                     (corte seco fica de fora; bars/panel/ink passam da janela)
 #                                                     (<nome>-transicoes/NN-<cena>.jpg), em meia resolução
 # O zoom geral é a folha de contato que o final.sh já grava (<nome>-folha.jpg).
 # Os números entram validados (sem eval); a faixa e o recorte leem o MP4, não a prévia a 50%.
@@ -57,7 +58,7 @@ transicoes() {
   if [ "$H" -gt "$W" ]; then COLS=6; else COLS=4; fi
   TW=$(( W / 2 ))
   LISTA="$(node -e '
-const d = require(process.argv[1]);
+const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
 d.scenes.slice(1).forEach((s) => { if (s.in !== "cut" || s.d) console.log(`${s.id} ${s.cut}`) });' "$TL")"
   i=0
   while read -r id cut; do
