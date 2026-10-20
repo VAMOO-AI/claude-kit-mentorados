@@ -35,7 +35,17 @@ jobs:
           done
 
       - name: Link relativo, âncora e href/src dos .md resolvem, e todo .json parseia
+        # Inclui o link absoluto deste repo (github.com/<dono>/<repo>/blob/main/…#âncora),
+        # conferido como caminho local; dono e repo saem do origin do checkout.
         run: bash tests/test-docs-consistencia.sh
+
+      - name: Nada em plugin/ manda rodar pacote sem versão nem sobe MCP sozinho
+        # @latest, npx -y sem @versão, instalador global sem versão e .mcp.json/mcpServers.
+        # Exceção em tests/pin-versao.allow, por arquivo:linha e com motivo.
+        run: bash tests/test-pin-versao.sh
+
+      - name: Toda action dos workflows é pinada por SHA, com a versão em comentário
+        run: bash tests/test-actions-por-sha.sh
 
       - name: Nada versionado carrega dado de cliente (nome, telefone real, host UAZAPI)
         run: bash tests/test-sem-dado-de-cliente.sh
