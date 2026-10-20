@@ -4,15 +4,16 @@
 #
 # O que reprova, nos arquivos versionados de plugin/ e skills/ (o que existir dos dois):
 #   - latest: `@latest` em qualquer linha (npx, npm, go install…);
-#   - runner-sem-versao: `npx -y`/`npx --yes` com pacote sem `@versão`, e os runners que
-#     nunca perguntam: `bunx`, `pnpm dlx`, `yarn dlx`, `uvx`, `uv tool run`, `pipx run`;
+#   - runner-sem-versao: `npx` com pacote sem `@versão`, e os outros runners que baixam e
+#     rodam: `bunx`, `pnpm dlx`, `yarn dlx`, `uvx`, `uv tool run`, `pipx run`. Sem terminal
+#     interativo (o Bash do agente) o `npx` assume `--yes`, então `-y` não muda nada; só o
+#     binário do projeto (`tsc`, `eslint`, `vitest`…) passa sem versão, e só sem `-y`;
 #   - instalador-sem-versao: instalação global sem versão (`npm install -g`, `npm i -g`,
 #     `pnpm add -g`, `bun add -g`, `yarn global add`, `uv tool install`, `pipx install`) e
 #     `pip install` de pacote sem `==`;
 #   - mcp: `.mcp.json` versionado, ou `.json` com a chave `mcpServers` (o plugin.json aceita
 #     o bloco inline). É MCP que sobe sozinho em toda sessão de quem instala.
-# Versão é `@x` ou `==x` com algum dígito: `@12` passa, `@next` não. `npx` sem `-y` antes do
-# pacote fica de fora (em `npx skills add … -y`, o `-y` é do subcomando). Regra de permissão
+# Versão é `@x` ou `==x` com algum dígito: `@12` passa, `@next` não. Regra de permissão
 # (`Bash(…)`, `PowerShell(…)`) também: é padrão de casamento do allow/deny, não comando.
 #
 # Exceção vai em tests/pin-versao.allow, `<arquivo>:<linha> :: <motivo>`. Entrada sem achado
@@ -45,12 +46,12 @@ PERMISSAO = re.compile(r"\b(?:Bash|PowerShell)\([^)]*\)")
 SEP = re.compile(r"&&|\|\||\$\(|[;|()`]")
 PLACEHOLDER = re.compile(r"[<>{}$…]|\.\.\.")
 ASPAS = "\"\x27,"
-# (palavras do comando, família da versão, regra, exige -y antes do pacote, exige -g)
+# (palavras do comando, família da versão, regra, binário do projeto passa sem -y, exige -g)
 COMANDOS = [
     (("npx",), "npm", "runner-sem-versao", True, False),
-    (("bunx",), "npm", "runner-sem-versao", False, False),
-    (("pnpm", "dlx"), "npm", "runner-sem-versao", False, False),
-    (("yarn", "dlx"), "npm", "runner-sem-versao", False, False),
+    (("bunx",), "npm", "runner-sem-versao", True, False),
+    (("pnpm", "dlx"), "npm", "runner-sem-versao", True, False),
+    (("yarn", "dlx"), "npm", "runner-sem-versao", True, False),
     (("uvx",), "py", "runner-sem-versao", False, False),
     (("uv", "tool", "run"), "py", "runner-sem-versao", False, False),
     (("pipx", "run"), "py", "runner-sem-versao", False, False),
@@ -69,6 +70,10 @@ FLAG_PACOTE = {"-p", "--package", "--spec", "--from"}  # o valor da flag é o pa
 FLAG_COM_VALOR = {"-c", "--call", "-w", "--workspace", "--prefix", "--registry", "-i",
                   "--index-url", "--extra-index-url", "--python", "--with", "-t", "--target"}
 GLOBAL = {"-g", "--global", "--location=global"}
+# Binário que o projeto já tem em node_modules/.bin: o runner usa o local, sem baixar.
+# atalho: lista fixa, não lê o package.json do projeto; acrescentar o binário que aparecer.
+BINARIO_DO_PROJETO = {"tsc", "tsx", "eslint", "prettier", "vitest", "jest", "playwright", "supabase",
+                      "remotion", "next", "vite", "biome"}
 DE_ARQUIVO = {"-r", "--requirement", "-e", "--editable"}  # pip instala do arquivo ou caminho
 
 def tem_versao(spec, familia):
@@ -109,14 +114,14 @@ def regras_da_linha(l):
     for seg in SEP.split(l):
         ts = [t.strip(ASPAS) for t in seg.split()]
         for i in range(len(ts)):
-            for palavras, familia, regra, exige_y, exige_g in COMANDOS:
+            for palavras, familia, regra, local_passa, exige_g in COMANDOS:
                 k = len(palavras)
                 if ts[i].rsplit("/", 1)[-1] != palavras[0] or tuple(ts[i + 1:i + k]) != palavras[1:]:
                     continue
                 # atalho: só o primeiro pacote do comando é conferido, então `pip install a b`
                 # passa com o `b` solto; revisitar se o kit passar a instalar vários de uma vez.
                 spec, flags = pacote(ts, i + k)
-                if exige_y and not flags & {"-y", "--yes"}:
+                if local_passa and spec in BINARIO_DO_PROJETO and not flags & {"-y", "--yes"}:
                     continue
                 if exige_g and not GLOBAL & set(ts[i + k:]):
                     continue
@@ -218,7 +223,8 @@ Instale com `uv tool install QUEBRADO-uv` (ou `pipx install ok-pipx==1.4`).
 ~/.venvs/x/bin/pip install QUEBRADO-pip; pip install -r requirements.txt
 `bunx QUEBRADO-bunx` `uvx ok-uvx@0.6.0` `bunx <ferramenta>`
 go install example.com/QUEBRADO-latest@latest
-`npx -y ok-pinado@1.2.3` `npx -y ok-major@12` `npx ok-sem-y` `npx ok-sub pull --yes`
+`npx -y ok-pinado@1.2.3` `npx -y ok-major@12` `npx tsc --noEmit` `npx eslint . --fix`
+Sem terminal o npx assume yes: `DO_NOT_TRACK=1 npx QUEBRADO-sem-y find x`
 npm i -g ok-global@0.5.13; npm install --global @escopo/ok-escopo@2.0.0
 `pip install`, `python -m pip install -e .` e `pnpm add ok-local` não instalam nada solto
 A opção `mcpServers` do Agent SDK é prosa, não config.
@@ -253,6 +259,7 @@ echo "== o gate reprova o erro plantado =="
 [ "$rc" = 1 ] && printf '  ok    sai 1\n' || { printf '  FALHA rc=%s\n' "$rc"; falhas_fix=$((falhas_fix+1)); }
 espera '[runner-sem-versao] Rode `npx -y QUEBRADO-npx-y' "npx -y sem versão"
 espera 'QUEBRADO-escopo' "npx --yes com @escopo/pacote sem versão"
+espera 'QUEBRADO-sem-y' "npx sem -y e sem versão (binário do projeto passa)"
 espera '[instalador-sem-versao] npm install -g QUEBRADO-global' "npm install -g sem versão (o local passa)"
 espera 'QUEBRADO-uv' "uv tool install sem versão (o pipx com == passa)"
 espera 'QUEBRADO-pip' "pip install sem == pelo caminho do venv (o -r passa)"
@@ -263,8 +270,8 @@ espera 'plugin/.claude-plugin/plugin.json:3: [mcp]' "mcpServers no plugin.json, 
 espera 'entrada órfã skills/a/SKILL.md:1' "entrada órfã da allowlist"
 espera 'entrada órfã skills/a/sem-achado.md: o arquivo inteiro' "entrada órfã de arquivo inteiro"
 n=$(printf '%s' "$saida" | grep -c 'FALHA')
-[ "$n" = 11 ] && printf '  ok    exatamente 11 achados (pinado, sem -y, local, prosa, permissão, fora do escopo e liberado não acusam)\n' \
-  || { printf '  FALHA %s achados, esperava 11:\n%s\n' "$n" "$saida"; falhas_fix=$((falhas_fix+1)); }
+[ "$n" = 12 ] && printf '  ok    exatamente 12 achados (pinado, binário do projeto, local, prosa, permissão, fora do escopo e liberado não acusam)\n' \
+  || { printf '  FALHA %s achados, esperava 12:\n%s\n' "$n" "$saida"; falhas_fix=$((falhas_fix+1)); }
 [ "$falhas_fix" -eq 0 ] || { echo; echo "$falhas_fix falha(s) no autoteste"; exit 1; }
 
 echo

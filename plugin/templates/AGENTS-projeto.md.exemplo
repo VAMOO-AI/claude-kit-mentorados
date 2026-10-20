@@ -53,7 +53,7 @@ Automático no merge — nada a rodar. <ex.: a Vercel publica a `main`; o previe
 Manual, depois do merge e dos gates verdes, da raiz do projeto:
 ```bash
 <ex.: npx supabase db push>          # migration: pergunte antes, é produção
-<ex.: npx vercel deploy --prod>
+<ex.: npx vercel@59.25.0 deploy --prod>
 ```
 
 ## Limites

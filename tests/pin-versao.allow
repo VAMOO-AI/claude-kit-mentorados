@@ -7,12 +7,5 @@
 plugin/novidades.txt :: histórico do aviso de novidades, uma linha por versão e a mais nova em cima: registra o que já saiu, e cada release empurra as linhas
 plugin/hooks/block-monitor-ci.sh:15 :: comentário que descreve o comando que o hook bloqueia; não instala nada
 plugin/scripts/merge-settings.js:193 :: literal do hook antigo que o merge procura para remover; trocar o texto quebraria a limpeza de quem ainda o tem
-plugin/skills/baseline/scripts/doctor.sh:43 :: dica de instalação do semgrep no doctor; o kit não tem versão validada do semgrep
-plugin/skills/harness-check/SKILL.md:68 :: `npx -y ccusage@latest`: o kit não tem versão do ccusage conferida com o `daily`; fixar pede rodar uma e comparar a saída
-plugin/skills/harness-check/SKILL.md:69 :: `npx -y ccusage@latest`: o mesmo da linha 68, com o `session`
-plugin/skills/motion-reel/scripts/py.sh:7 :: mensagem de erro que ensina a montar o venv local da skill com numpy; não há versão validada
 plugin/skills/reverse-engineer-anything/SKILL.md:12 :: nota do kit sobre o setup do REA; o jeito de ligar o REA (sob demanda) vai mudar, e a versão entra junto
 plugin/skills/reverse-engineer-anything/SKILL.md:41 :: texto do upstream (cópia fiel de morluto/rea @ 0bc422d); um pin aqui some na próxima recópia
-plugin/skills/secscan/SKILL.md:27 :: regra de oferecer o install do semgrep (pipx, uv ou brew) quando ele falta; o kit não tem versão validada
-plugin/skills/secscan/SKILL.md:44 :: dica de instalação do semgrep impressa quando ele falta; o kit não tem versão validada
-plugin/templates/ci.yml:53 :: o template de CI instala o semgrep sem pin; o kit não tem versão validada, e o pin entra quando houver uma

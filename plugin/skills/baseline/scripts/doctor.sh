@@ -40,7 +40,7 @@ check jq          jq          1 "montar findings.json"          "brew install jq
 check node        node        1 "render.mjs"                    "brew install node"
 check curl        curl        1 "headers servidos (pilar 01)"   "já vem no macOS"
 check gitleaks    gitleaks    0 "segredos: HEAD + histórico (07)" "brew install gitleaks"
-check semgrep     semgrep     0 "SAST (código)"                 "pipx install semgrep"
+check semgrep     semgrep     0 "SAST (código)"                 "pipx install semgrep==1.181.0"
 check osv-scanner osv-scanner 0 "CVE de dependência"            "brew install osv-scanner"
 check trufflehog  trufflehog  0 "confirmar se o segredo AINDA vive (07)" "brew install trufflehog"
 check psql        psql        0 "lints do banco (pilar 02)"     "brew install libpq"
