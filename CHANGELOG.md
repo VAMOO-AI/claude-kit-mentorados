@@ -16,6 +16,52 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.57.0] — 2026-10-20
+
+### Corrigido
+
+- **motion-reel: fala editada no `vo.json` sai com a voz nova.** O `voz.py` só olhava se o WAV
+  existia, então uma fala editada ficava com o áudio velho sem `--refazer`. Agora
+  `public/vo/.voz.json` guarda o hash da entrada (texto depois da pronúncia do `blocks.json`, voz e
+  taxa; no Windows a taxa não muda o áudio e fica fora do hash) e o do WAV gerado: muda um, só
+  aquela fala sai de novo. WAV fora do manifesto, ou trocado depois de gerado, é gravação sua e
+  não se toca nem com `--refazer`; para substituir, passe o id. Projeto criado antes desta versão:
+  todo WAV conta como gravação, e o script avisa quais são.
+- **motion-reel: sem a fonte principal, o render para com o nome do arquivo.** O `useFont` fazia
+  `console.error` e seguia em system-ui quando o `PlusJakartaSans.ttf` faltava em `public/`. A
+  serifada da ênfase continua opcional.
+- **motion-reel: o `stills.mjs` monta a folha no Windows.** O `-pattern_type glob` não existe no
+  ffmpeg do Windows (#172); a folha sai do padrão sequencial dos PNGs.
+
+### Adicionado
+
+- **motion-reel: limiter de pico verdadeiro no `final.sh`**, depois do loudnorm
+  (`aresample=192000,alimiter` em −1,5 dBTP, `aresample=48000`). O mix com SFX que estourava
+  −1 dBTP e reprovava passa sem refazer à mão. `final.sh --encodar <cru> <saída>` roda só o encode.
+- **Staging na entrega:** render e encode saem em `out/.staging-<nome>/`; o que falha não toca no
+  `<nome>.mp4` bom, e o reprovado vira `<nome>-reprovado.mp4`.
+- **Cena parada (≥ 2 s) e quadro preto (≥ 0,5 s)** viram aviso com o trecho no `qa.sh` e no
+  `final.sh` (`freezedetect` + `blackdetect`); `final.sh --video` só confere. Calibrado para não
+  acusar a assinatura pequena sobre fundo escuro dos filmes prontos.
+- **Legenda do Film:** `scripts/srt.py` tira o texto do `vo.json` e o tempo da timeline e do WAV;
+  o `final.sh` entrega `<nome>.srt` e embute a faixa (`mov_text`, português) no 16:9.
+- **Revisão em três zooms:** a folha do final, `revisar.sh faixa` (todos os quadros de um trecho)
+  e `revisar.sh recorte` (um quadro em resolução cheia); o `final.sh` grava em
+  `<nome>-transicoes/` os 12 quadros em volta de cada corte, onde uma emenda de 1 px aparece.
+- `armadilhas.md`: animação CSS/Tailwind não renderiza, exemplo da Remotion de outra versão
+  inventa API, overshoot do AAC e CLI de terceiro que lê a credencial do Claude Code.
+
+### Testes
+
+- `tests/test-motion-reel-voz.sh` caso 9 (cache): reprova 8 checagens contra a 0.56.1.
+- `tests/test-motion-reel-final-verificar.sh`: limiter, legenda embutida, cena parada, quadro
+  preto, staging com render falso, emenda de 1 px na faixa e `revisar.sh`; reprova 12 checagens
+  contra a 0.56.1.
+- `tests/test-motion-reel-srt.sh` (novo) e `tests/test-motion-reel-fonte.sh` (render real, só com
+  `MOTION_RENDER_REAL=1`).
+
+Porte de VAMOO-AI/claude-config-team (lote 1 do plano de motion).
+
 ## [0.56.1] — 2026-10-19
 
 ### Mudado

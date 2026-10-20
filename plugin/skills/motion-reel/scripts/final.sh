@@ -1,14 +1,39 @@
 #!/usr/bin/env bash
 # Render final + conversão para yuv420p (o Remotion entrega yuvj420p, faixa cheia) + áudio
-# normalizado para redes sociais (loudnorm I=-14 LUFS, pico -1 dBTP), AAC 320k a 48 kHz.
+# normalizado para redes sociais (loudnorm I=-14 LUFS + limiter de pico verdadeiro em -1,5 dBTP),
+# AAC 320k a 48 kHz.
 # Uso: final.sh <projeto> <nome-do-arquivo> [Reel|Master169|Reel916]   (padrão: Reel)
-#      final.sh --verificar <arquivo.mp4>   (só a verificação, sem renderizar)
+#      final.sh --verificar <arquivo.mp4>              (só a verificação, sem renderizar)
+#      final.sh --encodar <cru.mp4> <saida.mp4> [legenda.srt]   (só o encode, sem renderizar)
+#      final.sh --video <arquivo.mp4>                  (só o aviso de cena parada e quadro preto)
+# Tudo sai primeiro em out/.staging-<nome>/: render ou encode que falha não toca no <nome>.mp4 que
+# já estava em out/. Aprovado, o MP4 entra no lugar; reprovado, vira <nome>-reprovado.mp4 e o bom fica.
 # Depois do render, verifica o MP4 ENTREGUE: folha de contato (<nome>-folha.jpg, 2 fps),
-# loudness por segundo (<nome>-loudness.txt) e reprovação (exit 1) se o integrado sair de
-# −14 ±1 LUFS ou o pico passar de −1 dBTP.
+# loudness por segundo (<nome>-loudness.txt), reprovação (exit 1) se o integrado sair de
+# −14 ±1 LUFS ou o pico passar de −1 dBTP, e aviso de cena parada (≥ 2 s) ou quadro preto (≥ 0,5 s).
+# No Film sai também <nome>.srt (falas do vo.json no tempo da voz), embutido como faixa no 16:9.
+# A faixa de 12 quadros em volta de cada transição vai para <nome>-transicoes/ (revisar.sh).
 # Arquivo > 30 MB ganha também <nome>-leve.mp4 (metade da resolução), só se o principal passar:
 # o envio de arquivo para o celular/web tem teto de 30 MB.
 set -euo pipefail
+
+parado_e_preto() { # parado_e_preto <mp4> <duração>: avisa cena parada ≥ 2 s e quadro preto ≥ 0,5 s
+  # Aviso, não reprovação: um cartão final segurado de propósito também para. Confira o trecho.
+  # pix_th=0.05 + pic_th=0.999: só conta quadro com 99,9% dos pixels abaixo de 5% de luma. A
+  # assinatura (símbolo e logo pequenos sobre o fundo night) ocupa menos de 2% da tela e não é preto.
+  ffmpeg -hide_banner -nostats -i "$1" -an -vf "scale=320:-2,freezedetect=n=-60dB:d=2,blackdetect=d=0.5:pix_th=0.05:pic_th=0.999" -f null - 2>&1 |
+    awk -v dur="$2" '
+      /freeze_start:/ { a = $NF + 0; aberto = 1 }
+      /freeze_end:/ { printf "!! ATENÇÃO: cena parada de %.1f s a %.1f s (nada se mexe por %.1f s)\n", a, $NF, $NF - a; aberto = 0; n++ }
+      /black_start:/ { match($0, /black_start:[0-9.]+/); i = substr($0, RSTART + 12, RLENGTH - 12)
+                       match($0, /black_end:[0-9.]+/); e = substr($0, RSTART + 10, RLENGTH - 10)
+                       printf "!! ATENÇÃO: quadro preto de %.1f s a %.1f s\n", i, e; n++ }
+      END {
+        if (aberto) { printf "!! ATENÇÃO: cena parada de %.1f s até o fim (%.1f s)\n", a, dur; n++ }
+        if (n) print "   (confira na folha ou com revisar.sh faixa; parado de propósito, como um cartão final, pode ficar)"
+        else print "vídeo: sem cena parada nem quadro preto"
+      }'
+}
 
 verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit 1 se reprovar
   local MP4="$1" D N DUR W H COLS TW FRAMES ROWS LOG
@@ -57,6 +82,7 @@ verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit
     }' > "$D/$N-loudness.txt"
   sed -n '2,3p;5,8p' "$D/$N-loudness.txt"
   echo "folha do final: $D/$N-folha.jpg"; echo "loudness por segundo: $D/$N-loudness.txt"
+  parado_e_preto "$MP4" "$DUR"
   awk -v f="$D/$N-loudness.txt" '
     /^integrado:/ { I = $2 + 0 } /^pico verdadeiro:/ { TP = $3 + 0 }
     END {
@@ -68,7 +94,7 @@ verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit
         r = 1
       }
       if (TP > -1) {
-        printf "!! REPROVADO: pico de %.1f dBTP acima de -1. Baixe o SFX ou o golpe da trilha no segundo do "pico mais alto" (em %s) e rode o final.sh de novo.\n", TP, f
+        printf "!! REPROVADO: pico de %.1f dBTP acima de -1. Baixe o SFX ou o golpe da trilha no segundo do \"pico mais alto\" (em %s) e rode o final.sh de novo.\n", TP, f
         r = 1
       }
       if (!r) print "áudio aprovado: integrado e pico dentro do alvo"
@@ -76,34 +102,76 @@ verificar() { # verificar <arquivo.mp4> → grava folha e loudness ao lado; exit
     }' "$D/$N-loudness.txt"
 }
 
-if [ "${1:-}" = --verificar ]; then verificar "${2:?uso: final.sh --verificar <arquivo.mp4>}"; exit; fi
+encodar() { # encodar <cru.mp4> <saida.mp4> [legenda.srt]
+  local RAW="$1" OUT="$2" SRT="${3:-}" MEAS LOG
+  # loudnorm em duas passadas: a 1ª mede, a 2ª aplica linear. Numa passada só o filtro é dinâmico
+  # e erra o alvo em ~1 LU em trilha sem voz.
+  MEAS="$(ffmpeg -hide_banner -i "$RAW" -af "loudnorm=$LN:print_format=json" -vn -f null - 2>&1 | "$PY" -c '
+import json, sys
+t = sys.stdin.read(); j = json.JSONDecoder().raw_decode(t[t.rindex("{"):])[0]
+print("measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s" % tuple(j[k] for k in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")))')"
+  # Limiter depois do loudnorm, a 4x a taxa (aproxima o pico verdadeiro): o loudnorm linear não
+  # segura um SFX que estoura, e o AAC ainda sobe uns décimos
+  # (overshoot), por isso o teto fica em -1,5 e a verificação mede o MP4 contra -1.
+  LOG="$(ffmpeg -hide_banner -nostats -y -i "$RAW" ${SRT:+-i "$SRT"} -map 0:v:0 -map "0:a?" ${SRT:+-map 1:s -c:s mov_text -metadata:s:s:0 language=por} \
+    -vf "scale=in_range=full:out_range=tv,format=yuv420p" \
+    -c:v libx264 -crf 17 -preset slow -profile:v high -movflags +faststart \
+    -af "loudnorm=$LN:$MEAS:linear=true:print_format=summary,aresample=192000,alimiter=limit=$LIMITE:level=false:attack=5:release=50,aresample=48000" \
+    -ar 48000 -c:a aac -b:a 320k "$OUT" 2>&1)" || { printf '%s\n' "$LOG" | tail -20; echo "!! o encode falhou"; return 1; }
+  printf '%s\n' "$LOG" | /usr/bin/grep -i "normalization type" | sed 's/^ */loudnorm: /' || true
+}
 
+LN="I=-14:TP=-1:LRA=11"
+LIMITE=0.8414  # -1,5 dBTP em amplitude linear (10^(-1,5/20))
 SK="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ "${1:-}" = --verificar ]; then verificar "${2:?uso: final.sh --verificar <arquivo.mp4>}"; exit; fi
+if [ "${1:-}" = --video ]; then
+  V="${2:?uso: final.sh --video <arquivo.mp4>}"; [ -f "$V" ] || { echo "!! não achei $V"; exit 2; }
+  parado_e_preto "$V" "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$V")"; exit
+fi
+if [ "${1:-}" = --encodar ]; then
+  PY="$("$SK/scripts/py.sh" 2>/dev/null || command -v python3)"  # só lê o JSON do loudnorm
+  encodar "${2:?uso: final.sh --encodar <cru.mp4> <saida.mp4> [legenda.srt]}" "${3:?saída}" "${4:-}"; exit
+fi
+
 P="$(cd "${1:?uso: final.sh <projeto> <nome> [Reel|Master169|Reel916]}" && pwd)"; NAME="${2:?nome do arquivo}"
 COMP="${3:-Reel}"; O="$P/out"; mkdir -p "$O"
 PY="$("$SK/scripts/py.sh")"
 case "$COMP" in
-  Reel) "$PY" "$P/scripts/track.py" ;;
+  Reel) "$PY" "$P/scripts/track.py"; TL="$P/src/timeline.json" ;;
   Master169|Reel916)
-    TLN="$([ "$COMP" = Master169 ] && echo master || echo reel)"
+    TLN="$([ "$COMP" = Master169 ] && echo master || echo reel)"; TL="$P/src/tl-$TLN.json"
     "$PY" "$P/scripts/build-timeline.py" "$TLN"
     "$PY" "$P/scripts/track_cinema.py" "$TLN" ;;
   *) echo "!! composição desconhecida: $COMP (Reel, Master169 ou Reel916)"; exit 1 ;;
 esac
-(cd "$P" && npx tsc --noEmit -p "$P" && npx remotion render "$P/src/index.tsx" "$COMP" "$O/raw-$COMP.mp4" --codec=h264 --crf=16 --audio-codec=aac --log=error)
-# loudnorm em duas passadas: a 1ª mede, a 2ª aplica linear. Numa passada só o filtro é dinâmico
-# e erra o alvo em ~1 LU em trilha sem voz.
-LN="I=-14:TP=-1:LRA=11"
-MEAS="$(ffmpeg -hide_banner -i "$O/raw-$COMP.mp4" -af "loudnorm=$LN:print_format=json" -vn -f null - 2>&1 | "$PY" -c '
-import json, sys
-t = sys.stdin.read(); j = json.JSONDecoder().raw_decode(t[t.rindex("{"):])[0]
-print("measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s" % tuple(j[k] for k in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")))')"
-ffmpeg -loglevel error -y -i "$O/raw-$COMP.mp4" -vf "scale=in_range=full:out_range=tv,format=yuv420p" \
-  -c:v libx264 -crf 17 -preset slow -profile:v high -movflags +faststart \
-  -af "loudnorm=$LN:$MEAS:linear=true" -ar 48000 -c:a aac -b:a 320k "$O/$NAME.mp4"
-rm -f "$O/raw-$COMP.mp4"
-ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height,r_frame_rate,sample_rate -show_entries format=duration,size -of compact "$O/$NAME.mp4"
-verificar "$O/$NAME.mp4" || { echo "!! $O/$NAME.mp4 foi gerado mas está REPROVADO: não entregue. Ajuste e rode o final.sh de novo."; exit 1; }
+STG="$O/.staging-$NAME"; rm -rf "$STG"; mkdir -p "$STG"
+trap 'rm -rf "$STG"' EXIT
+(cd "$P" && npx tsc --noEmit -p "$P" && npx remotion render "$P/src/index.tsx" "$COMP" "$STG/raw.mp4" --codec=h264 --crf=16 --audio-codec=aac --log=error)
+SRT=""
+if [ "$COMP" != Reel ]; then
+  rc=0; "$PY" "$SK/scripts/srt.py" "$P" "$TLN" "$STG/$NAME.srt" || rc=$?
+  [ "$rc" = 0 ] && SRT="$STG/$NAME.srt"
+  [ "$rc" = 1 ] && echo "   (o MP4 sai sem legenda)"
+fi
+# A legenda vai como faixa só no 16:9 (player de site e YouTube); o 9:16 recebe o .srt ao lado.
+encodar "$STG/raw.mp4" "$STG/$NAME.mp4" "$([ "$COMP" = Master169 ] && echo "$SRT")"
+rm -f "$STG/raw.mp4"
+ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height,r_frame_rate,sample_rate -show_entries format=duration,size -of compact "$STG/$NAME.mp4"
+if ! verificar "$STG/$NAME.mp4"; then
+  for x in .mp4 -folha.jpg -loudness.txt; do mv -f "$STG/$NAME$x" "$O/$NAME-reprovado$x"; done
+  echo "!! REPROVADO: o novo ficou em $O/$NAME-reprovado.mp4 e não se entrega (folha e loudness com o mesmo nome)."
+  [ -f "$O/$NAME.mp4" ] && echo "   O $O/$NAME.mp4 anterior continua lá, intacto."
+  echo "   Ajuste e rode o final.sh de novo."
+  exit 1
+fi
+for x in .mp4 -folha.jpg -loudness.txt .srt; do [ -f "$STG/$NAME$x" ] && mv -f "$STG/$NAME$x" "$O/$NAME$x"; done
+[ -n "$SRT" ] || rm -f "$O/$NAME.srt"
+rm -f "$O/$NAME-reprovado.mp4" "$O/$NAME-reprovado-folha.jpg" "$O/$NAME-reprovado-loudness.txt" "$O/$NAME-leve.mp4"
+echo "folha do final: $O/$NAME-folha.jpg · loudness por segundo: $O/$NAME-loudness.txt"
+bash "$SK/scripts/revisar.sh" transicoes "$O/$NAME.mp4" "$TL"
+[ -n "$SRT" ] && echo "legenda: $O/$NAME.srt$([ "$COMP" = Master169 ] && echo ' (também embutida no MP4)')"
 if [ "$(wc -c < "$O/$NAME.mp4")" -gt 30000000 ]; then
   ffmpeg -loglevel error -y -i "$O/$NAME.mp4" -vf "scale=iw/2:-2" -c:v libx264 -crf 28 -preset medium -movflags +faststart -c:a aac -b:a 128k "$O/$NAME-leve.mp4"
   echo "leve (para o celular): $O/$NAME-leve.mp4 ($(($(wc -c < "$O/$NAME-leve.mp4") / 1000000)) MB)"

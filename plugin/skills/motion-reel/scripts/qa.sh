@@ -2,7 +2,8 @@
 # QA de um projeto motion-reel: tsc, trilha, prévia em meia resolução e folhas de revisão.
 # Uso: qa.sh <projeto> [Reel|Master169|Reel916]   (padrão: Reel)
 # Saídas em <projeto>/out/qa-<comp>/: preview.mp4, sheet-N.jpg (2 fps), transitions-N.jpg
-# (início/meio/fim de cada transição) e safe.jpg (1 fps com a guia segura em vermelho).
+# (início/meio/fim de cada transição) e safe.jpg (1 fps com a guia segura em vermelho), mais o
+# aviso de cena parada (≥ 2 s) e quadro preto (≥ 0,5 s) na prévia.
 set -euo pipefail
 SK="$(cd "$(dirname "$0")/.." && pwd)"
 P="$(cd "${1:?uso: qa.sh <projeto> [Reel|Master169|Reel916]}" && pwd)"; COMP="${2:-Reel}"
@@ -37,6 +38,8 @@ esac
 echo "→ tsc"; (cd "$P" && npx tsc --noEmit -p "$P") && echo "  TSC_OK"
 echo "→ prévia 50%"
 (cd "$P" && npx remotion render "$P/src/index.tsx" "$COMP" "$O/preview.mp4" --scale=0.5 --log=error)
+
+echo "→ cena parada e quadro preto"; bash "$SK/scripts/final.sh" --video "$O/preview.mp4" | sed 's/^/  /'
 
 rm -f "$O"/sheet-*.jpg "$O"/tr-*.jpg "$O"/transitions-*.jpg
 TILE="$([ "$COMP" = Master169 ] && echo "scale=320:-1,tile=5x6" || echo "scale=200:-1,tile=8x4")"

@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Easing,
   Img,
+  cancelRender,
   continueRender,
   delayRender,
   interpolate,
@@ -55,22 +56,32 @@ export const ip = (
     extrapolateRight: "clamp",
   });
 
+// Fonte principal: sem ela o filme sairia inteiro em system-ui, então o render para com a mensagem.
+// A serifada da ênfase é opcional: projeto antigo sem serif-italic.ttf cai no Georgia e segue.
+const FONTE_PRINCIPAL = "PlusJakartaSans.ttf";
+
 export const useFont = () => {
   const [handle] = useState(() => delayRender("font"));
   useEffect(() => {
-    const faces = [
-      new FontFace("Plus Jakarta Sans", `url(${staticFile("PlusJakartaSans.ttf")})`, { weight: "200 800" }),
-      new FontFace("Motion Serif", `url(${staticFile("serif-italic.ttf")})`, { style: "italic", weight: "400" }),
-    ];
-    // Cada fonte carrega sozinha: projeto antigo sem serif-italic.ttf cai no Georgia, não trava.
-    Promise.all(
-      faces.map((face) =>
-        face
-          .load()
-          .then((f) => document.fonts.add(f))
-          .catch((e) => console.error(e)),
-      ),
-    ).then(() => continueRender(handle));
+    const principal = new FontFace("Plus Jakarta Sans", `url(${staticFile(FONTE_PRINCIPAL)})`, { weight: "200 800" });
+    const serif = new FontFace("Motion Serif", `url(${staticFile("serif-italic.ttf")})`, { style: "italic", weight: "400" });
+    Promise.all([
+      principal
+        .load()
+        .then((f) => document.fonts.add(f))
+        .catch((e) => {
+          cancelRender(
+            new Error(
+              `fonte principal não carregou: public/${FONTE_PRINCIPAL} (${e}). ` +
+                "Copie o arquivo de novo para public/ (o new.sh da skill faz isso) ou troque FONT e useFont no src/lib.tsx.",
+            ),
+          );
+        }),
+      serif
+        .load()
+        .then((f) => document.fonts.add(f))
+        .catch((e) => console.error(e)),
+    ]).then(() => continueRender(handle));
   }, [handle]);
 };
 
