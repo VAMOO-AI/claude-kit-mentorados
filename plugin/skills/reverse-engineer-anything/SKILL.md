@@ -9,7 +9,12 @@ metadata:
 > Origem: [morluto/rea](https://github.com/morluto/rea) @ `0bc422d` (skill v41, MIT, ver `LICENSE`).
 > Cópia fiel do upstream; a única mudança é `disable-model-invocation: true` (só roda quando
 > chamada explicitamente). Atualizar = recopiar `.agents/skills/reverse-engineer-anything/`.
-> A skill não traz as ferramentas: o MCP vem de `npx -y rea-agents@latest setup`.
+> A skill não traz as ferramentas, e o kit liga o MCP só durante a investigação, em escopo local
+> e com versão fixa: `claude mcp add rea --scope local -- npx -y rea-agents@6.4.0 mcp` para ligar
+> e `claude mcp remove rea --scope local` ao terminar, na mesma pasta (o escopo local é por pasta).
+> Não rode `rea-agents setup` nem o "setup plan" do texto abaixo: ele registra o MCP em escopo de
+> usuário (`~/.claude.json`) e nos outros clientes que achar (Codex, Claude Desktop), e reinstala
+> esta skill sem o `disable-model-invocation`. No Codex o `rea` não se registra.
 
 # REA
 

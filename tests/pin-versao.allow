@@ -7,5 +7,4 @@
 plugin/novidades.txt :: histórico do aviso de novidades, uma linha por versão e a mais nova em cima: registra o que já saiu, e cada release empurra as linhas
 plugin/hooks/block-monitor-ci.sh:15 :: comentário que descreve o comando que o hook bloqueia; não instala nada
 plugin/scripts/merge-settings.js:193 :: literal do hook antigo que o merge procura para remover; trocar o texto quebraria a limpeza de quem ainda o tem
-plugin/skills/reverse-engineer-anything/SKILL.md:12 :: nota do kit sobre o setup do REA; o jeito de ligar o REA (sob demanda) vai mudar, e a versão entra junto
-plugin/skills/reverse-engineer-anything/SKILL.md:41 :: texto do upstream (cópia fiel de morluto/rea @ 0bc422d); um pin aqui some na próxima recópia
+plugin/skills/reverse-engineer-anything/SKILL.md:46 :: texto do upstream (cópia fiel de morluto/rea @ 0bc422d); um pin aqui some na próxima recópia
