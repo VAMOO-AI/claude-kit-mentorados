@@ -16,6 +16,19 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.57.1] — 2026-10-20
+
+### Corrigido
+
+- **reverse-engineer-anything: o MCP do REA liga sob demanda, em escopo local e com versão fixa.**
+  A nota do kit mandava `npx -y rea-agents@latest setup`, e o código do `rea-agents@6.4.0` mostra
+  que o setup grava o servidor (cerca de 200 tools) em escopo de usuário no `~/.claude.json`, em
+  `[mcp_servers.rea]` do `~/.codex/config.toml` e nos outros clientes que achar, e reinstala a
+  skill sem o `disable-model-invocation`. Agora a nota manda `claude mcp add rea --scope local --
+  npx -y rea-agents@6.4.0 mcp` para ligar e `claude mcp remove rea --scope local` ao terminar, e
+  diz que no Codex não se registra. Sai a entrada `:12` da `tests/pin-versao.allow`; a do texto
+  do upstream vai de `:41` para `:46`. Porte de VAMOO-AI/claude-config-team#375 (fecha #248).
+
 ## [0.57.0] — 2026-10-20
 
 ### Corrigido
