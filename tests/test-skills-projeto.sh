@@ -198,7 +198,7 @@ check "o hook lê o payload pelo hookjson.js" "$(grep -q 'hookjson.js' "$HOOK" &
 
 echo "== a skill diz o que este kit decidiu não fazer =="
 check "a skill não manda gerar skill"       "$(grep -q 'Não gere skill' "$SKILL" && echo ok || echo fail)"
-check "a skill avisa do npx skills add"     "$(grep -q 'npx skills add' "$SKILL" && echo ok || echo fail)"
+check "a skill avisa do npx skills add"     "$(grep -qE 'npx skills(@[0-9.]+)? add' "$SKILL" && echo ok || echo fail)"
 check "a skill avisa que SKILL.md de terceiro pode executar shell" \
   "$(grep -q 'executa shell' "$SKILL" && echo ok || echo fail)"
 check "a skill manda registrar em docs/skills.md quando não há .context" \
