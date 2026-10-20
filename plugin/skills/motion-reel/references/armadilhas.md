@@ -31,7 +31,7 @@
 | Hook bloqueia `cd X && … src/arquivo` | regra de leitura com caminho relativo | caminhos absolutos em tudo |
 | Cena lenta de revisar | screenshot por quadro ou render inteiro por ajuste | folhas de contato (`qa.sh`): 1 imagem para 32 quadros; para poucas cenas, `stills.mjs` com os índices |
 | Código gerado chama API do Remotion que não existe (prop, hook ou pacote) | skill ou exemplo da Remotion escrito para outra versão; o template trava a 4.0.484 | confira na doc da versão travada (`find-docs`) e no `node_modules/remotion`; não suba a versão por causa de um exemplo |
-| `npx hyperframes usage` (ou outra CLI de terceiro) mostra dados da sua conta do Claude Code | a CLI lê a credencial do Claude Code no Keychain | não rode CLI de motion de terceiro na máquina com sessão do Claude; estude o código, porte a ideia |
+| O comando `usage` da CLI do HyperFrames (ou outra CLI de terceiro) mostra dados da sua conta do Claude Code | a CLI lê a credencial do Claude Code no Keychain | não rode CLI de motion de terceiro na máquina com sessão do Claude; estude o código, porte a ideia |
 | Encode falho apaga o MP4 bom | render direto em `out/<nome>.mp4` | o `final.sh` renderiza e encoda em `out/.staging-<nome>/`; o reprovado vira `<nome>-reprovado.mp4` e o anterior fica |
 | Emenda de 1 px some na revisão | a prévia é a 50% e as folhas reduzem de novo | `out/<nome>-transicoes/` (12 quadros por corte, meia resolução com `flags=area`) e `revisar.sh recorte` em resolução cheia |
 | Render do Film falha por arquivo ausente (`mix-master.wav`, `grain.png`) | `public/` não vai para o git e o projeto foi copiado sem ele | `new.sh` gera os dois; à mão: `grain.py` e `track_cinema.py <formato>` |
