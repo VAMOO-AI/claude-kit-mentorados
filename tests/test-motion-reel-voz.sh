@@ -20,7 +20,11 @@
 #   7. com o terminal em cp1252 (Windows), o aviso do build-timeline ("duração") não derruba o
 #      voz.py com UnicodeDecodeError: ele recusa com a mensagem de fala sem WAV;
 #   8. escolha da voz: Luciana quando instalada; senão a primeira pt-BR que não é voz de
-#      novidade (Eddy, Flo, Grandma...); senão a primeira pt-BR.
+#      novidade (Eddy, Flo, Grandma...); senão a primeira pt-BR;
+#   9. cache por hash (texto depois da pronúncia, voz, taxa) no public/vo/.voz.json: fala editada
+#      gera de novo sozinha, troca do `say` do blocks.json e da taxa também; gravação da pessoa
+#      (WAV fora do manifesto, ou trocado depois de gerado) não se toca nem com --refazer.
+#      Até a 0.56 o voz.py só olhava se o WAV existia: fala editada ficava com o áudio velho.
 #
 # Uso: bash tests/test-motion-reel-voz.sh [raiz-do-repo]
 set -uo pipefail
@@ -230,6 +234,72 @@ for k in "luciana:Luciana quando instalada, mesmo depois das vozes de novidade" 
   check "${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/8.log" && echo ok || echo fail)"
 done
 /usr/bin/grep -v ' ok$' "$TMP/8.log" | sed 's/^/        /'
+
+echo "9. cache por hash: só a fala que mudou gera de novo"
+printf '%s\n' "$VOZES_PT" > "$VOZES"
+P9="$TMP/p9"; projeto "$P9"
+roda "$TMP/9a.log" "$P9"; rc=$?
+check "1ª geração sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+check "o manifesto existe" "$([ -s "$P9/public/vo/.voz.json" ] && echo ok || echo fail)"
+falou() { /usr/bin/grep -c '^say' "$LOG" | tr -d ' '; }
+edita() { # edita <id> <texto novo>
+  "$PY" - "$P9/vo.json" "$1" "$2" <<'PY2'
+import json, sys
+p, i, t = sys.argv[1:]
+vo = json.load(open(p, encoding="utf-8"))
+for l in vo["lines"]:
+    if l["id"] == i:
+        l["text"] = t
+json.dump(vo, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+PY2
+}
+: > "$LOG"; : > "$TEXTOS"
+roda "$TMP/9b.log" "$P9"; rc=$?
+check "sem mudança não fala nada (veio $(falou) say, exit $rc)" "$([ "$rc" = 0 ] && [ "$(falou)" = 0 ] && echo ok || echo fail)"
+edita a2 "Sem copiar, sem colar, sem planilha."
+: > "$LOG"; : > "$TEXTOS"
+roda "$TMP/9c.log" "$P9"; rc=$?
+check "fala editada gera de novo, e só ela (veio $(falou) say, exit $rc)" "$([ "$rc" = 0 ] && [ "$(falou)" = 1 ] && echo ok || echo fail)"
+check "o say recebeu o texto novo" "$(tem "$TEXTOS" 'sem planilha')"
+"$PY" - "$P9/blocks.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; b = json.load(open(p, encoding="utf-8"))
+b.setdefault("say", {})["relatório"] = "relatóriu"
+json.dump(b, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+PY2
+: > "$LOG"
+roda "$TMP/9d.log" "$P9"; rc=$?
+check "troca nova do say no blocks.json refaz só a fala afetada (veio $(falou) say)" "$([ "$rc" = 0 ] && [ "$(falou)" = 1 ] && echo ok || echo fail)"
+# gravação da pessoa: WAV trocado depois de gerado, e WAV de um id sem entrada no manifesto
+"$PY" -c 'import sys, wave
+for arq in sys.argv[1:]:
+    w = wave.open(arq, "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000)
+    w.writeframes(b"\2\0" * 72000); w.close()' "$P9/public/vo/n1.wav" "$P9/public/vo/n2.wav"
+"$PY" - "$P9/public/vo/.voz.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p, encoding="utf-8")); m["falas"].pop("n2"); json.dump(m, open(p, "w", encoding="utf-8"))
+PY2
+hash_de() { "$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$1"; }
+HN1="$(hash_de "$P9/public/vo/n1.wav")"; HN2="$(hash_de "$P9/public/vo/n2.wav")"
+edita n1 "Três cliques e mais nada."; edita n2 "Doze relatórios, todo mês."
+: > "$LOG"
+roda "$TMP/9e.log" "$P9"; rc=$?
+check "gravação da pessoa com texto editado não é sobrescrita (exit $rc)" "$([ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n1.wav")" = "$HN1" ] && [ "$(hash_de "$P9/public/vo/n2.wav")" = "$HN2" ] && echo ok || echo fail)"
+check "avisa que há gravação fora do manifesto" "$(tem "$TMP/9e.log" 'gravação')"
+: > "$LOG"
+roda "$TMP/9f.log" "$P9" --taxa 200; rc=$?
+# as 14 falas menos as 2 gravações da pessoa
+n_ger=$(( $("$PY" -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["lines"]))' "$P9/vo.json") - 2 ))
+check "taxa nova refaz todas as falas da máquina ($(falou) say de $n_ger)" "$([ "$rc" = 0 ] && [ "$(falou)" = "$n_ger" ] && echo ok || echo fail)"
+: > "$LOG"
+roda "$TMP/9g.log" "$P9" --taxa 200 --refazer; rc=$?
+check "--refazer não passa por cima da gravação da pessoa" "$([ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n1.wav")" = "$HN1" ] && [ "$(hash_de "$P9/public/vo/n2.wav")" = "$HN2" ] && echo ok || echo fail)"
+check "--refazer gera de novo as falas da máquina ($(falou) say)" "$([ "$(falou)" = "$n_ger" ] && echo ok || echo fail)"
+check "nenhum .tmp.wav sobra em public/vo" "$(ls "$P9/public/vo/".*.tmp.wav >/dev/null 2>&1 && echo fail || echo ok)"
+: > "$LOG"
+roda "$TMP/9h.log" "$P9" --taxa 200 n2; rc=$?
+check "id na linha de comando substitui a gravação, se pedido" "$([ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n2.wav")" != "$HN2" ] && echo ok || echo fail)"
+[ "$rc" = 0 ] && [ "$(hash_de "$P9/public/vo/n2.wav")" != "$HN2" ] || { echo "        exit $rc, hash $HN2"; sed 's/^/        /' "$TMP/9h.log"; }
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

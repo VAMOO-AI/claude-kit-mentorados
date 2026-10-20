@@ -28,9 +28,9 @@ Pausa marcada entre as falas é o que faz o corte cair no lugar; confira a tabel
 **Voz do sistema: `voz.py`.**
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>              # falas que ainda não têm WAV
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> t1 n2        # refaz só estas
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refazer    # refaz todas
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>              # falas sem WAV ou que mudaram
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> t1 n2        # refaz só estas (mesmo gravação sua)
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refazer    # refaz todas as da voz do sistema
 ```
 
 - Voz: a Luciana quando instalada; senão a primeira pt-BR que não é voz de novidade do macOS
@@ -41,8 +41,13 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto> --refa
 - Ele lê o `vo.json` direto, uma fala por arquivo, nunca na linha de comando: as tags do
   ElevenLabs (`tags`) seriam lidas em voz alta e não valem aqui. O texto passa antes pelo `say`
   do `blocks.json` ("Claude" → "Cláudi"); a tela e o `vo.json` continuam com a grafia original.
-- Cada WAV sai em 48 kHz mono, sem silêncio nas pontas. Fala que já tem WAV (uma gravação da
-  pessoa) fica como está.
+- Cada WAV sai em 48 kHz mono, sem silêncio nas pontas.
+- Cache por hash em `public/vo/.voz.json`: cada WAV gerado guarda o hash do texto (depois da troca
+  do `say`), da voz e da taxa, e o do próprio arquivo. Editou a fala, a troca ou a `--taxa` (só no macOS): rodar
+  de novo gera só o que mudou. WAV sem entrada no manifesto, ou trocado depois de gerado, é
+  gravação da pessoa e fica como está, mesmo com `--refazer`; o script lista quais e diz para passar
+  o id se quiser substituir. Projeto criado antes do cache: todo WAV conta como gravação; passe os
+  ids (ou apague os WAVs) uma vez.
 - No fim ele roda o `build-timeline.py` e para se ainda houver fala com duração estimada.
 - Sem voz pt-BR no Mac: Ajustes do Sistema → Acessibilidade → Conteúdo Falado → Voz do Sistema →
   Gerenciar Vozes → Português (Brasil). No Windows: Configurações → Hora e idioma → Fala →

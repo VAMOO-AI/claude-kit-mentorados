@@ -4,7 +4,7 @@ description: >-
   Cria Reel 9:16, vinheta ou filme 16:9 narrado em motion design com Remotion:
   tipografia cinética, 3D, transições na batida, trilha + SFX e MP4 pronto. Use
   em "faz um reel/vinheta/vídeo", "motion design" ou "vídeo com narração".
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *)
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/py.sh *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/qa.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/revisar.sh *) Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/revisar.sh *) Bash(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/srt.py *) Bash(npx remotion *) Bash(npx tsc *) Bash(ffmpeg *) Bash(ffprobe *) Bash(node ./scripts/stills.mjs *) Bash(python3 ./scripts/blocks-text.py *) Bash(python3 ./scripts/split-vo.py *) Bash(python3 ./scripts/build-timeline.py *) Bash(python3 ./scripts/track_cinema.py *) Bash(python3 ./scripts/track.py *) Bash(bash ./scripts/dl.sh *) PowerShell(npx remotion *) PowerShell(npx tsc *) PowerShell(ffmpeg *) PowerShell(ffprobe *) PowerShell(node ./scripts/stills.mjs *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py *) PowerShell(python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/galeria.py *)
 ---
 
 # motion-reel
@@ -27,7 +27,9 @@ zero: copia o template e troca roteiro, marca e cenas. Ele traz duas bases:
   - `assets/template/scripts/`: `track.py` (trilha do Reel), `track_cinema.py` (trilha do Film), `build-timeline.py`, `blocks-text.py`, `dl.sh`, `split-vo.py`, `stills.mjs`, `grain.py`
 - `assets/fonts/`, `assets/sfx/`, `assets/logos/`: Plus Jakarta Sans (OFL), 7 SFX de síntese própria (`soft-click.wav` etc.) e logos placeholder "SUA MARCA"; Instrument Serif Italic (OFL), a serifada da ênfase dos presets, que o `new.sh` copia para `public/serif-italic.ttf` (`--serif <ttf>` põe a da sua marca)
 - `scripts/new.sh`, `qa.sh`, `final.sh`: criar, revisar, entregar (os dois últimos recebem a composição)
-- `scripts/voz.py`: narração grátis do Film na voz do sistema (`say` no macOS, System.Speech no Windows), uma fala por WAV
+- `scripts/voz.py`: narração grátis do Film na voz do sistema (`say` no macOS, System.Speech no Windows), uma fala por WAV, com cache por hash em `public/vo/.voz.json` (fala editada sai de novo sozinha)
+- `scripts/srt.py`: legenda do Film (texto do `vo.json` no tempo da voz); o `final.sh` chama
+- `scripts/revisar.sh`: zooms de revisão de um MP4 (`faixa` com todos os quadros de um trecho, `recorte` em resolução cheia, `transicoes` com 12 quadros em volta de cada corte)
 - `scripts/galeria.py`: um quadro de cada cena do Film, de cada transição e de cada cena do Reel, com a marca do projeto, para escolher antes de roteirizar
 - `references/vocabulario.md`: cada técnica e cena, onde está e quando usar. **Leia antes de roteirizar.**
 - `references/transicoes.md`: tabela das transições e regras de ritmo
@@ -48,7 +50,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 2. **Marca.** Pergunte uma vez se há logo e paleta. Com os PNGs (fundo transparente), crie o
    projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro) e `--mark`
    (símbolo) no `new.sh`. Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
-   - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`.
+   - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`. Sem a fonte principal em `public/`, o render (e a galeria) para com o nome do arquivo, em vez de sair em system-ui.
 3. **Criar o projeto:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/new.sh [--logo-light <png>] [--logo-dark <png>] [--mark <png>] [--serif <ttf>] <pasta>`
    - Passe os logos por flag, não por `MOTION_*=… new.sh`: a pré-aprovação da skill (`allowed-tools`) não vale para comando precedido de variável, e a pessoa teria de clicar em Permitir.
    - Os scripts do projeto (`./scripts/stills.mjs`, `./scripts/*.py`, `./scripts/dl.sh`) rodam de dentro da pasta do projeto, em caminho relativo (`cd <projeto> && python3 ./scripts/split-vo.py`): é a forma que a pré-aprovação cobre.
@@ -61,7 +63,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - SFX disponíveis: `soft-click`, `dry-pop`, `soft-whoosh`, `low-hit`, `short-rise`, `soft-chime`, `paper-tap`. As transições já soam sozinhas.
 5. **Narração (só Film com voz).** Siga `references/narracao.md`. Pergunte de onde vem a voz; os dois primeiros caminhos não custam nada:
    - **a própria voz:** a pessoa grava cada bloco com uma pausa entre as falas, você converte para `out/vo-blocks/<bloco>.mp3` e o `split-vo.py` corta por fala;
-   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline;
+   - **voz do sistema:** falas no `vo.json` e `python3 ${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/voz.py <projeto>`. Ele detecta a voz pt-BR (`say` no macOS, System.Speech no Windows): a Luciana quando instalada, senão a primeira que não é voz de novidade (Eddy, Flo...); outra com `--voz`, grava um WAV por fala em `public/vo/<id>.wav`, aplica a pronúncia do `blocks.json`, não sobrescreve a gravação da pessoa e refaz a timeline. Rodar de novo depois de editar o `vo.json`, o `say` do `blocks.json` ou a `--taxa` (só no macOS; no Windows a taxa não muda o áudio) gera só as falas que mudaram; WAV fora do manifesto `public/vo/.voz.json` é gravação da pessoa e fica, mesmo com `--refazer` (passe o id para substituir);
    - **ElevenLabs (pago):** falas no `vo.json`, blocos no `blocks.json`, texto do TTS pelo `blocks-text.py`. Diga ao dono o total de caracteres que ele imprime (≈ créditos) **antes** de gerar e espere o ok; depois **1 bloco de teste** antes dos outros, download pelo `dl.sh`, corte pelo `split-vo.py`.
 
    Sem voz, pule: o `build-timeline.py` estima a duração pelo texto e avisa.
@@ -72,16 +74,20 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - `sheet-N.jpg`: 2 fps
    - `transitions-N.jpg`: início, meio e fim de cada transição
    - `safe.jpg`: 1 fps com a guia segura do formato
+   - aviso de cena parada (≥ 2 s) e quadro preto (≥ 0,5 s), com o trecho em segundos: confira se foi de propósito (cartão final segurado) ou se a cena travou
 
    Leia as folhas, não screenshots soltos. Para conferir poucas cenas sem renderizar tudo: `cd <projeto> && node ./scripts/stills.mjs <comp> 0.2,0.8 0.4 <índices>`, com os índices separados por espaço ou vírgula (`0 2 5` ou `0,2,5`). Corrija e rode de novo. Verifique:
    - palavra cortada na borda ou texto fora da guia
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido
    - no Film, animação caindo na fala certa (o número aparece quando a voz o diz)
-8. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome> [Reel|Master169|Reel916]`. Ele renderiza, converte para `yuv420p`, normaliza o áudio em −14 LUFS (pico −1 dBTP) e confere o MP4 que vai ser entregue, não a prévia:
+8. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome> [Reel|Master169|Reel916]`. Ele renderiza em `out/.staging-<nome>/` (encode que falha não toca no MP4 bom), converte para `yuv420p`, normaliza o áudio em −14 LUFS com limiter de pico verdadeiro em −1,5 dBTP e confere o MP4 que vai ser entregue, não a prévia:
    - `out/<nome>-folha.jpg`: folha de contato do final a 2 fps. Leia antes de entregar: o encode final pode mostrar o que a prévia a 50% escondia (banding, texto borrado, quadro preto)
    - `out/<nome>-loudness.txt`: integrado, pico verdadeiro, segundos mais altos e mais baixos, o segundo do pico e a lista segundo a segundo
-   - **exit 1 = reprovado:** integrado fora de −14 ±1 LUFS ou pico acima de −1 dBTP. O MP4 fica em `out/`, mas não se entrega: ajuste o mix como a mensagem indica e rode de novo. Para reconferir um MP4 sem renderizar: `final.sh --verificar <arquivo.mp4>`
+   - aviso de cena parada e quadro preto no MP4 final, como no QA
+   - `out/<nome>-transicoes/`: 12 quadros seguidos em volta de cada corte, em meia resolução. Leia procurando emenda de 1 px e tela vazia na troca; para olhar de perto, `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/revisar.sh recorte <mp4> <segundo> [x y largura altura]` (resolução cheia) e `revisar.sh faixa <mp4> <início> <fim>` (todos os quadros do trecho)
+   - Film com voz: `out/<nome>.srt` (texto do `vo.json` no tempo de cada fala), embutido como faixa no 16:9. Fala sem WAV: sai sem legenda e avisa
+   - **exit 1 = reprovado:** integrado fora de −14 ±1 LUFS ou pico acima de −1 dBTP. O novo vira `out/<nome>-reprovado.mp4` e não se entrega; o `<nome>.mp4` anterior, se havia, fica intacto. Ajuste o mix como a mensagem indica e rode de novo. Para reconferir um MP4 sem renderizar: `final.sh --verificar <arquivo.mp4>`
    - acima de 30 MB, e só se passou, sai também `<nome>-leve.mp4`
 
    **Antes de pôr na tela:** número, nome e afirmação só entram no vídeo com fonte, seja uma URL ou um material que a pessoa deu. Sem fonte, corte ou pergunte.
@@ -90,7 +96,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - **fatos e fontes:** cada número, nome ou afirmação que aparece na tela, com a fonte de cada um (URL ou "material da pessoa: <arquivo ou mensagem>")
    - **decisões:** paleta, presets e transições, ritmo (BPM, duração das cenas), voz (gravada, TTS ou sem narração) e o porquê de cada uma
    - **não verificado:** tudo o que você não conferiu, sem suavizar. Sempre entra "áudio não ouvido" (trilha sintética e SFX nunca escutados: peça para o dono ouvir e ofereça uma versão só com SFX se ele for usar música da plataforma); entram também fonte que você não abriu, logo placeholder, nome que a pessoa não confirmou
-   - **verificação:** caminho da folha do final, integrado e pico do `loudness.txt`, e a saída do tsc e do ffprobe (lint: o projeto não tem)
+   - **verificação:** caminho da folha do final e da pasta de transições, integrado e pico do `loudness.txt`, os avisos de cena parada ou quadro preto (ou "sem aviso"), a legenda (se houver) e a saída do tsc e do ffprobe (lint: o projeto não tem)
    - os textos que você mudou ou acrescentou
    - `PENDENTE:` com nomes a confirmar, logos placeholder e onde guardar o projeto (o scratchpad some com a sessão)
 

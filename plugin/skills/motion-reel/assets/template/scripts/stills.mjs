@@ -54,5 +54,6 @@ for (const [i, s] of scenes.entries()) {
   }
 }
 const cols = composition.width > composition.height ? 4 : 6;
-execFileSync("ffmpeg", ["-v", "error", "-y", "-pattern_type", "glob", "-i", `${out}/*.png`, "-vf", `tile=${cols}x4:padding=6:color=white`, `${out}/sheet-%02d.jpg`]);
+// Padrão sequencial, não glob: o ffmpeg do Windows não implementa -pattern_type glob (#172).
+execFileSync("ffmpeg", ["-v", "error", "-y", "-framerate", "1", "-start_number", "0", "-i", path.join(out, "%03d.png"), "-vf", `tile=${cols}x4:padding=6:color=white`, path.join(out, "sheet-%02d.jpg")]);
 console.log(`ok: ${n} quadros → ${out}`);
