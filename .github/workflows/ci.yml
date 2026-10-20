@@ -255,6 +255,11 @@ jobs:
       - name: A legenda do Film da motion-reel sai do vo.json no tempo da voz e recusa tempo estimado
         run: bash tests/test-motion-reel-srt.sh
 
+      - name: A fonte principal que falta derruba o render da motion-reel (render real fora do CI)
+        # Sem Remotion instalado aqui o teste sai "pulado"; a prova com render real roda local
+        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>) e no CI do content-studio-template.
+        run: bash tests/test-motion-reel-fonte.sh
+
       - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
         run: bash tests/test-motion-reel-galeria.sh
 
