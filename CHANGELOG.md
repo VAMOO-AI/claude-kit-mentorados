@@ -16,6 +16,20 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.61.1] — 2026-10-21
+
+### Corrigido
+
+- **audit-multidim: a existência de chave em `.env*` passa pelo `env-tem-chave.sh`.** A regra
+  dura dos auditores (`plugin/workflows/audit-multidim.js:19`) mandava, "no máximo", `grep -c`
+  no `.env`, e o deny do kit nega esse comando: o auditor perdia um turno na recusa ou relatava
+  a chave como não conferida sem dizer por quê. Agora ele roda o `env-tem-chave.sh` do cache
+  do plugin, que diz `presente`, `vazia` ou `ausente` sem imprimir o valor. Sem o script, a chave
+  sai "não medido". Conferido nesta máquina: `grep -c` num `.env.local` é negado e o script
+  passa. Como o `/kit-vamoo:setup` é quem copia o workflow para `~/.claude/workflows/`, a
+  correção chega com o setup (`|setup` nas novidades). Espelho do kit do time
+  (VAMOO-AI/claude-config-team), onde a mesma regra aponta o `~/.claude/scripts/env-tem-chave.sh`.
+
 ## [0.61.0] — 2026-10-21
 
 ### Adicionado

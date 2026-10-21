@@ -16,7 +16,7 @@ if (!A.alvo || !Array.isArray(A.areas) || !A.areas.length) {
 }
 const MAX = A.maxFindings || 8
 
-const COMMON = `Você é auditor especialista. Alvo: ${A.alvo}\n${A.contexto || ''}\n\nREGRAS DURAS:\n- READ-ONLY: não edite, não crie, não delete nada; use Read/Grep/Glob/Bash(ls, head, wc) só pra inspecionar.\n- NUNCA leia .env*/credenciais (deny ativo). Existência de key: no máximo grep -c count-only.\n- Responda em PT-BR.\n${A.regras || ''}`
+const COMMON = `Você é auditor especialista. Alvo: ${A.alvo}\n${A.contexto || ''}\n\nREGRAS DURAS:\n- READ-ONLY: não edite, não crie, não delete nada; use Read/Grep/Glob/Bash(ls, head, wc) só pra inspecionar.\n- NUNCA leia .env*/credenciais (deny ativo). Existência de key: bash ~/.claude/plugins/cache/vamoo-ai/kit-vamoo/<versão instalada>/scripts/env-tem-chave.sh <arquivo> <CHAVE> (diz presente, vazia ou ausente, nunca o valor; o deny nega grep, cat e head em .env*). Sem o script, a key fica "não medido".\n- Responda em PT-BR.\n${A.regras || ''}`
 
 const FINDINGS_SCHEMA = {
   type: 'object',
