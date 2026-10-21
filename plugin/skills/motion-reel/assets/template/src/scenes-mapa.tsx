@@ -3,20 +3,15 @@
 // topojson-client (ISC) e projetado pelo d3-geo (ISC) em Natural Earth 1. Mesmo molde das cenas do
 // film-scenes.tsx: useF, useL, bt, first, fit.
 import React from "react";
-import { Easing } from "remotion";
 import { geoInterpolate, geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import world from "world-atlas/countries-110m.json";
 import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
-import { Bg, C, EASE_INOUT, ip, useF } from "./lib";
+import { Bg, C, EASE_INOUT, POP, SETTLE, ip, useF } from "./lib";
 import { enquadramento } from "./tempos.mjs";
 
-// Curvas da doutrina de motion (vocabulario.md). Atalho: definidas aqui enquanto o lib.tsx não as
-// exporta; quando exportar, troque por import de ./lib.
-const SETTLE = Easing.bezier(0, 0.65, 0.51, 0.99);
-const POP = Easing.out(Easing.back(1.7));
 
 type Pais = Feature<Geometry, { name: string }>;
 const topo = world as unknown as Topology<{ countries: GeometryCollection<{ name: string }> }>;

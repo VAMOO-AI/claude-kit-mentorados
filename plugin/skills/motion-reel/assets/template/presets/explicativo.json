@@ -1,0 +1,167 @@
+{
+ "sobre": "explicativo de negócio, ~20 s: o problema, o que você faz, como funciona em 3 passos, uma prova com número e fonte, e o nome",
+ "letterbox": null,
+ "current": "whip",
+ "master": [
+  {
+   "type": "statement",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "bg": "night",
+    "groups": [
+     {
+      "beat": 0,
+      "lines": [
+       "O cliente chama.",
+       "Ninguém responde."
+      ],
+      "hollowLast": true
+     }
+    ],
+    "breathe": true
+   }
+  },
+  {
+   "type": "title",
+   "vo": [],
+   "min": 105,
+   "mark": "braam",
+   "energy": 1,
+   "props": {
+    "line1": "Seu Produto",
+    "line2": "resolve",
+    "breathe": true
+   }
+  },
+  {
+   "type": "beats",
+   "vo": [],
+   "min": 120,
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "items": [
+     "Você conta",
+     "Eu monto",
+     "Roda sozinho"
+    ],
+    "kicker": "Como funciona"
+   }
+  },
+  {
+   "type": "glass",
+   "vo": [],
+   "min": 195,
+   "energy": 2,
+   "props": {
+    "title": "Na prática",
+    "word": "PROVA",
+    "cards": [
+     {
+      "value": 87,
+      "label": "% das conversas respondidas em 1 min"
+     },
+     {
+      "value": "seu painel",
+      "label": "fonte, mês/ano"
+     }
+    ],
+    "breathe": true
+   }
+  },
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "mark": "finale",
+   "energy": 1,
+   "props": {
+    "sub": "@seunome"
+   }
+  }
+ ],
+ "reel": [
+  {
+   "type": "statement",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "bg": "night",
+    "groups": [
+     {
+      "beat": 0,
+      "lines": [
+       "O cliente chama.",
+       "Ninguém responde."
+      ],
+      "hollowLast": true
+     }
+    ],
+    "breathe": true
+   }
+  },
+  {
+   "type": "title",
+   "vo": [],
+   "min": 105,
+   "mark": "braam",
+   "energy": 1,
+   "props": {
+    "line1": "Seu Produto",
+    "line2": "resolve",
+    "breathe": true
+   }
+  },
+  {
+   "type": "beats",
+   "vo": [],
+   "min": 120,
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "items": [
+     "Você conta",
+     "Eu monto",
+     "Roda sozinho"
+    ],
+    "kicker": "Como funciona"
+   }
+  },
+  {
+   "type": "glass",
+   "vo": [],
+   "min": 195,
+   "energy": 2,
+   "props": {
+    "title": "Na prática",
+    "word": "PROVA",
+    "cards": [
+     {
+      "value": 87,
+      "label": "% das conversas respondidas em 1 min"
+     },
+     {
+      "value": "seu painel",
+      "label": "fonte, mês/ano"
+     }
+    ],
+    "breathe": true
+   }
+  },
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "mark": "finale",
+   "energy": 1,
+   "props": {
+    "sub": "@seunome"
+   }
+  }
+ ]
+}

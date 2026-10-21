@@ -273,6 +273,9 @@ jobs:
       - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
         run: bash tests/test-motion-reel-galeria.sh
 
+      - name: O briefing de motion tem as cinco partes, a timeline avisa leitura curta e o explicativo vira filme na batida
+        run: bash tests/test-motion-reel-briefing.sh
+
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
         # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo

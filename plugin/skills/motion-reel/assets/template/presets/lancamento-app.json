@@ -32,7 +32,8 @@
      ],
      "foot": "tudo no lugar"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {
@@ -61,7 +62,8 @@
       }
      ]
     },
-    "dark": true
+    "dark": true,
+    "breathe": true
    }
   },
   {
@@ -84,7 +86,8 @@
      ],
      "foot": "ao vivo"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {
@@ -107,7 +110,8 @@
      ],
      "foot": "nenhuma etapa pulada"
     },
-    "dark": true
+    "dark": true,
+    "breathe": true
    }
   },
   {
@@ -127,7 +131,8 @@
      "to": 92,
      "label": "metas batidas"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {
@@ -173,7 +178,8 @@
      ],
      "foot": "tudo no lugar"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {
@@ -202,7 +208,8 @@
       }
      ]
     },
-    "dark": true
+    "dark": true,
+    "breathe": true
    }
   },
   {
@@ -225,7 +232,8 @@
      ],
      "foot": "ao vivo"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {
@@ -248,7 +256,8 @@
      ],
      "foot": "nenhuma etapa pulada"
     },
-    "dark": true
+    "dark": true,
+    "breathe": true
    }
   },
   {
@@ -268,7 +277,8 @@
      "to": 92,
      "label": "metas batidas"
     },
-    "dark": false
+    "dark": false,
+    "breathe": true
    }
   },
   {

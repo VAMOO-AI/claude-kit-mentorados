@@ -45,6 +45,16 @@ export const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 export const EASE_IN = Easing.bezier(0.64, 0, 0.78, 0);
 export const EASE_INOUT = Easing.bezier(0.83, 0, 0.17, 1);
 
+// Doutrina (C3): curva por comportamento, não por tipo de elemento. Âncoras do motion-taste.md
+// (Copyright (c) 2026 Diffusion Studio Inc., MIT). O EASE da casa segue como padrão de entrada.
+export const SETTLE = Easing.bezier(0, 0.65, 0.51, 0.99); // assentamento: contagem que pousa, logo
+export const EXIT = Easing.bezier(1, 0.02, 0.54, 0.42); // saída que acelera (a última cena, o fade)
+// Overshoot (~10% com s = 1,70158) e antecipação: Easing.back é ease-in (recua antes de ir).
+export const POP = Easing.out(Easing.back(1.7));
+export const ANTIC = Easing.back(1.7);
+// Hit-stop: o tempo do elemento congela `hold` quadros no impacto; o resto da cena segue.
+export const hitStop = (f: number, at: number, hold = 3) => (f < at ? f : f < at + hold ? at : f - hold);
+
 export const ip = (
   f: number,
   input: [number, number],
@@ -174,10 +184,11 @@ export const Counter: React.FC<{
   size: number;
   color: string;
   weight?: number;
+  ease?: (t: number) => number;
   decimals?: number;
-}> = ({ value, progress, size, color, weight = 800, decimals = 0 }) => {
+}> = ({ value, progress, size, color, weight = 800, ease = EASE, decimals = 0 }) => {
   const p = Math.min(1, Math.max(0, progress));
-  const n = Number((value * EASE(p)).toFixed(decimals));
+  const n = Number((value * ease(p)).toFixed(decimals));
   return (
     <div
       style={{

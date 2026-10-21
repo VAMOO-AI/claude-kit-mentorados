@@ -8,6 +8,8 @@
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
 0.59.0|motion-reel com cinco cenas novas (troca de frase, forma que morfa, mapa, ranking e antes e depois), cursor que clica no Desktop e motion blur opcional nas transições rápidas
+0.58.0|motion-reel com briefing de motion em cinco partes, aviso de leitura curta no storyboard, o preset explicativo de negócio e a doutrina de motion como padrão: uma transição dominante, zoom só no fim, clímax que antecipa, passa e assenta
+0.57.2|o /git-sync não remove mais o worktree onde uma sessão, terminal ou dev server ainda está rodando, mesmo sem trava
 0.57.1|a skill reverse-engineer-anything liga o REA só enquanto você investiga, nesta pasta e numa versão fixa, e não registra mais o MCP dele para todas as sessões
 0.57.0|motion-reel mais segura na entrega: fala editada sai com a voz nova sozinha, o pico do áudio é limitado no final, o MP4 bom não se perde quando o novo falha, aviso de cena parada e quadro preto, legenda .srt do filme e zoom de revisão nas transições
 0.56.2|as skills que mandam rodar ferramenta de fora (ccusage, semgrep, a CLI skills e a da Vercel) usam versão fixa e conferida, em vez da última do dia

@@ -3,7 +3,7 @@
  "letterbox": null,
  "master": [
   {
-   "type": "launch", "vo": [], "min": 105, "energy": 0,
+   "type": "launch", "vo": [], "min": 105, "energy": 0, "read": ["Chega de planilha.", "Seu Produto"],
    "props": { "words": ["Chega", "de", "planilha."], "kicker": "Lançamento", "name": "Seu Produto", "tag": "O relatório que se monta sozinho" }
   },
   {
@@ -11,7 +11,7 @@
    "props": { "items": ["Conecta", "Confere", "Entrega"], "kicker": "Em 3 passos" }
   },
   {
-   "type": "glass", "vo": [], "min": 120, "in": "push", "energy": 2,
+   "type": "glass", "vo": [], "min": 165, "read": ["12 relatórios por mês", "40 horas de volta", "4/4 números conferidos"], "in": "push", "energy": 2,
    "props": {
     "title": "Toda segunda, no horário", "word": "RELATÓRIO",
     "cards": [{ "value": 12, "label": "relatórios por mês" }, { "value": 40, "label": "horas de volta" }, { "value": "4/4", "label": "números conferidos" }]
@@ -21,7 +21,7 @@
  ],
  "reel": [
   {
-   "type": "launch", "vo": [], "min": 105, "energy": 0,
+   "type": "launch", "vo": [], "min": 105, "energy": 0, "read": ["Chega de planilha.", "Seu Produto"],
    "props": { "words": ["Chega", "de", "planilha."], "kicker": "Lançamento", "name": "Seu Produto", "tag": "O relatório que se monta sozinho" }
   },
   {
@@ -29,7 +29,7 @@
    "props": { "items": ["Conecta", "Confere", "Entrega"], "kicker": "Em 3 passos" }
   },
   {
-   "type": "glass", "vo": [], "min": 120, "in": "push", "energy": 2,
+   "type": "glass", "vo": [], "min": 165, "read": ["12 relatórios por mês", "40 horas de volta"], "in": "push", "energy": 2,
    "props": {
     "title": "Toda segunda, no horário", "word": "RELATÓRIO",
     "cards": [{ "value": 12, "label": "relatórios por mês" }, { "value": 40, "label": "horas de volta" }]

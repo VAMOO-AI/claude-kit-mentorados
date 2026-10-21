@@ -9,7 +9,10 @@ import { FilmCtx, SCENES, TL } from "./film-scenes";
 // Composição genérica: lê a timeline (src/tl-<formato>.json, gerada pelo build-timeline.py) por
 // props. Serve 16:9 e 9:16; quem decide o tamanho é a Composition no index.tsx.
 
-// Deriva lenta de câmera: nenhuma cena fica estática.
+// Deriva lenta de câmera (zoom de 3%).
+// Zoom ambiente só onde pede (doutrina de motion, regra 7): o cartão segurado do fim. Outra cena
+// liga com props.breathe: true; outro/logo3d desligam com breathe: false (ex.: ponta de match cut).
+const BREATHE_BY_TYPE = new Set(["outro", "logo3d"]);
 const Breathe: React.FC<{ dur: number; children: React.ReactNode }> = ({ dur, children }) => {
   const f = useCurrentFrame();
   return <AbsoluteFill style={{ transform: `scale(${1 + 0.03 * (f / dur)})` }}>{children}</AbsoluteFill>;
@@ -70,9 +73,15 @@ export const Film: React.FC<{ tl: TL; audio: string; withAudio?: boolean }> = ({
       <TransitionSeries.Sequence key={s.id} durationInFrames={end - from} name={s.id}>
         <FilmCtx.Provider value={{ tl, idx: i }}>
           <LeadCtx.Provider value={dIn / 2}>
-            <Breathe dur={end - from}>
-              <Scene {...s.props} beats={s.beats} ends={s.ends} len={s.len} energy={s.energy} />
-            </Breathe>
+            {(s.props.breathe ?? BREATHE_BY_TYPE.has(s.type)) ? (
+              <Breathe dur={end - from}>
+                <Scene {...s.props} beats={s.beats} ends={s.ends} len={s.len} energy={s.energy} />
+              </Breathe>
+            ) : (
+              <AbsoluteFill>
+                <Scene {...s.props} beats={s.beats} ends={s.ends} len={s.len} energy={s.energy} />
+              </AbsoluteFill>
+            )}
           </LeadCtx.Provider>
         </FilmCtx.Provider>
       </TransitionSeries.Sequence>,

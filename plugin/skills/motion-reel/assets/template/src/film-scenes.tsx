@@ -13,19 +13,19 @@ import { LetterSwap, MorphShape, Ranking, Versus } from "./scenes-extras";
 import { MapRoute } from "./scenes-mapa";
 import { FilmCtx, H1, LABEL, type SP, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
 import { AsstText, Composer, Cursor, D, Desk, EditCard, UserMsg, Working, fadeIn, sendButton, typing } from "./desktop";
-import { BRAND, Bg, C, Counter, EASE_INOUT, MONO, MarkIn, MaskUp, hollow, ip, shake, useF } from "./lib";
+import { ANTIC, BRAND, Bg, C, Counter, EASE_INOUT, EXIT, MONO, MarkIn, MaskUp, POP, SETTLE, hitStop, hollow, ip, shake, useF } from "./lib";
 
 export { FilmCtx, H1, LABEL, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
 export type { SP, Scene, TL } from "./film-base";
 
 const Pill: React.FC<{ f: number; at: number; dark?: boolean; children: React.ReactNode; size?: number }> = ({ f, at, dark = true, children, size = 38 }) => (
-  <div style={{ display: "inline-block", background: dark ? C.ink : C.paper, border: `3px solid ${C.ink}`, color: dark ? C.white : C.ink, borderRadius: 100, padding: `${size * 0.5}px ${size * 1.2}px`, fontSize: size, fontWeight: 700, opacity: ip(f, [at, at + 8], [0, 1]), transform: `scale(${ip(f, [at, at + 14], [0.75, 1])})` }}>
+  <div style={{ display: "inline-block", background: dark ? C.ink : C.paper, border: `3px solid ${C.ink}`, color: dark ? C.white : C.ink, borderRadius: 100, padding: `${size * 0.5}px ${size * 1.2}px`, fontSize: size, fontWeight: 700, opacity: ip(f, [at, at + 3], [0, 1]), transform: `scale(${ip(f, [at, at + 12], [0.75, 1], POP)})` }}>
     {children}
   </div>
 );
 
 /* ───────────────────────── frase em grupos (uma ideia por fala) ───────────────────────── */
-// props: bg "night"|"paper", groups [{beat, frac?, lines[], hollowLast?}] — cada grupo entra na
+// props: bg "night"|"paper", groups [{beat, frac?, lines[], lineFracs?, hollowLast?}] — cada grupo entra na
 // sua fala e sai quando o próximo entra.
 export const Statement: React.FC<SP> = (p) => {
   const f = useF();
@@ -33,7 +33,7 @@ export const Statement: React.FC<SP> = (p) => {
   const dark = p.bg !== "paper";
   const bg = dark ? C.night : C.paper;
   const fg = dark ? C.white : C.ink;
-  const groups: { beat: number; frac?: number; lines: string[]; hollowLast?: boolean }[] = p.groups;
+  const groups: { beat: number; frac?: number; lineFracs?: number[]; lines: string[]; hollowLast?: boolean }[] = p.groups;
   const starts = groups.map((g) => bt(p, g.beat, g.frac ?? 0) - 6);
   const fs = fit(groups.flatMap((g) => g.lines), L.W - L.l - L.r, L.v ? 104 : 124);
   return (
@@ -45,9 +45,13 @@ export const Statement: React.FC<SP> = (p) => {
           <AbsoluteFill key={gi} style={{ justifyContent: "center", paddingLeft: L.l, paddingRight: L.r }}>
             {g.lines.map((ln, li) => {
               const hol = g.hollowLast && li === g.lines.length - 1;
+              // lineFracs: a linha entra na fração da fala que a diz. A 1ª linha (e a que não passa do frac do grupo)
+              // fica com a entrada do grupo: na 1ª cena, first(p), antes do corte (a transição nunca revela tela vazia).
+              const lf = g.lineFracs?.[li];
+              const lineAt = lf !== undefined && li > 0 && lf > (g.frac ?? 0) ? Math.max(at + li * 5, bt(p, g.beat, lf) - 6) : at + li * 5;
               return (
                 <div key={li}>
-                  <MaskUp f={f} at={at + li * 5} out={out !== undefined ? out + li * 2 : undefined} dur={16}>
+                  <MaskUp f={f} at={lineAt} out={out !== undefined ? out + li * 2 : undefined} dur={16}>
                     <span style={{ ...H1, fontSize: fs, ...(hol ? hollow(dark ? C.white : C.brand, 3, bg) : { color: fg }) }}>{ln}</span>
                   </MaskUp>
                 </div>
@@ -111,7 +115,7 @@ export const Title: React.FC<SP> = (p) => {
 };
 
 /* ───────────────────────── números (um contador por fala) ───────────────────────── */
-// props: items [{v, label}] — o contador i entra na fala i; os anteriores esmaecem.
+// props: items [{v, label}], focus? ("last": o último é o clímax) — o contador i entra na fala i; os anteriores esmaecem.
 export const Numbers: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
@@ -122,16 +126,23 @@ export const Numbers: React.FC<SP> = (p) => {
         <div style={{ display: "flex", flexDirection: L.v ? "column" : "row", gap: L.v ? 70 : 40, justifyContent: "space-between" }}>
           {items.map((it, i) => {
             const at = i === 0 ? first(p) : bt(p, i) - 4;
-            const prog = ip(f, [at, at + 22], [0, 1], (x) => x);
+            const focal = p.focus === "last" && i === items.length - 1; // clímax: antecipa, passa, congela e assenta
+            const g = focal ? hitStop(f, at + 6, 3) : f;
+            const prog = focal ? ip(g, [at, at + 6], [0, 1], (x) => x) : ip(f, [at, at + 18], [0, 1], (x) => x);
+            const scl = focal
+              ? g < at ? ip(f, [at - 4, at], [1, 0.92], ANTIC) : g < at + 6 ? ip(g, [at, at + 6], [0.92, 1.12]) : ip(g, [at + 6, at + 18], [1.12, 1], SETTLE)
+              : 1;
             const next = i + 1 < items.length ? bt(p, i + 1) - 4 : 1e9;
             const dim = f >= next ? 0.35 : 1;
             return (
               <div key={i} style={{ flex: 1, opacity: f >= at ? 1 : 0.1, display: "flex", flexDirection: L.v ? "row" : "column", alignItems: L.v ? "center" : "flex-start", gap: L.v ? 36 : 18 }}>
                 {!L.v ? <div style={{ width: 380 * ip(f, [at, at + 18], [0, 1], EASE_INOUT), height: 3, background: dim < 1 ? C.line : C.brand }} /> : null}
                 <div style={{ opacity: Math.max(dim, 0.35), minWidth: L.v ? 300 : undefined }}>
-                  <Counter value={it.v} progress={prog} size={L.v ? 190 : 210} color={C.ink} />
+                  <div style={{ transform: `scale(${scl})`, transformOrigin: L.v ? "left center" : "left bottom" }}>
+                    <Counter value={it.v} progress={prog} size={L.v ? 190 : 210} color={C.ink} ease={focal ? (x) => x : SETTLE} />
+                  </div>
                 </div>
-                <MaskUp f={f} at={at + 6}>
+                <MaskUp f={f} at={focal ? Math.max(at + 18, bt(p, i, 0.45)) : at + 6} dur={focal ? 6 : 14}>
                   <span style={{ fontSize: L.v ? 46 : 40, fontWeight: 600, color: dim < 1 ? C.faint : C.dim, letterSpacing: "-0.02em" }}>{it.label}</span>
                 </MaskUp>
               </div>
@@ -293,8 +304,9 @@ export const Card: React.FC<SP> = (p) => {
   const proofAt = bt(p, 0, 0.7);
   const colW = L.v ? L.W - L.l - L.r : 820;
   const nameFs = fit([p.name], colW, L.v ? 120 : 170, 0.6);
-  const cardRot = ip(f, [-12, p.len], [-22, -10], (x) => x);
-  const cardY = ip(f, [-12, 18], [60, 0]);
+  const fw = f - 10; // a janela entra depois do nome: um foco por vez
+  const cardRot = ip(fw, [-12, p.len], [-22, -10], (x) => x);
+  const cardY = ip(fw, [-12, 18], [60, 0]);
   const total = p.total ?? 0;
   const solved = p.solved ?? "evitado";
   return (
@@ -339,12 +351,12 @@ export const Card: React.FC<SP> = (p) => {
       </AbsoluteFill>
       {p.motif ? (
         <AbsoluteFill style={{ perspective: 1800, alignItems: L.v ? "flex-start" : "flex-end", justifyContent: L.v ? "flex-end" : "center", paddingLeft: L.v ? L.l : 0, paddingRight: L.v ? 0 : 100, paddingBottom: L.v ? L.b + 30 : 0 }}>
-          <div style={{ transform: `translateY(${cardY}px) rotateY(${L.v ? 0 : cardRot * 0.5}deg) rotateX(${L.v ? -cardRot * 0.25 : 0}deg)`, opacity: ip(f, [-14, 0], [0, 1]) }}>
+          <div style={{ transform: `translateY(${cardY}px) rotateY(${L.v ? 0 : cardRot * 0.5}deg) rotateX(${L.v ? -cardRot * 0.25 : 0}deg)`, opacity: ip(fw, [-14, 0], [0, 1]) }}>
             <Desk w={L.v ? L.W - L.l - L.r : 800} h={760} sidebar={false} title={p.session} pad={30}
-              composer={<Composer text={p.cmd && f < a + 16 ? typing(p.cmd, f, a - 10, 1.6) : ""} cursor={!!p.cmd && f < a + 16} scale={1} />}>
-              {p.cmd && f >= a + 16 ? <UserMsg t={fadeIn(f, a + 16, 5)}><span style={{ fontFamily: D.mono, fontSize: 17 }}>{p.cmd}</span></UserMsg> : null}
-              <div style={{ opacity: fadeIn(f, a + 22, 8), transform: `translateY(${(1 - fadeIn(f, a + 22, 10)) * 20}px) scale(0.97)`, transformOrigin: "left bottom" }}>
-                <Motif {...p.motif} f={f} a={a + 22} dark />
+              composer={<Composer text={p.cmd && fw < a + 16 ? typing(p.cmd, fw, a - 10, 1.6) : ""} cursor={!!p.cmd && fw < a + 16} scale={1} />}>
+              {p.cmd && fw >= a + 16 ? <UserMsg t={fadeIn(fw, a + 16, 5)}><span style={{ fontFamily: D.mono, fontSize: 17 }}>{p.cmd}</span></UserMsg> : null}
+              <div style={{ opacity: fadeIn(fw, a + 22, 8), transform: `translateY(${(1 - fadeIn(fw, a + 22, 10)) * 20}px) scale(0.97)`, transformOrigin: "left bottom" }}>
+                <Motif {...p.motif} f={fw} a={a + 22} dark />
               </div>
             </Desk>
           </div>
@@ -381,14 +393,14 @@ export const Cta: React.FC<SP> = (p) => {
             <MaskUp f={f} at={a}>
               <span style={{ ...H1, fontSize: fs, color: C.ink }}>{p.q1}</span>
             </MaskUp>
-            <div style={{ marginTop: 20 }}><Pill f={f} at={a + 14} size={L.v ? 44 : 50}>{p.pill1}</Pill></div>
+            <div style={{ marginTop: 20 }}><Pill f={f} at={Math.max(a + 14, bt(p, 0, 0.5))} size={L.v ? 44 : 50}>{p.pill1}</Pill></div>
           </div>
           {p.q2 ? (
             <div>
               <MaskUp f={f} at={b}>
                 <span style={{ ...H1, fontSize: fs, ...hollow(C.ink, 2.2, C.paper) }}>{p.q2}</span>
               </MaskUp>
-              {p.pill2 ? <div style={{ marginTop: 20 }}><Pill f={f} at={b + 14} dark={false} size={L.v ? 44 : 50}>{p.pill2}</Pill></div> : null}
+              {p.pill2 ? <div style={{ marginTop: 20 }}><Pill f={f} at={p.beats.length > 1 ? Math.max(b + 14, bt(p, 1, 0.55)) : b + 14} dark={false} size={L.v ? 44 : 50}>{p.pill2}</Pill></div> : null}
             </div>
           ) : null}
         </div>
@@ -415,7 +427,7 @@ export const Outro: React.FC<SP> = (p) => {
   const logoW = L.v ? 760 : 900;
   // Sem símbolo, o logo já começa a aparecer no corte (nunca tela vazia na transição).
   const wipe = symbol ? ip(f, [26, 48], [0, 100], EASE_INOUT) : ip(f, [-6, 20], [0, 100], EASE_INOUT);
-  const fade = ip(f, [p.len - 24, p.len], [1, 0]);
+  const fade = ip(f, [p.len - 16, p.len], [1, 0], EXIT);
   return (
     <Bg color={C.night}>
       <AbsoluteFill style={{ opacity: fade }}>

@@ -3,19 +3,10 @@
 // elemento entra antes do corte) e fit (fonte que cabe). Registradas no SCENES do film-scenes.tsx,
 // com som no SFX_BY_TYPE do scripts/track_cinema.py e exemplo no EXEMPLOS do galeria.py da skill.
 import React from "react";
-import { AbsoluteFill, Easing, continueRender, delayRender, interpolateColors, spring } from "remotion";
+import { AbsoluteFill, continueRender, delayRender, interpolateColors, spring } from "remotion";
 import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
-import { Bg, C, Counter, EASE_INOUT, fontesProntas, ip, useF } from "./lib";
+import { ANTIC, Bg, C, Counter, EASE_INOUT, EXIT, POP, SETTLE, fontesProntas, hitStop, ip, useF } from "./lib";
 import { corpoNumero, decimaisDe, letras, maiorValor, ordenarRanking, palavras, temposMorph, temposRanking } from "./tempos.mjs";
-
-// Curvas da doutrina de motion (vocabulario.md), com os nomes e valores dela. Atalho: definidas aqui
-// enquanto o lib.tsx não as exporta; quando exportar, troque por import de ./lib.
-const SETTLE = Easing.bezier(0, 0.65, 0.51, 0.99); // assentamento: contagem que pousa, chegada que trava
-const EXIT = Easing.bezier(1, 0.02, 0.54, 0.42); // saída que acelera (≈ 75% da entrada)
-const POP = Easing.out(Easing.back(1.7)); // overshoot de ~10% numa propriedade só (escala)
-const ANTIC = Easing.back(1.7); // antecipação: recua antes de ir
-// Hit-stop: o tempo do elemento congela em `at` por `hold` quadros; o resto da cena segue.
-const hitStop = (f: number, at: number, hold = 3) => (f < at ? f : f < at + hold ? at : f - hold);
 
 /* ───────────────────────── troca de frase: as letras viajam pelo portal ───────────────────────── */
 // Ideia do wireframe-portal-title do HyperFrames (Apache-2.0), reescrita em SVG e CSS, sem WebGL.

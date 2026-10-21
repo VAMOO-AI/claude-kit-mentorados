@@ -27,12 +27,12 @@ ESCALA = 0.4
 # Exemplo das cenas avulsas, que não estão em nenhum film.json pronto: a galeria só usa quando o
 # film.json do projeto e os presets/ não trazem o type. Textos de exemplo, para trocar.
 EXEMPLOS = {
-    "ranking": {"type": "ranking", "min": 90, "props": {"kicker": "Exemplo", "title": "Onde o tempo vai", "items": [
+    "ranking": {"type": "ranking", "min": 105, "read": ["Onde o tempo vai", "Reunião, 12 h"], "props": {"kicker": "Exemplo", "title": "Onde o tempo vai", "items": [
         {"label": "Reunião", "v": 12, "suffix": " h"}, {"label": "E-mail", "v": 9, "suffix": " h"},
         {"label": "Relatório", "v": 6, "suffix": " h"}, {"label": "Planilha", "v": 4, "suffix": " h"}]}},
-    "versus": {"type": "versus", "min": 105, "props": {"kicker": "Exemplo", "title": "Antes e depois", "low": True,
+    "versus": {"type": "versus", "min": 105, "read": ["Antes e depois", "40 min", "6 min"], "props": {"kicker": "Exemplo", "title": "Antes e depois", "low": True,
         "left": {"label": "Antes", "v": 40, "suffix": " min"}, "right": {"label": "Depois", "v": 6, "suffix": " min"}}},
-    "map": {"type": "map", "min": 120, "props": {"kicker": "Exemplo", "title": "De onde para onde", "region": "Brazil", "route": [
+    "map": {"type": "map", "min": 120, "read": ["De onde para onde", "São Paulo, Recife, Lisboa"], "props": {"kicker": "Exemplo", "title": "De onde para onde", "region": "Brazil", "route": [
         {"name": "São Paulo", "at": [-46.63, -23.55]}, {"name": "Recife", "at": [-34.88, -8.05]},
         {"name": "Lisboa", "at": [-9.14, 38.72]}]}},
     "morph": {"type": "morph", "min": 270, "props": {"kicker": "Um processo", "states": [
