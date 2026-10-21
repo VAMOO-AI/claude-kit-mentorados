@@ -1,0 +1,160 @@
+{
+ "sobre": "explicativo de negócio, ~20 s: o problema, o que você faz, como funciona em 3 passos, uma prova com número e fonte, e o nome",
+ "letterbox": null,
+ "master": [
+  {
+   "type": "statement",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "bg": "night",
+    "groups": [
+     {
+      "beat": 0,
+      "lines": [
+       "O cliente chama.",
+       "Ninguém responde."
+      ],
+      "hollowLast": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "title",
+   "vo": [],
+   "min": 105,
+   "in": "push",
+   "mark": "braam",
+   "energy": 1,
+   "props": {
+    "line1": "Seu Produto",
+    "line2": "resolve"
+   }
+  },
+  {
+   "type": "beats",
+   "vo": [],
+   "min": 120,
+   "in": "whip",
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "items": [
+     "Você conta",
+     "Eu monto",
+     "Roda sozinho"
+    ],
+    "kicker": "Como funciona"
+   }
+  },
+  {
+   "type": "highlights",
+   "vo": [],
+   "min": 195,
+   "in": "panel",
+   "energy": 2,
+   "props": {
+    "title": "Na prática",
+    "items": [
+     {
+      "v": 87,
+      "suffix": "%",
+      "label": "das conversas respondidas em 1 min (fonte: seu painel, mês/ano)",
+      "kind": "bar"
+     }
+    ]
+   }
+  },
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "mark": "finale",
+   "energy": 1,
+   "props": {
+    "sub": "@seunome"
+   }
+  }
+ ],
+ "reel": [
+  {
+   "type": "statement",
+   "vo": [],
+   "min": 105,
+   "energy": 0,
+   "props": {
+    "bg": "night",
+    "groups": [
+     {
+      "beat": 0,
+      "lines": [
+       "O cliente chama.",
+       "Ninguém responde."
+      ],
+      "hollowLast": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "title",
+   "vo": [],
+   "min": 105,
+   "in": "push",
+   "mark": "braam",
+   "energy": 1,
+   "props": {
+    "line1": "Seu Produto",
+    "line2": "resolve"
+   }
+  },
+  {
+   "type": "beats",
+   "vo": [],
+   "min": 120,
+   "in": "whip",
+   "mark": "drop",
+   "energy": 3,
+   "props": {
+    "items": [
+     "Você conta",
+     "Eu monto",
+     "Roda sozinho"
+    ],
+    "kicker": "Como funciona"
+   }
+  },
+  {
+   "type": "highlights",
+   "vo": [],
+   "min": 195,
+   "in": "panel",
+   "energy": 2,
+   "props": {
+    "title": "Na prática",
+    "items": [
+     {
+      "v": 87,
+      "suffix": "%",
+      "label": "das conversas respondidas em 1 min (fonte: seu painel, mês/ano)",
+      "kind": "bar"
+     }
+    ]
+   }
+  },
+  {
+   "type": "logo3d",
+   "vo": [],
+   "min": 120,
+   "in": "iris",
+   "mark": "finale",
+   "energy": 1,
+   "props": {
+    "sub": "@seunome"
+   }
+  }
+ ]
+}

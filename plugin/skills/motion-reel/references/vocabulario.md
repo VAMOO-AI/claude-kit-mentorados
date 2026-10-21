@@ -100,8 +100,8 @@ fundo escuro e cor de destaque); o **lançamento de app** é `presets/lancamento
 - O itálico serifado é a Instrument Serif Italic (OFL, `assets/fonts/` da skill), que o `new.sh` copia para `public/serif-italic.ttf` e o `useFont` carrega; com a serifada da marca da pessoa, passe `--serif <ttf>` no `new.sh`. A palavra marcada sai no acento de conteúdo (`C.hot`; no exemplo, laranja `#ee591b`: troque pela cor de acento da marca) sobre escuro e claro, e em night sobre o azul de destaque (acento quente no azul não tem contraste). O acento nunca vai em dado (azul) nem em CTA (pílula preta).
 
 Utilitários exportados para cena nova: `useL()` (W, H, `v` = vertical, guia `l r t b`), `bt`,
-`first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura de todas: `Breathe` (zoom de
-3%), grão de película (`public/grain.png`) e letterbox opcional até a cena-âncora (`letterbox`).
+`first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura: `Breathe` (zoom de
+3%, só no `outro`/`logo3d` ou com `props.breathe`, regra 7 da doutrina), grão de película (`public/grain.png`) e letterbox opcional até a cena-âncora (`letterbox`).
 
 ## Claude Code Desktop (`desktop.tsx`)
 
@@ -148,3 +148,72 @@ nome, visível na folha de QA.
 - Nada de gradiente decorativo, glow ou glass. O impacto vem da coreografia: máscara, escala, corte pela borda, câmera 3D, match cut. Exceção: os presets `glass` e `logo3d` (acima) usam vidro, luz e reflexo por escolha; no máximo uma cena de cada por peça.
 - Comando que aparece na tela tem que ser **real** (o público digita o que vê). Busque no README do produto.
 - Logo é sempre o PNG oficial da marca, sem esticar (altura manda). Nunca redesenhe o logo em CSS ou SVG.
+
+## Explicativo de negócio (`presets/explicativo.json`)
+
+Filme pronto de ~20 s, sem voz, na batida, 16:9 + corte 9:16, só com cenas que já existem: `statement`
+(o problema) → `title` (o que você faz) → `beats` (como funciona em 3 passos) → `glass` (uma prova:
+o número num cartão e a fonte no outro) → `logo3d` (o nome). É o exemplo resolvido do `briefing-motion.md`.
+Mesmo uso dos outros: `cp presets/explicativo.json film.json`, troque os textos e o número (com a
+fonte da pessoa) e rode o `qa.sh` (`Master169` e `Reel916`). Sem voz, o `title` não mostra `sub` nem
+`pill`; com narração, ponha as falas em `vo` e a animação passa a cair nelas.
+
+## Doutrina de motion (padrão do template desde 20/10/2026)
+
+Regras que dirigem o movimento. O filme de teste foi comparado nas duas versões (a anterior e a
+com a doutrina) e a com a doutrina virou o padrão, **sem cor de foco no clímax**: o foco é só
+movimento, o número continua na cor do texto. Tempos a 30 fps (1 quadro ≈ 33 ms). Filme antigo continua
+renderizando: os campos novos são opcionais; o que muda sem pedir é o `Breathe` (só no fim), a
+corrente de transição no lugar do ciclo e os tempos de `Pill`, `Card`, `Cta` e `Outro`.
+
+1. **Um foco por vez.** Só um elemento faz o movimento principal; o apoio entra 4 a 14 quadros
+   depois (130 a 470 ms), nunca junto. O que já foi dito esmaece para 35 % ou menos (o `numbers`
+   faz). No `card`, a janela do Desktop entra 10 quadros depois do nome.
+2. **Saída mais curta que a entrada.** A saída dura cerca de 75 % da entrada e acelera (`EXIT`). O
+   `MaskUp` entra em 14 quadros e sai em 10; o fade do `outro` é de 16 quadros com `EXIT`. Entre
+   cenas, a transição é a saída.
+3. **Pausa antes do clímax.** Entre a penúltima batida e o clímax, 0,3 a 0,75 s (9 a 22 quadros)
+   sem movimento novo e sem fala: `"gaps": [0, 12]` na cena dá 20 quadros antes da 3ª fala.
+4. **Variar ease e duração.** Curva pelo comportamento, não pelo elemento; no máximo duas animações
+   com a mesma curva e duração por cena; a mais lenta dura ~3× a mais rápida. Constantes do `lib.tsx`:
+
+   | Constante | Curva | Comportamento |
+   |---|---|---|
+   | `EASE` | `Easing.bezier(.22, 1, .36, 1)` | entrada, máscara (padrão do `ip`) |
+   | `SETTLE` | `Easing.bezier(0, .65, .51, .99)` | assentamento: contagem que pousa, logo que trava |
+   | `EXIT` | `Easing.bezier(1, .02, .54, .42)` | saída que acelera, fade final |
+   | `EASE_INOUT` | `Easing.bezier(.83, 0, .17, 1)` | viagem de estado a estado |
+   | `POP` | `Easing.out(Easing.back(1.7))` | overshoot de ~10 % (pílula, selo) |
+   | `ANTIC` | `Easing.back(1.7)` | antecipação: recua antes de ir |
+
+   O `Counter` aceita `ease` (padrão `EASE`): contagem de apoio com `SETTLE`, a do clímax quase linear.
+5. **Antecipação, overshoot, "snap, then hold" e hit-stop**, só no foco (o número do clímax, o
+   selo, a pílula do CTA): recuo de 3 a 4 quadros (escala 1 → 0,92); overshoot numa propriedade só
+   (escala ou rotação, nunca posição nem o dígito); a mudança em 1 a 6 quadros e depois segura;
+   `hitStop(f, at, hold = 3)` congela o elemento no impacto enquanto o resto segue; o som sai
+   1 quadro antes do contato. Bounce e elastic, não. No `numbers`, `"focus": "last"` faz isso com o
+   último número (antecipação, conta em 6 quadros, congela 3 a 1,12 de escala, assenta em 12 com
+   `SETTLE`, rótulo quando a fala o diz); o `low-hit` vai em `cues` (`"b2+1"`).
+6. **Duas ou três transições por filme, com uma direção dominante.** Cena sem `in` herda a corrente
+   (`"current"` no `film.json`, padrão `whip`); `in` explícito só com motivo (`ink`/`iris` =
+   fechamento, `whipUp` = conclusão que sobe, `cut` = match ou smash cut). Detalhes em `transicoes.md`.
+7. **`Breathe` só onde pede.** Zoom ambiente em toda cena é "o vídeo esperando". No Film o `Breathe`
+   envolve só o `outro` e o `logo3d` (o cartão segurado); outra cena liga com `props.breathe: true`,
+   e `breathe: false` desliga (ponta de match cut). Sem o zoom, a cena fica viva revelando pela fala:
+   nenhum trecho de 2 s ou mais sem algo novo. No `statement`, um grupo por fala ou por `frac` e
+   `lineFracs` (fração da fala em que cada linha entra: `[0.45, 0.8]`); no `numbers`, o rótulo do
+   foco chega quando a fala o diz; no `cta`, cada pílula entra no ponto da fala que a diz. Cena que
+   termina de entrar com segundos sobrando é erro de planejamento: o `qa.sh` avisa cena parada.
+8. **Um impacto por trecho.** `mark: "hit"` e cue de impacto não se repetem dentro de ~90 quadros
+   (3 s): o segundo apaga o clímax.
+
+Checklist da folha: dá para dizer qual é o foco em cada quadro? Quantos tipos de transição o filme
+tem, e a direção é a mesma? Há pausa visível antes do clímax? O número do clímax passa e assenta, ou
+só aparece? Alguma cena está viva só por causa do zoom?
+
+Fontes (ideias reescritas; as curvas de `SETTLE` e `EXIT` são os valores do `motion-taste.md`):
+HyperFrames, `heygen-com/hyperframes`, Apache-2.0 (regras 1, 2, 3, 6 e 7); `motion-taste.md` do
+`diffusionstudio/lottie`, Copyright (c) 2026 Diffusion Studio Inc., MIT (curvas por comportamento,
+regras 4 e 5); claude-animation, `buildwithhanif/claude-animation-skill`, Copyright (c) 2026 Hanif,
+MIT (snap then hold, overshoot, hit-stop); ClaudeAnimationBase, `JohnHeibel/ClaudeAnimationBase`,
+Copyright (c) 2026 John Heibel, MIT (antecipação, um foco por vez).

@@ -8,6 +8,11 @@ cai na batida. Cena sem `in` ganha a próxima transição do ciclo, sem repetir 
 
 Fala sem WAV ainda (storyboard antes da voz): a duração é estimada pelo texto do vo.json
 (~14 caracteres/s) e o script avisa. Rode de novo depois do split-vo.py.
+
+Leitura: o texto da tela (props, ou a lista `read` da cena, quando o autor declara só o que o
+espectador precisa ler) pede 2,5 palavras/s + 0,5 s. A moldura de UI (sessão, arquivos, status,
+painel ilustrativo, botão) não conta. Cena mais curta que isso ganha aviso de leitura curta; o
+cálculo vai em `read` ({words, need, secs}) de cada cena da timeline, que o storyboard mostra.
 Uso: build-timeline.py [master|reel ...]   (sem argumento: todos os formatos do film.json)
 """
 import json, math, pathlib, sys, wave
@@ -18,6 +23,9 @@ CPS = 14  # estimativa sem WAV
 CYCLE = ["whip", "push", "spin", "whipUp", "glitch", "whip", "push", "iris"]
 D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "echo": 12, "cut": 0}
 FORMATS = ("master", "reel")
+WPS, PAD = 2.5, 0.5  # leitura: palavras por segundo + respiro da cena
+# Props que não são leitura: arquivo, tipo, cor e a moldura de UI (sessão, arquivos, status, painel ilustrativo).
+NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files", "working", "motif", "ui", "button", "done"}
 
 
 def texts():
@@ -34,8 +42,37 @@ def vo_frames(i, txt, faltas):
     return math.ceil(len(txt.get(i, "")) / CPS * FPS) or 30
 
 
+def reads(s):
+    """O que o espectador precisa ler na cena, um item por leitura: a lista `read` da cena ou o texto das props."""
+    def walk(v, key=None):
+        if key in NOT_TEXT:
+            return []
+        if isinstance(v, str):
+            t = v.replace("*", "").strip()
+            return [t] if t else []
+        if isinstance(v, dict):
+            n = v.get("v", v.get("value"))
+            if isinstance(n, (int, float)) and not isinstance(n, bool):  # número que conta + rótulo = uma leitura
+                return [f"{v.get('prefix', '')}{n}{v.get('suffix', '')} {v.get('label', '')}".strip()]
+            return [t for k, x in v.items() for t in walk(x, k)]
+        if isinstance(v, list):
+            if v and all(isinstance(x, str) for x in v):  # palavras ou linhas de uma frase: uma leitura só
+                t = " ".join(x.replace("*", "").strip() for x in v).strip()
+                return [t] if t else []
+            return [t for x in v for t in walk(x)]
+        return []
+    r = s.get("read")
+    return walk([r] if isinstance(r, str) else r) if r is not None else walk(s.get("props", {}))
+
+
+def read_need(items):
+    """(palavras, segundos): 2,5 palavras/s + 0,5 s."""
+    words = sum(len(t.split()) for t in items)
+    return words, round(words / WPS + PAD, 1)
+
+
 def build(name, spec, film, txt):
-    out, cut, last_in, k, faltas = [], 0, None, 0, []
+    out, cut, last_in, k, faltas, curtas = [], 0, None, 0, [], []
     for idx, s in enumerate(spec):
         pre, gap, post = s.get("pre", 6), s.get("gap", 8), s.get("post", 8)
         extra = s.get("gaps", [])
@@ -60,6 +97,10 @@ def build(name, spec, film, txt):
                     "len": length, "beats": beats, "ends": ends, "vo": s.get("vo", []),
                     "mark": s.get("mark"), "energy": s.get("energy"), "origin": s.get("origin"),
                     "cues": s.get("cues", []), "props": s.get("props", {})})
+        words, need = read_need(reads(s))
+        out[-1]["read"] = {"words": words, "need": need, "secs": round(length / FPS, 1)}
+        if need > length / FPS:
+            curtas.append(f"{out[-1]['id']} ({words} palavras pedem {need:.1f}s, a cena dura {length / FPS:.1f}s)")
         last_in = tin
         cut += length
     # energia herdada: cena sem "energy" repete a anterior (0 tenso · 1 calmo · 2 andando · 3 cheio)
@@ -72,6 +113,9 @@ def build(name, spec, film, txt):
     print(f"{name}: {len(out)} cenas, {cut} frames = {cut / FPS:.1f}s ({int(cut / FPS // 60)}:{int(cut / FPS % 60):02d})")
     if faltas:
         print(f"  aviso: {len(faltas)} fala(s) sem WAV, duração estimada pelo texto: {' '.join(sorted(set(faltas)))}")
+    if curtas:
+        print(f"  aviso: leitura curta (2,5 palavras/s + 0,5 s): {'; '.join(curtas)}."
+              " Alongue a cena (min/post), corte texto ou declare em `read` só o que precisa ser lido.")
 
 
 def main():
