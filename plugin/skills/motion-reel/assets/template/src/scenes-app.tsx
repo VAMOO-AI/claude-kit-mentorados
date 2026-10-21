@@ -1,7 +1,7 @@
 // Cenas do preset de lançamento de app (presets/lancamento-app.json): minimalista, headline grande
 // que entra palavra por palavra com rastro (echo trail), um mockup de UI por frase (os motifs) e
 // as peças das telas que se juntam e formam o logo. Mesmo molde do film-scenes.tsx.
-// O som de cada uma está no SFX_BY_TYPE do track_cinema.py: mudou um tempo aqui, mude lá.
+// O som de cada uma está no SONS do src/sons.mjs, nos tempos do tempos.mjs: mudou um tempo aqui, mude lá.
 import React from "react";
 import { AbsoluteFill, Img, continueRender, delayRender, random, staticFile } from "remotion";
 import { Motif } from "./motifs";

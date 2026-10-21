@@ -49,6 +49,9 @@ check "track_cinema.py sem import tempos" "$(/usr/bin/grep -qE '^import tempos|^
 check "scripts/tempos.py removido" "$([ -e "$A/scripts/tempos.py" ] && echo fail || echo ok)"
 check "track_cinema.py chama o scripts/sons.mjs" "$(/usr/bin/grep -q 'scripts/sons.mjs' "$TC" && echo ok || echo fail)"
 check "o node é chamado com encoding utf-8 (Windows)" "$(/usr/bin/grep -q 'encoding="utf-8"' "$TC" && echo ok || echo fail)"
+# Comentário de cena que ainda manda espelhar o som no SFX_BY_TYPE leva quem cria cena para o lugar errado.
+VELHO="$(/usr/bin/grep -lE 'SFX_BY_TYPE|tempos\.py' "$A"/src/*.tsx 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+check "nenhuma cena manda mudar o som no SFX_BY_TYPE (${VELHO:-nenhuma})" "$([ -z "$VELHO" ] && echo ok || echo fail)"
 
 echo "3. a cena e o som leem os mesmos tempos"
 check "desk envia em DESK_ENVIA (cena)" "$(/usr/bin/grep -q 'const send = DESK_ENVIA' "$A/src/film-scenes.tsx" && echo ok || echo fail)"
