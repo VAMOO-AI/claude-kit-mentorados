@@ -463,7 +463,7 @@ def sfx_ranking(s, p):
     for e in range(n):                                        # do último lugar ao 1º
         f0 = A + 6 if e == 0 else (bt(s, e) - 4 if e < len(s["beats"]) else A + 6 + e * step)
         if e == n - 1:
-            at(s, f0 - 1, "low-hit", 0.45); at(s, f0 + 10, "soft-chime", 0.4)  # o 1º: impacto e pouso
+            at(s, f0 + 4, "low-hit", 0.45); at(s, f0 + 20, "soft-chime", 0.4)  # o 1º: impacto 1 quadro antes do pico, pouso
         else:
             at(s, f0, "dry-pop", 0.3); at(s, f0 + 2, "soft-click", 0.08, rep=5, every=3)
 

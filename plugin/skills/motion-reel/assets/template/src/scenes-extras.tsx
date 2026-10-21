@@ -228,7 +228,7 @@ export const MorphShape: React.FC<SP> = (p) => {
   const at = seq.map((_, k) => (k === 0 ? t0 : k < p.beats.length ? bt(p, k) - 4 : k * step));
   const forma = (k: number) => FORMAS[(seq[k].shape ?? (k === seq.length - 1 && loop ? 0 : k)) % FORMAS.length];
   const tinta = (k: number) => TINTAS[seq[k].color ?? ORDEM[(k === seq.length - 1 && loop ? 0 : k) % ORDEM.length]];
-  const mola = (k: number) => spring({ frame: f - at[k], fps: 30, config: { damping: 13, stiffness: 150, mass: 0.7 } });
+  const mola = (k: number) => spring({ frame: f - at[k], fps: 30, config: { damping: 21, stiffness: 150, mass: 0.7 } }); // amortecida: sem passar do alvo (o overshoot fica só no POP da entrada)
   const prop = (key: keyof Forma) =>
     seq.reduce((v, _, k) => (k === 0 ? forma(0)[key] : v + (forma(k)[key] - forma(k - 1)[key]) * mola(k)), 0);
   const cur = at.reduce((c, a, k) => (f >= a ? k : c), 0);
@@ -324,17 +324,18 @@ export const Ranking: React.FC<SP> = (p) => {
       ) : null}
       {itens.map((it, pos) => {
         const a = entra(pos);
-        if (f < a - 2) return null;
         const topo = pos === 0;
-        const fl = topo ? hitStop(f, a + 10, 3) : f; // o 1º congela 3 quadros no pico
-        const ant = topo ? ip(f, [a - 4, a], [1, 0.92], ANTIC) : 1;
-        const pop = topo ? (f < a ? ant : ip(fl, [a, a + 10], [0.92, 1], POP)) : 1;
+        if (f < a - (topo ? 8 : 2)) return null;
+        // o 1º: já visível, recua (1 → 0,92 em 4 quadros), estala até 1,12 em 5, congela 3 quadros no
+        // pico (hit-stop) e assenta em 1 com SETTLE em 12
+        const pico = a + 5;
+        const pop = !topo ? 1 : f < a ? ip(f, [a - 4, a], [1, 0.92], ANTIC) : f < pico ? ip(f, [a, pico], [0.92, 1.12]) : ip(hitStop(f, pico, 3), [pico, pico + 12], [1.12, 1], SETTLE);
         const proxima = pos > 0 ? entra(pos - 1) : 1e9;
-        const dim = f >= proxima ? 0.4 : 1;
+        const dim = f >= proxima ? 0.35 : 1; // quem já foi dito esmaece (doutrina: 35% ou menos)
         const w = barMax * (it.v / max) * ip(f, [a, a + 18], [0, 1], SETTLE);
         const y = L.t + titulo + pos * alto + (alto - linha) / 2;
         return (
-          <div key={it.label} style={{ position: "absolute", left: L.l, width: larg, top: y, height: linha, display: "flex", alignItems: "center", gap: 24, opacity: ip(f, [a - 2, a + 4], [0, 1]) * (topo ? 1 : dim), transform: `translateX(${ip(f, [a - 2, a + 10], [-40, 0])}px) scale(${pop})`, transformOrigin: "left center" }}>
+          <div key={it.label} style={{ position: "absolute", left: L.l, width: larg, top: y, height: linha, display: "flex", alignItems: "center", gap: 24, opacity: (topo ? ip(f, [a - 8, a - 5], [0, 1]) : ip(f, [a - 2, a + 4], [0, 1])) * (topo ? 1 : dim), transform: `translateX(${ip(f, [a - 2, a + 10], [-40, 0])}px) scale(${pop})`, transformOrigin: "left center" }}>
             <span style={{ ...H1, fontSize: linha * (L.v ? 0.36 : 0.5), fontWeight: 800, color: topo ? C.brand : C.faint, width: rankW, flexShrink: 0 }}>{pos + 1}º</span>
             <div style={{ flex: 1, display: "flex", flexDirection: L.v ? "column" : "row", alignItems: L.v ? "flex-start" : "center", gap: L.v ? 10 : 24 }}>
               <span style={{ ...H1, fontSize: nome, color: C.ink, width: nomeW, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden" }}>{it.label}</span>
@@ -388,7 +389,7 @@ export const Versus: React.FC<SP> = (p) => {
         const cor = ganha ? C.brandOnDark : "rgba(255,255,255,0.22)";
         const sel = ip(f, [veredito, veredito + 10], [0, 1], POP);
         return (
-          <div key={i} style={{ position: "absolute", left: x, width: colW, top: 0, height: L.H, opacity: (f >= a - 2 ? 1 : 0) * (perde ? 1 - 0.55 * ip(f, [veredito, veredito + 8], [0, 1]) : 1) }}>
+          <div key={i} style={{ position: "absolute", left: x, width: colW, top: 0, height: L.H, opacity: (f >= a - 2 ? 1 : 0) * (perde ? 1 - 0.65 * ip(f, [veredito, veredito + 8], [0, 1]) : 1) }}>
             <div style={{ position: "absolute", left: 0, right: 0, top: base - h - num * 1.25, textAlign: "center", opacity: ip(f, [a, a + 6], [0, 1]) }}>
               <Conta it={it} f={f} at={a} dur={20} size={num} color={C.white} />
             </div>

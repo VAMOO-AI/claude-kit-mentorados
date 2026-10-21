@@ -95,7 +95,7 @@ export const MapRoute: React.FC<SP> = (p) => {
           const ping = fim ? ((f - t) % 30) / 30 : -1;
           return (
             <g key={j}>
-              {fim && f >= t ? <circle cx={x} cy={y} r={10 + 34 * ping} fill="none" stroke={C.brandOnDark} strokeWidth={3} opacity={1 - ping} /> : null}
+              {fim && f >= t ? <circle cx={x} cy={y} r={(10 + 34 * ping) * (L.v ? 1.6 : 1)} fill="none" stroke={C.brandOnDark} strokeWidth={3} opacity={1 - ping} /> : null}
               <circle cx={x} cy={y} r={(fim ? 13 : 9) * pop} fill={C.white} stroke={C.brandOnDark} strokeWidth={4} />
             </g>
           );

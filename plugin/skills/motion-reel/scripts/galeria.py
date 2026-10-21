@@ -32,7 +32,7 @@ EXEMPLOS = {
         {"label": "Relatório", "v": 6, "suffix": " h"}, {"label": "Planilha", "v": 4, "suffix": " h"}]}},
     "versus": {"type": "versus", "min": 105, "props": {"kicker": "Exemplo", "title": "Antes e depois", "low": True,
         "left": {"label": "Antes", "v": 40, "suffix": " min"}, "right": {"label": "Depois", "v": 6, "suffix": " min"}}},
-    "map": {"type": "map", "min": 150, "props": {"kicker": "Exemplo", "title": "De onde para onde", "region": "Brazil", "route": [
+    "map": {"type": "map", "min": 120, "props": {"kicker": "Exemplo", "title": "De onde para onde", "region": "Brazil", "route": [
         {"name": "São Paulo", "at": [-46.63, -23.55]}, {"name": "Recife", "at": [-34.88, -8.05]},
         {"name": "Lisboa", "at": [-9.14, 38.72]}]}},
     "morph": {"type": "morph", "min": 270, "props": {"kicker": "Um processo", "states": [
