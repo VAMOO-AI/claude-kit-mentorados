@@ -291,6 +291,66 @@ done
 if has_branch wtavancou; then printf '  ok    %s\n' "wtavancou: a branch com o commit depois do merge continua"
 else printf '  FALHA %s\n' "wtavancou: branch apagada com commit depois do merge"; falhas=$((falhas+1)); fi
 
+# 20/10/2026: o dry-run marcou como CANDIDATO o worktree de uma sessão do app desktop que
+# rodava dentro dele — limpo, PR mergeado, head == tip. O app não trava o worktree, então o
+# "não locked" não protegia; só não sumiu porque foi travado à mão antes do apply.
+echo "== worktree que é cwd de processo vivo não é candidato =="
+# 'emusosub' tem 'emuso' como prefixo do caminho: o processo de um não pode segurar o outro
+for n in emuso emusosub; do
+  git -C "$CLONE" worktree add -q -b "$n" "$TMP/wt-$n" origin/main 2>/dev/null
+  ( cd "$TMP/wt-$n" && mkdir -p src && echo "$n" > "src/$n.txt" && git add src && git commit -qm "$n" && git push -qu origin "$n" )
+  git -C "$CLONE" merge -q --no-ff -m "Merge $n" "$n"
+done
+git -C "$CLONE" push -q origin main
+git -C "$CLONE" push -q origin --delete emuso emusosub >/dev/null 2>&1
+git -C "$CLONE" fetch -q --prune origin
+# `exec` para o cwd ser do próprio sleep, como o de uma sessão; o segundo vive numa subpasta
+( cd "$TMP/wt-emuso" && exec sleep 60 ) & PID_EMUSO=$!
+( cd "$TMP/wt-emusosub/src" && exec sleep 60 ) & PID_EMUSOSUB=$!
+sleep 0.3
+OUT="$(run --cleanup-dry-run)"
+refute "CANDIDATO: .*/wt-emuso "               "cwd de processo vivo: não é candidato"            "$OUT"
+check  "keep: .*/wt-emuso \(emuso\) — cwd de processo vivo \(sleep\)" "cwd de processo vivo: keep com o nome do processo" "$OUT"
+check  "keep: .*/wt-emusosub \(emusosub\) — cwd de processo vivo \(sleep\)" "cwd numa subpasta do worktree: keep" "$OUT"
+OUT="$(run --cleanup-apply)"
+for w in wt-emuso wt-emusosub; do
+  if [ -d "$TMP/$w" ]; then printf '  ok    %s\n' "$w: sobreviveu ao --cleanup-apply com o processo vivo"
+  else printf '  FALHA %s\n' "$w: removido com o processo vivo dentro"; falhas=$((falhas+1)); fi
+done
+check  'keep emuso \(checked out em worktree\)' "branch do worktree em uso: keep"                  "$OUT"
+if has_branch emuso; then printf '  ok    %s\n' "emuso: a branch do worktree em uso continua"
+else printf '  FALHA %s\n' "emuso: branch apagada com o worktree em uso"; falhas=$((falhas+1)); fi
+kill "$PID_EMUSO" 2>/dev/null; wait "$PID_EMUSO" 2>/dev/null
+OUT="$(run --cleanup-dry-run)"
+check  "CANDIDATO: .*/wt-emuso \(emuso\)"      "sem o processo: volta a ser candidato"            "$OUT"
+check  "keep: .*/wt-emusosub \(emusosub\) — cwd de processo vivo" "o vizinho de prefixo segue preso só pelo processo dele" "$OUT"
+kill "$PID_EMUSOSUB" 2>/dev/null; wait "$PID_EMUSOSUB" 2>/dev/null
+OUT="$(run --cleanup-dry-run)"
+check  "CANDIDATO: .*/wt-emusosub \(emusosub\)" "subpasta sem o processo: vira candidato"        "$OUT"
+OUT="$(run --cleanup-apply)"
+if [ -d "$TMP/wt-emuso" ]; then printf '  FALHA %s\n' "wt-emuso: não foi removido sem o processo"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "wt-emuso: removido sem o processo"; fi
+if has_branch emuso; then printf '  FALHA %s\n' "emuso: branch ficou depois do worktree sair"; falhas=$((falhas+1))
+else printf '  ok    %s\n' "emuso: branch apagada depois do worktree sair"; fi
+
+# Sem lsof nem /proc não dá para saber quem está dentro: o worktree fica (fail-safe).
+echo "== sem como checar processo vivo, o worktree fica =="
+git -C "$CLONE" worktree add -q -b semlsof "$TMP/wt-semlsof" origin/main 2>/dev/null
+( cd "$TMP/wt-semlsof" && echo s > s.txt && git add s.txt && git commit -qm s )
+git -C "$CLONE" merge -q --no-ff -m "Merge semlsof" semlsof
+git -C "$CLONE" push -q origin main; git -C "$CLONE" fetch -q origin
+OUT="$(GIT_SYNC_PROC_DIR="$TMP/sem-proc" GIT_SYNC_LSOF="$TMP/sem-lsof" run --cleanup-dry-run)"
+refute "CANDIDATO: .*/wt-semlsof "             "sem lsof: não é candidato"                         "$OUT"
+check  "keep: .*/wt-semlsof \(semlsof\) — sem lsof nem /proc" "sem lsof: keep com o motivo"       "$OUT"
+# O lsof do Mac e o find do /proc saem 1 com saída válida (aviso de stat, pid de outro usuário).
+# Sob o `set -eo pipefail` do script, isso o matava no meio da lista: no ubuntu do CI, todo
+# worktree sumiu da saída.
+printf '#!/usr/bin/env bash\nprintf "p1\\ncfalso\\nn/lugar/nenhum\\n"\nexit 1\n' > "$TMP/bin/lsof-exit1"
+chmod +x "$TMP/bin/lsof-exit1"
+OUT="$(GIT_SYNC_PROC_DIR="$TMP/sem-proc" GIT_SYNC_LSOF="$TMP/bin/lsof-exit1" run --cleanup-dry-run)"
+check  "CANDIDATO: .*/wt-semlsof \(semlsof\)"   "lsof com exit 1 e saída válida: a lista segue"     "$OUT"
+
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
 exit "$falhas"

@@ -16,6 +16,19 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.57.2] — 2026-10-20
+
+### Corrigido
+
+- **git-sync: o cleanup não lista nem remove o worktree onde há processo vivo.** O app desktop não
+  trava o worktree da sessão, então o "não locked" não protegia: um worktree limpo, com PR
+  mergeado e head == tip, saía como CANDIDATO com a sessão rodando dentro dele. Agora o worktree
+  que é cwd de algum processo, na raiz ou numa subpasta, sai como `keep: cwd de processo vivo
+  (<processo>)`, e a branch dele fica junto. A foto é uma só por execução: `/proc/*/cwd` no
+  Linux, `lsof -d cwd` global no macOS. Sem nenhum dos dois, todo worktree fica. Para o que a
+  checagem não vê, segue a escotilha `git worktree lock --reason` sem dígitos. Porte de
+  VAMOO-AI/claude-config-team#380 (fecha #252).
+
 ## [0.57.1] — 2026-10-20
 
 ### Corrigido
