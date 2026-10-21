@@ -11,6 +11,7 @@
   "dependencies": {
     "@remotion/bundler": "^4.0.484",
     "@remotion/cli": "^4.0.484",
+    "@remotion/layout-utils": "^4.0.484",
     "@remotion/motion-blur": "^4.0.484",
     "@remotion/paths": "^4.0.484",
     "@remotion/renderer": "^4.0.484",

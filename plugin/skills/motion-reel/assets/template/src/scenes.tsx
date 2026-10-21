@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, random, staticFile } from "remotion";
 import { MODELS } from "./timeline";
 import { evolvePath } from "@remotion/paths";
+import { fit } from "./film-base";
 import {
   BRAND,
   Bg,
@@ -94,9 +95,14 @@ export const Intro: React.FC<{ symbol?: boolean }> = ({ symbol = true }) => {
 };
 
 /* --------------------------------------------------------------- GRANDE */
-export const Grande: React.FC = () => {
+// props: word? (padrão "GRANDE"; no timeline.json, "props": {"word": "..."} na cena grande)
+export const Grande: React.FC<{ word?: string }> = ({ word = "GRANDE" }) => {
   const f = useF();
-  const letters = "GRANDE".split("");
+  const letters = Array.from(word.normalize("NFC"));
+  // 226 px é o teto; palavra mais larga que a tela encolhe, medida (C5). Folga: push 1,08 × Breathe
+  // 1,035. Largura: a palavra é centrada, então vale a margem de 90 dos dois lados (a guia de 180
+  // da direita protege os botões do Instagram, que ficam embaixo, não no meio da tela).
+  const fs = fit([letters.join("")], 1080 - 2 * 90, 226, 0.72, { fontWeight: 800, letterSpacing: "-0.05em" }, 1.08 * 1.035);
   const push = ip(f, [0, 30], [1, 1.08], (t) => t);
   return (
     <Bg color={C.paper}>
@@ -116,7 +122,7 @@ export const Grande: React.FC = () => {
                 key={i}
                 style={{
                   display: "inline-block",
-                  fontSize: 226,
+                  fontSize: fs,
                   fontWeight: 800,
                   letterSpacing: "-0.05em",
                   color: C.ink,

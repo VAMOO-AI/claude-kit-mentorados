@@ -1,7 +1,7 @@
 // Cenas do preset de apresentação pessoal (presets/apresentacao.json): fundo escuro alternando com
 // a cor de destaque, tipografia pesada com UMA palavra por frase em itálico serifado colorido
 // (*palavra* no texto) e número que conta. Mesmo molde do film-scenes.tsx: useF, useL, bt, first.
-// O som de cada uma está no SFX_BY_TYPE do track_cinema.py: mudou um tempo aqui, mude lá.
+// O som de cada uma está no SONS do src/sons.mjs, nos tempos do tempos.mjs: mudou um tempo aqui, mude lá.
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
 import { Bg, C, Counter, EASE_INOUT, SERIF, ip, useF } from "./lib";
@@ -64,7 +64,9 @@ export const PillName: React.FC<SP> = (p) => {
   const chars = name.split("");
   const oi = chars.findIndex((c) => c === "o" || c === "O");
   const low = oi >= 0 && chars[oi] === "o";
-  const fs = fit([name], L.W - L.l - L.r, L.v ? 190 : 230, 0.66);
+  // sem "o" no nome o anel entra antes dele e ocupa ~0,88 do corpo (anel + margem): sai da largura
+  const fs0 = fit([name], L.W - L.l - L.r, L.v ? 190 : 230, 0.66);
+  const fs = oi >= 0 ? fs0 : Math.floor((fs0 * (L.W - L.l - L.r)) / (L.W - L.l - L.r + 0.88 * fs0));
   const ringH = fs * (low ? 0.52 : 0.72);
   const ringW = fs * (low ? 0.5 : 0.66);
   const th = fs * 0.12;

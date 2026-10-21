@@ -2,8 +2,8 @@
 // Toda cena recebe beats/ends (frame local de início/fim de cada fala) e anima em cima deles:
 // a voz manda no tempo. f = 0 é o corte na batida (useF). O layout lê o tamanho do vídeo
 // (useL), então o mesmo componente serve o master 16:9 e o corte 9:16.
-// Cena nova: copie uma daqui, registre em SCENES e, se ela tiver som próprio, espelhe os
-// pontos em scripts/track_cinema.py (SFX_BY_TYPE) ou use "cues" no film.json.
+// Cena nova: copie uma daqui, registre em SCENES e declare os sons dela no SONS do src/sons.mjs
+// (vazio vale), nos mesmos tempos da animação (tempos.mjs); ou use "cues" no film.json.
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
 import { Motif } from "./motifs";
@@ -12,6 +12,7 @@ import { AppLine, Assemble } from "./scenes-app";
 import { LetterSwap, MorphShape, Ranking, Versus } from "./scenes-extras";
 import { MapRoute } from "./scenes-mapa";
 import { FilmCtx, H1, LABEL, type SP, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
+import { DESK_ENVIA, pilulasCta } from "./tempos.mjs";
 import { AsstText, Composer, Cursor, D, Desk, EditCard, UserMsg, Working, fadeIn, sendButton, typing } from "./desktop";
 import { ANTIC, BRAND, Bg, C, Counter, EASE_INOUT, EXIT, MONO, MarkIn, MaskUp, SETTLE, hitStop, hollow, ip, shake, useF } from "./lib";
 
@@ -169,7 +170,7 @@ export const DeskDemo: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
   const reply = bt(p, 0, 0.5);
-  const send = 24;
+  const send = DESK_ENVIA; // o som (sons.mjs) lê o mesmo quadro
   const sent = f >= send;
   const push = 1 + 0.07 * Math.min(1, Math.max(0, (f + 18) / (p.len + 18)));
   const sc = L.v ? 1.3 : 1.2;
@@ -388,8 +389,7 @@ export const Card: React.FC<SP> = (p) => {
 export const Cta: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
-  const a = first(p);
-  const b = p.beats.length > 1 ? bt(p, 1) - 6 : a + 24;
+  const { a, b, p1, p2 } = pilulasCta(p); // o som (sons.mjs) toca nos mesmos quadros
   const fs = L.v ? 80 : 92;
   return (
     <Bg color={C.paper}>
@@ -399,14 +399,14 @@ export const Cta: React.FC<SP> = (p) => {
             <MaskUp f={f} at={a}>
               <span style={{ ...H1, fontSize: fs, color: C.ink }}>{p.q1}</span>
             </MaskUp>
-            <div style={{ marginTop: 20 }}><Pill f={f} at={Math.max(a + 14, bt(p, 0, 0.5))} size={L.v ? 44 : 50}>{p.pill1}</Pill></div>
+            <div style={{ marginTop: 20 }}><Pill f={f} at={p1} size={L.v ? 44 : 50}>{p.pill1}</Pill></div>
           </div>
           {p.q2 ? (
             <div>
               <MaskUp f={f} at={b}>
                 <span style={{ ...H1, fontSize: fs, ...hollow(C.ink, 2.2, C.paper) }}>{p.q2}</span>
               </MaskUp>
-              {p.pill2 ? <div style={{ marginTop: 20 }}><Pill f={f} at={p.beats.length > 1 ? Math.max(b + 14, bt(p, 1, 0.55)) : b + 14} dark={false} size={L.v ? 44 : 50}>{p.pill2}</Pill></div> : null}
+              {p.pill2 ? <div style={{ marginTop: 20 }}><Pill f={f} at={p2} dark={false} size={L.v ? 44 : 50}>{p.pill2}</Pill></div> : null}
             </div>
           ) : null}
         </div>

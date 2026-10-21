@@ -2,7 +2,10 @@
 // tamanho. Mora aqui (e não no film-scenes.tsx) para que arquivo de cena novo importe sem ciclo;
 // o film-scenes.tsx reexporta tudo, então quem importava de lá continua igual.
 import React from "react";
+import { measureText } from "@remotion/layout-utils";
 import { continueRender, delayRender, useVideoConfig } from "remotion";
+import { FONT, fontesCarregadas } from "./lib";
+import { bt, corpoNumero, decimaisDe, first, fmtNum, hitAt } from "./tempos.mjs";
 
 /* ───────────────────────── tipos e utilitários ───────────────────────── */
 
@@ -29,30 +32,75 @@ export const useL = () => {
   return { W, H, v, l: v ? 90 : 120, r: v ? 180 : 120, t: v ? 200 : 96, b: v ? 340 : 96 };
 };
 
-// Frame local da fala i (frac = 0 início, 1 fim). Sem fala i: começo + 30.
-export const bt = (p: SP, i: number, frac = 0) => {
-  const b = p.beats[i] ?? 0;
-  const e = p.ends[i] ?? b + 30;
-  return Math.round(b + frac * (e - b));
+// bt (frame local da fala i), first (o 1º elemento entra antes do corte, f < 0: use first(p)
+// como `at` do primeiro MaskUp/fade de toda cena) e hitAt (sem fala, o elemento i cai na batida
+// i·passo, 15 frames = 1 batida a 120 BPM; com fala i, na fala) moram no tempos.mjs: a cena e o
+// som (sons.mjs) usam as mesmas funções.
+export { bt, first, hitAt };
+
+// Estilo do texto que o fit() mede. O padrão é o do H1 (600, −0,04em); passe o que a cena muda
+// (peso 800, outro letterSpacing, caixa alta do LABEL).
+export type Estilo = {
+  fontWeight?: number; letterSpacing?: string; wordSpacing?: string;
+  textTransform?: "uppercase" | "none"; fontFamily?: string; fontVariantNumeric?: string;
+};
+const ESTILO_H1: Estilo = { fontWeight: 600, letterSpacing: "-0.04em", wordSpacing: "0.04em" };
+
+// Largura real do texto em px, medida no navegador com a fonte já carregada (layout-utils).
+export const largura = (s: string, fs: number, st: Estilo = {}) => {
+  const e = { ...ESTILO_H1, ...st };
+  return measureText({
+    text: s, fontFamily: e.fontFamily ?? FONT, fontSize: fs, fontWeight: e.fontWeight,
+    letterSpacing: e.letterSpacing, textTransform: e.textTransform, fontVariantNumeric: e.fontVariantNumeric,
+    additionalStyles: e.wordSpacing ? { wordSpacing: e.wordSpacing } : undefined, validateFontIsLoaded: true,
+  }).width;
+};
+export const mede = () => typeof document !== "undefined" && fontesCarregadas();
+
+// Fonte que cabe na largura, medida: a linha mais larga, no corpo `base`, com a fonte real (C5).
+// `folga` cobre o que cresce depois do layout (Breathe 1,035; push; scale de entrada que assenta
+// em 1). Antes da fonte carregar (ou fora do navegador) cai na estimativa por caractere: Plus
+// Jakarta 600 ≈ 0,56 em (800 em caixa alta ≈ 0,62–0,72), que é o `k`. Film e Reel só montam as
+// cenas depois do useFont, então no render a estimativa não aparece.
+export const fit = (lines: string[], maxW: number, base: number, k = 0.56, st: Estilo = {}, folga = 1.05) => {
+  const texto = lines.filter((s) => s.length > 0);
+  if (!texto.length) return base;
+  if (!mede()) return Math.min(base, Math.floor(maxW / (Math.max(...texto.map((s) => s.length)) * k)));
+  const w = Math.max(...texto.map((s) => largura(s, base, st)));
+  return Math.max(1, Math.min(base, Math.floor((base * maxW) / (w * folga))));
 };
 
-// Fonte que cabe na largura: Plus Jakarta 600 ≈ 0,56 em por caractere (800 em caixa alta ≈ 0,62–0,72).
-export const fit = (lines: string[], maxW: number, base: number, k = 0.56) => {
-  const n = Math.max(...lines.map((s) => s.length));
-  return Math.min(base, Math.floor(maxW / (n * k)));
+// Número do Counter (800, tabular) com prefixo e sufixo a 60% do corpo, como o Conta das cenas
+// avulsas desenha: largura medida no corpo `fs`.
+const NUMERO: Estilo = { fontWeight: 800, letterSpacing: "-0.04em", wordSpacing: undefined, fontVariantNumeric: "tabular-nums" };
+type Num = { v: number; prefix?: string; suffix?: string };
+export const larguraNumero = (it: Num, fs: number) =>
+  largura(fmtNum(it.v, decimaisDe(it.v)), fs, NUMERO) +
+  [it.prefix, it.suffix].reduce((s, x) => s + (x ? largura(String(x), fs * 0.6, { fontWeight: 800 }) + fs * 0.06 : 0), 0);
+// Corpo do número que cabe na largura (medido; sem fonte, a estimativa do corpoNumero do tempos.mjs).
+export const corpoNumeroMedido = (it: Num, maxW: number, base: number, folga = 1.05) =>
+  mede() ? Math.max(12, Math.min(base, Math.floor((base * maxW) / (larguraNumero(it, base) * folga)))) : corpoNumero(it, maxW, base);
+
+// Quebra equilibrada: a frase numa linha se ela cabe com pelo menos `minimo` do corpo base; senão
+// em duas linhas de largura parecida (o corte entre palavras que deixa a linha mais larga menor).
+// Devolve as linhas e o corpo; a cena desenha com textWrap "balance" para o navegador quebrar igual.
+export const equilibrar = (s: string, maxW: number, base: number, k = 0.56, st: Estilo = {}, folga = 1.05, minimo = 0.7) => {
+  const uma = fit([s], maxW, base, k, st, folga);
+  const pal = s.split(/\s+/).filter(Boolean);
+  if (uma >= base * minimo || pal.length < 2) return { linhas: [s], fs: uma };
+  let melhor = { linhas: [s], fs: uma };
+  for (let i = 1; i < pal.length; i++) {
+    const linhas = [pal.slice(0, i).join(" "), pal.slice(i).join(" ")];
+    const fs = fit(linhas, maxW, base, k, st, folga);
+    if (fs > melhor.fs) melhor = { linhas, fs };
+  }
+  return melhor;
 };
 
-// O primeiro elemento da cena entra ANTES do corte (f < 0): a transição de entrada nunca revela
-// tela vazia. Use first(p) como `at` do primeiro MaskUp/fade de toda cena.
-export const first = (p: SP) => Math.min(bt(p, 0) - 6, -8);
 
 export const H1: React.CSSProperties = { fontWeight: 600, letterSpacing: "-0.04em", lineHeight: 1.04, wordSpacing: "0.04em" };
 export const LABEL: React.CSSProperties = { fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase" };
 
-// Sem fala, o ritmo é da trilha: o elemento i cai na batida i·passo (15 frames = 1 batida a
-// 120 BPM, a grade do track_cinema.py). Com fala i, cai na fala. O índice 0 entra em first(p).
-export const hitAt = (p: SP, i: number, step: number) =>
-  i === 0 ? first(p) : i < p.beats.length ? bt(p, i) - 4 : i * step;
 
 // Proporção do PNG para dar largura às camadas e à máscara do brilho. Segura o render até a
 // imagem carregar: o Remotion não espera background/mask de CSS sozinho.

@@ -9,16 +9,19 @@ Camadas:
   com o `energy` da cena (0 tenso · 1 calmo · 2 andando · 3 cheio);
 - `mark` da cena: braam/finale = respiro + riser + braam + impacto; hit/drop = riser + impacto;
   pulse = batimento no lugar da percussão durante a cena;
-- SFX da marca: um por transição (BY_TRANSITION), nos pontos das animações de cada tipo de cena
-  (SFX_BY_TYPE, espelha film-scenes.tsx) e nos `cues` livres do film.json;
+- SFX da marca: um por transição (BY_TRANSITION), os que cada cena declara em src/sons.mjs (lidos
+  pelo Node em scripts/sons.mjs, nos mesmos tempos da animação) e os `cues` livres do film.json.
+  Som com `impacto` entra pelo pico: o pico do WAV (medido, RMS de 10 ms) cai no quadro pedido;
+  sem ele, o som começa no quadro;
 - narração com RMS normalizado, ducking ≈ −8 dB na música e reverb por FFT nos buses.
 Fala sem WAV é pulada com aviso (storyboard antes da voz).
 
 Uso: track_cinema.py master|reel [--from S --to S]   (trecho → out/prova-audio-<formato>.wav)
+     track_cinema.py master|reel --eventos            (só lista os SFX das cenas e dos cues em JSON: início,
+                                                       nome, ganho e amostra do pico; sem gerar o mix)
 """
-import json, pathlib, re, sys, wave
+import json, pathlib, re, subprocess, sys, wave
 import numpy as np
-import tempos  # tempos das cenas avulsas, iguais aos do src/tempos.mjs (scripts/tempos.py)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SR, FPS = 48000, 30
@@ -27,7 +30,8 @@ BAR = BEAT * 4
 rng = np.random.default_rng(11)
 
 name = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "master"
-TL = json.loads((ROOT / f"src/tl-{name}.json").read_text())
+TLP = ROOT / f"src/tl-{name}.json"
+TL = json.loads(TLP.read_text(encoding="utf-8"))
 SC = TL["scenes"]
 DUR = TL["total"] / FPS
 N = int((DUR + 0.5) * SR)
@@ -260,6 +264,17 @@ def sfx(nm):
     return _sfx[nm]
 
 
+EVENTOS = []  # SFX com nome (mark, cenas e cues), para o --eventos
+_pico = {}
+def pico(nm):
+    """Segundos do início do WAV até o pico (maior RMS em janela de 10 ms): o ponto de impacto."""
+    if nm not in _pico:
+        x = sfx(nm)
+        n = max(1, int(0.01 * SR))
+        _pico[nm] = int(np.argmax(np.convolve(x ** 2, np.ones(n) / n, mode="same"))) / SR if len(x) else 0.0
+    return _pico[nm]
+
+
 for s in SC:
     m = s.get("mark")
     t0 = T(s, 0)
@@ -270,7 +285,8 @@ for s in SC:
     elif m in ("hit", "drop"):
         add(FX, riser(1.4 if m == "hit" else 2.0), t0 - (1.4 if m == "hit" else 2.0), 0.4 if m == "hit" else 0.55)
         add(FX, impact(1.0 if m == "hit" else 1.3), t0, 0.75)
-        add(SFX, sfx("low-hit"), t0, 0.6)
+        add(SFX, sfx("low-hit"), t0 - pico("low-hit"), 0.6)  # o golpe no quadro do corte
+        EVENTOS.append({"t": int(round((t0 - pico("low-hit")) * SR)), "sfx": "low-hit", "g": 0.6, "pico": int(round(t0 * SR))})
 
 # ───────────── SFX por transição ─────────────
 BY_TRANSITION = {"iris": [("soft-whoosh", 0.55), ("dry-pop", 0.4)], "ink": [("soft-whoosh", 0.55), ("soft-chime", 0.6)],
@@ -286,199 +302,37 @@ for s in SC[1:]:
 
 
 # ───────────── SFX nos pontos das animações ─────────────
-# Espelha film-scenes.tsx: mudou o tempo de uma animação lá, mude aqui. Cena nova sem entrada
-# aqui fica só com o som da transição — ou ganha "cues" no film.json.
-def at(s, f, nm, g=0.5, rep=1, every=0):
+# Cada cena declara os sons dela em src/sons.mjs, nos mesmos tempos da animação (tempos.mjs); o
+# scripts/sons.mjs devolve a lista da timeline inteira. Cena sem entrada lá fica só com o som da
+# transição, ou ganha "cues" no film.json.
+def at(s, f, nm, g=0.5, rep=1, every=0, impacto=False):
+    d = pico(nm) if impacto else 0.0
     for r in range(rep):
-        add(SFX, sfx(nm), T(s, f + r * every), g)
+        t = T(s, f + r * every) - d
+        EVENTOS.append({"t": int(round(t * SR)), "sfx": nm, "g": g, "pico": int(round((t + pico(nm)) * SR))})
+        add(SFX, sfx(nm), t, g)
 
 
-def sfx_desk(s, p):
-    reply = bt(s, 0, 0.5)
-    at(s, -12, "soft-click", 0.12, rep=12, every=3)          # digitando o pedido
-    if p.get("click"):
-        at(s, 22, "soft-click", 0.6)                          # clique no enviar (1 quadro antes do contato)
-    at(s, 24, "dry-pop", 0.45)                                # enviou
-    if p.get("files"):
-        at(s, reply - 14, "paper-tap", 0.35)                  # card de edição
-    at(s, reply, "soft-chime", 0.45)                          # resposta
+def sons_das_cenas():
+    try:
+        r = subprocess.run(["node", str(ROOT / "scripts/sons.mjs"), str(TLP)], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
+    except FileNotFoundError:
+        sys.exit("!! node não encontrado: os sons das cenas vêm de src/sons.mjs (instale o Node 18+)")
+    if r.returncode:
+        sys.exit("!! os sons das cenas (src/sons.mjs) não carregaram:\n" + r.stderr.strip()[-800:])
+    return json.loads(r.stdout)
 
 
-def sfx_numbers(s, p):
-    for i in range(len(p.get("items", []))):
-        f0 = first(s) if i == 0 else bt(s, i) - 4
-        at(s, f0, "dry-pop", 0.55); at(s, f0 + 2, "soft-click", 0.12, rep=6, every=3)
+for x in sons_das_cenas():
+    s = SC[x["cena"]]
+    if "sintese" in x:                              # golpe sintetizado (impact), no bus de efeitos
+        add(FX, impact(x["sintese"]), T(s, x["f"]), x["g"])
+        continue
+    at(s, x["f"], x["sfx"], x["g"], x.get("rep", 1), x.get("every", 0), x.get("impacto", False))
 
-
-def sfx_commands(s, p):
-    A = first(s)
-    for i in range(len(p.get("cmds", []))):
-        at(s, A + 6 + i * 30, "soft-click", 0.1, rep=7, every=2)
-        at(s, A + 6 + i * 30 + 16, "dry-pop", 0.45)
-    if p.get("badge") and len(s["beats"]) > 1:
-        at(s, bt(s, 1) - 2, "dry-pop", 0.6)
-
-
-def sfx_card(s, p):
-    A = first(s)
-    if p.get("cmd") and p.get("motif"):
-        at(s, A - 10, "soft-click", 0.1, rep=8, every=3)
-        at(s, A + 16, "dry-pop", 0.4)
-    if p.get("before"):
-        at(s, bt(s, 0, 0.45) + 8, "paper-tap", 0.45)
-    if p.get("proof"):
-        at(s, bt(s, 0, 0.7), "dry-pop", 0.45)
-
-
-def sfx_cta(s, p):
-    A = first(s)
-    b = bt(s, 1) - 6 if len(s["beats"]) > 1 else A + 24
-    at(s, A + 14, "dry-pop", 0.55)
-    if p.get("pill2"):
-        at(s, b + 14, "dry-pop", 0.55)
-
-
-def sfx_outro(s, p):
-    at(s, 26, "soft-chime", 0.6)
-    add(FX, impact(0.9), T(s, 26), 0.5)
-
-
-# Presets: sem fala o item i cai na batida i·passo (hitAt em film-scenes.tsx); com fala, na fala.
-def hit_at(s, i, step):
-    return first(s) if i == 0 else (bt(s, i) - 4 if i < len(s["beats"]) else i * step)
-
-
-def sfx_launch(s, p):
-    words, step = p.get("words", []), p.get("step", 15)
-    voz = len(s["beats"]) > 0
-    for i in range(len(words)):
-        f0 = first(s) if i == 0 else (bt(s, 0, i / len(words)) - 4 if voz else i * step)
-        at(s, f0, "low-hit", 0.5); at(s, f0, "dry-pop", 0.25)
-    reveal = bt(s, 1) - 4 if voz and len(s["beats"]) > 1 else (len(words) + 1) * step
-    at(s, reveal - 12, "short-rise", 0.4)
-    at(s, reveal, "soft-chime", 0.55)
-    add(FX, impact(0.8), T(s, reveal), 0.45)
-
-
-def sfx_beats(s, p):
-    for i in range(len(p.get("items", []))):
-        f0 = hit_at(s, i, p.get("step", 30))
-        at(s, f0, "low-hit", 0.4); at(s, f0, "paper-tap", 0.35)
-
-
-def sfx_glass(s, p):
-    for i in range(len(p.get("cards", []))):
-        f0 = hit_at(s, i, p.get("step", 15)) + (4 if i == 0 else 0)
-        at(s, f0 - 2, "soft-whoosh", 0.35); at(s, f0 + 6, "dry-pop", 0.4)
-
-
-def sfx_logo3d(s, p):
-    settle = p.get("settle", bt(s, 0, 0.5) if s["beats"] else 60)
-    at(s, first(s), "soft-whoosh", 0.5)
-    at(s, settle, "low-hit", 0.5); at(s, settle + 4, "soft-chime", 0.5)
-
-
-# Apresentação pessoal (scenes-apresentacao.tsx) e lançamento de app (scenes-app.tsx).
-def sfx_pillname(s, p):
-    A = first(s)
-    at(s, A, "soft-whoosh", 0.4)                              # a linha corta a tela
-    at(s, A + 24, "dry-pop", 0.45)                            # a pílula encolhe no anel
-    at(s, A + 36, "soft-chime", 0.45)                         # as letras nascem do anel
-
-
-def sfx_orbit(s, p):
-    A = first(s)
-    at(s, A, "soft-whoosh", 0.45)
-    at(s, bt(s, 0) - 4 if s["beats"] else A + 26, "paper-tap", 0.4)
-
-
-def sfx_highlights(s, p):
-    for i in range(len(p.get("items", []))):
-        f0 = hit_at(s, i, p.get("step", 30)) + (10 if i == 0 else 0)
-        at(s, f0, "dry-pop", 0.45); at(s, f0 + 2, "soft-click", 0.1, rep=6, every=4)
-
-
-def sfx_follow(s, p):
-    click = p.get("click", bt(s, 1) if len(s["beats"]) > 1 else 48)
-    at(s, click, "soft-click", 0.7)
-    at(s, click + 3, "soft-chime", 0.5)
-
-
-def sfx_appline(s, p):
-    n = len([w for w in p.get("line", "").split() if w])
-    A = first(s)
-    gap = max(2, (bt(s, 0, 0.6) - A) // max(1, n)) if s["beats"] else 4
-    for i in range(min(n, 8)):
-        at(s, A + i * gap, "soft-click", 0.12)
-    if p.get("ui"):
-        at(s, bt(s, 0, 0.3) if s["beats"] else A + n * gap + 6, "soft-whoosh", 0.35)
-
-
-def sfx_assemble(s, p):
-    land = p.get("land", bt(s, 0, 0.5) if s["beats"] else 46)
-    at(s, first(s), "short-rise", 0.35)
-    at(s, land, "low-hit", 0.5); at(s, land + 4, "soft-chime", 0.5)
-
-
-SFX_BY_TYPE = {"desk": sfx_desk, "numbers": sfx_numbers, "commands": sfx_commands, "card": sfx_card,
-               "cta": sfx_cta, "outro": sfx_outro,
-               "launch": sfx_launch, "beats": sfx_beats, "glass": sfx_glass, "logo3d": sfx_logo3d,
-               "pillname": sfx_pillname, "orbit": sfx_orbit, "highlights": sfx_highlights, "follow": sfx_follow,
-               "appline": sfx_appline, "assemble": sfx_assemble}
-
-
-# Cenas avulsas (scenes-extras.tsx).
-def sfx_swap(s, p):
-    A = first(s)
-    S = tempos.troca_swap(s, p)  # "at": null vale como ausente
-    at(s, A, "paper-tap", 0.3)                                # a frase A sobe
-    at(s, S - 10, "soft-whoosh", 0.45)                        # o portal abre e as letras mergulham
-    at(s, S + 18, "dry-pop", 0.4)                             # as letras pousam em B
-
-
-def sfx_morph(s, p):
-    states = tempos.prop(p, "states", [])
-    trocas = tempos.tempos_morph(len(states), tempos.falas(s), first(s), tempos.prop(p, "step", 30), tempos.prop(p, "loop", True) is not False)
-    for k, f0 in enumerate(trocas):
-        at(s, f0 - 1, "soft-whoosh" if k else "dry-pop", 0.3)  # a forma troca
-        at(s, f0 + 8, "paper-tap", 0.2)                        # a palavra entra
-
-
-def sfx_map(s, p):
-    A = first(s)
-    n = len(p.get("route", [])[:6])
-    tR = bt(s, 1) - 4 if len(s["beats"]) > 1 else 30
-    seg = p.get("seg", 24)
-    at(s, A, "soft-whoosh", 0.35)                             # o mapa entra
-    if p.get("region"):
-        at(s, A + 10, "paper-tap", 0.35)                      # a região acende
-    for j in range(n):
-        last = j == n - 1
-        at(s, tR + j * seg - (1 if last else 0), "soft-chime" if last else "dry-pop", 0.45 if last else 0.3)
-
-
-def sfx_ranking(s, p):
-    n = min(len(tempos.prop(p, "items", [])), 6)
-    entradas = tempos.tempos_ranking(n, tempos.falas(s), first(s), tempos.prop(p, "step", 15))
-    for e, f0 in enumerate(entradas):                         # do último lugar ao 1º
-        if e == n - 1:
-            at(s, f0 + 4, "low-hit", 0.45); at(s, f0 + 20, "soft-chime", 0.4)  # o 1º: impacto 1 quadro antes do pico, pouso
-        else:
-            at(s, f0, "dry-pop", 0.3); at(s, f0 + 2, "soft-click", 0.08, rep=5, every=3)
-
-
-def sfx_versus(s, p):
-    A, step = first(s), p.get("step", 30)
-    b1 = bt(s, 1) - 4 if len(s["beats"]) > 1 else A + 6 + step
-    ver = bt(s, 2) - 4 if len(s["beats"]) > 2 else b1 + 30
-    for f0 in (A + 6, b1):
-        at(s, f0, "soft-whoosh", 0.3); at(s, f0 + 2, "soft-click", 0.08, rep=6, every=3)
-    at(s, ver - 1, "dry-pop", 0.5); at(s, ver + 4, "soft-chime", 0.4)   # o selo do melhor
-
-
-SFX_BY_TYPE.update({"swap": sfx_swap, "morph": sfx_morph, "map": sfx_map, "ranking": sfx_ranking, "versus": sfx_versus})
-
-# "cues": [{"at": 12 | "first+6" | "b1" | "b0@0.5-4", "sfx": "dry-pop", "gain": 0.5, "repeat": 1, "every": 0}]
+# "cues": [{"at": 12 | "first+6" | "b1" | "b0@0.5-4", "sfx": "dry-pop", "gain": 0.5, "repeat": 1,
+#           "every": 0, "impacto": false}]  (impacto: true → o pico do som cai no quadro)
 CUE = re.compile(r"^(?:b(\d+)(?:@([\d.]+))?|first)([+-]\d+)?$")
 
 
@@ -493,11 +347,12 @@ def cue_frame(s, v):
 
 
 for s in SC:
-    fn = SFX_BY_TYPE.get(s["type"])
-    if fn:
-        fn(s, s.get("props", {}))
     for c in s.get("cues", []):
-        at(s, cue_frame(s, c["at"]), c["sfx"], c.get("gain", 0.5), c.get("repeat", 1), c.get("every", 0))
+        at(s, cue_frame(s, c["at"]), c["sfx"], c.get("gain", 0.5), c.get("repeat", 1), c.get("every", 0), c.get("impacto", False))
+
+if "--eventos" in sys.argv:
+    print(json.dumps(sorted(EVENTOS, key=lambda e: e["t"]), ensure_ascii=False))
+    sys.exit(0)
 
 # ───────────── narração ─────────────
 TARGET = 10 ** (-19 / 20)

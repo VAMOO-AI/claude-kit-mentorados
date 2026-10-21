@@ -6,7 +6,7 @@ import { SLOTS } from "./timeline";
 import { presentation } from "./transitions";
 import * as S from "./scenes";
 
-const SCENES: Record<string, React.FC<{ symbol?: boolean }>> = {
+const SCENES: Record<string, React.FC<any>> = {
   intro: S.Intro,
   grande: S.Grande,
   atualizacao: S.Atualizacao,
@@ -36,8 +36,9 @@ const Breathe: React.FC<{ dur: number; on: boolean; children: React.ReactNode }>
   return <AbsoluteFill style={{ transform: `scale(${s})` }}>{children}</AbsoluteFill>;
 };
 
-export const Reel: React.FC<{ withAudio?: boolean }> = ({ withAudio = true }) => {
-  useFont();
+// props: por id de cena, por cima das props do timeline.json (a galeria usa para a bancada de pior caso).
+export const Reel: React.FC<{ withAudio?: boolean; props?: Record<string, Record<string, unknown>> }> = ({ withAudio = true, props = {} }) => {
+  const pronto = useFont();
   const items: React.ReactNode[] = [];
   SLOTS.forEach((slot, i) => {
     const Scene = SCENES[slot.id];
@@ -54,7 +55,7 @@ export const Reel: React.FC<{ withAudio?: boolean }> = ({ withAudio = true }) =>
       <TransitionSeries.Sequence key={slot.id} durationInFrames={slot.dur} name={slot.id}>
         <LeadCtx.Provider value={slot.lead}>
           <Breathe dur={slot.dur} on={slot.id !== "mosaic" && slot.id !== "title"}>
-            <Scene symbol={slot.symbol} />
+            <Scene symbol={slot.symbol} {...slot.props} {...(props[slot.id] ?? {})} />
           </Breathe>
         </LeadCtx.Provider>
       </TransitionSeries.Sequence>,
@@ -62,7 +63,7 @@ export const Reel: React.FC<{ withAudio?: boolean }> = ({ withAudio = true }) =>
   });
   return (
     <AbsoluteFill style={{ backgroundColor: C.night }}>
-      <TransitionSeries>{items}</TransitionSeries>
+      {pronto ? <TransitionSeries>{items}</TransitionSeries> : null}
       {withAudio ? <Audio src={staticFile("track.wav")} /> : null}
     </AbsoluteFill>
   );

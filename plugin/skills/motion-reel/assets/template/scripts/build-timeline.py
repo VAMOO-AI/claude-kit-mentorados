@@ -88,7 +88,7 @@ NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files",
 
 def texts():
     p = ROOT / "vo.json"
-    return {l["id"]: l["text"] for l in json.loads(p.read_text())["lines"]} if p.exists() else {}
+    return {l["id"]: l["text"] for l in json.loads(p.read_text(encoding="utf-8"))["lines"]} if p.exists() else {}
 
 
 def vo_frames(i, txt, faltas):
@@ -194,7 +194,7 @@ def build(name, spec, film, txt):
         e = sc["energy"] if sc["energy"] is not None else e
         sc["energy"] = e
     tl = {"name": name, "fps": FPS, "total": cut, "letterbox": film.get("letterbox"), "motionBlur": motion_blur(film), "scenes": out}
-    (ROOT / f"src/tl-{name}.json").write_text(json.dumps(tl, ensure_ascii=False, indent=1) + "\n")
+    (ROOT / f"src/tl-{name}.json").write_text(json.dumps(tl, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"{name}: {len(out)} cenas, {cut} frames = {cut / FPS:.1f}s ({int(cut / FPS // 60)}:{int(cut / FPS % 60):02d})")
     if faltas:
         print(f"  aviso: {len(faltas)} fala(s) sem WAV, duração estimada pelo texto: {' '.join(sorted(set(faltas)))}")
@@ -204,7 +204,7 @@ def build(name, spec, film, txt):
 
 
 def main():
-    film = json.loads((ROOT / "film.json").read_text())
+    film = json.loads((ROOT / "film.json").read_text(encoding="utf-8"))
     txt = texts()
     for name in sys.argv[1:] or [f for f in FORMATS if f in film]:
         build(name, film[name], film, txt)

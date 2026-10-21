@@ -113,7 +113,7 @@ acumulando, `Date.now()`, `Math.random()`); texto e números reais; cena nova no
 As que mais aparecem num roteiro novo (o resto está em `armadilhas.md`):
 
 - **Transição revela tela vazia:** o 1º elemento entra em `first(p)`, antes do corte.
-- **Palavra gigante cortada na borda:** `fit()` estima 0,56 em por caractere; confira na folha.
+- **Palavra gigante cortada na borda:** o `fit()` mede na fonte real, mas confira na folha e na bancada `galeria.py <projeto> --pior-caso`.
 - **Cena sem voz que espera fala:** `numbers` sem fala mostra todos os itens juntos; o `sub` do `title` não aparece.
 - **3D achatado:** `filter` no nó `preserve-3d`.
 - **Acento de conteúdo sem contraste** sobre a cor de destaque.

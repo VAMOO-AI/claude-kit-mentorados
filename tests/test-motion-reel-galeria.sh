@@ -129,15 +129,13 @@ for c in $PRESETS; do
 done
 # Cena pode morar em outro src/*.tsx (importado no SCENES): o // props: é procurado em todos.
 presets_src() { # presets_src <types...> → "<type> props|som ok|fail"
-"$PY" - "$A/src" "$A/scripts/track_cinema.py" "$@" <<'PY'
+"$PY" - "$A/src" "$A/src/sons.mjs" "$@" <<'PY'
 import pathlib, re, sys
 src = pathlib.Path(sys.argv[1])
 tsx = (src / "film-scenes.tsx").read_text(encoding="utf-8")
-track = open(sys.argv[2], encoding="utf-8").read()
+sons = open(sys.argv[2], encoding="utf-8").read()
 bloco = tsx[tsx.index("export const SCENES"):]
 mapa = dict(re.findall(r"(\w+)\s*:\s*(\w+)", bloco[bloco.index("{") + 1:bloco.index("};")]))
-sfx = track[track.index("SFX_BY_TYPE = {"):]
-sfx = sfx[:sfx.index("}") + 1] + "".join(re.findall(r"SFX_BY_TYPE\.update\(\{.*?\}\)", track, re.S))
 linhas = [l for f in sorted(src.glob("*.tsx")) for l in f.read_text(encoding="utf-8").splitlines() + [""]]
 for tipo in sys.argv[3:]:
     comp = mapa.get(tipo, "?")
@@ -146,13 +144,13 @@ for tipo in sys.argv[3:]:
     while i and linhas[i - 1].startswith("//"):
         i -= 1; acima.append(linhas[i])
     print(f"{tipo} props", "ok" if any(l.startswith("// props:") for l in acima) else "fail")
-    print(f"{tipo} som", "ok" if f'"{tipo}":' in sfx else "fail")
+    print(f"{tipo} som", "ok" if re.search(rf"^  {tipo}: \(", sons, re.M) else "fail")
 PY
 }
 presets_src $PRESETS > "$TMP/presets-src.log" 2>&1
 for c in $PRESETS; do
   check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/presets-src.log" && echo ok || echo fail)"
-  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/presets-src.log" && echo ok || echo fail)"
+  check "$c declara o som no src/sons.mjs" "$(/usr/bin/grep -qx "$c som ok" "$TMP/presets-src.log" && echo ok || echo fail)"
 done
 check "SKILL.md cita os presets" "$(tem "$SK/SKILL.md" "presets/lancamento.json")"
 
@@ -207,7 +205,7 @@ for c in $NOVAS; do
   check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
   check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
   check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/novas-src.log" && echo ok || echo fail)"
-  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/novas-src.log" && echo ok || echo fail)"
+  check "$c declara o som no src/sons.mjs" "$(/usr/bin/grep -qx "$c som ok" "$TMP/novas-src.log" && echo ok || echo fail)"
 done
 for par in apresentacao:15 lancamento-app:30; do
   pr="${par%%:*}"; seg="${par#*:}"
@@ -244,7 +242,7 @@ for c in $AVULSAS; do
   check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
   check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
   check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/avulsas-src.log" && echo ok || echo fail)"
-  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/avulsas-src.log" && echo ok || echo fail)"
+  check "$c declara o som no src/sons.mjs" "$(/usr/bin/grep -qx "$c som ok" "$TMP/avulsas-src.log" && echo ok || echo fail)"
   check "galeria.py tem exemplo de $c" "$(tem "$GAL" "\"$c\": {")"
 done
 
@@ -254,7 +252,7 @@ echo "8. cursor com clique no desk"
 check "desktop.tsx exporta o Cursor" "$(tem "$A/src/desktop.tsx" "export const Cursor:")"
 check "o desk aceita click?" "$(/usr/bin/grep -q '^// props: kicker?, prompt.*click?' "$A/src/film-scenes.tsx" && echo ok || echo fail)"
 check "o Composer tem o estado ocupado" "$(tem "$A/src/desktop.tsx" "busy?: boolean")"
-check "o sfx_desk toca o clique" "$(/usr/bin/grep -A8 '^def sfx_desk' "$A/scripts/track_cinema.py" | /usr/bin/grep -q 'p.get("click")' && echo ok || echo fail)"
+check "o som do desk toca o clique" "$(/usr/bin/grep -A6 '^  desk: (s, p)' "$A/src/sons.mjs" | /usr/bin/grep -q 'p.click' && echo ok || echo fail)"
 check "vocabulario.md documenta o Cursor" "$(tem "$SK/references/vocabulario.md" "\`Cursor\`")"
 
 echo "9. motion blur real nas transições rápidas (opt-in no film.json)"
@@ -283,9 +281,9 @@ check "o Film.tsx usa o CameraMotionBlur" "$(tem "$A/src/Film.tsx" 'CameraMotion
 check "vocabulario.md documenta o motionBlur" "$(tem "$SK/references/vocabulario.md" '`motionBlur`')"
 
 echo "11. contas das cenas avulsas (revisão do lote 5)"
-# As regras puras moram em src/tempos.mjs (Node roda sem compilar) e o som espelha as de tempo em
-# scripts/tempos.py; aqui os dois lados respondem igual e as cenas usam as funções.
-TM="$A/src/tempos.mjs"; TP="$A/scripts/tempos.py"
+# As regras puras moram em src/tempos.mjs (Node roda sem compilar); a cena e o som (src/sons.mjs,
+# C6) usam as mesmas funções, sem espelho em Python.
+TM="$A/src/tempos.mjs"
 if [ -f "$TM" ] && command -v node >/dev/null; then
   node --input-type=module - "$TM" > "$TMP/tempos-js.log" 2>&1 <<'JS'
 const m = await import(process.argv[2]);
@@ -323,8 +321,6 @@ ok("mapa-uma-parada", m.enquadramento([[-46, -23]], false).length >= 3);
 ok("mapa-paradas-iguais", m.enquadramento([[-46, -23], [-46, -23]], false).length >= 3);
 ok("mapa-vazio", m.enquadramento([], false).length >= 2);
 ok("mapa-com-regiao", m.enquadramento([[-46, -23]], true).length === 1);
-// casos para o lado Python
-console.log("py", JSON.stringify({ mo, mo2, rk }));
 JS
 else echo "sem tempos.mjs ou sem node" > "$TMP/tempos-js.log"; fi
 for k in morph-crescente morph-volta-depois-da-ultima-fala morph-poucas-falas ranking-crescente-1o-por-ultimo \
@@ -332,29 +328,16 @@ for k in morph-crescente morph-volta-depois-da-ultima-fala morph-poucas-falas ra
          decimais maior-real versus-numero-cabe mapa-uma-parada mapa-paradas-iguais mapa-vazio mapa-com-regiao; do
   check "tempos.mjs: $k" "$(/usr/bin/grep -qx "$k ok" "$TMP/tempos-js.log" && echo ok || echo fail)"
 done
-JSON_JS="$(/usr/bin/grep '^py ' "$TMP/tempos-js.log" | cut -c4-)"
-"$PY" - "$TP" "$JSON_JS" > "$TMP/tempos-py.log" 2>&1 <<'PY'
-import importlib.util, json, sys
-spec = importlib.util.spec_from_file_location("tempos", sys.argv[1]); t = importlib.util.module_from_spec(spec); spec.loader.exec_module(t)
-js = json.loads(sys.argv[2])
-print("morph", "ok" if t.tempos_morph(8, [0, 45, 90, 135, 180, 225, 270, 315], -8, 30, True) == js["mo"] and t.tempos_morph(4, [0, 100], -8, 30, True) == js["mo2"] else "fail")
-print("ranking", "ok" if t.tempos_ranking(4, [0, 60], -8, 15) == js["rk"] else "fail")
-s = {"beats": [], "ends": []}
-print("at-null", "ok" if t.troca_swap(s, {"at": None}) == 45 and t.troca_swap(s, {"at": 0}) == 0 else "fail")
-PY
-for k in morph ranking at-null; do
-  check "tempos.py igual ao tempos.mjs: $k" "$(/usr/bin/grep -qx "$k ok" "$TMP/tempos-py.log" && echo ok || echo fail)"
-done
 # as cenas e o som usam as funções (não uma cópia da conta)
 X="$A/src/scenes-extras.tsx"; MP="$A/src/scenes-mapa.tsx"; TC="$A/scripts/track_cinema.py"
-for f in temposMorph temposRanking ordenarRanking letras palavras corpoNumero maiorValor; do
+for f in temposMorph temposRanking ordenarRanking letras palavras corpoNumeroMedido maiorValor; do
   check "scenes-extras.tsx usa $f" "$(/usr/bin/grep -q "$f(" "$X" && echo ok || echo fail)"
 done
 check "scenes-mapa.tsx usa enquadramento" "$(/usr/bin/grep -q 'enquadramento(' "$MP" && echo ok || echo fail)"
 check "scenes-mapa.tsx recusa região que não existe" "$(/usr/bin/grep -q 'não existe no Natural Earth' "$MP" && echo ok || echo fail)"
 check "a régua quebra só entre palavras (nowrap por palavra)" "$(/usr/bin/grep -q 'whiteSpace: "nowrap"' "$X" && /usr/bin/grep -q 'palavras(' "$X" && echo ok || echo fail)"
-for f in tempos_morph tempos_ranking troca_swap; do
-  check "track_cinema.py usa $f" "$(/usr/bin/grep -q "$f(" "$TC" && echo ok || echo fail)"
+for f in temposMorph temposRanking trocaSwap; do
+  check "sons.mjs usa $f" "$(/usr/bin/grep -q "$f(" "$A/src/sons.mjs" && echo ok || echo fail)"
 done
 check "Counter aceita decimais" "$(/usr/bin/grep -q 'decimals' "$A/src/lib.tsx" && echo ok || echo fail)"
 check "Spin chama o useContext antes do return antecipado" "$("$PY" - "$A/src/transitions.tsx" <<'PY'
@@ -411,6 +394,50 @@ while read -r dep st; do
   if [ "$dep" = lock ]; then check "o package-lock.json lista as mesmas dependências diretas" "$([ "$st" = ok ] && echo ok || echo fail)"
   else check "$dep tem uso (ou motivo na lista)" "$([ "$st" = ok ] && echo ok || echo fail)"; fi
 done < "$TMP/deps.log"
+
+echo "12. bancada de pior caso (--pior-caso)"
+# presets/pior-caso.json traz textos no limite documentado e no limite + 1; não é preset de filme:
+# fica fora da lista e dos exemplos. A galeria --pior-caso renderiza cada cena dele em 9:16 e 16:9
+# e o Grande do Reel com cada palavra, num bundle só, e devolve os tl-*.json do projeto.
+PC="$A/presets/pior-caso.json"
+"$PY" - "$PC" > "$TMP/pc.log" 2>&1 <<'PY'
+import json, sys, unicodedata
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+m = d["master"]
+tipos = [c["type"] for c in m]
+print("grande-limite", "ok" if [len(w) for w in d.get("grande", [])] == [7, 8] else "fail")
+sw = sorted(len(c["props"]["from"]) for c in m if c["type"] == "swap")
+print("swap-limite", "ok" if sw == [16, 17] and all(len(c["props"]["from"]) == len(c["props"]["to"]) for c in m if c["type"] == "swap") else "fail")
+rk = sorted(len(c["props"]["items"]) for c in m if c["type"] == "ranking")
+print("ranking-6-e-1", "ok" if rk == [1, 6] else "fail")
+real = [it for c in m for it in (c["props"].get("items") or [c["props"].get("left", {}), c["props"].get("right", {})]) if isinstance(it, dict)]
+print("real-milhar-centavos", "ok" if any(it.get("prefix") == "R$ " and it.get("v", 0) >= 1000 and it.get("v") % 1 for it in real) else "fail")
+nome = [c["props"]["name"] for c in m if c["type"] == "chapter"]
+print("nome-acento-caixa-alta", "ok" if nome and nome[0].isupper() and " " in nome[0] and any(unicodedata.decomposition(ch) for ch in nome[0]) else "fail")
+print("desk-comando-longo", "ok" if any(len(c["props"].get("prompt", "")) > 100 for c in m if c["type"] == "desk") else "fail")
+PY
+for k in grande-limite swap-limite ranking-6-e-1 real-milhar-centavos nome-acento-caixa-alta desk-comando-longo; do
+  check "pior-caso.json: $k" "$(/usr/bin/grep -qx "$k ok" "$TMP/pc.log" && echo ok || echo fail)"
+done
+check "--lista não oferece o pior-caso como preset" "$(/usr/bin/grep -qF 'pior-caso.json' "$TMP/lista.log" && echo fail || echo ok)"
+check "a página da galeria não oferece o pior-caso" "$(/usr/bin/grep -qF 'pior-caso.json' "$G/index.html" && echo fail || echo ok)"
+cp "$A/src/timeline.json" "$P/src/timeline.json"; cp "$A/src/tl-master.json" "$P/src/tl-master.json" 2>/dev/null
+hashes2() { (cd "$P" && "$PY" -c 'import hashlib, sys, os
+for f in sys.argv[1:]: print(f, hashlib.sha256(open(f, "rb").read()).hexdigest() if os.path.exists(f) else "-")' film.json src/tl-reel.json src/tl-master.json); }
+ANTES2="$(hashes2)"; : > "$NODE_LOG"
+PATH="$BIN:$PATH" "$PY" "$GAL" "$P" --pior-caso > "$TMP/pior.log" 2>&1; rc=$?
+check "--pior-caso sai 0 (veio $rc)" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+[ "$rc" = 0 ] || sed 's/^/        /' "$TMP/pior.log"
+PG="$P/out/galeria-pior-caso"
+NM="$("$PY" -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["master"]))' "$PC")"
+for fmt in reel master; do
+  check "um quadro por cena em $fmt ($NM)" "$([ "$(ls "$PG"/pior-$fmt-*.png 2>/dev/null | wc -l | tr -d ' ')" = "$NM" ] && echo ok || echo fail)"
+done
+check "o Grande com cada palavra" "$([ -f "$PG/pior-grande-0.png" ] && [ -f "$PG/pior-grande-1.png" ] && echo ok || echo fail)"
+check "a página mostra cada quadro com a guia" "$([ "$(/usr/bin/grep -c '<i style="left:' "$PG/index.html")" = "$(ls "$PG"/*.png | wc -l | tr -d ' ')" ] && echo ok || echo fail)"
+check "um render só (um bundle)" "$([ "$(/usr/bin/grep -c '^node' "$NODE_LOG")" = 1 ] && echo ok || echo fail)"
+check "film.json e tl-*.json iguais" "$([ "$(hashes2)" = "$ANTES2" ] && echo ok || echo fail)"
+check "SKILL.md cita a bancada" "$(tem "$SK/SKILL.md" "--pior-caso")"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
