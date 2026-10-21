@@ -16,6 +16,37 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.58.0] — 2026-10-20
+
+### Adicionado
+
+- **motion-reel: briefing de motion.** `references/briefing-motion.md` em cinco partes: entradas
+  perguntadas de uma vez, direção com a lista de proibidos, a estrutura em tabela (cena, duração
+  ou compassos, o que se lê, cena do template, transição), a construção fixa e as armadilhas
+  ativas; mais o mapa conteúdo → cena (número → `numbers`, lista → `rows`, frase → `statement`,
+  uso do produto → `desk`) e a intensidade em px, % e ms. Ele preenche o `film.json`; não é
+  renderer novo. O `SKILL.md` manda começar por ele.
+- **motion-reel: aviso de leitura curta.** O `build-timeline.py` grava em cada cena da timeline o
+  que ela pede de leitura (`read`: palavras, segundos pedidos, segundos da cena), a 2,5
+  palavras/s + 0,5 s, e avisa a cena mais curta que isso. A moldura de UI não conta, e a lista
+  `read` da cena manda quando o texto da tela é decoração.
+- **motion-reel: preset explicativo de negócio.** `presets/explicativo.json`: o problema, o que
+  você faz, como funciona em 3 passos, uma prova com número e fonte e o nome, em 16:9 + corte
+  9:16, sem voz, ~20 s. A galeria lista sozinha.
+
+### Mudado
+
+- **motion-reel: a doutrina de motion é o padrão do template.** O filme de teste foi comparado
+  nas duas versões e a com a doutrina ficou, sem cor de foco no clímax. `lib.tsx` ganha `SETTLE`,
+  `EXIT`, `POP`, `ANTIC`, `hitStop()` e o `ease` do `Counter`; o `Breathe` fica só no `outro` e no
+  `logo3d` (outra cena liga com `props.breathe`); o `numbers` aceita `focus: "last"` (o último
+  número antecipa, passa, congela e assenta); a janela do `card` entra depois do nome; a pílula
+  ganha overshoot; as pílulas do `cta` entram na fala; o fade do `outro` acelera em 16 quadros; o
+  `statement` aceita `lineFracs`. Cena sem `in` herda a corrente (`"current"` no `film.json`,
+  padrão `whip`) em vez do ciclo que trocava de eixo a cada cena. Filme antigo continua
+  renderizando; sem o zoom, cena que só segura pode ganhar aviso de cena parada no `qa.sh`: ligue
+  `breathe: true` nela ou revele pela fala. Porte de VAMOO-AI/claude-config-team#385 (lote 4 do
+  plano de motion).
 ## [0.57.2] — 2026-10-20
 
 ### Corrigido
