@@ -46,7 +46,7 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
 
 1. **Briefing → beats.** Pegue o texto exato do usuário e quebre em telas de uma ideia
    (0,5–1,5 s no Reel; no Film, uma fala por ideia). Número grande primeiro, apoio depois.
-   - Preencha o `references/briefing-motion.md`: entradas perguntadas de uma vez, direção, a tabela de cenas com os reads de cada uma (o que o espectador lê, um por vez, a 2,5 palavras/s + 0,5 s) e o checklist (evento em toda cena, transição motivada, final que rima com a abertura). A tabela vira o `film.json`.
+   - Preencha o `references/briefing-motion.md`: entradas perguntadas de uma vez, direção, a tabela de cenas com os reads de cada uma (o que o espectador lê, um por vez, a 2,5 palavras/s + 0,5 s) e o checklist (evento em toda cena, transição motivada, final que rima com a abertura, por que cada coisa se move). A tabela vira o `film.json`.
    - Corrija só a ortografia. Mudança de estilo (ex.: "14hs" → "14h") você diz em 1 frase.
    - Nome de produto, modelo ou versão que você não reconhece: sinalize em 1 frase e siga como pedido.
    - Vídeo de referência: baixe com `yt-dlp -o <arquivo> <url>` e extraia quadros com `ffmpeg` (2 fps só na região que interessa, montados numa folha com `tile`). Música e SFX não se deduzem de imagem.
@@ -86,6 +86,28 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - transição revelando tela vazia, emenda de 1 px depois de glitch/spin
    - 3D achatado, acentos, logo esticado ou placeholder esquecido
    - no Film, animação caindo na fala certa (o número aparece quando a voz o diz)
+
+   **Revisão de motion.** Leia cada `transitions-N.jpg` e, onde ficar dúvida, todos os quadros do
+   trecho com `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/revisar.sh faixa <mp4> <início> <fim>`.
+   Em cada troca e em cada animação do foco, pergunte:
+   - aparecem dois estados sobrepostos na troca (o texto velho ainda legível sob o novo)?
+   - a curva para de repente (chega rápido e trava, sem assentar)?
+   - a escala cresce do ponto certo (da base do número, do botão clicado), e não de um centro qualquer ou do zero?
+   - opacidade, posição e cor andam em sincronia, ou uma termina e a outra ainda está no meio?
+
+   Cada achado vira uma linha da tabela, nunca uma lista solta, e a revisão termina com o veredito:
+   **Bloqueia** (dois estados à vista, curva que trava no foco, escala do ponto errado) ou
+   **Aprova** (o que sobrou é polimento).
+
+   | Antes | Depois | Por quê |
+   |---|---|---|
+   | (o que a folha mostra, com o quadro) | (a correção) | (a pergunta que falhou) |
+
+   Corrija nesta ordem e pare quando o problema sumir: apagar a animação, reduzir (menos duração,
+   menos deslocamento, menos propriedades), trocar a curva (`EASE`, `SETTLE`, `EXIT`), corrigir a
+   origem (`transformOrigin`, ponto de partida) e só então polir. Foco, transições, pausa e zoom
+   são o Checklist da folha, no fim da doutrina do `references/vocabulario.md`; os nomes dos
+   efeitos estão no glossário reverso do mesmo arquivo.
 8. **Entrega:** `${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/scripts/final.sh <projeto> <nome> [Reel|Master169|Reel916]`. Ele renderiza em `out/.staging-<nome>/` (encode que falha não toca no MP4 bom), converte para `yuv420p`, normaliza o áudio em −14 LUFS com limiter de pico verdadeiro em −1,5 dBTP e confere o MP4 que vai ser entregue, não a prévia:
    - `out/<nome>-folha.jpg`: folha de contato do final a 2 fps. Leia antes de entregar: o encode final pode mostrar o que a prévia a 50% escondia (banding, texto borrado, quadro preto)
    - `out/<nome>-loudness.txt`: integrado, pico verdadeiro, segundos mais altos e mais baixos, o segundo do pico e a lista segundo a segundo

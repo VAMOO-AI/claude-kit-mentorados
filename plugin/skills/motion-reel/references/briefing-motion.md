@@ -89,6 +89,7 @@ número com o rótulo, a frase. Regras:
 - [ ] **Evento em toda cena:** algo acontece (causa e reação, número que conta, frase que vira); cena só de texto parado é cartão.
 - [ ] **Transição motivada:** a corrente (`"current"` no `film.json`, padrão `whip`) leva a maioria das trocas na mesma direção; `in` explícito só com motivo (`iris`/`ink` = fecha, `whipUp` = conclusão que sobe, `cut` = match ou smash cut). Dois ou três tipos por filme.
 - [ ] **Final que rima com a abertura:** a última cena devolve um elemento da primeira (a mesma palavra, o símbolo, a cor de fundo).
+- [ ] **Por que isso se move:** cada movimento tem um motivo: explica (mostra como funciona), muda de estado, mostra de onde veio ou dá ênfase. Sem motivo, fica parado.
 - [ ] **Leitura:** nenhuma cena com aviso de leitura curta, ou o aviso foi aceito de propósito.
 - [ ] **Beat-chave no meio da cena,** onde a transição não come.
 - [ ] **Fonte de cada número** anotada para o relatório de entrega.

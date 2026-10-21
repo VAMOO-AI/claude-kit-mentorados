@@ -183,6 +183,42 @@ Mesmo uso dos outros: `cp presets/explicativo.json film.json`, troque os textos 
 fonte da pessoa) e rode o `qa.sh` (`Master169` e `Reel916`). Sem voz, o `title` não mostra `sub` nem
 `pill`; com narração, ponha as falas em `vo` e a animação passa a cair nelas.
 
+## Glossário reverso: nome do efeito → onde está no template
+
+Quando a pessoa (ou uma referência) diz o nome do efeito, ache aqui a peça que já faz. A chave é o
+efeito; o que pôr em cada tipo de conteúdo é o "Mapa conteúdo → cena" do `briefing-motion.md`.
+
+| Efeito | Onde está |
+|---|---|
+| stagger (cascata) | letras do `title` (Film) e do `Grande` (Reel); linhas do `statement`, no tempo da fala com `lineFracs` |
+| mask reveal | `MaskUp` (`lib.tsx`): o texto sobe de dentro de uma janela |
+| clip-path reveal | logo do `outro` (Film) e do `Outro` (Reel), aberto por `clipPath` depois do símbolo |
+| line drawing | `evolvePath` (`@remotion/paths`): as órbitas que se desenham em volta do cubo do `Models` |
+| number ticker | `Counter` (contagem que pousa) e `Odometer` (dígitos que rolam), no `lib.tsx` |
+| morph | cena `morph` (`MorphShape`): uma forma só que vira a próxima |
+| text morph | cena `swap` (`LetterSwap`): as letras de uma frase viajam até a outra |
+| match cut | `Mosaic` → `Title` (Reel): o card central abre até virar a tela |
+| typewriter | `typing()` (`desktop.tsx`), no `desk`, no `commands` e no `card` |
+| 3D flip | `Models` (Reel): cubo em `rotateX` troca a face A pela B |
+| ripple | onda do `Cursor` no clique (`desktop.tsx`) |
+| anticipation | `ANTIC` (`lib.tsx`): o foco do `numbers` e o 1º do `ranking` recuam antes de ir |
+| marquee | `Marquee` (`scenes.tsx`), por trás das cenas `atualizacao` e `performar` do Reel |
+| orbit | cena `orbit` (texto girando em volta da foto, preset de apresentação); o `Orbit` interno do `Models` |
+| shake | `shake()` (`lib.tsx`): o tremor do `title`, do `launch`, do `logo3d` e do `Voce` |
+
+Lacunas, sem cena no template: before/after slider, parallax, follow-through, squash & stretch e
+skeleton. Se a peça pedir uma delas, é cena nova (passo 6 do `SKILL.md`).
+
+Regras de motion de interface que **não** valem aqui (não "corrija" o template por elas):
+- **"Nunca ease-in".** Em UI, a resposta ao clique não pode demorar a começar. Aqui a saída acelera
+  de propósito: `EXIT` no fade final e `EASE_IN` na saída do `MaskUp` (regra 2 da doutrina).
+- **"Sair pelo mesmo caminho que entrou".** O `MaskUp` entra de baixo e sai por cima, e a corrente
+  de transição corre num sentido só (regra 6).
+
+Nomes dos efeitos e perguntas de revisão (passo 7 do `SKILL.md`): ideias reescritas de
+`emilkowalski/skills` (`animation-vocabulary`, `review-animations`), Copyright (c) 2026 Emil
+Kowalski, MIT.
+
 ## Doutrina de motion (padrão do template desde 20/10/2026)
 
 Regras que dirigem o movimento. O filme de teste foi comparado nas duas versões (a anterior e a

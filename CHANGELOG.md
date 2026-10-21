@@ -16,6 +16,24 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.60.1] — 2026-10-21
+
+### Adicionado
+
+- **motion-reel: revisão de motion no QA.** O passo 7 do `SKILL.md` traz quatro perguntas para
+  ler a folha de transições e o `revisar.sh faixa`: aparecem dois estados sobrepostos na troca?
+  a curva para de repente? a escala cresce do ponto certo? opacidade, posição e cor andam em
+  sincronia? Os achados vão numa tabela Antes | Depois | Por quê, com veredito Bloqueia ou
+  Aprova, e a correção segue a ordem apagar, reduzir, trocar a curva, corrigir a origem e polir.
+- **motion-reel: glossário reverso.** O `references/vocabulario.md` ganha a tabela nome do efeito
+  → onde está no template (stagger, mask reveal, line drawing, number ticker, morph, match cut,
+  typewriter, ripple, anticipation e outros), as lacunas declaradas e as regras de interface que
+  não valem aqui (a saída acelera de propósito).
+- **motion-reel: "por que isso se move".** Linha nova no checklist do storyboard
+  (`briefing-motion.md`): explicação, estado, de onde veio ou ênfase.
+
+Ideias reescritas de `emilkowalski/skills`, Copyright (c) 2026 Emil Kowalski, MIT.
+
 ## [0.59.0] — 2026-10-20
 
 ### Adicionado
