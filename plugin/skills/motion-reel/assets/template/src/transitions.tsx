@@ -193,11 +193,12 @@ const Panel: React.FC<TP> = ({ children, presentationDirection, presentationProg
 
 /* Spin zoom: as duas cenas giram no mesmo sentido, com escala e blur. */
 const Spin: React.FC<TP> = ({ children, presentationDirection, presentationProgress }) => {
+  const real = useContext(BlurRealCtx); // hook antes de qualquer return
   // O Remotion mantém a cena envolvida com progresso 0/1 fora da troca: sem isto, o blur(0) e o
   // rotate(0) deixam emenda de 1 px na borda.
   if (presentationProgress <= 0.001 || presentationProgress >= 0.999) return <AbsoluteFill>{children}</AbsoluteFill>;
   const p = EASE_INOUT(presentationProgress);
-  const blur = bell(presentationProgress) * 14 * (useContext(BlurRealCtx) ? 0.5 : 1);
+  const blur = bell(presentationProgress) * 14 * (real ? 0.5 : 1);
   if (presentationDirection === "exiting") {
     return (
       <AbsoluteFill style={{ transform: `rotate(${p * 32}deg) scale(${1 + p * 1.6})`, filter: `blur(${blur}px)`, opacity: 1 - p * 0.4 }}>

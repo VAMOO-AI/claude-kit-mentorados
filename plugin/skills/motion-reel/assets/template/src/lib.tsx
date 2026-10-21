@@ -10,6 +10,7 @@ import {
   staticFile,
   useCurrentFrame,
 } from "remotion";
+import { fmtNum } from "./tempos.mjs";
 
 // Paleta do exemplo. Troque pela sua marca; azul sobre --night usa a variante clara.
 // Nome da marca nas cenas (Intro). Os logos são public/logo-light.png, logo-dark.png e marca.png.
@@ -166,15 +167,17 @@ export const MarkIn: React.FC<{
 
 // Contador: inteiro interpolado até o alvo, formatado em pt-BR ("2.700"). O alvo invisível
 // na mesma célula reserva a largura final, então o número não empurra o layout ao crescer.
+// `decimals`: casas decimais fixas (4,5 com 1); sem ele, inteiro, como sempre foi.
 export const Counter: React.FC<{
   value: number;
   progress: number;
   size: number;
   color: string;
   weight?: number;
-}> = ({ value, progress, size, color, weight = 800 }) => {
+  decimals?: number;
+}> = ({ value, progress, size, color, weight = 800, decimals = 0 }) => {
   const p = Math.min(1, Math.max(0, progress));
-  const n = Math.round(value * EASE(p));
+  const n = Number((value * EASE(p)).toFixed(decimals));
   return (
     <div
       style={{
@@ -188,8 +191,8 @@ export const Counter: React.FC<{
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{value.toLocaleString("pt-BR")}</span>
-      <span style={{ gridArea: "1 / 1" }}>{n.toLocaleString("pt-BR")}</span>
+      <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{fmtNum(value, decimals)}</span>
+      <span style={{ gridArea: "1 / 1" }}>{fmtNum(n, decimals)}</span>
     </div>
   );
 };

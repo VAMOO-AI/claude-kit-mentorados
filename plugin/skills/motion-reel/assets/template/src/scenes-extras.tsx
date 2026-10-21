@@ -6,6 +6,7 @@ import React from "react";
 import { AbsoluteFill, Easing, continueRender, delayRender, interpolateColors, spring } from "remotion";
 import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
 import { Bg, C, Counter, EASE_INOUT, fontesProntas, ip, useF } from "./lib";
+import { corpoNumero, decimaisDe, letras, maiorValor, ordenarRanking, palavras, temposMorph, temposRanking } from "./tempos.mjs";
 
 // Curvas da doutrina de motion (vocabulario.md), com os nomes e valores dela. Atalho: definidas aqui
 // enquanto o lib.tsx não as exporta; quando exportar, troque por import de ./lib.
@@ -47,10 +48,16 @@ export const parear = (a: string[], b: string[]) => {
 
 // Uma frase em letras soltas (inline-block), na mesma caixa e no mesmo estilo da frase visível:
 // serve de régua. A posição de cada letra sai do layout real da fonte, não da estimativa do fit().
+// As letras de cada palavra ficam num inline-block com nowrap: letra solta deixa o Chrome quebrar a
+// linha no meio da palavra ("plano pro" / "nto"); assim a quebra só cai entre palavras.
 const Regua = React.forwardRef<HTMLDivElement, { chars: string[]; fs: number; w: number }>(({ chars, fs, w }, ref) => (
   <div ref={ref} style={{ position: "absolute", left: 0, top: 0, width: w, textAlign: "center", visibility: "hidden" }}>
-    {chars.map((ch, i) => (
-      <span key={i} style={{ ...H1, fontSize: fs, display: "inline-block", whiteSpace: "pre" }}>{ch}</span>
+    {palavras(chars).map(([a, b]) => (
+      <span key={a} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+        {chars.slice(a, b).map((ch, i) => (
+          <span key={a + i} data-l="" style={{ ...H1, fontSize: fs, display: "inline-block", whiteSpace: "pre" }}>{ch}</span>
+        ))}
+      </span>
     ))}
   </div>
 ));
@@ -70,8 +77,8 @@ export const LetterSwap: React.FC<SP> = (p) => {
   const ring = dark ? C.brandOnDark : C.brand;
   const sa = String(p.from ?? "");
   const sb = String(p.to ?? "");
-  const A = Array.from(sa);
-  const B = Array.from(sb);
+  const A = letras(sa);
+  const B = letras(sb);
   const w = L.W - L.l - L.r;
   const fs = fit([metade(sa), metade(sb)], w, L.v ? 150 : 170, 0.62);
   const refA = React.useRef<HTMLDivElement>(null);
@@ -83,7 +90,7 @@ export const LetterSwap: React.FC<SP> = (p) => {
     fontesProntas().then(() => {
       if (!vivo) return;
       const ler = (el: HTMLDivElement | null) =>
-        Array.from(el?.children ?? []).map((c) => ({ x: (c as HTMLElement).offsetLeft, y: (c as HTMLElement).offsetTop }));
+        Array.from(el?.querySelectorAll("[data-l]") ?? []).map((c) => ({ x: (c as HTMLElement).offsetLeft, y: (c as HTMLElement).offsetTop }));
       setM({ a: ler(refA.current), b: ler(refB.current), ha: refA.current?.offsetHeight ?? 0, hb: refB.current?.offsetHeight ?? 0 });
     });
     return () => {
@@ -106,7 +113,7 @@ export const LetterSwap: React.FC<SP> = (p) => {
   // portal: abre em 14 quadros e fecha em 10, acelerando (saída mais curta que a entrada)
   const abre = ip(f, [S - 10, S + 4], [0, 1], EASE_INOUT) * (1 - ip(f, [fim, fim + 10], [0, 1], EXIT));
 
-  const letras: React.ReactNode[] = [];
+  const glifos: React.ReactNode[] = [];
   if (m) {
     const ya = -m.ha / 2;
     const yb = -m.hb / 2;
@@ -122,14 +129,14 @@ export const LetterSwap: React.FC<SP> = (p) => {
       const t = ip(f, [tA + i * 1.2, tA + i * 1.2 + 14], [0, 1]);
       const j = de.indexOf(i);
       if (f < S || (j < 0 && !sobra[i])) {
-        letras.push(span(`a${i}`, ch, pa.x, ya + pa.y + (1 - t) * fs * 0.5, 1, t));
+        glifos.push(span(`a${i}`, ch, pa.x, ya + pa.y + (1 - t) * fs * 0.5, 1, t));
         return;
       }
       if (j >= 0) return; // a letra com par é desenhada pelo lado de B
       const u = ip(f, [S + i * passo, S + i * passo + 10], [0, 1], EXIT);
       const x = pa.x + (cx - fs * 0.25 - pa.x) * u;
       const y = ya + pa.y + (py - ya - pa.y) * u * u;
-      letras.push(span(`a${i}`, ch, x, y, 1 - u, 1 - u * u, u > 0.4 ? ring : fg));
+      glifos.push(span(`a${i}`, ch, x, y, 1 - u, 1 - u * u, u > 0.4 ? ring : fg));
     });
     // B: a letra com par sai da posição de A numa curva que passa pelo portal; a sem par nasce dele.
     B.forEach((ch, j) => {
@@ -148,14 +155,14 @@ export const LetterSwap: React.FC<SP> = (p) => {
         const y = (1 - u) ** 2 * y0 + 2 * (1 - u) * u * y1 + u * u * y2;
         // chegada: snap, then hold, com um overshoot de escala só na pousada
         const pouso = f >= d + voo ? ip(f, [d + voo, d + voo + 10], [0.9, 1], POP) : 1 - 0.3 * Math.sin(Math.PI * u);
-        letras.push(span(`b${j}`, ch, x, y, pouso, 1, u > 0.2 && u < 0.8 ? ring : fg));
+        glifos.push(span(`b${j}`, ch, x, y, pouso, 1, u > 0.2 && u < 0.8 ? ring : fg));
         return;
       }
       const u = ip(f, [d + 8, d + 8 + 14], [0, 1], EASE_INOUT);
       if (u <= 0) return;
       const x = cx - fs * 0.25 + (pb.x - cx + fs * 0.25) * u;
       const y = py + (yb + pb.y - py) * Math.sqrt(u);
-      letras.push(span(`b${j}`, ch, x, y, ip(f, [d + 8, d + 20], [0, 1], POP), Math.min(1, u * 2), u < 0.7 ? ring : fg));
+      glifos.push(span(`b${j}`, ch, x, y, ip(f, [d + 8, d + 20], [0, 1], POP), Math.min(1, u * 2), u < 0.7 ? ring : fg));
     });
   }
 
@@ -179,7 +186,7 @@ export const LetterSwap: React.FC<SP> = (p) => {
               ))}
             </svg>
           ) : null}
-          {letras}
+          {glifos}
         </div>
       </AbsoluteFill>
     </Bg>
@@ -213,19 +220,21 @@ const TINTAS = {
 };
 const ORDEM: (keyof typeof TINTAS)[] = ["fill", "light", "brand"];
 
-// props: states [{label, shape? (0–7, padrão: o índice), color? "brand"|"fill"|"light"}] (2–8), kicker?,
+// props: states [{label, shape? (0–7, padrão: o índice), color? "brand"|"fill"|"light"}] (1–8), kicker?,
 // step? (frames por estado sem voz, padrão 30), loop? (padrão true: volta ao 1º estado no fim, e o
-// último quadro casa com o primeiro). Com voz, o estado i troca na fala i.
+// último quadro casa com o primeiro). Com voz, o estado i troca na fala i; estado sem fala (e a volta
+// do loop) vem `step` quadros depois do anterior, a partir da última fala (temposMorph).
 export const MorphShape: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
-  const states: Estado[] = (p.states ?? []).slice(0, 8);
+  const states: Estado[] = p.states ?? [];
+  if (states.length < 1 || states.length > 8) throw new Error(`morph: states precisa de 1 a 8 estados (veio ${states.length})`);
   const step: number = p.step ?? 30;
   const loop = p.loop !== false && states.length > 1;
   const seq = loop ? [...states, states[0]] : states;
   const lado = Math.min(L.W - L.l - L.r, L.H - L.t - L.b) * (L.v ? 1.6 : 1.1);
   const t0 = first(p);
-  const at = seq.map((_, k) => (k === 0 ? t0 : k < p.beats.length ? bt(p, k) - 4 : k * step));
+  const at = temposMorph(states.length, p.beats.map((_: number, k: number) => bt(p, k)), t0, step, loop);
   const forma = (k: number) => FORMAS[(seq[k].shape ?? (k === seq.length - 1 && loop ? 0 : k)) % FORMAS.length];
   const tinta = (k: number) => TINTAS[seq[k].color ?? ORDEM[(k === seq.length - 1 && loop ? 0 : k) % ORDEM.length]];
   const mola = (k: number) => spring({ frame: f - at[k], fps: 30, config: { damping: 21, stiffness: 150, mass: 0.7 } }); // amortecida: sem passar do alvo (o overshoot fica só no POP da entrada)
@@ -280,22 +289,23 @@ const fmt = (n: number) => n.toLocaleString("pt-BR");
 const Conta: React.FC<{ it: Valor; f: number; at: number; dur?: number; size: number; color: string }> = ({ it, f, at, dur = 18, size, color }) => (
   <span style={{ display: "inline-flex", alignItems: "baseline", gap: size * 0.06 }}>
     {it.prefix ? <span style={{ ...H1, fontSize: size * 0.6, fontWeight: 800, color }}>{it.prefix}</span> : null}
-    <Counter value={it.v} progress={ip(f, [at, at + dur], [0, 1], SETTLE)} size={size} color={color} />
+    <Counter value={it.v} progress={ip(f, [at, at + dur], [0, 1], SETTLE)} size={size} color={color} decimals={decimaisDe(it.v)} />
     {it.suffix ? <span style={{ ...H1, fontSize: size * 0.6, fontWeight: 800, color }}>{it.suffix}</span> : null}
   </span>
 );
 
 // props: items [{label, v, prefix?, suffix?}] (2–6; a ordem do ranking sai do v, maior em cima),
 // title?, kicker?, step? (frames por posição sem voz, padrão 15), low? (true = menor é melhor).
-// As posições entram de baixo para cima; a 1ª entra por último, com antecipação, overshoot de
-// escala, hit-stop e a barra azul; as outras ficam cinza.
+// Ordena antes de cortar em 6. As posições entram de baixo para cima (temposRanking: sem fala, a
+// partir da última); a 1ª entra por último, com antecipação, overshoot de escala, hit-stop e a barra
+// de destaque; as outras ficam cinza.
 export const Ranking: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
   const step: number = p.step ?? 15;
-  const itens: Valor[] = [...(p.items ?? [])].slice(0, 6).sort((a: Valor, b: Valor) => (p.low ? a.v - b.v : b.v - a.v));
+  const itens: Valor[] = ordenarRanking(p.items ?? [], !!p.low);
   const n = itens.length;
-  const max = Math.max(...itens.map((i) => i.v), 1);
+  const max = maiorValor(itens.map((i) => i.v));
   const t0 = first(p);
   const titulo = p.title ? (L.v ? 220 : 130) : 0;
   const alto = (L.H - L.t - L.b - titulo) / Math.max(n, 1);
@@ -310,10 +320,8 @@ export const Ranking: React.FC<SP> = (p) => {
   const nomeW = L.v ? larg - rankW - 24 : larg - (barMax + numW + 18) - rankW - 48;
   const nome = fit(itens.map((i) => i.label), nomeW, L.v ? 48 : 40);
   // ordem de entrada: do último lugar ao 1º (e = 0 entra primeiro)
-  const entra = (pos: number) => {
-    const e = n - 1 - pos;
-    return e === 0 ? t0 + 6 : e < p.beats.length ? bt(p, e) - 4 : t0 + 6 + e * step;
-  };
+  const tr = temposRanking(n, p.beats.map((_: number, k: number) => bt(p, k)), t0, step);
+  const entra = (pos: number) => tr[n - 1 - pos];
   return (
     <Bg color={C.paper}>
       {p.title ? (
@@ -364,13 +372,14 @@ export const Versus: React.FC<SP> = (p) => {
   const ats = [t0 + 6, p.beats.length > 1 ? bt(p, 1) - 4 : t0 + 6 + step];
   const veredito = p.beats.length > 2 ? bt(p, 2) - 4 : ats[1] + 30;
   const melhor = lados.length === 2 ? ((p.low ? lados[0].v <= lados[1].v : lados[0].v >= lados[1].v) ? 0 : 1) : 0;
-  const max = Math.max(...lados.map((l) => l.v), 1);
+  const max = maiorValor(lados.map((l) => l.v));
   const larg = L.W - L.l - L.r;
   const titulo = p.title ? (L.v ? 240 : 140) : 0;
   const colW = (larg - (L.v ? 40 : 120)) / 2;
   const base = L.H - L.b - (L.v ? 120 : 90);
   const barMax = base - (L.t + titulo) - (L.v ? 260 : 190);
-  const num = L.v ? 104 : 96;
+  // o número cabe na coluna (no 9:16 ela tem ~385 px): "R$ 1.250.000" encolhe, "6 min" fica no corpo cheio
+  const num = Math.min(...lados.map((l) => corpoNumero(l, colW, L.v ? 104 : 96)));
   const nome = fit(lados.map((l) => l.label), colW, L.v ? 46 : 42);
   return (
     <Bg color={C.night}>

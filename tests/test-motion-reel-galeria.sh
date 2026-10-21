@@ -282,6 +282,109 @@ check "shutter fora da faixa recusa" "$([ "$(mb '{"shutter": 400}')" = ERRO ] &&
 check "o Film.tsx usa o CameraMotionBlur" "$(tem "$A/src/Film.tsx" 'CameraMotionBlur')"
 check "vocabulario.md documenta o motionBlur" "$(tem "$SK/references/vocabulario.md" '`motionBlur`')"
 
+echo "11. contas das cenas avulsas (revisão do lote 5)"
+# As regras puras moram em src/tempos.mjs (Node roda sem compilar) e o som espelha as de tempo em
+# scripts/tempos.py; aqui os dois lados respondem igual e as cenas usam as funções.
+TM="$A/src/tempos.mjs"; TP="$A/scripts/tempos.py"
+if [ -f "$TM" ] && command -v node >/dev/null; then
+  node --input-type=module - "$TM" > "$TMP/tempos-js.log" 2>&1 <<'JS'
+const m = await import(process.argv[2]);
+const ok = (nome, cond) => console.log(nome, cond ? "ok" : "fail");
+// morph com voz: 8 estados, falas a cada 45 quadros, loop → crescente e a volta depois da última
+const fal = [0, 45, 90, 135, 180, 225, 270, 315];
+const mo = m.temposMorph(8, fal, -8, 30, true);
+ok("morph-crescente", mo.every((v, i) => i === 0 || v >= mo[i - 1] + m.GAP_MORPH));
+ok("morph-volta-depois-da-ultima-fala", mo[8] > 315 - 4);
+// menos falas que estados: continua a partir da última fala, nunca para trás
+const mo2 = m.temposMorph(4, [0, 100], -8, 30, true);
+ok("morph-poucas-falas", JSON.stringify(mo2) === JSON.stringify([-8, 96, 126, 156, 186]));
+// ranking: 4 posições, só 2 falas → o 1º entra por último
+const rk = m.temposRanking(4, [0, 60], -8, 15);
+ok("ranking-crescente-1o-por-ultimo", rk.every((v, i) => i === 0 || v > rk[i - 1]) && rk[3] === Math.max(...rk));
+ok("ranking-continua-da-ultima-fala", JSON.stringify(rk) === JSON.stringify([-2, 56, 71, 86]));
+// ordena antes de cortar: 7 itens, o maior por último
+const it = [1, 2, 3, 4, 5, 6, 99].map((v) => ({ label: `x${v}`, v }));
+ok("ranking-ordena-antes-de-cortar", m.ordenarRanking(it, false)[0].v === 99 && m.ordenarRanking(it, false).length === 6);
+ok("ranking-low", m.ordenarRanking(it, true)[0].v === 1);
+// letras NFC e palavras inteiras
+ok("letras-nfc", m.letras("Idéia").length === 5);
+const ch = m.letras("Ideia solta que virou plano pronto");
+ok("palavras-inteiras", JSON.stringify(m.palavras(ch).map(([a, b]) => ch.slice(a, b).join(""))) ===
+  JSON.stringify(["Ideia", " ", "solta", " ", "que", " ", "virou", " ", "plano", " ", "pronto"]));
+// número com decimais em pt-BR e proporção pelo maior real
+ok("decimais", m.decimaisDe(4.5) === 1 && m.decimaisDe(1250000) === 0 && m.fmtNum(4.5, 1) === "4,5");
+ok("maior-real", m.maiorValor([0.2, 0.5]) === 0.5 && m.maiorValor([0, -1]) === 1);
+// número do versus cabe na coluna do 9:16 (385 px)
+const it2 = { v: 1250000, prefix: "R$ " };
+const fs = m.corpoNumero(it2, 385, 104);
+ok("versus-numero-cabe", fs * (0.62 * (m.fmtNum(1250000).length + 0.6 * 3) + 0.12) <= 385 && fs < 104);
+// mapa: uma parada (ou paradas iguais) sem região nunca vira ponto único
+ok("mapa-uma-parada", m.enquadramento([[-46, -23]], false).length >= 3);
+ok("mapa-paradas-iguais", m.enquadramento([[-46, -23], [-46, -23]], false).length >= 3);
+ok("mapa-vazio", m.enquadramento([], false).length >= 2);
+ok("mapa-com-regiao", m.enquadramento([[-46, -23]], true).length === 1);
+// casos para o lado Python
+console.log("py", JSON.stringify({ mo, mo2, rk }));
+JS
+else echo "sem tempos.mjs ou sem node" > "$TMP/tempos-js.log"; fi
+for k in morph-crescente morph-volta-depois-da-ultima-fala morph-poucas-falas ranking-crescente-1o-por-ultimo \
+         ranking-continua-da-ultima-fala ranking-ordena-antes-de-cortar ranking-low letras-nfc palavras-inteiras \
+         decimais maior-real versus-numero-cabe mapa-uma-parada mapa-paradas-iguais mapa-vazio mapa-com-regiao; do
+  check "tempos.mjs: $k" "$(/usr/bin/grep -qx "$k ok" "$TMP/tempos-js.log" && echo ok || echo fail)"
+done
+JSON_JS="$(/usr/bin/grep '^py ' "$TMP/tempos-js.log" | cut -c4-)"
+"$PY" - "$TP" "$JSON_JS" > "$TMP/tempos-py.log" 2>&1 <<'PY'
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("tempos", sys.argv[1]); t = importlib.util.module_from_spec(spec); spec.loader.exec_module(t)
+js = json.loads(sys.argv[2])
+print("morph", "ok" if t.tempos_morph(8, [0, 45, 90, 135, 180, 225, 270, 315], -8, 30, True) == js["mo"] and t.tempos_morph(4, [0, 100], -8, 30, True) == js["mo2"] else "fail")
+print("ranking", "ok" if t.tempos_ranking(4, [0, 60], -8, 15) == js["rk"] else "fail")
+s = {"beats": [], "ends": []}
+print("at-null", "ok" if t.troca_swap(s, {"at": None}) == 45 and t.troca_swap(s, {"at": 0}) == 0 else "fail")
+PY
+for k in morph ranking at-null; do
+  check "tempos.py igual ao tempos.mjs: $k" "$(/usr/bin/grep -qx "$k ok" "$TMP/tempos-py.log" && echo ok || echo fail)"
+done
+# as cenas e o som usam as funções (não uma cópia da conta)
+X="$A/src/scenes-extras.tsx"; MP="$A/src/scenes-mapa.tsx"; TC="$A/scripts/track_cinema.py"
+for f in temposMorph temposRanking ordenarRanking letras palavras corpoNumero maiorValor; do
+  check "scenes-extras.tsx usa $f" "$(/usr/bin/grep -q "$f(" "$X" && echo ok || echo fail)"
+done
+check "scenes-mapa.tsx usa enquadramento" "$(/usr/bin/grep -q 'enquadramento(' "$MP" && echo ok || echo fail)"
+check "scenes-mapa.tsx recusa região que não existe" "$(/usr/bin/grep -q 'não existe no Natural Earth' "$MP" && echo ok || echo fail)"
+check "a régua quebra só entre palavras (nowrap por palavra)" "$(/usr/bin/grep -q 'whiteSpace: "nowrap"' "$X" && /usr/bin/grep -q 'palavras(' "$X" && echo ok || echo fail)"
+for f in tempos_morph tempos_ranking troca_swap; do
+  check "track_cinema.py usa $f" "$(/usr/bin/grep -q "$f(" "$TC" && echo ok || echo fail)"
+done
+check "Counter aceita decimais" "$(/usr/bin/grep -q 'decimals' "$A/src/lib.tsx" && echo ok || echo fail)"
+check "Spin chama o useContext antes do return antecipado" "$("$PY" - "$A/src/transitions.tsx" <<'PY'
+import sys
+t = open(sys.argv[1], encoding="utf-8").read()
+spin = t[t.index("const Spin"):t.index("const EchoTrail")]
+print("ok" if "useContext" in spin and spin.index("useContext") < spin.index("if (presentationProgress") else "fail")
+PY
+)"
+# validação no build-timeline.py
+BV="$TMP/valida"; mkdir -p "$BV/src" "$BV/scripts" "$BV/node_modules/world-atlas"; cp "$A/scripts/build-timeline.py" "$BV/scripts/"
+printf '{"objects":{"countries":{"geometries":[{"properties":{"name":"Brazil"}}]}}}' > "$BV/node_modules/world-atlas/countries-110m.json"
+bv() { # bv <cena json> → OK ou ERRO
+  "$PY" -c 'import json, sys; json.dump({"master": [json.loads(sys.argv[2])]}, open(sys.argv[1], "w"))' "$BV/film.json" "$1"
+  "$PY" "$BV/scripts/build-timeline.py" master > "$TMP/bv.log" 2>&1 && echo OK || echo ERRO
+}
+check "map com 1 parada e sem região recusa" "$([ "$(bv '{"type":"map","props":{"route":[{"at":[1,2]}]}}')" = ERRO ] && echo ok || echo fail)"
+check "map com paradas iguais recusa" "$([ "$(bv '{"type":"map","props":{"route":[{"at":[1,2]},{"at":[1,2]}]}}')" = ERRO ] && echo ok || echo fail)"
+check "map com 7 paradas recusa" "$([ "$(bv '{"type":"map","props":{"route":[{"at":[1,1]},{"at":[2,2]},{"at":[3,3]},{"at":[4,4]},{"at":[5,5]},{"at":[6,6]},{"at":[7,7]}]}}')" = ERRO ] && echo ok || echo fail)"
+check "map com região que não existe recusa" "$([ "$(bv '{"type":"map","props":{"region":"Brasil","route":[]}}')" = ERRO ] && echo ok || echo fail)"
+check "map com região e sem rota passa" "$([ "$(bv '{"type":"map","props":{"region":"Brazil"}}')" = OK ] && echo ok || echo fail)"
+check "map com 2 paradas passa" "$([ "$(bv '{"type":"map","props":{"route":[{"at":[1,1]},{"at":[2,2]}]}}')" = OK ] && echo ok || echo fail)"
+check "morph sem estados recusa" "$([ "$(bv '{"type":"morph","props":{"states":[]}}')" = ERRO ] && echo ok || echo fail)"
+check "morph com 9 estados recusa" "$([ "$(bv '{"type":"morph","props":{"states":[{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"},{"label":"a"}]}}')" = ERRO ] && echo ok || echo fail)"
+check "a mensagem do morph diz o limite" "$(/usr/bin/grep -q '1 a 8' "$TMP/bv.log" && echo ok || echo fail)"
+check "motionBlur.shutter true recusa" "$([ "$(mb '{"shutter": true}')" = ERRO ] && echo ok || echo fail)"
+check "motionBlur.shutter 0,5 recusa" "$([ "$(mb '{"shutter": 0.5}')" = ERRO ] && echo ok || echo fail)"
+check "motionBlur aceita shutterAngle" "$([ "$(mb '{"shutterAngle": 90}')" = '{"samples": 8, "shutter": 90}' ] && echo ok || echo fail)"
+check "motionBlur recusa chave desconhecida" "$([ "$(mb '{"amostras": 4}')" = ERRO ] && echo ok || echo fail)"
+
 echo "10. dependências do template: nenhuma sem uso"
 # Toda dependência do package.json é importada em src/ ou scripts/ do template, ou está na lista
 # abaixo com o motivo; o package-lock.json lista as mesmas dependências diretas.

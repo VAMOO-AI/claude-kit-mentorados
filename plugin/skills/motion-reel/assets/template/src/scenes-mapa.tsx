@@ -11,6 +11,7 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import world from "world-atlas/countries-110m.json";
 import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
 import { Bg, C, EASE_INOUT, ip, useF } from "./lib";
+import { enquadramento } from "./tempos.mjs";
 
 // Curvas da doutrina de motion (vocabulario.md). Atalho: definidas aqui enquanto o lib.tsx não as
 // exporta; quando exportar, troque por import de ./lib.
@@ -46,6 +47,7 @@ export const MapRoute: React.FC<SP> = (p) => {
   const paradas: Parada[] = (p.route ?? []).slice(0, 6);
   const seg: number = p.seg ?? 24;
   const regiao = p.region ? PAISES.find((c) => c.properties.name === p.region) : undefined;
+  if (p.region && !regiao) throw new Error(`map: a região "${p.region}" não existe no Natural Earth (use o nome em inglês do world-atlas, ex.: "Brazil")`);
   const t0 = first(p);
   const tReg = t0 + 10;
   const tR: number = p.beats.length > 1 ? bt(p, 1) - 4 : 30;
@@ -59,7 +61,8 @@ export const MapRoute: React.FC<SP> = (p) => {
     type: "FeatureCollection" as const,
     features: [
       ...(regiao ? [regiao] : []),
-      { type: "Feature" as const, properties: {}, geometry: { type: "MultiPoint" as const, coordinates: paradas.map((s) => s.at) } },
+      // nunca um ponto só: sem região e com menos de 2 paradas distintas, entra uma caixa em volta
+      { type: "Feature" as const, properties: {}, geometry: { type: "MultiPoint" as const, coordinates: enquadramento(paradas.map((s) => s.at), !!regiao) } },
     ],
   };
   const proj = geoNaturalEarth1().fitExtent(caixa, alvo);
