@@ -16,6 +16,35 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.59.0] — 2026-10-20
+
+### Adicionado
+
+- **motion-reel: cinco cenas avulsas, cursor com clique e motion blur real.** Cenas sem preset,
+  que entram em qualquer `film.json` pelo `type`, com som próprio, linha no `vocabulario.md` e
+  exemplo na galeria (`EXEMPLOS` do `galeria.py`). Todas seguem a doutrina de motion: um foco por
+  vez, saída mais curta que a entrada, overshoot só na escala.
+  - `swap`: troca de frase em que cada letra da frase A voa por um portal em SVG até o lugar dela
+    na frase B, medido na fonte real (`fontesProntas()`, novo no `lib.tsx`).
+  - `morph`: uma forma só que morfa por até 8 estados, com uma mola por troca; com `loop`, o último
+    quadro casa com o primeiro.
+  - `map`: rota parada a parada e região em destaque sobre o Natural Earth (domínio público), com
+    `d3-geo`, `topojson-client` e `world-atlas`, que já estavam declarados e sem uso.
+  - `ranking` e `versus`: posições de baixo para cima e comparação lado a lado, com número que
+    conta e o melhor em destaque.
+  - `desk` com `click: true`: o `Cursor` novo do `desktop.tsx` viaja em curva até o botão de enviar,
+    clica (aperto a 85%, onda de 300 ms) e o botão vira o quadrado de parar enquanto o Claude trabalha.
+  - `"motionBlur": true` no `film.json` liga o `CameraMotionBlur` só nos quadros de `whip`,
+    `whipUp`, `push` e `spin`. Desligado por padrão, porque o render fica mais lento nesses quadros.
+  - Porte de VAMOO-AI/claude-config-team#384.
+
+### Removido
+
+- **motion-reel: dependências sem uso no template.** Saem do `package.json` `@remotion/captions`,
+  `@remotion/media`, `@remotion/google-fonts` e `@remotion/player`, que nada importava (o
+  `@remotion/player` segue no lock como dependência do `@remotion/cli`). Entram `@types/d3-geo` e
+  `@types/topojson-client` em `devDependencies`, para a cena `map` passar no tsc `strict`.
+
 ## [0.57.1] — 2026-10-20
 
 ### Corrigido

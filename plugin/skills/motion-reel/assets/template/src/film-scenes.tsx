@@ -9,8 +9,10 @@ import { AbsoluteFill, Img, staticFile } from "remotion";
 import { Motif } from "./motifs";
 import { Follow, Highlights, Orbit, PillName } from "./scenes-apresentacao";
 import { AppLine, Assemble } from "./scenes-app";
+import { LetterSwap, MorphShape, Ranking, Versus } from "./scenes-extras";
+import { MapRoute } from "./scenes-mapa";
 import { FilmCtx, H1, LABEL, type SP, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
-import { AsstText, Composer, D, Desk, EditCard, UserMsg, Working, fadeIn, typing } from "./desktop";
+import { AsstText, Composer, Cursor, D, Desk, EditCard, UserMsg, Working, fadeIn, sendButton, typing } from "./desktop";
 import { BRAND, Bg, C, Counter, EASE_INOUT, MONO, MarkIn, MaskUp, hollow, ip, shake, useF } from "./lib";
 
 export { FilmCtx, H1, LABEL, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
@@ -142,8 +144,10 @@ export const Numbers: React.FC<SP> = (p) => {
 };
 
 /* ───────────────────────── conversa no Claude Code Desktop ───────────────────────── */
-// props: kicker?, prompt, working?, files? [[arquivo, linhas]], reply, session?
+// props: kicker?, prompt, working?, files? [[arquivo, linhas]], reply, session?, click?
 // O pedido é digitado antes do corte, enviado no frame 24; a resposta chega no meio da 1ª fala.
+// click: true → o cursor viaja até o botão de enviar, clica (a onda sai do botão) e o botão vira
+// o quadrado de parar enquanto o Claude trabalha.
 export const DeskDemo: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
@@ -152,6 +156,12 @@ export const DeskDemo: React.FC<SP> = (p) => {
   const sent = f >= send;
   const push = 1 + 0.07 * Math.min(1, Math.max(0, (f + 18) / (p.len + 18)));
   const sc = L.v ? 1.3 : 1.2;
+  const dw = L.v ? L.W - L.l - L.r : 1560;
+  const dh = L.v ? 1120 : 640;
+  const dpad = L.v ? 30 : 44;
+  const csc = L.v ? 1.25 : 1.15;
+  const alvo = sendButton(dw, dh, dpad, csc);
+  const cursor = p.click ? <Cursor f={f} at={send - 1} from={[dw * 0.55, dh * 0.3]} to={alvo} trip={18} size={L.v ? 1.6 : 1.4} hide={send + 18} /> : null;
   return (
     <Bg color={C.night}>
       <AbsoluteFill style={{ transform: `scale(${push})`, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: L.v ? 50 : 28, paddingLeft: L.v ? L.l : 0, paddingRight: L.v ? L.r : 0 }}>
@@ -163,8 +173,8 @@ export const DeskDemo: React.FC<SP> = (p) => {
           </div>
         ) : null}
         <Desk
-          w={L.v ? L.W - L.l - L.r : 1560} h={L.v ? 1120 : 640} sidebar={!L.v} pad={L.v ? 30 : 44} title={p.session}
-          composer={<Composer text={sent ? "" : typing(p.prompt, f, -14, 1.1)} cursor={!sent && Math.floor(f / 9) % 2 === 0} scale={L.v ? 1.25 : 1.15} />}
+          w={dw} h={dh} sidebar={!L.v} pad={dpad} title={p.session} overlay={cursor}
+          composer={<Composer text={sent ? "" : typing(p.prompt, f, -14, 1.1)} cursor={!sent && Math.floor(f / 9) % 2 === 0} scale={csc} busy={!!p.click && sent && f < reply} />}
         >
           {sent ? <UserMsg t={fadeIn(f, send, 6)} scale={sc}>{p.prompt}</UserMsg> : null}
           {sent && f < reply ? <Working f={f} scale={sc} label={p.working ?? "Trabalhando…"} /> : null}
@@ -714,4 +724,6 @@ export const SCENES: Record<string, React.FC<SP>> = {
   // apresentação pessoal (scenes-apresentacao.tsx) e lançamento de app (scenes-app.tsx)
   pillname: PillName, orbit: Orbit, highlights: Highlights, follow: Follow,
   appline: AppLine, assemble: Assemble,
+  // cenas avulsas (scenes-extras.tsx, scenes-mapa.tsx)
+  swap: LetterSwap, morph: MorphShape, map: MapRoute, ranking: Ranking, versus: Versus,
 };

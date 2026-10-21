@@ -12,7 +12,11 @@ export type Scene = {
   origin?: { cx: number; cy: number; color?: string } | null;
   props: Record<string, any>;
 };
-export type TL = { name: string; fps: number; total: number; letterbox?: string | null; scenes: Scene[] };
+// motionBlur: motion blur real nas transições rápidas (film.json → build-timeline.py); null = desligado.
+export type TL = {
+  name: string; fps: number; total: number; letterbox?: string | null;
+  motionBlur?: { samples: number; shutter: number } | null; scenes: Scene[];
+};
 export type SP = { beats: number[]; ends: number[]; len: number; energy: number } & Record<string, any>;
 
 export const FilmCtx = React.createContext<{ tl: TL | null; idx: number }>({ tl: null, idx: 0 });

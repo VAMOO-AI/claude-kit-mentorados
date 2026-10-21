@@ -8,7 +8,8 @@ Serve para escolher cena e transição antes de roteirizar. Tudo vem do código 
 template da skill, sem projeto): as cenas do mapa SCENES de src/film-scenes.tsx com o comentário de
 props de cada uma, as transições do D do scripts/build-timeline.py e as cenas do src/timeline.json.
 O Film sai em 9:16 (Reel916) com as props de exemplo do film.json (master) e, para cena que não está
-nele, dos film.json prontos em presets/ (que a lista e a página também mostram); cada transição aparece a
+nele, dos film.json prontos em presets/ (que a lista e a página também mostram) ou do EXEMPLOS abaixo
+(cenas avulsas, sem preset); cada transição aparece a
 um quarto da troca antes do corte. O film.json e o vo.json não mudam; o src/tl-reel.json é trocado durante o render e
 devolvido no fim, mesmo se o render falhar.
 """
@@ -23,6 +24,22 @@ import sys
 SK = Path(__file__).resolve().parents[1]
 TEMPLATE = SK / "assets/template"
 ESCALA = 0.4
+# Exemplo das cenas avulsas, que não estão em nenhum film.json pronto: a galeria só usa quando o
+# film.json do projeto e os presets/ não trazem o type. Textos de exemplo, para trocar.
+EXEMPLOS = {
+    "ranking": {"type": "ranking", "min": 90, "props": {"kicker": "Exemplo", "title": "Onde o tempo vai", "items": [
+        {"label": "Reunião", "v": 12, "suffix": " h"}, {"label": "E-mail", "v": 9, "suffix": " h"},
+        {"label": "Relatório", "v": 6, "suffix": " h"}, {"label": "Planilha", "v": 4, "suffix": " h"}]}},
+    "versus": {"type": "versus", "min": 105, "props": {"kicker": "Exemplo", "title": "Antes e depois", "low": True,
+        "left": {"label": "Antes", "v": 40, "suffix": " min"}, "right": {"label": "Depois", "v": 6, "suffix": " min"}}},
+    "map": {"type": "map", "min": 150, "props": {"kicker": "Exemplo", "title": "De onde para onde", "region": "Brazil", "route": [
+        {"name": "São Paulo", "at": [-46.63, -23.55]}, {"name": "Recife", "at": [-34.88, -8.05]},
+        {"name": "Lisboa", "at": [-9.14, 38.72]}]}},
+    "morph": {"type": "morph", "min": 270, "props": {"kicker": "Um processo", "states": [
+        {"label": "Ideia"}, {"label": "Roteiro"}, {"label": "Gravação"}, {"label": "Corte"},
+        {"label": "Legenda"}, {"label": "Revisão"}, {"label": "Post"}, {"label": "Dados"}]}},
+    "swap": {"type": "swap", "min": 120, "props": {"from": "Ideia solta", "to": "Plano pronto", "kicker": "Antes e depois"}},
+}
 RENDER = """import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
 import fs from "node:fs";
@@ -122,6 +139,8 @@ def roteiro(projeto, tipos, trans):
         if fonte.is_file():
             for cena in ler_json(fonte).get("master", []):
                 exemplos.setdefault(cena["type"], cena)
+    for tipo, cena in EXEMPLOS.items():
+        exemplos.setdefault(tipo, cena)
     base = [{k: v for k, v in exemplos[t].items() if k not in ("in", "cues", "mark")} for t in tipos if t in exemplos]
     if not base:
         raise SystemExit("!! nenhum exemplo de cena no film.json (master)")

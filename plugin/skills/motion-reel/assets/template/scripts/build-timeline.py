@@ -18,6 +18,25 @@ CPS = 14  # estimativa sem WAV
 CYCLE = ["whip", "push", "spin", "whipUp", "glitch", "whip", "push", "iris"]
 D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "echo": 12, "cut": 0}
 FORMATS = ("master", "reel")
+# Motion blur real (CameraMotionBlur) nas transições rápidas: opt-in no film.json. Cada quadro da
+# troca vira `samples` renders somados, então o padrão é 8 e o teto é 16.
+BLUR_PADRAO = {"samples": 8, "shutter": 180}
+
+
+def motion_blur(film):
+    v = film.get("motionBlur")
+    if v in (None, False):
+        return None
+    if v is True:
+        return dict(BLUR_PADRAO)
+    if not isinstance(v, dict):
+        sys.exit(f"!! motionBlur: use true, false ou {{\"samples\": 2–16, \"shutter\": 1–360}} (veio {v!r})")
+    mb = {**BLUR_PADRAO, **{k: v[k] for k in ("samples", "shutter") if k in v}}
+    if not (isinstance(mb["samples"], int) and 2 <= mb["samples"] <= 16):
+        sys.exit(f"!! motionBlur.samples precisa ser inteiro de 2 a 16 (veio {mb['samples']!r})")
+    if not (isinstance(mb["shutter"], (int, float)) and 0 < mb["shutter"] <= 360):
+        sys.exit(f"!! motionBlur.shutter precisa ser de 1 a 360 graus (veio {mb['shutter']!r})")
+    return mb
 
 
 def texts():
@@ -67,7 +86,7 @@ def build(name, spec, film, txt):
     for sc in out:
         e = sc["energy"] if sc["energy"] is not None else e
         sc["energy"] = e
-    tl = {"name": name, "fps": FPS, "total": cut, "letterbox": film.get("letterbox"), "scenes": out}
+    tl = {"name": name, "fps": FPS, "total": cut, "letterbox": film.get("letterbox"), "motionBlur": motion_blur(film), "scenes": out}
     (ROOT / f"src/tl-{name}.json").write_text(json.dumps(tl, ensure_ascii=False, indent=1) + "\n")
     print(f"{name}: {len(out)} cenas, {cut} frames = {cut / FPS:.1f}s ({int(cut / FPS // 60)}:{int(cut / FPS % 60):02d})")
     if faltas:

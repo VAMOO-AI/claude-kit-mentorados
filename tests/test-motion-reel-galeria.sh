@@ -13,7 +13,8 @@
 #      e o filme de lançamento (presets/lancamento.json) vira timeline na batida nos dois formatos;
 #   6. a apresentação pessoal (presets/apresentacao.json, 15 s) e o lançamento de app
 #      (presets/lancamento-app.json, 30 s) também: cenas novas com props, som e vocabulário,
-#      timeline na batida nos dois formatos, e a galeria lista os presets.
+#      timeline na batida nos dois formatos, e a galeria lista os presets;
+#   7. as cenas avulsas (sem preset) estão no SCENES com props, som, vocabulário e exemplo na galeria.
 #
 # Uso: bash tests/test-motion-reel-galeria.sh [raiz-do-repo]
 set -uo pipefail
@@ -136,7 +137,7 @@ track = open(sys.argv[2], encoding="utf-8").read()
 bloco = tsx[tsx.index("export const SCENES"):]
 mapa = dict(re.findall(r"(\w+)\s*:\s*(\w+)", bloco[bloco.index("{") + 1:bloco.index("};")]))
 sfx = track[track.index("SFX_BY_TYPE = {"):]
-sfx = sfx[:sfx.index("}") + 1]
+sfx = sfx[:sfx.index("}") + 1] + "".join(re.findall(r"SFX_BY_TYPE\.update\(\{.*?\}\)", track, re.S))
 linhas = [l for f in sorted(src.glob("*.tsx")) for l in f.read_text(encoding="utf-8").splitlines() + [""]]
 for tipo in sys.argv[3:]:
     comp = mapa.get(tipo, "?")
@@ -233,6 +234,80 @@ PY
     check "$pr: ${k#*:}" "$(/usr/bin/grep -qx "${k%%:*} ok" "$TMP/$pr-tl.log" && echo ok || echo fail)"
   done
 done
+
+echo "7. cenas avulsas (troca de frase, forma que morfa, mapa, ranking e comparação)"
+# Cena nova sem preset: está no SCENES com // props:, som próprio e linha no vocabulário, e a
+# galeria tira o exemplo dela do EXEMPLOS do galeria.py (o quadro de cada uma é conferido no 2).
+AVULSAS="swap morph map ranking versus"
+presets_src $AVULSAS > "$TMP/avulsas-src.log" 2>&1
+for c in $AVULSAS; do
+  check "SCENES registra $c" "$(echo " $CENAS " | /usr/bin/grep -qF " $c " && echo ok || echo fail)"
+  check "vocabulario.md documenta $c" "$(tem "$SK/references/vocabulario.md" "| \`$c\` |")"
+  check "$c tem // props: acima do componente" "$(/usr/bin/grep -qx "$c props ok" "$TMP/avulsas-src.log" && echo ok || echo fail)"
+  check "$c tem som próprio no SFX_BY_TYPE" "$(/usr/bin/grep -qx "$c som ok" "$TMP/avulsas-src.log" && echo ok || echo fail)"
+  check "galeria.py tem exemplo de $c" "$(tem "$GAL" "\"$c\": {")"
+done
+
+echo "8. cursor com clique no desk"
+# O Cursor do desktop.tsx (trajeto em curva, aperto a 85%, onda de 300 ms) entra no desk por
+# `click`; o botão de enviar muda de estado e o clique tem som (1 quadro antes do contato).
+check "desktop.tsx exporta o Cursor" "$(tem "$A/src/desktop.tsx" "export const Cursor:")"
+check "o desk aceita click?" "$(/usr/bin/grep -q '^// props: kicker?, prompt.*click?' "$A/src/film-scenes.tsx" && echo ok || echo fail)"
+check "o Composer tem o estado ocupado" "$(tem "$A/src/desktop.tsx" "busy?: boolean")"
+check "o sfx_desk toca o clique" "$(/usr/bin/grep -A8 '^def sfx_desk' "$A/scripts/track_cinema.py" | /usr/bin/grep -q 'p.get("click")' && echo ok || echo fail)"
+check "vocabulario.md documenta o Cursor" "$(tem "$SK/references/vocabulario.md" "\`Cursor\`")"
+
+echo "9. motion blur real nas transições rápidas (opt-in no film.json)"
+# "motionBlur": true vira {samples: 8, shutter: 180} na timeline; objeto passa com os valores
+# dele; sem a chave, null; valor fora da faixa recusa. O Film.tsx usa o CameraMotionBlur.
+MB="$TMP/motionblur"; mkdir -p "$MB/src" "$MB/scripts"; cp "$A/scripts/build-timeline.py" "$MB/scripts/"
+mb() { # mb <valor json ou -> → imprime o motionBlur do tl-master.json, ou ERRO
+  "$PY" - "$MB/film.json" "$1" <<'PY'
+import json, sys
+film = {"master": [{"type": "statement", "props": {"groups": []}}, {"type": "statement", "in": "whip", "props": {"groups": []}}]}
+if sys.argv[2] != "-":
+    film["motionBlur"] = json.loads(sys.argv[2])
+json.dump(film, open(sys.argv[1], "w"))
+PY
+  if "$PY" "$MB/scripts/build-timeline.py" master > "$TMP/mb.log" 2>&1; then
+    "$PY" -c 'import json, sys; print(json.dumps(json.load(open(sys.argv[1])).get("motionBlur", "ausente")))' "$MB/src/tl-master.json"
+  else echo ERRO; fi
+}
+check "true vira samples 8 e shutter 180" "$([ "$(mb true)" = '{"samples": 8, "shutter": 180}' ] && echo ok || echo fail)"
+check "objeto passa com os valores dele" "$([ "$(mb '{"samples": 4, "shutter": 90}')" = '{"samples": 4, "shutter": 90}' ] && echo ok || echo fail)"
+check "sem a chave, null" "$([ "$(mb -)" = 'null' ] && echo ok || echo fail)"
+check "false, null" "$([ "$(mb false)" = 'null' ] && echo ok || echo fail)"
+check "samples fora da faixa recusa" "$([ "$(mb '{"samples": 40}')" = ERRO ] && echo ok || echo fail)"
+check "shutter fora da faixa recusa" "$([ "$(mb '{"shutter": 400}')" = ERRO ] && echo ok || echo fail)"
+check "o Film.tsx usa o CameraMotionBlur" "$(tem "$A/src/Film.tsx" 'CameraMotionBlur')"
+check "vocabulario.md documenta o motionBlur" "$(tem "$SK/references/vocabulario.md" '`motionBlur`')"
+
+echo "10. dependências do template: nenhuma sem uso"
+# Toda dependência do package.json é importada em src/ ou scripts/ do template, ou está na lista
+# abaixo com o motivo; o package-lock.json lista as mesmas dependências diretas.
+"$PY" - "$A" > "$TMP/deps.log" 2>&1 <<'PY'
+import json, pathlib, re, sys
+raiz = pathlib.Path(sys.argv[1])
+fora = {
+    "@remotion/cli": "o npx remotion render/studio do qa.sh, do final.sh e do package.json",
+    "@remotion/bundler": "o render da galeria e o stills.mjs",
+    "@remotion/renderer": "o render da galeria e o stills.mjs",
+    "react-dom": "par do react, carregado pelo Remotion",
+    "fast-uri": "versão mínima travada de dependência indireta (segurança)",
+}
+pkg = json.loads((raiz / "package.json").read_text())
+deps = pkg.get("dependencies", {})
+codigo = "\n".join(p.read_text(encoding="utf-8") for d in ("src", "scripts") for p in (raiz / d).rglob("*") if p.suffix in (".ts", ".tsx", ".mjs", ".js"))
+for dep in sorted(deps):
+    usa = re.search(r"""from ["']%s(?:/[^"']*)?["']""" % re.escape(dep), codigo)
+    print(dep, "ok" if usa or dep in fora else "sem-uso")
+lock = json.loads((raiz / "package-lock.json").read_text())["packages"][""]
+print("lock", "ok" if lock.get("dependencies") == deps and lock.get("devDependencies") == pkg.get("devDependencies") else "diverge")
+PY
+while read -r dep st; do
+  if [ "$dep" = lock ]; then check "o package-lock.json lista as mesmas dependências diretas" "$([ "$st" = ok ] && echo ok || echo fail)"
+  else check "$dep tem uso (ou motivo na lista)" "$([ "$st" = ok ] && echo ok || echo fail)"; fi
+done < "$TMP/deps.log"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -60,12 +60,14 @@ export const ip = (
 // A serifada da ênfase é opcional: projeto antigo sem serif-italic.ttf cai no Georgia e segue.
 const FONTE_PRINCIPAL = "PlusJakartaSans.ttf";
 
-export const useFont = () => {
-  const [handle] = useState(() => delayRender("font"));
-  useEffect(() => {
+// Uma carga só por página: o useFont do filme e a cena que mede texto (fontesProntas) esperam a
+// mesma promessa, então a medida nunca sai na fonte de reserva.
+let carga: Promise<unknown> | null = null;
+export const fontesProntas = () => {
+  if (!carga) {
     const principal = new FontFace("Plus Jakarta Sans", `url(${staticFile(FONTE_PRINCIPAL)})`, { weight: "200 800" });
     const serif = new FontFace("Motion Serif", `url(${staticFile("serif-italic.ttf")})`, { style: "italic", weight: "400" });
-    Promise.all([
+    carga = Promise.all([
       principal
         .load()
         .then((f) => document.fonts.add(f))
@@ -81,7 +83,15 @@ export const useFont = () => {
         .load()
         .then((f) => document.fonts.add(f))
         .catch((e) => console.error(e)),
-    ]).then(() => continueRender(handle));
+    ]);
+  }
+  return carga;
+};
+
+export const useFont = () => {
+  const [handle] = useState(() => delayRender("font"));
+  useEffect(() => {
+    fontesProntas().then(() => continueRender(handle));
   }, [handle]);
 };
 
