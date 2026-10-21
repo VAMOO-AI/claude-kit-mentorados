@@ -103,13 +103,13 @@ fundo escuro e cor de destaque); o **lançamento de app** é `presets/lancamento
 
 Cenas sem preset próprio: entram em qualquer `film.json` pelo `type`, com som no `SFX_BY_TYPE` e
 exemplo na galeria (`EXEMPLOS` do `galeria.py`). Seguem a doutrina: um foco por vez, saída mais
-curta que a entrada e chegada com overshoot só na escala.
+curta que a entrada e overshoot só no que chega com velocidade (regra 5).
 
 | `type` | O que faz | Quando usar | `props` |
 |---|---|---|---|
 | `ranking` | posições de baixo para cima: cada linha entra com a barra crescendo e o número contando (pousa com `SETTLE`), e a anterior esmaece; o 1º entra por último com antecipação, overshoot de escala, hit-stop de 3 quadros e a barra na cor de dado (`C.brand`) | "quem ganha", onde o tempo ou o dinheiro vai, top 3 a 6 (número só com fonte) | `items` `[{label, v, prefix?, suffix?}]` (a ordem sai do `v`), `title?`, `kicker?`, `step?` (padrão 15), `low?` (menor é melhor) |
-| `versus` | dois lados lado a lado (também no 9:16): a coluna da esquerda cresce com o número contando, depois a da direita; no veredito o melhor ganha a cor de dado e o selo pousa com overshoot, o outro esmaece | antes e depois, nós contra o jeito antigo, plano A contra B (número só com fonte) | `left`, `right` `{label, v, prefix?, suffix?}`, `title?`, `kicker?`, `low?` (menor é melhor), `badge?` (padrão `melhor`), `step?` (padrão 30); com fala: esquerda na 1ª, direita na 2ª, veredito na 3ª |
-| `map` | mapa-múndi do Natural Earth (domínio público, `world-atlas` 110m) com a câmera assentando de longe para perto no enquadramento da região e das paradas; a região acende na cor de destaque; a rota se desenha trecho a trecho em arco de círculo máximo, cada parada acende quando a linha chega e o nome entra 4 quadros depois; a última pousa com overshoot e pulsa | de onde para onde (entrega, expansão, viagem, cliente em outra cidade), "estamos aqui" | `route` `[{name?, at: [lon, lat]}]` (2–6), `region?` (nome em inglês, como no Natural Earth: `Brazil`), `title?`, `kicker?`, `seg?` (frames por trecho, padrão 24) |
+| `versus` | dois lados lado a lado (também no 9:16): a coluna da esquerda cresce com o número contando, depois a da direita; no veredito o melhor ganha a cor de dado e o selo aparece e assenta sem passar do alvo, o outro esmaece | antes e depois, nós contra o jeito antigo, plano A contra B (número só com fonte) | `left`, `right` `{label, v, prefix?, suffix?}`, `title?`, `kicker?`, `low?` (menor é melhor), `badge?` (padrão `melhor`), `step?` (padrão 30); com fala: esquerda na 1ª, direita na 2ª, veredito na 3ª |
+| `map` | mapa-múndi do Natural Earth (domínio público, `world-atlas` 110m) com a câmera assentando de longe para perto no enquadramento da região e das paradas; a região acende na cor de destaque; a rota se desenha trecho a trecho em arco de círculo máximo, cada parada acende quando a linha chega e o nome entra 4 quadros depois; a última acende e pulsa | de onde para onde (entrega, expansão, viagem, cliente em outra cidade), "estamos aqui" | `route` `[{name?, at: [lon, lat]}]` (2–6), `region?` (nome em inglês, como no Natural Earth: `Brazil`), `title?`, `kicker?`, `seg?` (frames por trecho, padrão 24) |
 | `morph` | uma caixa só morfa de estado em estado (círculo, pílula, losango, cartão, coluna, quadrado, barra): largura, altura, canto, giro e cor somam uma mola por troca, então a troca nova parte de onde a anterior estiver; a palavra do estado entra depois da caixa assentar e sai antes da próxima; com `loop`, volta à 1ª forma e o fim casa com o começo | etapas de um processo, fases, "uma coisa que vira outra" (2–8 estados, uma palavra cada) | `states` `[{label, shape? (0–7), color? (brand/fill/light)}]`, `kicker?`, `step?` (padrão 30), `loop?` (padrão `true`) |
 | `swap` | a frase A entra letra a letra; na troca, um portal em SVG (elipses em arame) abre embaixo da linha e cada letra de A voa por ele até o lugar dela em B, medido na fonte real; letra que sobra mergulha no portal, letra que falta nasce dele e pousa com overshoot | virada de ideia em duas frases curtas ("Ideia solta" → "Plano pronto"), antes e depois, nome antigo e novo | `from`, `to`, `kicker?`, `bg?` (`night`/`paper`), `at?` (frame da troca; padrão: a 2ª fala, ou 45) |
 
@@ -226,7 +226,9 @@ com a doutrina) e a com a doutrina virou o padrão, **sem cor de foco no clímax
 movimento, o número continua na cor do texto. Tempos a 30 fps (1 quadro ≈ 33 ms). Filme antigo continua
 renderizando: os campos novos são opcionais; o que muda sem pedir é o `Breathe` (só no fim), a
 corrente de transição no lugar do ciclo, os tempos de `Pill`, `Card`, `Cta` e `Outro`, e a contagem do
-`Numbers` (fora do foco, 18 quadros com `SETTLE`; eram 22 com `EASE`).
+`Numbers` (fora do foco, 18 quadros com `SETTLE`; eram 22 com `EASE`). Em 21/10/2026, depois de outro
+filme A/B, ele adotou também o overshoot só no que chega com velocidade (regra 5) e o desfoque na
+troca no mesmo lugar (regra 9).
 
 1. **Um foco por vez.** Só um elemento faz o movimento principal; o apoio entra 4 a 14 quadros
    depois (130 a 470 ms), nunca junto. O que já foi dito esmaece para 35 % ou menos (o `numbers`
@@ -245,12 +247,14 @@ corrente de transição no lugar do ciclo, os tempos de `Pill`, `Card`, `Cta` e 
    | `SETTLE` | `Easing.bezier(0, .65, .51, .99)` | assentamento: contagem que pousa, logo que trava |
    | `EXIT` | `Easing.bezier(1, .02, .54, .42)` | saída que acelera, fade final |
    | `EASE_INOUT` | `Easing.bezier(.83, 0, .17, 1)` | viagem de estado a estado |
-   | `POP` | `Easing.out(Easing.back(1.7))` | overshoot de ~10 % (pílula, selo) |
+   | `POP` | `Easing.out(Easing.back(1.7))` | overshoot de ~10 % no que chega com velocidade (a letra que voa no `swap`) |
    | `ANTIC` | `Easing.back(1.7)` | antecipação: recua antes de ir |
 
    O `Counter` aceita `ease` (padrão `EASE`): contagem de apoio com `SETTLE`, a do clímax quase linear.
-5. **Antecipação, overshoot, "snap, then hold" e hit-stop**, só no foco (o número do clímax, o
-   selo, a pílula do CTA): recuo de 3 a 4 quadros (escala 1 → 0,92); overshoot numa propriedade só
+5. **Antecipação, overshoot, "snap, then hold" e hit-stop**, só no foco. **Overshoot só no que chega
+   com velocidade:** o que voou, caiu ou veio de uma antecipação (o número do clímax, o 1º do
+   `ranking`, a letra do `swap`). O que entra por máscara, fade ou escala (o selo do `versus`, a
+   pílula do CTA, a forma do `morph`, a parada do `map`) assenta com `SETTLE`, sem passar do alvo. Recuo de 3 a 4 quadros (escala 1 → 0,92); overshoot numa propriedade só
    (escala ou rotação, nunca posição nem o dígito); a mudança em 1 a 6 quadros e depois segura;
    `hitStop(f, at, hold = 3)` congela o elemento no impacto enquanto o resto segue; o som sai
    1 quadro antes do contato. Bounce e elastic, não. No `numbers`, `"focus": "last"` faz isso com o
@@ -268,6 +272,12 @@ corrente de transição no lugar do ciclo, os tempos de `Pill`, `Card`, `Cta` e 
    termina de entrar com segundos sobrando é erro de planejamento: o `qa.sh` avisa cena parada.
 8. **Um impacto por trecho.** `mark: "hit"` e cue de impacto não se repetem dentro de ~90 quadros
    (3 s): o segundo apaga o clímax.
+9. **Desfoque na troca no mesmo lugar.** Quando dois estados ocupam o mesmo ponto ao mesmo tempo (os
+   grupos do `statement`), o que sai desfoca até 2 px e o que entra parte de 2 px, só durante a troca.
+   É `filter: blur()` calculado pelo frame, de 2 a 5 px, nunca acima de 20 px nem num nó `preserve-3d`
+   (achata o 3D, `armadilhas.md`). Onde os estados não se sobrepõem (o rótulo do `morph` some antes do
+   próximo entrar), não entra: custa render e não aparece. Custo medido no filme de teste: o trecho de
+   271 quadros com as trocas foi de 17,8–19,6 s para 23,6–24,7 s.
 
 Checklist da folha: dá para dizer qual é o foco em cada quadro? Quantos tipos de transição o filme
 tem, e a direção é a mesma? Há pausa visível antes do clímax? O número do clímax passa e assenta, ou
@@ -278,4 +288,5 @@ HyperFrames, `heygen-com/hyperframes`, Apache-2.0 (regras 1, 2, 3, 6 e 7); `moti
 `diffusionstudio/lottie`, Copyright (c) 2026 Diffusion Studio Inc., MIT (curvas por comportamento,
 regras 4 e 5); claude-animation, `buildwithhanif/claude-animation-skill`, Copyright (c) 2026 Hanif,
 MIT (snap then hold, overshoot, hit-stop); ClaudeAnimationBase, `JohnHeibel/ClaudeAnimationBase`,
-Copyright (c) 2026 John Heibel, MIT (antecipação, um foco por vez).
+Copyright (c) 2026 John Heibel, MIT (antecipação, um foco por vez); `emilkowalski/skills`, Copyright
+(c) 2026 Emil Kowalski, MIT (overshoot só com velocidade, desfoque na troca: regras 5 e 9).

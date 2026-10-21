@@ -9,7 +9,7 @@ import type { GeometryCollection, Topology } from "topojson-specification";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import world from "world-atlas/countries-110m.json";
 import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
-import { Bg, C, EASE_INOUT, POP, SETTLE, ip, useF } from "./lib";
+import { Bg, C, EASE_INOUT, SETTLE, ip, useF } from "./lib";
 import { enquadramento } from "./tempos.mjs";
 
 
@@ -35,7 +35,7 @@ const arco = (paradas: Parada[], u: number, passos = 48) => {
 // props: route [{name?, at: [lon, lat]}] (2–6 paradas), region? (nome do país em inglês, como no
 // Natural Earth: "Brazil"), title?, kicker?, seg? (frames por trecho, padrão 24). O mapa entra com a
 // câmera assentando; a região acende; a rota sai na 2ª fala (ou no frame 30) e cada parada acende
-// quando a linha chega; a última pousa com overshoot e pulsa.
+// quando a linha chega; a última acende e pulsa.
 export const MapRoute: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
@@ -89,7 +89,7 @@ export const MapRoute: React.FC<SP> = (p) => {
           if (f < t - (j === 0 ? 2 : 0)) return null;
           const [x, y] = xy(s.at);
           const fim = j === ultima;
-          const pop = ip(f, [t, t + 10], [0, 1], POP);
+          const pop = ip(f, [t, t + 10], [0, 1], SETTLE); // a parada acende (não voou): sem overshoot
           const ping = fim ? ((f - t) % 30) / 30 : -1;
           return (
             <g key={j}>

@@ -105,6 +105,38 @@ while read -r chave res extra; do
 done < "$TMP/r.log"
 /usr/bin/grep -q " ok\| fail" "$TMP/r.log" || { cat "$TMP/r.log"; falhas=$((falhas+1)); }
 
+echo "4. doutrina B (21/10/2026): desfoque na troca no mesmo lugar e overshoot só no que chega com velocidade"
+"$PY" - "$SRC" "$SK/references/vocabulario.md" > "$TMP/b.log" 2>&1 <<'PY2'
+import pathlib, re, sys
+src, voc = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+fs = (src / "film-scenes.tsx").read_text(encoding="utf-8")
+ex = (src / "scenes-extras.tsx").read_text(encoding="utf-8")
+mp = (src / "scenes-mapa.tsx").read_text(encoding="utf-8")
+def bloco(t, ini):
+    i = t.find(ini); return t[i:t.find("\n};", i)] if i >= 0 else ""
+def r(desc, ok): print(("ok    " if ok else "FALHA ") + desc)
+st = bloco(fs, "export const Statement")
+r("statement: desfoque de 2 px só na troca (filter blur no span da linha)", "blur(" in st and "[0, 2]" in st and "[2, 0]" in st)
+pill = fs[fs.find("const Pill"):fs.find("\n", fs.find("const Pill") + 200)]
+r("Pill: entra sem overshoot (sem POP)", "const Pill" in fs and "POP" not in bloco(fs, "const Pill") and "SETTLE" in fs[fs.find("const Pill"):fs.find("const Pill") + 700])
+mo = bloco(ex, "export const MorphShape")
+r("morph: a caixa nasce com SETTLE, sem POP", "[0, 1], SETTLE)" in mo and "POP" not in mo.split("const nasce")[1].split("\n")[0])
+r("morph: o rótulo não leva desfoque (não há dois estados juntos)", "blur(" not in mo)
+vs = bloco(ex, "export const Versus")
+r("versus: selo de 0,9 a 1 com SETTLE, sem POP", "POP" not in vs and "0.9 + 0.1 * sel" in vs and "SETTLE" in vs)
+r("map: a parada assenta com SETTLE, sem POP", "POP" not in bloco(mp, "export const MapRoute") and re.search(r"const pop = ip\(f, \[t, t \+ 10\], \[0, 1\], SETTLE\)", mp) is not None)
+sw = bloco(ex, "export const LetterSwap")
+r("swap: as letras que voam mantêm o POP", sw.count("POP") >= 2)
+r("numbers e ranking: o foco mantém ANTIC", "ANTIC" in bloco(fs, "export const Numbers") and "ANTIC" in bloco(ex, "export const Ranking"))
+vz = re.sub(r"\s+", " ", voc)
+r("vocabulario: regra do desfoque (2 a 5 px, nunca acima de 20 px, nem no preserve-3d)", "2 a 5 px" in vz and "20 px" in vz and "preserve-3d" in vz.split("2 a 5 px")[1][:400])
+r("vocabulario: overshoot só no que chega com velocidade", "chega com velocidade" in vz)
+r("vocabulario: o selo do versus não pousa com overshoot", "o selo pousa com overshoot" not in vz)
+r("vocabulario: o POP não é mais da pílula nem do selo", "(pílula, selo)" not in vz)
+PY2
+while IFS= read -r l; do printf '  %s\n' "$l"; done < "$TMP/b.log"
+falhas=$((falhas + $(/usr/bin/grep -c '^FALHA\|Traceback' "$TMP/b.log")))
+
 echo
 if [ "$falhas" = 0 ]; then echo "tudo ok"; else echo "$falhas falha(s)"; fi
 [ "$falhas" = 0 ]

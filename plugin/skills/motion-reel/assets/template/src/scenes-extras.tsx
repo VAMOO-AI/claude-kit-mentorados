@@ -228,7 +228,7 @@ export const MorphShape: React.FC<SP> = (p) => {
   const at = temposMorph(states.length, p.beats.map((_: number, k: number) => bt(p, k)), t0, step, loop);
   const forma = (k: number) => FORMAS[(seq[k].shape ?? (k === seq.length - 1 && loop ? 0 : k)) % FORMAS.length];
   const tinta = (k: number) => TINTAS[seq[k].color ?? ORDEM[(k === seq.length - 1 && loop ? 0 : k) % ORDEM.length]];
-  const mola = (k: number) => spring({ frame: f - at[k], fps: 30, config: { damping: 21, stiffness: 150, mass: 0.7 } }); // amortecida: sem passar do alvo (o overshoot fica só no POP da entrada)
+  const mola = (k: number) => spring({ frame: f - at[k], fps: 30, config: { damping: 21, stiffness: 150, mass: 0.7 } }); // amortecida: sem passar do alvo
   const prop = (key: keyof Forma) =>
     seq.reduce((v, _, k) => (k === 0 ? forma(0)[key] : v + (forma(k)[key] - forma(k - 1)[key]) * mola(k)), 0);
   const cur = at.reduce((c, a, k) => (f >= a ? k : c), 0);
@@ -236,8 +236,8 @@ export const MorphShape: React.FC<SP> = (p) => {
   const w = prop("w") * lado;
   const h = prop("h") * lado;
   const r = Math.min(w, h) * Math.min(0.5, prop("r"));
-  // entrada da caixa: antecipação curta e pop (o foco); o resto da cena é mola
-  const nasce = ip(f, [t0, t0 + 12], [0, 1], POP);
+  // entrada da caixa: cresce e assenta (o foco); o resto da cena é mola
+  const nasce = ip(f, [t0, t0 + 12], [0, 1], SETTLE); // nasce por escala, sem velocidade: assenta sem passar do alvo
   // a palavra: entra 8 quadros depois da troca (apoio depois do foco), sai em 4 antes da próxima
   const prox = cur + 1 < at.length ? at[cur + 1] : 1e9; // 1e9 = sem próxima troca
   const tin = at[cur] + (cur === 0 ? 4 : 8);
@@ -353,7 +353,7 @@ export const Ranking: React.FC<SP> = (p) => {
 // props: left {label, v, prefix?, suffix?}, right {...}, title?, kicker?, low? (true = menor é
 // melhor), badge? (selo do melhor, padrão "melhor"), step? (padrão 30). Dois lados, lado a lado nos
 // dois formatos: a coluna da esquerda cresce na 1ª fala, a da direita na 2ª; depois o melhor
-// ganha a cor de dado, o selo pousa com overshoot e o outro esmaece.
+// ganha a cor de dado, o selo aparece e assenta (sem passar do alvo) e o outro esmaece.
 export const Versus: React.FC<SP> = (p) => {
   const f = useF();
   const L = useL();
@@ -387,7 +387,7 @@ export const Versus: React.FC<SP> = (p) => {
         const h = barMax * (it.v / max) * ip(f, [a, a + 20], [0, 1], SETTLE);
         const x = L.l + i * (colW + (L.v ? 40 : 120));
         const cor = ganha ? C.brandOnDark : "rgba(255,255,255,0.22)";
-        const sel = ip(f, [veredito, veredito + 10], [0, 1], POP);
+        const sel = ip(f, [veredito, veredito + 10], [0, 1], SETTLE); // o selo aparece (não voou): assenta sem passar
         return (
           <div key={i} style={{ position: "absolute", left: x, width: colW, top: 0, height: L.H, opacity: (f >= a - 2 ? 1 : 0) * (perde ? 1 - 0.65 * ip(f, [veredito, veredito + 8], [0, 1]) : 1) }}>
             <div style={{ position: "absolute", left: 0, right: 0, top: base - h - num * 1.25, textAlign: "center", opacity: ip(f, [a, a + 6], [0, 1]) }}>
@@ -399,7 +399,7 @@ export const Versus: React.FC<SP> = (p) => {
             </div>
             {i === melhor && f >= veredito ? (
               <div style={{ position: "absolute", left: 0, right: 0, top: base - h - num * 1.25 - (L.v ? 86 : 76), textAlign: "center" }}>
-                <span style={{ display: "inline-block", background: C.white, color: C.ink, borderRadius: 100, padding: "12px 30px", fontSize: L.v ? 32 : 28, fontWeight: 800, transform: `scale(${sel})`, opacity: Math.min(1, sel * 3) }}>{p.badge ?? "melhor"}</span>
+                <span style={{ display: "inline-block", background: C.white, color: C.ink, borderRadius: 100, padding: "12px 30px", fontSize: L.v ? 32 : 28, fontWeight: 800, transform: `scale(${0.9 + 0.1 * sel})`, opacity: Math.min(1, sel * 3) }}>{p.badge ?? "melhor"}</span>
               </div>
             ) : null}
           </div>
