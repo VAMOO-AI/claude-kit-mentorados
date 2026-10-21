@@ -29,7 +29,7 @@ Uma mensagem só, com o que o contexto não responde. Não comece a escrever cen
 
 ## 2. Direção
 
-- **Uma frase de estética.** Exemplo: "tipografia pesada em papel e night, um azul de dado, impacto pela coreografia".
+- **Uma frase de estética.** Exemplo: "tipografia pesada em papel e night, uma cor de dado, impacto pela coreografia".
 - **Paleta com papéis:** fundo, texto, destaque (dado) e apoio. A paleta é a `C` do `src/lib.tsx`; troque as cores e mantenha os papéis.
 - **Um foco por vez.** Uma ideia por tela; o elemento que importa entra sozinho ou primeiro.
 - **Intensidade em número**, para o roteiro dizer quanto, não "suave" ou "forte". Referência do template a 30 fps (1 frame ≈ 33 ms):
@@ -47,7 +47,7 @@ Curva da casa: `cubic-bezier(.22,1,.36,1)` (`EASE`). A doutrina de motion (`voca
 - explosão de partículas, glow, neon, lens flare, chão de grade, fundo piscando, anéis de choque;
 - gradiente decorativo e vidro fora dos presets `glass` e `logo3d`;
 - RGB split e tremor de câmera contínuo (o `shake` é só no impacto);
-- ênfase em itálico ou cor (a exceção é o preset de apresentação); laranja em dado ou CTA; mono fora de comando;
+- ênfase em itálico ou cor (a exceção é o preset de apresentação); acento de conteúdo em dado ou CTA; mono fora de comando;
 - logo redesenhado ou esticado; número sem fonte; comando que não existe no produto;
 - cartão provisório ("Lorem", "Texto aqui") em render que vai para a pessoa.
 
@@ -115,7 +115,7 @@ As que mais aparecem num roteiro novo (o resto está em `armadilhas.md`):
 - **Palavra gigante cortada na borda:** `fit()` estima 0,56 em por caractere; confira na folha.
 - **Cena sem voz que espera fala:** `numbers` sem fala mostra todos os itens juntos; o `sub` do `title` não aparece.
 - **3D achatado:** `filter` no nó `preserve-3d`.
-- **Laranja sem contraste** sobre o azul de destaque.
+- **Acento de conteúdo sem contraste** sobre a cor de destaque.
 - **Peça curta com `mark: "finale"`** passa do loudness.
 - **Texto na zona dos botões** da rede (o `safe.jpg` do `qa.sh` mostra a guia).
 

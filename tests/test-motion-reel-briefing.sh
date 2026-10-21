@@ -147,6 +147,37 @@ check "outro: fade de 16 quadros com EXIT" "$(tem "$A/src/film-scenes.tsx" "[p.l
 check "transicoes.md: repita a corrente" "$(tem "$SK/references/transicoes.md" "Repita a corrente; varie só com motivo")"
 check "vocabulario.md: doutrina como padrão, sem cor de foco" "$(tem "$SK/references/vocabulario.md" "sem cor de foco no clímax")"
 
+echo "5. achados da revisão do lote 4"
+# lineFracs validado pelo build-timeline; focus/breathe fora da leitura; cut não vale como corrente;
+# o exemplo e os presets saem sem aviso de leitura curta; a 1ª linha do statement segue first(p).
+L5="$TMP/linefracs"; mkdir -p "$L5/src" "$L5/scripts"; cp "$A/scripts/build-timeline.py" "$L5/scripts/"
+lf() { # lf <groups json> → exit do build-timeline
+  printf '{"master": [{"type": "statement", "vo": [], "min": 60, "props": {"groups": %s}}]}' "$1" > "$L5/film.json"
+  "$PY" "$L5/scripts/build-timeline.py" > "$TMP/lf.log" 2>&1
+}
+check "lineFracs certo passa (veio $?)" "$([ "$(lf '[{"beat": 0, "lines": ["A", "B"], "lineFracs": [0, 0.6]}]'; echo $?)" = 0 ] && echo ok || echo fail)"
+for caso in 'fora de [0, 1]:[{"beat": 0, "lines": ["A", "B"], "lineFracs": [0, 1.4]}]' \
+            'fora de ordem:[{"beat": 0, "lines": ["A", "B"], "lineFracs": [0.6, 0.2]}]' \
+            'antes do frac do grupo:[{"beat": 0, "frac": 0.5, "lines": ["A", "B"], "lineFracs": [0.3, 0.8]}]' \
+            'próximo grupo:[{"beat": 0, "lines": ["A", "B"], "lineFracs": [0, 0.6]}, {"beat": 0, "frac": 0.45, "lines": ["C"]}]' \
+            'um número por linha:[{"beat": 0, "lines": ["A", "B"], "lineFracs": [0]}]'; do
+  lf "${caso#*:}"; rc=$?
+  check "lineFracs recusa: ${caso%%:*} (veio $rc)" "$([ "$rc" != 0 ] && /usr/bin/grep -qF "${caso%%:*}" "$TMP/lf.log" && echo ok || echo fail)"
+done
+printf '{"master": [{"type": "numbers", "vo": [], "min": 90, "props": {"focus": "last", "breathe": true, "items": [{"v": 3, "label": "cliques"}]}}]}' > "$L5/film.json"
+"$PY" "$L5/scripts/build-timeline.py" > /dev/null 2>&1
+check "focus e breathe não contam na leitura" "$("$PY" -c 'import json,sys; print("ok" if json.load(open(sys.argv[1]))["scenes"][0]["read"]["words"] == 2 else "fail")' "$L5/src/tl-master.json" 2>/dev/null || echo fail)"
+printf '{"current": "cut", "master": [{"type": "statement", "vo": [], "min": 60, "props": {"groups": [{"beat": 0, "lines": ["A"]}]}}]}' > "$L5/film.json"
+"$PY" "$L5/scripts/build-timeline.py" > "$TMP/cut.log" 2>&1; rc=$?
+check "current: cut recusa dizendo que cut é transição mas não corrente" "$([ "$rc" != 0 ] && /usr/bin/grep -qF "não vale como corrente" "$TMP/cut.log" && echo ok || echo fail)"
+for f in film.json presets/lancamento.json presets/apresentacao.json presets/lancamento-app.json presets/explicativo.json; do
+  Z5="$TMP/sem-aviso"; rm -rf "$Z5"; mkdir -p "$Z5/src" "$Z5/scripts"; cp "$A/scripts/build-timeline.py" "$Z5/scripts/"; cp "$A/$f" "$Z5/film.json"
+  [ "$f" = film.json ] && cp "$A/vo.json" "$Z5/"
+  "$PY" "$Z5/scripts/build-timeline.py" > "$TMP/sem-aviso.log" 2>&1
+  check "$f sai sem aviso de leitura curta" "$(/usr/bin/grep -qF "leitura curta" "$TMP/sem-aviso.log" && echo fail || echo ok)"
+done
+check "statement: a 1ª linha com lineFracs fica na entrada do grupo (first)" "$(tem "$A/src/film-scenes.tsx" 'lf !== undefined && li > 0 && lf > (g.frac ?? 0)')"
+
 echo
 if [ "$falhas" = 0 ]; then echo "tudo ok"; else echo "$falhas falha(s)"; fi
 [ "$falhas" = 0 ]

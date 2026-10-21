@@ -164,7 +164,8 @@ Regras que dirigem o movimento. O filme de teste foi comparado nas duas versões
 com a doutrina) e a com a doutrina virou o padrão, **sem cor de foco no clímax**: o foco é só
 movimento, o número continua na cor do texto. Tempos a 30 fps (1 quadro ≈ 33 ms). Filme antigo continua
 renderizando: os campos novos são opcionais; o que muda sem pedir é o `Breathe` (só no fim), a
-corrente de transição no lugar do ciclo e os tempos de `Pill`, `Card`, `Cta` e `Outro`.
+corrente de transição no lugar do ciclo, os tempos de `Pill`, `Card`, `Cta` e `Outro`, e a contagem do
+`Numbers` (fora do foco, 18 quadros com `SETTLE`; eram 22 com `EASE`).
 
 1. **Um foco por vez.** Só um elemento faz o movimento principal; o apoio entra 4 a 14 quadros
    depois (130 a 470 ms), nunca junto. O que já foi dito esmaece para 35 % ou menos (o `numbers`

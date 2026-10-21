@@ -43,9 +43,13 @@ export const Statement: React.FC<SP> = (p) => {
           <AbsoluteFill key={gi} style={{ justifyContent: "center", paddingLeft: L.l, paddingRight: L.r }}>
             {g.lines.map((ln, li) => {
               const hol = g.hollowLast && li === g.lines.length - 1;
+              // lineFracs: a linha entra na fração da fala que a diz. A 1ª linha (e a que não passa do frac do grupo)
+              // fica com a entrada do grupo: na 1ª cena, first(p), antes do corte (a transição nunca revela tela vazia).
+              const lf = g.lineFracs?.[li];
+              const lineAt = lf !== undefined && li > 0 && lf > (g.frac ?? 0) ? Math.max(at + li * 5, bt(p, g.beat, lf) - 6) : at + li * 5;
               return (
                 <div key={li}>
-                  <MaskUp f={f} at={g.lineFracs?.[li] !== undefined ? Math.max(at + li * 5, bt(p, g.beat, g.lineFracs[li]) - 6) : at + li * 5} out={out !== undefined ? out + li * 2 : undefined} dur={16}>
+                  <MaskUp f={f} at={lineAt} out={out !== undefined ? out + li * 2 : undefined} dur={16}>
                     <span style={{ ...H1, fontSize: fs, ...(hol ? hollow(dark ? C.white : C.brand, 3, bg) : { color: fg }) }}>{ln}</span>
                   </MaskUp>
                 </div>

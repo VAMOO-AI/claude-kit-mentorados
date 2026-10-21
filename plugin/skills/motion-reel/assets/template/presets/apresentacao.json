@@ -17,6 +17,9 @@
    "type": "orbit",
    "vo": [],
    "min": 120,
+   "read": [
+    "Eu transformo ideia em produto que vende."
+   ],
    "in": "iris",
    "energy": 2,
    "props": {
@@ -28,7 +31,12 @@
   {
    "type": "highlights",
    "vo": [],
-   "min": 135,
+   "min": 150,
+   "read": [
+    "+120 projetos entregues",
+    "98% clientes que voltam",
+    "12 anos de estrada"
+   ],
    "in": "panel",
    "mark": "drop",
    "energy": 3,
@@ -87,6 +95,9 @@
    "type": "orbit",
    "vo": [],
    "min": 120,
+   "read": [
+    "Eu transformo ideia em produto que vende."
+   ],
    "in": "iris",
    "energy": 2,
    "props": {
@@ -98,7 +109,12 @@
   {
    "type": "highlights",
    "vo": [],
-   "min": 135,
+   "min": 150,
+   "read": [
+    "+120 projetos entregues",
+    "98% clientes que voltam",
+    "12 anos de estrada"
+   ],
    "in": "panel",
    "mark": "drop",
    "energy": 3,

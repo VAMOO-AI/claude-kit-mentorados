@@ -25,8 +25,10 @@ CURRENT = "whip"  # corrente padrão (doutrina de motion, regra 6): repita a cor
 D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "echo": 12, "cut": 0}
 FORMATS = ("master", "reel")
 WPS, PAD = 2.5, 0.5  # leitura: palavras por segundo + respiro da cena
-# Props que não são leitura: arquivo, tipo, cor e a moldura de UI (sessão, arquivos, status, painel ilustrativo).
-NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files", "working", "motif", "ui", "button", "done", "word"}
+# Props que não são leitura: arquivo, tipo, cor, a moldura de UI (sessão, arquivos, status, painel ilustrativo) e os
+# controles de movimento (clímax do numbers, zoom ambiente).
+NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files", "working", "motif", "ui", "button", "done", "word",
+            "focus", "breathe"}
 
 
 def texts():
@@ -72,12 +74,38 @@ def read_need(items):
     return words, round(words / WPS + PAD, 1)
 
 
+def check_line_fracs(name, idx, s):
+    """`lineFracs` do statement: um por linha, em [0, 1], em ordem, a partir do `frac` do grupo e antes do `frac` do
+    próximo grupo da mesma fala (senão a linha entra por cima do grupo seguinte)."""
+    groups = (s.get("props") or {}).get("groups") or []
+    for gi, g in enumerate(groups):
+        lf = g.get("lineFracs")
+        if lf is None:
+            continue
+        onde = f"!! {name} cena {idx} ({s['type']}) grupo {gi}: lineFracs {lf}"
+        if not isinstance(lf, list) or len(lf) != len(g.get("lines", [])) or not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in lf):
+            sys.exit(f"{onde} precisa de um número por linha ({len(g.get('lines', []))})")
+        if any(not 0 <= x <= 1 for x in lf):
+            sys.exit(f"{onde} fora de [0, 1]")
+        if any(b < a for a, b in zip(lf, lf[1:])):
+            sys.exit(f"{onde} fora de ordem")
+        base = g.get("frac", 0)
+        if any(x < base for x in lf):
+            sys.exit(f"{onde} começa antes do frac do grupo ({base})")
+        prox = next((h for h in groups[gi + 1:] if h.get("beat") == g.get("beat")), None)
+        if prox is not None and any(x >= prox.get("frac", 0) for x in lf):
+            sys.exit(f"{onde} chega no frac do próximo grupo da mesma fala ({prox.get('frac', 0)}): a linha entraria por cima dele")
+
+
 def build(name, spec, film, txt):
     out, cut, faltas, curtas = [], 0, [], []
     current = film.get("current", CURRENT)
     if current not in D or current == "cut":
+        if current == "cut":
+            sys.exit(f"!! {name}: `cut` é transição (corte seco), mas não vale como corrente; use {', '.join(t for t in D if t != 'cut')}")
         sys.exit(f"!! {name}: corrente '{current}' não existe ({', '.join(t for t in D if t != 'cut')})")
     for idx, s in enumerate(spec):
+        check_line_fracs(name, idx, s)
         pre, gap, post = s.get("pre", 6), s.get("gap", 8), s.get("post", 8)
         extra = s.get("gaps", [])
         beats, ends, t = [], [], pre
