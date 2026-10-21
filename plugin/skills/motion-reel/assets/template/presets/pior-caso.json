@@ -1,0 +1,307 @@
+{
+ "sobre": "bancada de pior caso (não é preset de filme): textos no limite documentado e no limite + 1, para a galeria (--pior-caso) e o qa.sh",
+ "letterbox": null,
+ "current": "whip",
+ "grande": [
+  "SOLUÇÃO",
+  "SOLUÇÕES"
+ ],
+ "master": [
+  {
+   "type": "launch",
+   "min": 90,
+   "props": {
+    "words": [
+     "Automatização"
+    ],
+    "name": "Automatização",
+    "kicker": "Pior caso: palavra longa no launch"
+   }
+  },
+  {
+   "type": "chapter",
+   "min": 90,
+   "props": {
+    "n": 1,
+    "name": "ÂNGELA SÃO JOÃO",
+    "count": "nome composto com acento em caixa alta",
+    "label": "Pior caso"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "pillname",
+   "min": 90,
+   "in": "cut",
+   "props": {
+    "name": "Juliana Barbieri",
+    "role": "nome sem “o”: o anel entra antes do nome",
+    "kicker": "Pior caso"
+   }
+  },
+  {
+   "type": "swap",
+   "min": 120,
+   "props": {
+    "from": "Planilha perdida",
+    "to": "Painel funcionou",
+    "kicker": "16 caracteres (o limite)"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "swap",
+   "min": 120,
+   "props": {
+    "from": "Atendimento lento",
+    "to": "Resposta imediata",
+    "kicker": "17 caracteres (limite + 1)"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "ranking",
+   "min": 165,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Para onde vai o faturamento do trimestre",
+    "items": [
+     {
+      "label": "Folha de pagamento",
+      "v": 128456.78,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Fornecedores",
+      "v": 97310.5,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Impostos",
+      "v": 54200.25,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Aluguel e condomínio",
+      "v": 23999.99,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Marketing",
+      "v": 12345.67,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Ferramentas",
+      "v": 1234.56,
+      "prefix": "R$ "
+     }
+    ]
+   },
+   "in": "cut"
+  },
+  {
+   "type": "ranking",
+   "min": 90,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Um item só",
+    "items": [
+     {
+      "label": "Reunião",
+      "v": 12,
+      "suffix": " h"
+     }
+    ]
+   },
+   "in": "cut"
+  },
+  {
+   "type": "versus",
+   "min": 120,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Custo por mês",
+    "low": true,
+    "left": {
+     "label": "Antes",
+     "v": 12345.67,
+     "prefix": "R$ "
+    },
+    "right": {
+     "label": "Depois",
+     "v": 1234.56,
+     "prefix": "R$ "
+    }
+   },
+   "in": "cut"
+  },
+  {
+   "type": "desk",
+   "min": 120,
+   "props": {
+    "kicker": "Pior caso",
+    "session": "RELATÓRIO DE COMISSÕES POR VENDEDOR",
+    "prompt": "lê as 47 planilhas de vendas de 2025, cruza com o CRM e me manda o relatório de comissão por vendedor com o total do trimestre",
+    "working": "Cruzando as planilhas com o CRM…",
+    "files": [
+     [
+      "relatorios/comissoes-por-vendedor-2025-trimestre-3.md",
+      1284
+     ]
+    ],
+    "reply": "Pronto! 47 planilhas lidas, 1.284 vendas cruzadas com o CRM e o relatório de comissão por vendedor está em relatorios/."
+   },
+   "in": "cut"
+  }
+ ],
+ "reel": [
+  {
+   "type": "launch",
+   "min": 90,
+   "props": {
+    "words": [
+     "Automatização"
+    ],
+    "name": "Automatização",
+    "kicker": "Pior caso: palavra longa no launch"
+   }
+  },
+  {
+   "type": "chapter",
+   "min": 90,
+   "props": {
+    "n": 1,
+    "name": "ÂNGELA SÃO JOÃO",
+    "count": "nome composto com acento em caixa alta",
+    "label": "Pior caso"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "pillname",
+   "min": 90,
+   "in": "cut",
+   "props": {
+    "name": "Juliana Barbieri",
+    "role": "nome sem “o”: o anel entra antes do nome",
+    "kicker": "Pior caso"
+   }
+  },
+  {
+   "type": "swap",
+   "min": 120,
+   "props": {
+    "from": "Planilha perdida",
+    "to": "Painel funcionou",
+    "kicker": "16 caracteres (o limite)"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "swap",
+   "min": 120,
+   "props": {
+    "from": "Atendimento lento",
+    "to": "Resposta imediata",
+    "kicker": "17 caracteres (limite + 1)"
+   },
+   "in": "cut"
+  },
+  {
+   "type": "ranking",
+   "min": 165,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Para onde vai o faturamento do trimestre",
+    "items": [
+     {
+      "label": "Folha de pagamento",
+      "v": 128456.78,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Fornecedores",
+      "v": 97310.5,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Impostos",
+      "v": 54200.25,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Aluguel e condomínio",
+      "v": 23999.99,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Marketing",
+      "v": 12345.67,
+      "prefix": "R$ "
+     },
+     {
+      "label": "Ferramentas",
+      "v": 1234.56,
+      "prefix": "R$ "
+     }
+    ]
+   },
+   "in": "cut"
+  },
+  {
+   "type": "ranking",
+   "min": 90,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Um item só",
+    "items": [
+     {
+      "label": "Reunião",
+      "v": 12,
+      "suffix": " h"
+     }
+    ]
+   },
+   "in": "cut"
+  },
+  {
+   "type": "versus",
+   "min": 120,
+   "props": {
+    "kicker": "Pior caso",
+    "title": "Custo por mês",
+    "low": true,
+    "left": {
+     "label": "Antes",
+     "v": 12345.67,
+     "prefix": "R$ "
+    },
+    "right": {
+     "label": "Depois",
+     "v": 1234.56,
+     "prefix": "R$ "
+    }
+   },
+   "in": "cut"
+  },
+  {
+   "type": "desk",
+   "min": 120,
+   "props": {
+    "kicker": "Pior caso",
+    "session": "RELATÓRIO DE COMISSÕES POR VENDEDOR",
+    "prompt": "lê as 47 planilhas de vendas de 2025, cruza com o CRM e me manda o relatório de comissão por vendedor com o total do trimestre",
+    "working": "Cruzando as planilhas com o CRM…",
+    "files": [
+     [
+      "relatorios/comissoes-por-vendedor-2025-trimestre-3.md",
+      1284
+     ]
+    ],
+    "reply": "Pronto! 47 planilhas lidas, 1.284 vendas cruzadas com o CRM e o relatório de comissão por vendedor está em relatorios/."
+   },
+   "in": "cut"
+  }
+ ]
+}

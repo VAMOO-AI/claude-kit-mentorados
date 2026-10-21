@@ -1,14 +1,19 @@
 // Contas puras das cenas avulsas (sem React): tempo de cada estado e posição, ordem do ranking,
 // letras e palavras da troca de frase, número com decimais em pt-BR e enquadramento do mapa.
 // JavaScript puro (.mjs) para o teste rodar no Node sem compilar; os tipos estão em tempos.d.mts.
-// O scripts/tempos.py espelha temposMorph e temposRanking para o som (track_cinema.py): mudou
-// aqui, mude lá; o tests/test-motion-reel-galeria.sh compara os dois.
+// O som (sons.mjs, lido pelo track_cinema.py via Node) usa estas mesmas funções: sem espelho.
 
 // Intervalo mínimo entre dois estados do morph: a palavra entra 8 quadros depois da troca e sai 5
 // antes da próxima, então menos que isso ela nunca aparece.
 export const GAP_MORPH = 16;
 // Intervalo mínimo entre duas posições do ranking.
 export const GAP_RANKING = 6;
+
+// Tempos que a cena e o som (sons.mjs) leem do mesmo lugar: o desk envia o pedido no quadro 24 (o
+// cursor toca o botão 1 quadro antes) e o 1º do ranking chega ao pico do overshoot 5 quadros depois
+// de entrar.
+export const DESK_ENVIA = 24;
+export const RANKING_PICO = 5;
 
 // Quadro de cada troca do morph. `falas` = início de cada fala (bt(p, k)); `t0` = first(p).
 // Estado k troca na fala k (4 quadros antes); sem fala, `step` quadros depois do anterior, a partir
@@ -112,4 +117,36 @@ export function enquadramento(paradas, temRegiao) {
   if (temRegiao || pts.length >= 2) return pts;
   const [lon, lat] = pts[0] ?? [0, 0];
   return [...pts, [lon - 6, lat - 6], [lon + 6, lat + 6]];
+}
+
+// Tempo da cena a partir das falas (o mesmo bt/first/hitAt do film-base.tsx, que reexporta estes):
+// `s` = {beats, ends} da cena na timeline. O som (sons.mjs) e a cena usam as mesmas funções.
+// Frame local da fala i (frac 0 = início, 1 = fim). Sem fala i: começo + 30.
+export function bt(s, i, frac = 0) {
+  const b = s.beats[i] ?? 0;
+  const e = s.ends[i] ?? b + 30;
+  return Math.round(b + frac * (e - b));
+}
+
+// O primeiro elemento da cena entra ANTES do corte (f < 0): a transição nunca revela tela vazia.
+export function first(s) {
+  return Math.min(bt(s, 0) - 6, -8);
+}
+
+// Sem fala, o elemento i cai na batida i·passo; com fala i, na fala. O índice 0 entra em first.
+export function hitAt(s, i, step) {
+  return i === 0 ? first(s) : i < s.beats.length ? bt(s, i) - 4 : i * step;
+}
+
+// Quadros em que as pílulas do CTA entram (a cena desenha, o som toca): a 1ª no meio da 1ª fala
+// (nunca antes de 14 quadros do começo); a 2ª no meio da 2ª fala, ou 14 depois da 2ª pergunta.
+export function pilulasCta(s) {
+  const a = first(s);
+  const b = s.beats.length > 1 ? bt(s, 1) - 6 : a + 24;
+  return { a, b, p1: Math.max(a + 14, bt(s, 0, 0.5)), p2: s.beats.length > 1 ? Math.max(b + 14, bt(s, 1, 0.55)) : b + 14 };
+}
+
+// Frame da troca do swap: `at`, ou a 2ª fala − 6, ou 45 sem voz.
+export function trocaSwap(s, p) {
+  return p.at ?? (s.beats.length > 1 ? bt(s, 1) - 6 : 45);
 }

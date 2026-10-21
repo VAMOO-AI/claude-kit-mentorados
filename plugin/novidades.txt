@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.61.0|motion-reel sem palavra cortada na borda (o texto é medido na fonte real e quebra equilibrado), cada cena declara os próprios sons com o pico do efeito no quadro do contato, e a galeria ganhou a bancada de pior caso (--pior-caso)
 0.60.0|motion-reel com o selo, a pílula e a forma assentando sem passar do alvo, desfoque leve na troca de frase, revisão de motion no QA (quatro perguntas, tabela antes e depois, veredito), glossário de efeitos apontando onde cada um está no template e a pergunta "por que isso se move" no storyboard
 0.59.0|motion-reel com cinco cenas novas (troca de frase, forma que morfa, mapa, ranking e antes e depois), cursor que clica no Desktop e motion blur opcional nas transições rápidas
 0.58.0|motion-reel com briefing de motion em cinco partes, aviso de leitura curta no storyboard, o preset explicativo de negócio e a doutrina de motion como padrão: uma transição dominante, zoom só no fim, clímax que antecipa, passa e assenta

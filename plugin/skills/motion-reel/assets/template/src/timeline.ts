@@ -8,7 +8,8 @@ export const TOTAL = data.total;
 export const MODELS = data.models;
 
 // symbol (opcional, por cena): false tira o símbolo (public/marca.png) da Intro e do Outro.
-export type Slot = { id: string; cut: number; inType: string; dIn: number; dOut: number; from: number; dur: number; lead: number; symbol?: boolean };
+// props: o que a cena do Reel aceita (ex.: grande {word}), opcional no timeline.json.
+export type Slot = { id: string; cut: number; inType: string; dIn: number; dOut: number; from: number; dur: number; lead: number; symbol?: boolean; props: Record<string, unknown> };
 
 export const SLOTS: Slot[] = data.scenes.map((s, i) => {
   const next = data.scenes[i + 1] as (typeof data.scenes)[number] | undefined;
@@ -16,5 +17,5 @@ export const SLOTS: Slot[] = data.scenes.map((s, i) => {
   const dOut = next ? ((next as { d?: number }).d ?? 0) : 0;
   const from = s.cut - dIn / 2;
   const end = next ? next.cut + dOut / 2 : data.total;
-  return { id: s.id, cut: s.cut, inType: (s as { in?: string }).in ?? "cut", dIn, dOut, from, dur: end - from, lead: dIn / 2, symbol: (s as { symbol?: boolean }).symbol };
+  return { id: s.id, cut: s.cut, inType: (s as { in?: string }).in ?? "cut", dIn, dOut, from, dur: end - from, lead: dIn / 2, symbol: (s as { symbol?: boolean }).symbol, props: (s as { props?: Record<string, unknown> }).props ?? {} };
 });

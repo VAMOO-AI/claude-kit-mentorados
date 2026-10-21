@@ -72,8 +72,11 @@ export const ip = (
 const FONTE_PRINCIPAL = "PlusJakartaSans.ttf";
 
 // Uma carga só por página: o useFont do filme e a cena que mede texto (fontesProntas) esperam a
-// mesma promessa, então a medida nunca sai na fonte de reserva.
+// mesma promessa, então a medida nunca sai na fonte de reserva. fontesCarregadas() diz, sem
+// esperar, se ela já resolveu: o fit() só mede depois disso (o measureText guarda a 1ª medida).
 let carga: Promise<unknown> | null = null;
+let carregadas = false;
+export const fontesCarregadas = () => carregadas;
 export const fontesProntas = () => {
   if (!carga) {
     const principal = new FontFace("Plus Jakarta Sans", `url(${staticFile(FONTE_PRINCIPAL)})`, { weight: "200 800" });
@@ -94,16 +97,26 @@ export const fontesProntas = () => {
         .load()
         .then((f) => document.fonts.add(f))
         .catch((e) => console.error(e)),
-    ]);
+    ]).then((r) => {
+      carregadas = true;
+      return r;
+    });
   }
   return carga;
 };
 
+// Segura o render até as fontes carregarem e devolve se já carregaram. Film e Reel só montam as
+// cenas com `true`: assim todo fit() da cena mede na fonte real, no 1º render (sem medida velha).
 export const useFont = () => {
   const [handle] = useState(() => delayRender("font"));
+  const [pronto, setPronto] = useState(carregadas);
   useEffect(() => {
-    fontesProntas().then(() => continueRender(handle));
-  }, [handle]);
+    fontesProntas().then(() => setPronto(true));
+  }, []);
+  useEffect(() => {
+    if (pronto) continueRender(handle);
+  }, [pronto, handle]);
+  return pronto;
 };
 
 export const Bg: React.FC<{ color: string; children?: React.ReactNode }> = ({

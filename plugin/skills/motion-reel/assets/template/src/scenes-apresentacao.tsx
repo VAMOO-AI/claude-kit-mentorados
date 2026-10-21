@@ -64,7 +64,9 @@ export const PillName: React.FC<SP> = (p) => {
   const chars = name.split("");
   const oi = chars.findIndex((c) => c === "o" || c === "O");
   const low = oi >= 0 && chars[oi] === "o";
-  const fs = fit([name], L.W - L.l - L.r, L.v ? 190 : 230, 0.66);
+  // sem "o" no nome o anel entra antes dele e ocupa ~0,88 do corpo (anel + margem): sai da largura
+  const fs0 = fit([name], L.W - L.l - L.r, L.v ? 190 : 230, 0.66);
+  const fs = oi >= 0 ? fs0 : Math.floor((fs0 * (L.W - L.l - L.r)) / (L.W - L.l - L.r + 0.88 * fs0));
   const ringH = fs * (low ? 0.52 : 0.72);
   const ringW = fs * (low ? 0.5 : 0.66);
   const th = fs * 0.12;

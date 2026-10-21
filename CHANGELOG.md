@@ -16,6 +16,35 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.61.0] — 2026-10-21
+
+### Adicionado
+
+- **motion-reel: bancada de pior caso na galeria.** `galeria.py <projeto> --pior-caso` renderiza o
+  `presets/pior-caso.json` em 9:16 e 16:9 (`out/galeria-pior-caso/`): `Grande` com 7 e 8 letras,
+  `swap` com 16 e 17 caracteres, `ranking` com 6 itens e com 1, valor em real com milhar e
+  centavos, nome composto com acento em caixa alta, comando longo no `desk` e pílula sem "o".
+  O pior-caso fica fora da lista de presets. O `Grande` do Reel aceita a palavra por `props.word`
+  no `timeline.json`.
+- **motion-reel: sons declarados pela cena.** Cada cena declara os efeitos no `src/sons.mjs`, nos
+  mesmos tempos da animação (que ficam no `tempos.mjs`); o `track_cinema.py` lê pelo Node e o
+  espelho à mão (`SFX_BY_TYPE` e `scripts/tempos.py`) saiu. Com `impacto: true`, o pico do WAV cai
+  no quadro do contato (clique, pouso, golpe). O `track_cinema.py` ganhou `--eventos`. Sem Node,
+  ele para e avisa.
+
+### Mudado
+
+- **motion-reel: texto medido.** O `fit()` mede com `measureText` na fonte real
+  (`@remotion/layout-utils` 4.0.484, MIT) em vez de estimar 0,56 em por caractere: palavra mais
+  larga que a área encolhe em vez de sair cortada na borda. O Film e o Reel só montam as cenas
+  depois do `useFont`, `equilibrar()` faz a quebra equilibrada (o `swap` usa `textWrap: balance`)
+  e os números do `ranking` e do `versus` são medidos.
+- **motion-reel: som do CTA na pílula.** O som segue a entrada da pílula, que antes podia sair até
+  25 quadros fora dela.
+
+Porte à mão de VAMOO-AI/claude-config-team#389. Medição de texto com ideia do HyperFrames (Apache-2.0)
+e das skills da Remotion.
+
 ## [0.60.0] — 2026-10-21
 
 ### Adicionado

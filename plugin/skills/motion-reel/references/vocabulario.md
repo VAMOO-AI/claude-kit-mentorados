@@ -22,7 +22,7 @@ copiando e mudando o texto, não reescrevendo do zero.
 | Cena | Técnica | Reuso típico |
 |---|---|---|
 | `Intro` | partículas (`random(seed)`) convergem para um anel → o símbolo (`MarkIn`) entra com escala → mergulho de câmera no centro | abertura de marca |
-| `Grande` | palavra única, letras caem em stagger com escala + blur | 1 palavra de impacto (≤ 7 letras em 226px) |
+| `Grande` | palavra única, letras caem em stagger com escala + blur | 1 palavra de impacto (até 226 px; palavra mais larga encolhe medida). A palavra vem de `props.word` no `timeline.json` (padrão `GRANDE`) |
 | `Marquee` (`Atualizacao`, `Performar`) | faixas diagonais de texto vazado correndo em sentidos opostos + tarja sólida central | palavra-tema que precisa "encher a tela" |
 | `Mosaic` + `Title` | grade 3D de cards (câmera recua, inclina, volta) → **match cut**: o card central abre até virar a tela | nome de produto/oferta |
 | `Models` | cubo 3D (`rotateX` com `preserve-3d`) troca face A → face B; depois resumo em linhas | duas coisas em sequência (modelos, antes/depois, plano A/B) |
@@ -56,7 +56,7 @@ Escolha pelo `type` no `film.json`; os textos vão em `props`. Toda cena anima e
 
 Cenas como as de cima (`type` no `film.json`), feitas para abrir ou fechar uma peça. Sem fala, o
 ritmo é da trilha: o elemento i cai na batida i·`step` (15 frames = 1 batida a 120 BPM, a grade do
-`track_cinema.py`); com fala, cai na fala i. Todas têm som próprio no `SFX_BY_TYPE` e pintam com a
+`track_cinema.py`); com fala, cai na fala i. Todas têm som próprio no `src/sons.mjs` e pintam com a
 paleta `C` do `lib.tsx`: trocou a paleta, os presets trocam junto.
 
 | `type` | O que faz | Quando usar | `props` |
@@ -101,7 +101,7 @@ fundo escuro e cor de destaque); o **lançamento de app** é `presets/lancamento
 
 ### Cenas avulsas (`scenes-extras.tsx` e `scenes-mapa.tsx`)
 
-Cenas sem preset próprio: entram em qualquer `film.json` pelo `type`, com som no `SFX_BY_TYPE` e
+Cenas sem preset próprio: entram em qualquer `film.json` pelo `type`, com som no `src/sons.mjs` e
 exemplo na galeria (`EXEMPLOS` do `galeria.py`). Seguem a doutrina: um foco por vez, saída mais
 curta que a entrada e overshoot só no que chega com velocidade (regra 5).
 
@@ -113,7 +113,7 @@ curta que a entrada e overshoot só no que chega com velocidade (regra 5).
 | `morph` | uma caixa só morfa de estado em estado (círculo, pílula, losango, cartão, coluna, quadrado, barra): largura, altura, canto, giro e cor somam uma mola por troca, então a troca nova parte de onde a anterior estiver; a palavra do estado entra depois da caixa assentar e sai antes da próxima; com `loop`, volta à 1ª forma e o fim casa com o começo | etapas de um processo, fases, "uma coisa que vira outra" (2–8 estados, uma palavra cada) | `states` `[{label, shape? (0–7), color? (brand/fill/light)}]`, `kicker?`, `step?` (padrão 30), `loop?` (padrão `true`) |
 | `swap` | a frase A entra letra a letra; na troca, um portal em SVG (elipses em arame) abre embaixo da linha e cada letra de A voa por ele até o lugar dela em B, medido na fonte real; letra que sobra mergulha no portal, letra que falta nasce dele e pousa com overshoot | virada de ideia em duas frases curtas ("Ideia solta" → "Plano pronto"), antes e depois, nome antigo e novo | `from`, `to`, `kicker?`, `bg?` (`night`/`paper`), `at?` (frame da troca; padrão: a 2ª fala, ou 45) |
 
-- O `swap` mede a posição de cada letra no layout real (régua invisível com a mesma fonte, depois do `fontesProntas()` do `lib.tsx`), não pelo `fit()`. Frase com mais de 16 caracteres quebra em duas linhas.
+- O `swap` mede a posição de cada letra no layout real (régua invisível com a mesma fonte, depois do `fontesProntas()` do `lib.tsx`). A frase fica numa linha se cabe com 70% do corpo; senão quebra em duas linhas de largura parecida (`equilibrar()` e `textWrap: balance`).
 - **Motion blur real (`motionBlur`).** `"motionBlur": true` no topo do `film.json` (ou `{"samples": 2–16, "shutter": 1–360}`; `true` = 8 e 180°) liga o `CameraMotionBlur` do `@remotion/motion-blur` só nos quadros das transições rápidas (`whip`, `whipUp`, `push`, `spin`), e o blur desenhado delas cai pela metade: sozinhas, 8 amostras deixam cópias em degrau no pico do `whip`, e a metade do desenhado preenche os degraus. Cada quadro da troca vira `samples` renders somados: no filme de exemplo (45 s, cinco trocas rápidas) o render cheio passou de 114 s para mais que o dobro. O ganho é sutil (rastro contínuo na borda que corre): ligue em peça curta com troca rápida no centro da cena, não por padrão. Áudio, grão e letterbox ficam fora da soma.
 - Letras iguais (sem diferenciar maiúscula) viram par; quanto mais letras em comum, mais a troca lê como a mesma palavra se rearrumando.
 
@@ -134,7 +134,7 @@ aperta a 85% no quadro `at` (2 quadros para baixo, 6 para assentar: snap, then h
 de 9 quadros (300 ms) no ponto do clique; some em 6 quadros depois de `hide`. Ponha no `overlay` do
 `Desk` (coordenadas da janela) e mire com `sendButton(w, h, pad, scale)`. O `Composer` com `busy`
 troca a seta pelo quadrado de parar, como o app faz enquanto trabalha. No `desk`, `click: true` liga
-tudo isso: o clique cai 1 quadro antes do envio, com o `soft-click` no `sfx_desk`.
+tudo isso: o clique cai 1 quadro antes do envio (`DESK_ENVIA − 1`), com o pico do `soft-click` nesse quadro (`impacto` no `src/sons.mjs`).
 
 ## Motifs (`motifs.tsx`): o benefício em imagem
 

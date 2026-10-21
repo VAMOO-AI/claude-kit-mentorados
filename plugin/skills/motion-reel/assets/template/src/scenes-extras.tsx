@@ -1,12 +1,12 @@
 // Cenas avulsas do Film: sem preset próprio, entram em qualquer film.json pelo `type`. Mesmo molde
 // do film-scenes.tsx: useF (f = 0 no corte), useL (guia do formato), bt (fala i), first (o primeiro
 // elemento entra antes do corte) e fit (fonte que cabe). Registradas no SCENES do film-scenes.tsx,
-// com som no SFX_BY_TYPE do scripts/track_cinema.py e exemplo no EXEMPLOS do galeria.py da skill.
+// com som no SONS do src/sons.mjs e exemplo no EXEMPLOS do galeria.py da skill.
 import React from "react";
 import { AbsoluteFill, continueRender, delayRender, interpolateColors, spring } from "remotion";
-import { H1, LABEL, type SP, bt, first, fit, useL } from "./film-base";
+import { H1, LABEL, type SP, bt, corpoNumeroMedido, equilibrar, first, fit, larguraNumero, mede, useL } from "./film-base";
 import { ANTIC, Bg, C, Counter, EASE_INOUT, EXIT, POP, SETTLE, fontesProntas, hitStop, ip, useF } from "./lib";
-import { corpoNumero, decimaisDe, letras, maiorValor, ordenarRanking, palavras, temposMorph, temposRanking } from "./tempos.mjs";
+import { RANKING_PICO, decimaisDe, fmtNum, letras, maiorValor, ordenarRanking, palavras, temposMorph, temposRanking } from "./tempos.mjs";
 
 /* ───────────────────────── troca de frase: as letras viajam pelo portal ───────────────────────── */
 // Ideia do wireframe-portal-title do HyperFrames (Apache-2.0), reescrita em SVG e CSS, sem WebGL.
@@ -42,7 +42,7 @@ export const parear = (a: string[], b: string[]) => {
 // As letras de cada palavra ficam num inline-block com nowrap: letra solta deixa o Chrome quebrar a
 // linha no meio da palavra ("plano pro" / "nto"); assim a quebra só cai entre palavras.
 const Regua = React.forwardRef<HTMLDivElement, { chars: string[]; fs: number; w: number }>(({ chars, fs, w }, ref) => (
-  <div ref={ref} style={{ position: "absolute", left: 0, top: 0, width: w, textAlign: "center", visibility: "hidden" }}>
+  <div ref={ref} style={{ position: "absolute", left: 0, top: 0, width: w, textAlign: "center", textWrap: "balance", visibility: "hidden" } as React.CSSProperties}>
     {palavras(chars).map(([a, b]) => (
       <span key={a} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
         {chars.slice(a, b).map((ch, i) => (
@@ -53,8 +53,6 @@ const Regua = React.forwardRef<HTMLDivElement, { chars: string[]; fs: number; w:
   </div>
 ));
 
-// Frase longa quebra em duas linhas na régua; a fonte é a que cabe na metade dela.
-const metade = (s: string) => (s.length <= 16 ? s : s.slice(0, Math.ceil(s.length / 2) + 2));
 
 // props: from (frase A), to (frase B), kicker?, bg? ("night"|"paper"), at? (frame da troca; padrão:
 // a 2ª fala, ou 45 sem voz). A entra letra a letra; na troca, cada letra de A voa pelo portal até
@@ -71,7 +69,9 @@ export const LetterSwap: React.FC<SP> = (p) => {
   const A = letras(sa);
   const B = letras(sb);
   const w = L.W - L.l - L.r;
-  const fs = fit([metade(sa), metade(sb)], w, L.v ? 150 : 170, 0.62);
+  // Quebra equilibrada (C5): cada frase fica numa linha se cabe com 70% do corpo; senão em duas
+  // linhas de largura parecida. O corpo é o menor dos dois, e a régua quebra igual (textWrap balance).
+  const fs = Math.min(...[sa, sb].map((s) => equilibrar(s, w, L.v ? 150 : 170, 0.62).fs));
   const refA = React.useRef<HTMLDivElement>(null);
   const refB = React.useRef<HTMLDivElement>(null);
   const [handle] = React.useState(() => delayRender("medir as letras da troca de frase"));
@@ -274,7 +274,6 @@ export const MorphShape: React.FC<SP> = (p) => {
 // fala, na fala i. O foco é o item que entra; os que já entraram esmaecem.
 
 type Valor = { label: string; v: number; prefix?: string; suffix?: string };
-const fmt = (n: number) => n.toLocaleString("pt-BR");
 
 // Número que conta quase linear e pousa com SETTLE: a contagem leva `dur` quadros.
 const Conta: React.FC<{ it: Valor; f: number; at: number; dur?: number; size: number; color: string }> = ({ it, f, at, dur = 18, size, color }) => (
@@ -305,7 +304,10 @@ export const Ranking: React.FC<SP> = (p) => {
   // colunas: posição, nome, barra e, depois da barra cheia, o número (reservado pelo maior)
   // no 9:16 o nome vai em cima da barra (duas camadas por linha); no 16:9, ao lado
   const barH = linha * (L.v ? 0.3 : 0.42);
-  const numW = barH * 0.62 * Math.max(...itens.map((i) => `${i.prefix ?? ""}${fmt(i.v)}${i.suffix ?? ""}`.length), 2);
+  // reservado pelo maior número, medido na fonte (C5); 2 dígitos no mínimo
+  const numW = mede()
+    ? Math.max(...itens.map((i) => larguraNumero(i, barH)), larguraNumero({ v: 88 }, barH)) * 1.05
+    : barH * 0.62 * Math.max(...itens.map((i) => `${i.prefix ?? ""}${fmtNum(i.v, decimaisDe(i.v))}${i.suffix ?? ""}`.length), 2);
   const rankW = linha * (L.v ? 0.62 : 0.9);
   const barMax = L.v ? larg - rankW - 24 - numW - 18 : larg * 0.5 - numW - 18;
   const nomeW = L.v ? larg - rankW - 24 : larg - (barMax + numW + 18) - rankW - 48;
@@ -327,7 +329,7 @@ export const Ranking: React.FC<SP> = (p) => {
         if (f < a - (topo ? 8 : 2)) return null;
         // o 1º: já visível, recua (1 → 0,92 em 4 quadros), estala até 1,12 em 5, congela 3 quadros no
         // pico (hit-stop) e assenta em 1 com SETTLE em 12
-        const pico = a + 5;
+        const pico = a + RANKING_PICO; // o golpe do som (sons.mjs) cai aqui
         const pop = !topo ? 1 : f < a ? ip(f, [a - 4, a], [1, 0.92], ANTIC) : f < pico ? ip(f, [a, pico], [0.92, 1.12]) : ip(hitStop(f, pico, 3), [pico, pico + 12], [1.12, 1], SETTLE);
         const proxima = pos > 0 ? entra(pos - 1) : 1e9;
         const dim = f >= proxima ? 0.35 : 1; // quem já foi dito esmaece (doutrina: 35% ou menos)
@@ -370,7 +372,7 @@ export const Versus: React.FC<SP> = (p) => {
   const base = L.H - L.b - (L.v ? 120 : 90);
   const barMax = base - (L.t + titulo) - (L.v ? 260 : 190);
   // o número cabe na coluna (no 9:16 ela tem ~385 px): "R$ 1.250.000" encolhe, "6 min" fica no corpo cheio
-  const num = Math.min(...lados.map((l) => corpoNumero(l, colW, L.v ? 104 : 96)));
+  const num = Math.min(...lados.map((l) => corpoNumeroMedido(l, colW, L.v ? 104 : 96)));
   const nome = fit(lados.map((l) => l.label), colW, L.v ? 46 : 42);
   return (
     <Bg color={C.night}>

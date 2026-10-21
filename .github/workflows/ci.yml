@@ -276,6 +276,15 @@ jobs:
       - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
         run: bash tests/test-motion-reel-galeria.sh
 
+      - name: Os sons da motion-reel saem da cena (src/sons.mjs) e o impacto põe o pico do SFX no quadro
+        # Sem python com numpy a parte do WAV sintético sai "pulada"; a lista de cenas e os tempos rodam.
+        run: bash tests/test-motion-reel-sons.sh
+
+      - name: Nenhuma palavra cortada na borda na bancada de pior caso da motion-reel (render real fora do CI)
+        # Sem Remotion instalado aqui o teste sai "pulado"; a prova roda local
+        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>).
+        run: bash tests/test-motion-reel-texto.sh
+
       - name: O briefing de motion tem as cinco partes, a timeline avisa leitura curta e o explicativo vira filme na batida
         run: bash tests/test-motion-reel-briefing.sh
 

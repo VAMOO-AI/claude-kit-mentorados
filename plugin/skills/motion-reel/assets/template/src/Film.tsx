@@ -52,7 +52,7 @@ const Grain: React.FC = () => {
 };
 
 export const Film: React.FC<{ tl: TL; audio: string; withAudio?: boolean }> = ({ tl, audio, withAudio = true }) => {
-  useFont();
+  const pronto = useFont();
   const frame = useCurrentFrame();
   const sc = tl.scenes;
   const items: React.ReactNode[] = [];
@@ -93,7 +93,7 @@ export const Film: React.FC<{ tl: TL; audio: string; withAudio?: boolean }> = ({
   // grão e letterbox ficam fora (não se somam); o fundo night embaixo evita a soma sobre transparente.
   const mb = tl.motionBlur;
   const naTroca = !!mb && sc.some((s, i) => i > 0 && s.d > 0 && RAPIDAS.has(s.in) && Math.abs(frame - s.cut) <= s.d / 2 + 1);
-  const serie = <TransitionSeries>{items}</TransitionSeries>;
+  const serie = pronto ? <TransitionSeries>{items}</TransitionSeries> : null;
   return (
     <AbsoluteFill style={{ backgroundColor: C.night }}>
       <BlurRealCtx.Provider value={!!mb}>
