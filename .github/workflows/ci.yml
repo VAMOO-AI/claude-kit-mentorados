@@ -256,6 +256,9 @@ jobs:
         # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
         run: bash tests/test-motion-reel-stills-indices.sh
 
+      - name: O QA da motion-reel revisa o motion da folha, o glossário reverso aponta nomes que existem e o storyboard pergunta por que cada coisa se move
+        run: bash tests/test-motion-reel-revisao.sh
+
       - name: O py.sh da motion-reel acha o venv ~/.venvs/motion (macOS e Windows) sem MOTION_PY
         run: bash tests/test-motion-reel-py.sh
 

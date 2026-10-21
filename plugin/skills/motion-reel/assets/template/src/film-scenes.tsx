@@ -13,13 +13,13 @@ import { LetterSwap, MorphShape, Ranking, Versus } from "./scenes-extras";
 import { MapRoute } from "./scenes-mapa";
 import { FilmCtx, H1, LABEL, type SP, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
 import { AsstText, Composer, Cursor, D, Desk, EditCard, UserMsg, Working, fadeIn, sendButton, typing } from "./desktop";
-import { ANTIC, BRAND, Bg, C, Counter, EASE_INOUT, EXIT, MONO, MarkIn, MaskUp, POP, SETTLE, hitStop, hollow, ip, shake, useF } from "./lib";
+import { ANTIC, BRAND, Bg, C, Counter, EASE_INOUT, EXIT, MONO, MarkIn, MaskUp, SETTLE, hitStop, hollow, ip, shake, useF } from "./lib";
 
 export { FilmCtx, H1, LABEL, bt, first, fit, hitAt, useImgRatio, useL } from "./film-base";
 export type { SP, Scene, TL } from "./film-base";
 
 const Pill: React.FC<{ f: number; at: number; dark?: boolean; children: React.ReactNode; size?: number }> = ({ f, at, dark = true, children, size = 38 }) => (
-  <div style={{ display: "inline-block", background: dark ? C.ink : C.paper, border: `3px solid ${C.ink}`, color: dark ? C.white : C.ink, borderRadius: 100, padding: `${size * 0.5}px ${size * 1.2}px`, fontSize: size, fontWeight: 700, opacity: ip(f, [at, at + 3], [0, 1]), transform: `scale(${ip(f, [at, at + 12], [0.75, 1], POP)})` }}>
+  <div style={{ display: "inline-block", background: dark ? C.ink : C.paper, border: `3px solid ${C.ink}`, color: dark ? C.white : C.ink, borderRadius: 100, padding: `${size * 0.5}px ${size * 1.2}px`, fontSize: size, fontWeight: 700, opacity: ip(f, [at, at + 3], [0, 1]), transform: `scale(${ip(f, [at, at + 12], [0.75, 1], SETTLE)})` }}>
     {children}
   </div>
 );
@@ -49,10 +49,16 @@ export const Statement: React.FC<SP> = (p) => {
               // fica com a entrada do grupo: na 1ª cena, first(p), antes do corte (a transição nunca revela tela vazia).
               const lf = g.lineFracs?.[li];
               const lineAt = lf !== undefined && li > 0 && lf > (g.frac ?? 0) ? Math.max(at + li * 5, bt(p, g.beat, lf) - 6) : at + li * 5;
+              // troca no mesmo lugar (doutrina, regra 9): o grupo que sai desfoca até 2 px e o que entra na troca
+              // parte de 2 px; filtro calculado pelo frame, só durante a troca, nunca num nó preserve-3d
+              const oi = out !== undefined ? out + li * 2 : 1e9;
+              const bOut = f >= oi && f < oi + 10 ? ip(f, [oi, oi + 10], [0, 2]) : 0;
+              const bIn = gi > 0 && lineAt < at + 12 ? ip(f, [lineAt, lineAt + 8], [2, 0]) : 0;
+              const blur = Math.max(bOut, bIn);
               return (
                 <div key={li}>
                   <MaskUp f={f} at={lineAt} out={out !== undefined ? out + li * 2 : undefined} dur={16}>
-                    <span style={{ ...H1, fontSize: fs, ...(hol ? hollow(dark ? C.white : C.brand, 3, bg) : { color: fg }) }}>{ln}</span>
+                    <span style={{ ...H1, fontSize: fs, ...(hol ? hollow(dark ? C.white : C.brand, 3, bg) : { color: fg }), filter: blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : undefined }}>{ln}</span>
                   </MaskUp>
                 </div>
               );

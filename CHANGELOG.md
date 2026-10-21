@@ -16,6 +16,35 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.60.0] — 2026-10-21
+
+### Adicionado
+
+- **motion-reel: revisão de motion no QA.** O passo 7 do `SKILL.md` traz quatro perguntas para
+  ler a folha de transições e o `revisar.sh faixa`: aparecem dois estados sobrepostos na troca?
+  a curva para de repente? a escala cresce do ponto certo? opacidade, posição e cor andam em
+  sincronia? Os achados vão numa tabela Antes | Depois | Por quê, com veredito Bloqueia ou
+  Aprova, e a correção segue a ordem apagar, reduzir, trocar a curva, corrigir a origem e polir.
+- **motion-reel: glossário reverso.** O `references/vocabulario.md` ganha a tabela nome do efeito
+  → onde está no template (stagger, mask reveal, line drawing, number ticker, morph, match cut,
+  typewriter, ripple, anticipation e outros), as lacunas declaradas e as regras de interface que
+  não valem aqui (a saída acelera de propósito).
+- **motion-reel: "por que isso se move".** Linha nova no checklist do storyboard
+  (`briefing-motion.md`): explicação, estado, de onde veio ou ênfase.
+
+### Mudado
+
+- **motion-reel: overshoot só no que chega com velocidade.** O que voou, caiu ou veio de uma
+  antecipação passa do alvo e assenta (o número do clímax, o 1º do `ranking`, as letras do `swap`);
+  o que aparece por máscara, fade ou escala assenta com `SETTLE`, sem passar: o selo do `versus`
+  (agora de 0,9 a 1 com fade), a pílula do CTA, a forma do `morph` e a parada do `map`. Regra 5 da
+  doutrina no `vocabulario.md`.
+- **motion-reel: desfoque na troca no mesmo lugar.** No `statement`, o grupo que sai desfoca até
+  2 px e o que entra parte de 2 px, só durante a troca (regra 9: de 2 a 5 px, nunca acima de 20 px
+  nem num nó `preserve-3d`). Custa render só nos quadros da troca.
+
+Ideias reescritas de `emilkowalski/skills`, Copyright (c) 2026 Emil Kowalski, MIT.
+
 ## [0.59.0] — 2026-10-20
 
 ### Adicionado
