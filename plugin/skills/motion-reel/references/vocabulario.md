@@ -42,7 +42,7 @@ Escolha pelo `type` no `film.json`; os textos vão em `props`. Toda cena anima e
 
 | `type` | O que faz | `props` |
 |---|---|---|
-| `desk` | Claude Code Desktop: pedido digitado antes do corte, enviado, "Trabalhando…", card de arquivos editados, resposta com ✓ no meio da 1ª fala; câmera empurra devagar | `kicker?`, `session?`, `prompt`, `working?`, `files?` `[[arquivo, linhas]]`, `reply` |
+| `desk` | Claude Code Desktop: pedido digitado antes do corte, enviado, "Trabalhando…", card de arquivos editados, resposta com ✓ no meio da 1ª fala; câmera empurra devagar | `kicker?`, `session?`, `prompt`, `working?`, `files?` `[[arquivo, linhas]]`, `reply`, `click?` (cursor clica no enviar) |
 | `statement` | frases em máscara, um grupo por fala; o grupo sai quando o próximo entra; última linha vazada | `bg` (`night`/`paper`), `groups` `[{beat, frac?, lines, hollowLast?}]` |
 | `title` | o símbolo (`MarkIn`) entra com escala acima do título, letras caem com escala, tremor no corte, inclinação 3D que assenta; subtítulo e pílula na 2ª fala | `line1`, `line2` (vazada), `sub?`, `pill?`, `symbol?` (padrão `true`; `false` tira o símbolo e centraliza o título) |
 | `numbers` | um `Counter` por fala; os anteriores esmaecem (linha no 16:9, coluna no 9:16) | `items` `[{v, label}]` |
@@ -99,6 +99,24 @@ fundo escuro e cor de destaque); o **lançamento de app** é `presets/lancamento
 - Foto e logo ficam em `public/`. Sem `photo` a cena não renderiza `<Img>` (arquivo ausente derruba o render): mostra as iniciais.
 - O itálico serifado é a Instrument Serif Italic (OFL, `assets/fonts/` da skill), que o `new.sh` copia para `public/serif-italic.ttf` e o `useFont` carrega; com a serifada da marca da pessoa, passe `--serif <ttf>` no `new.sh`. A palavra marcada sai no acento de conteúdo (`C.hot`; no exemplo, laranja `#ee591b`: troque pela cor de acento da marca) sobre escuro e claro, e em night sobre o azul de destaque (acento quente no azul não tem contraste). O acento nunca vai em dado (azul) nem em CTA (pílula preta).
 
+### Cenas avulsas (`scenes-extras.tsx` e `scenes-mapa.tsx`)
+
+Cenas sem preset próprio: entram em qualquer `film.json` pelo `type`, com som no `SFX_BY_TYPE` e
+exemplo na galeria (`EXEMPLOS` do `galeria.py`). Seguem a doutrina: um foco por vez, saída mais
+curta que a entrada e chegada com overshoot só na escala.
+
+| `type` | O que faz | Quando usar | `props` |
+|---|---|---|---|
+| `ranking` | posições de baixo para cima: cada linha entra com a barra crescendo e o número contando (pousa com `SETTLE`), e a anterior esmaece; o 1º entra por último com antecipação, overshoot de escala, hit-stop de 3 quadros e a barra na cor de dado (`C.brand`) | "quem ganha", onde o tempo ou o dinheiro vai, top 3 a 6 (número só com fonte) | `items` `[{label, v, prefix?, suffix?}]` (a ordem sai do `v`), `title?`, `kicker?`, `step?` (padrão 15), `low?` (menor é melhor) |
+| `versus` | dois lados lado a lado (também no 9:16): a coluna da esquerda cresce com o número contando, depois a da direita; no veredito o melhor ganha a cor de dado e o selo pousa com overshoot, o outro esmaece | antes e depois, nós contra o jeito antigo, plano A contra B (número só com fonte) | `left`, `right` `{label, v, prefix?, suffix?}`, `title?`, `kicker?`, `low?` (menor é melhor), `badge?` (padrão `melhor`), `step?` (padrão 30); com fala: esquerda na 1ª, direita na 2ª, veredito na 3ª |
+| `map` | mapa-múndi do Natural Earth (domínio público, `world-atlas` 110m) com a câmera assentando de longe para perto no enquadramento da região e das paradas; a região acende na cor de destaque; a rota se desenha trecho a trecho em arco de círculo máximo, cada parada acende quando a linha chega e o nome entra 4 quadros depois; a última pousa com overshoot e pulsa | de onde para onde (entrega, expansão, viagem, cliente em outra cidade), "estamos aqui" | `route` `[{name?, at: [lon, lat]}]` (2–6), `region?` (nome em inglês, como no Natural Earth: `Brazil`), `title?`, `kicker?`, `seg?` (frames por trecho, padrão 24) |
+| `morph` | uma caixa só morfa de estado em estado (círculo, pílula, losango, cartão, coluna, quadrado, barra): largura, altura, canto, giro e cor somam uma mola por troca, então a troca nova parte de onde a anterior estiver; a palavra do estado entra depois da caixa assentar e sai antes da próxima; com `loop`, volta à 1ª forma e o fim casa com o começo | etapas de um processo, fases, "uma coisa que vira outra" (2–8 estados, uma palavra cada) | `states` `[{label, shape? (0–7), color? (brand/fill/light)}]`, `kicker?`, `step?` (padrão 30), `loop?` (padrão `true`) |
+| `swap` | a frase A entra letra a letra; na troca, um portal em SVG (elipses em arame) abre embaixo da linha e cada letra de A voa por ele até o lugar dela em B, medido na fonte real; letra que sobra mergulha no portal, letra que falta nasce dele e pousa com overshoot | virada de ideia em duas frases curtas ("Ideia solta" → "Plano pronto"), antes e depois, nome antigo e novo | `from`, `to`, `kicker?`, `bg?` (`night`/`paper`), `at?` (frame da troca; padrão: a 2ª fala, ou 45) |
+
+- O `swap` mede a posição de cada letra no layout real (régua invisível com a mesma fonte, depois do `fontesProntas()` do `lib.tsx`), não pelo `fit()`. Frase com mais de 16 caracteres quebra em duas linhas.
+- **Motion blur real (`motionBlur`).** `"motionBlur": true` no topo do `film.json` (ou `{"samples": 2–16, "shutter": 1–360}`; `true` = 8 e 180°) liga o `CameraMotionBlur` do `@remotion/motion-blur` só nos quadros das transições rápidas (`whip`, `whipUp`, `push`, `spin`), e o blur desenhado delas cai pela metade: sozinhas, 8 amostras deixam cópias em degrau no pico do `whip`, e a metade do desenhado preenche os degraus. Cada quadro da troca vira `samples` renders somados: no filme de exemplo (45 s, cinco trocas rápidas) o render cheio passou de 114 s para mais que o dobro. O ganho é sutil (rastro contínuo na borda que corre): ligue em peça curta com troca rápida no centro da cena, não por padrão. Áudio, grão e letterbox ficam fora da soma.
+- Letras iguais (sem diferenciar maiúscula) viram par; quanto mais letras em comum, mais a troca lê como a mesma palavra se rearrumando.
+
 Utilitários exportados para cena nova: `useL()` (W, H, `v` = vertical, guia `l r t b`), `bt`,
 `first`, `fit(linhas, larguraMáx, base, k)`, `H1`, `LABEL`. Moldura: `Breathe` (zoom de
 3%, só no `outro`/`logo3d` ou com `props.breathe`, regra 7 da doutrina), grão de película (`public/grain.png`) e letterbox opcional até a cena-âncora (`letterbox`).
@@ -110,6 +128,13 @@ sidebar opcional com sessões; título fora da lista vira a sessão ativa), `Com
 "Automático · Opus 5.5 · Alto", rótulos por props), `UserMsg`, `AsstText`, `Working` (✻ girando),
 `EditCard` (arquivos com `+linhas`), `typing(texto, f, at, cps)` e `fadeIn`. Monte a conversa como
 filhos do `Desk`, de cima pra baixo; ela fica colada no composer.
+
+**Cursor e cliques.** `Cursor` viaja numa curva de Bézier em `trip` quadros (15–21, ou seja 500–700 ms),
+aperta a 85% no quadro `at` (2 quadros para baixo, 6 para assentar: snap, then hold) e solta uma onda
+de 9 quadros (300 ms) no ponto do clique; some em 6 quadros depois de `hide`. Ponha no `overlay` do
+`Desk` (coordenadas da janela) e mire com `sendButton(w, h, pad, scale)`. O `Composer` com `busy`
+troca a seta pelo quadrado de parar, como o app faz enquanto trabalha. No `desk`, `click: true` liga
+tudo isso: o clique cai 1 quadro antes do envio, com o `soft-click` no `sfx_desk`.
 
 ## Motifs (`motifs.tsx`): o benefício em imagem
 

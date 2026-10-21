@@ -18,6 +18,7 @@ Uso: track_cinema.py master|reel [--from S --to S]   (trecho → out/prova-audio
 """
 import json, pathlib, re, sys, wave
 import numpy as np
+import tempos  # tempos das cenas avulsas, iguais aos do src/tempos.mjs (scripts/tempos.py)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SR, FPS = 48000, 30
@@ -295,6 +296,8 @@ def at(s, f, nm, g=0.5, rep=1, every=0):
 def sfx_desk(s, p):
     reply = bt(s, 0, 0.5)
     at(s, -12, "soft-click", 0.12, rep=12, every=3)          # digitando o pedido
+    if p.get("click"):
+        at(s, 22, "soft-click", 0.6)                          # clique no enviar (1 quadro antes do contato)
     at(s, 24, "dry-pop", 0.45)                                # enviou
     if p.get("files"):
         at(s, reply - 14, "paper-tap", 0.35)                  # card de edição
@@ -422,6 +425,58 @@ SFX_BY_TYPE = {"desk": sfx_desk, "numbers": sfx_numbers, "commands": sfx_command
                "launch": sfx_launch, "beats": sfx_beats, "glass": sfx_glass, "logo3d": sfx_logo3d,
                "pillname": sfx_pillname, "orbit": sfx_orbit, "highlights": sfx_highlights, "follow": sfx_follow,
                "appline": sfx_appline, "assemble": sfx_assemble}
+
+
+# Cenas avulsas (scenes-extras.tsx).
+def sfx_swap(s, p):
+    A = first(s)
+    S = tempos.troca_swap(s, p)  # "at": null vale como ausente
+    at(s, A, "paper-tap", 0.3)                                # a frase A sobe
+    at(s, S - 10, "soft-whoosh", 0.45)                        # o portal abre e as letras mergulham
+    at(s, S + 18, "dry-pop", 0.4)                             # as letras pousam em B
+
+
+def sfx_morph(s, p):
+    states = tempos.prop(p, "states", [])
+    trocas = tempos.tempos_morph(len(states), tempos.falas(s), first(s), tempos.prop(p, "step", 30), tempos.prop(p, "loop", True) is not False)
+    for k, f0 in enumerate(trocas):
+        at(s, f0 - 1, "soft-whoosh" if k else "dry-pop", 0.3)  # a forma troca
+        at(s, f0 + 8, "paper-tap", 0.2)                        # a palavra entra
+
+
+def sfx_map(s, p):
+    A = first(s)
+    n = len(p.get("route", [])[:6])
+    tR = bt(s, 1) - 4 if len(s["beats"]) > 1 else 30
+    seg = p.get("seg", 24)
+    at(s, A, "soft-whoosh", 0.35)                             # o mapa entra
+    if p.get("region"):
+        at(s, A + 10, "paper-tap", 0.35)                      # a região acende
+    for j in range(n):
+        last = j == n - 1
+        at(s, tR + j * seg - (1 if last else 0), "soft-chime" if last else "dry-pop", 0.45 if last else 0.3)
+
+
+def sfx_ranking(s, p):
+    n = min(len(tempos.prop(p, "items", [])), 6)
+    entradas = tempos.tempos_ranking(n, tempos.falas(s), first(s), tempos.prop(p, "step", 15))
+    for e, f0 in enumerate(entradas):                         # do último lugar ao 1º
+        if e == n - 1:
+            at(s, f0 + 4, "low-hit", 0.45); at(s, f0 + 20, "soft-chime", 0.4)  # o 1º: impacto 1 quadro antes do pico, pouso
+        else:
+            at(s, f0, "dry-pop", 0.3); at(s, f0 + 2, "soft-click", 0.08, rep=5, every=3)
+
+
+def sfx_versus(s, p):
+    A, step = first(s), p.get("step", 30)
+    b1 = bt(s, 1) - 4 if len(s["beats"]) > 1 else A + 6 + step
+    ver = bt(s, 2) - 4 if len(s["beats"]) > 2 else b1 + 30
+    for f0 in (A + 6, b1):
+        at(s, f0, "soft-whoosh", 0.3); at(s, f0 + 2, "soft-click", 0.08, rep=6, every=3)
+    at(s, ver - 1, "dry-pop", 0.5); at(s, ver + 4, "soft-chime", 0.4)   # o selo do melhor
+
+
+SFX_BY_TYPE.update({"swap": sfx_swap, "morph": sfx_morph, "map": sfx_map, "ranking": sfx_ranking, "versus": sfx_versus})
 
 # "cues": [{"at": 12 | "first+6" | "b1" | "b0@0.5-4", "sfx": "dry-pop", "gain": 0.5, "repeat": 1, "every": 0}]
 CUE = re.compile(r"^(?:b(\d+)(?:@([\d.]+))?|first)([+-]\d+)?$")

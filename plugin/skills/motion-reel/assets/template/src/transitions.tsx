@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import React, { useContext, useId } from "react";
 import { AbsoluteFill, random, useVideoConfig } from "remotion";
 import type {
   TransitionPresentation,
@@ -40,6 +40,14 @@ const DirBlur: React.FC<{ x: number; y: number; children: React.ReactNode; style
 
 const bell = (p: number) => Math.sin(Math.PI * Math.min(1, Math.max(0, p)));
 
+// Ligado pelo Film.tsx quando o filme tem motionBlur: o borrão vem do CameraMotionBlur (quadros
+// somados) e o blur desenhado do whip/push/spin cai pela metade. Sozinhas, 8 amostras deixam
+// cópias em degrau no pico do whip (~20% da largura por quadro); metade do desenhado preenche os
+// degraus sem borrar duas vezes.
+export const BlurRealCtx = React.createContext(false);
+// Transições que correm rápido o bastante para pedir o motion blur real.
+export const RAPIDAS = new Set(["whip", "whipUp", "push", "spin"]);
+
 /* Íris: a cena nova abre num círculo; a antiga empurra a câmera. */
 const Iris: React.FC<TP> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
   const { width: W, height: H } = useVideoConfig();
@@ -68,7 +76,8 @@ const Iris: React.FC<TP> = ({ children, presentationDirection, presentationProgr
 const Whip: React.FC<TP> = ({ children, presentationDirection, presentationProgress, passedProps }) => {
   const p = EASE_INOUT(presentationProgress);
   const vertical = passedProps.kind === "whipUp" || passedProps.kind === "push";
-  const blur = bell(presentationProgress) * (passedProps.kind === "push" ? 38 : 70);
+  const real = useContext(BlurRealCtx);
+  const blur = bell(presentationProgress) * (passedProps.kind === "push" ? 38 : 70) * (real ? 0.5 : 1);
   const off = presentationDirection === "entering" ? (1 - p) * 100 : -p * 100;
   const t = vertical ? `translateY(${off}%)` : `translateX(${off}%)`;
   return (
@@ -184,11 +193,12 @@ const Panel: React.FC<TP> = ({ children, presentationDirection, presentationProg
 
 /* Spin zoom: as duas cenas giram no mesmo sentido, com escala e blur. */
 const Spin: React.FC<TP> = ({ children, presentationDirection, presentationProgress }) => {
+  const real = useContext(BlurRealCtx); // hook antes de qualquer return
   // O Remotion mantém a cena envolvida com progresso 0/1 fora da troca: sem isto, o blur(0) e o
   // rotate(0) deixam emenda de 1 px na borda.
   if (presentationProgress <= 0.001 || presentationProgress >= 0.999) return <AbsoluteFill>{children}</AbsoluteFill>;
   const p = EASE_INOUT(presentationProgress);
-  const blur = bell(presentationProgress) * 14;
+  const blur = bell(presentationProgress) * 14 * (real ? 0.5 : 1);
   if (presentationDirection === "exiting") {
     return (
       <AbsoluteFill style={{ transform: `rotate(${p * 32}deg) scale(${1 + p * 1.6})`, filter: `blur(${blur}px)`, opacity: 1 - p * 0.4 }}>

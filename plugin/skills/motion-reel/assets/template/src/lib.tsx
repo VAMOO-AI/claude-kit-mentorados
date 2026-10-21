@@ -10,6 +10,7 @@ import {
   staticFile,
   useCurrentFrame,
 } from "remotion";
+import { fmtNum } from "./tempos.mjs";
 
 // Paleta do exemplo. Troque pela sua marca; azul sobre --night usa a variante clara.
 // Nome da marca nas cenas (Intro). Os logos são public/logo-light.png, logo-dark.png e marca.png.
@@ -70,12 +71,14 @@ export const ip = (
 // A serifada da ênfase é opcional: projeto antigo sem serif-italic.ttf cai no Georgia e segue.
 const FONTE_PRINCIPAL = "PlusJakartaSans.ttf";
 
-export const useFont = () => {
-  const [handle] = useState(() => delayRender("font"));
-  useEffect(() => {
+// Uma carga só por página: o useFont do filme e a cena que mede texto (fontesProntas) esperam a
+// mesma promessa, então a medida nunca sai na fonte de reserva.
+let carga: Promise<unknown> | null = null;
+export const fontesProntas = () => {
+  if (!carga) {
     const principal = new FontFace("Plus Jakarta Sans", `url(${staticFile(FONTE_PRINCIPAL)})`, { weight: "200 800" });
     const serif = new FontFace("Motion Serif", `url(${staticFile("serif-italic.ttf")})`, { style: "italic", weight: "400" });
-    Promise.all([
+    carga = Promise.all([
       principal
         .load()
         .then((f) => document.fonts.add(f))
@@ -91,7 +94,15 @@ export const useFont = () => {
         .load()
         .then((f) => document.fonts.add(f))
         .catch((e) => console.error(e)),
-    ]).then(() => continueRender(handle));
+    ]);
+  }
+  return carga;
+};
+
+export const useFont = () => {
+  const [handle] = useState(() => delayRender("font"));
+  useEffect(() => {
+    fontesProntas().then(() => continueRender(handle));
   }, [handle]);
 };
 
@@ -166,6 +177,7 @@ export const MarkIn: React.FC<{
 
 // Contador: inteiro interpolado até o alvo, formatado em pt-BR ("2.700"). O alvo invisível
 // na mesma célula reserva a largura final, então o número não empurra o layout ao crescer.
+// `decimals`: casas decimais fixas (4,5 com 1); sem ele, inteiro, como sempre foi.
 export const Counter: React.FC<{
   value: number;
   progress: number;
@@ -173,9 +185,10 @@ export const Counter: React.FC<{
   color: string;
   weight?: number;
   ease?: (t: number) => number;
-}> = ({ value, progress, size, color, weight = 800, ease = EASE }) => {
+  decimals?: number;
+}> = ({ value, progress, size, color, weight = 800, ease = EASE, decimals = 0 }) => {
   const p = Math.min(1, Math.max(0, progress));
-  const n = Math.round(value * ease(p));
+  const n = Number((value * ease(p)).toFixed(decimals));
   return (
     <div
       style={{
@@ -189,8 +202,8 @@ export const Counter: React.FC<{
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{value.toLocaleString("pt-BR")}</span>
-      <span style={{ gridArea: "1 / 1" }}>{n.toLocaleString("pt-BR")}</span>
+      <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{fmtNum(value, decimals)}</span>
+      <span style={{ gridArea: "1 / 1" }}>{fmtNum(n, decimals)}</span>
     </div>
   );
 };

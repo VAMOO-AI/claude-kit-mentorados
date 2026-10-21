@@ -1,8 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Audio, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
+import { CameraMotionBlur } from "@remotion/motion-blur";
 import { C, EASE_INOUT, LeadCtx, ip, useFont } from "./lib";
-import { presentation } from "./transitions";
+import { BlurRealCtx, RAPIDAS, presentation } from "./transitions";
 import { FilmCtx, SCENES, TL } from "./film-scenes";
 
 // Composição genérica: lê a timeline (src/tl-<formato>.json, gerada pelo build-timeline.py) por
@@ -52,6 +53,7 @@ const Grain: React.FC = () => {
 
 export const Film: React.FC<{ tl: TL; audio: string; withAudio?: boolean }> = ({ tl, audio, withAudio = true }) => {
   useFont();
+  const frame = useCurrentFrame();
   const sc = tl.scenes;
   const items: React.ReactNode[] = [];
   sc.forEach((s, i) => {
@@ -86,9 +88,23 @@ export const Film: React.FC<{ tl: TL; audio: string; withAudio?: boolean }> = ({
     );
   });
   const lbCut = tl.letterbox ? sc.find((s) => s.type === tl.letterbox)?.cut : undefined;
+  // Motion blur real (opt-in, "motionBlur" no film.json): só nos quadros das transições rápidas,
+  // com 1 quadro de folga de cada lado, porque cada quadro vira `samples` renders somados. Áudio,
+  // grão e letterbox ficam fora (não se somam); o fundo night embaixo evita a soma sobre transparente.
+  const mb = tl.motionBlur;
+  const naTroca = !!mb && sc.some((s, i) => i > 0 && s.d > 0 && RAPIDAS.has(s.in) && Math.abs(frame - s.cut) <= s.d / 2 + 1);
+  const serie = <TransitionSeries>{items}</TransitionSeries>;
   return (
     <AbsoluteFill style={{ backgroundColor: C.night }}>
-      <TransitionSeries>{items}</TransitionSeries>
+      <BlurRealCtx.Provider value={!!mb}>
+        {mb && naTroca ? (
+          <AbsoluteFill style={{ backgroundColor: C.night }}>
+            <CameraMotionBlur samples={mb.samples} shutterAngle={mb.shutter}>{serie}</CameraMotionBlur>
+          </AbsoluteFill>
+        ) : (
+          serie
+        )}
+      </BlurRealCtx.Provider>
       <Grain />
       {lbCut !== undefined ? <Letterbox until={lbCut} /> : null}
       {withAudio ? <Audio src={staticFile(audio)} /> : null}
