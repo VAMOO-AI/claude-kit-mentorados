@@ -39,7 +39,8 @@ Usage: git-sync.sh [options]
   --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged e
                       head == tip, pelo gh ou pela API) + remove worktrees clean,
                       mergeados e sem ignorado de valor (nunca --force; lock de
-                      sessão morta é destravado). Remoto nunca é apagado.
+                      sessão morta é destravado; worktree que é cwd de processo
+                      vivo fica). Remoto nunca é apagado.
   --default-branch B  override default branch (else origin/HEAD, main, master)
   --cwd PATH          run from PATH
   -h, --help          this help
@@ -161,6 +162,37 @@ lock_is_stale() {
   kill -0 "$_pid" 2>/dev/null && return 1
   STALE_PID="$_pid"
   return 0
+}
+
+# Quem está dentro de cada worktree. O app desktop não trava o worktree da sessão, então o
+# "não locked" não protege: em 20/10/2026 o dry-run marcou como CANDIDATO o worktree onde uma
+# sessão rodava. Uma foto só, de todos os processos: no Linux o /proc (um find), no macOS um
+# `lsof -d cwd` global (~0,1-0,3 s; o `+D` por worktree custa uma varredura por candidato).
+# Sem nenhum dos dois, CWD_OK fica 0 e todo worktree fica (fail-safe). O exit do lsof não
+# decide nada: no Mac ele sai 1 com aviso de stat e saída válida, e o find do /proc sai 1 com
+# pid de outro usuário ou que morreu no meio — sob `set -eo pipefail` isso matava o script.
+# atalho: foto única por execução, tirada antes da lista; revisitar se o apply passar a demorar
+CWD_INFO=""; CWD_OK=0; CWD_PROC=""
+coleta_cwds() {
+  local _proc="${GIT_SYNC_PROC_DIR:-/proc}" _lsof="${GIT_SYNC_LSOF:-lsof}"
+  if [[ -r "$_proc/self/cwd" || -L "$_proc/self/cwd" ]]; then
+    CWD_INFO="$(find "$_proc" -mindepth 2 -maxdepth 2 -name cwd -printf '%h\t%l\n' 2>/dev/null \
+      | awk -F'\t' '$2!=""{c=""; f=$1 "/comm"; if ((getline c < f) <= 0) c=""; close(f); print $2 "\t" c}' || true)"
+  elif command -v "$_lsof" >/dev/null 2>&1; then
+    CWD_INFO="$("$_lsof" -w +c 0 -d cwd -Fpcn 2>/dev/null \
+      | awk '/^p/{c=""} /^c/{c=substr($0,2)} /^n/{print substr($0,2) "\t" c}' || true)"
+  fi
+  [[ -n "$CWD_INFO" ]] && CWD_OK=1
+  return 0
+}
+# Caminho físico dos dois lados (no Mac o TMPDIR é symlink para /private/var) e fronteira de
+# barra no prefixo: o processo em wt-ab/src não pode segurar o wt-a.
+cwd_vivo() {   # <worktree> → CWD_PROC = nome do processo
+  local _fis
+  _fis="$(cd "$1" 2>/dev/null && pwd -P)" || _fis="$1"
+  CWD_PROC="$(printf '%s\n' "$CWD_INFO" | awk -F'\t' -v w="$_fis" \
+    '$1==w || index($1, w "/")==1 {print ($2=="" ? "?" : $2); exit}')"
+  [[ -n "$CWD_PROC" ]]
 }
 
 # Branch recém-criada de origin/main é ancestral trivial dele: sem esta checagem o
@@ -1056,11 +1088,12 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin)
   [[ "$_listadas" -eq 0 ]] && echo "  (none)"
 
-  echo "--- worktrees candidatos a remoção (clean + merged em $ORIGIN_DEFAULT + não locked) ---"
+  echo "--- worktrees candidatos a remoção (clean + merged em $ORIGIN_DEFAULT + não locked + sem processo dentro) ---"
   WT_REMOVE=()
   if [[ ${#WT_PATHS[@]} -le 1 ]]; then
     echo "  (só o clone principal — nada a avaliar)"
   else
+    coleta_cwds
     for wt in "${WT_PATHS[@]}"; do
       [[ "$wt" == "$MAIN_WT" ]] && continue
       [[ -d "$wt" ]] || continue
@@ -1070,6 +1103,10 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="detached HEAD — avaliar manualmente"
       elif is_locked "$wt" && ! lock_is_stale "$wt"; then
         reason="locked (sessão viva)"
+      elif [[ "$CWD_OK" -ne 1 ]]; then
+        reason="sem lsof nem /proc para ver se há processo dentro (fail-safe)"
+      elif cwd_vivo "$wt"; then
+        reason="cwd de processo vivo ($CWD_PROC)"
       elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
         reason="não-clean (dirty ou untracked)"
       elif ignorado_de_valor "$wt"; then
