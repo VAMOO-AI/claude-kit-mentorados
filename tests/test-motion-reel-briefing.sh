@@ -7,7 +7,10 @@
 #      (sessão, arquivos, painel) não conta;
 #   3. presets/explicativo.json: 5 cenas que existem no SCENES (problema, o que faz, 3 passos,
 #      prova, nome), 16:9 + corte 9:16, sem voz, na batida, ~20 s, sem leitura curta, citado no
-#      SKILL.md e na lista da galeria.
+#      SKILL.md e na lista da galeria;
+#   4. a doutrina de motion é o padrão: cena sem `in` herda a corrente (`current`, padrão whip),
+#      lib.tsx exporta SETTLE, EXIT, POP, ANTIC e hitStop, o Breathe fica só no fim, o clímax do
+#      numbers é opcional (focus: "last") e o statement aceita lineFracs.
 #
 # Uso: bash tests/test-motion-reel-briefing.sh [raiz-do-repo]
 set -uo pipefail
@@ -98,12 +101,12 @@ tl = {n: json.loads((raiz / f"src/tl-{n}.json").read_text(encoding="utf-8")) for
 tipos = {n: [s["type"] for s in film[n]] for n in ("master", "reel")}
 print("cinco", "ok" if len(tipos["master"]) == 5 else "fail")
 print("tipos", "ok" if all(t in cenas for n in tipos for t in tipos[n]) else "fail")
-print("ordem", "ok" if tipos["master"] == ["statement", "title", "beats", "highlights", "logo3d"] else "fail")
+print("ordem", "ok" if tipos["master"] == ["statement", "title", "beats", "glass", "logo3d"] else "fail")
 print("corte", "ok" if set(tipos["reel"]) <= set(tipos["master"]) else "fail")
 print("batida", "ok" if all(s["cut"] % 15 == 0 for n in tl for s in tl[n]["scenes"]) and all(tl[n]["total"] % 15 == 0 for n in tl) else "fail")
 print("sem-voz", "ok" if all(not s.get("vo") for n in tipos for s in film[n]) else "fail")
 print("duracao", "ok" if all(18 <= tl[n]["total"] / 30 <= 23 for n in tl) else "fail")
-prova = [s for s in film["master"] if s["type"] == "highlights"]
+prova = [s for s in film["master"] if s["type"] == "glass"]
 print("fonte", "ok" if prova and "fonte" in json.dumps(prova[0]["props"], ensure_ascii=False) else "fail")
 print("sobre", "ok" if film.get("sobre") else "fail")
 PY
@@ -114,6 +117,35 @@ for k in "cinco:cinco cenas" "tipos:toda cena existe no SCENES" "ordem:problema,
 done
 "$PY" "$SK/scripts/galeria.py" --lista > "$TMP/lista.log" 2>&1
 check "a lista da galeria cita o explicativo" "$(tem "$TMP/lista.log" "explicativo.json")"
+
+echo "4. doutrina de motion como padrão (corrente, constantes, Breathe só no fim, clímax opcional)"
+C4="$TMP/corrente"; mkdir -p "$C4/src" "$C4/scripts"
+cp "$A/scripts/build-timeline.py" "$C4/scripts/"
+cat > "$C4/film.json" <<'JSON'
+{"master": [
+ {"type": "statement", "vo": [], "min": 60, "props": {"groups": [{"beat": 0, "lines": ["Um."]}]}},
+ {"type": "statement", "vo": [], "min": 60, "props": {"groups": [{"beat": 0, "lines": ["Dois."]}]}},
+ {"type": "statement", "vo": [], "min": 60, "props": {"groups": [{"beat": 0, "lines": ["Três."]}]}},
+ {"type": "outro", "vo": [], "min": 60, "in": "ink", "props": {"name": "X"}}
+]}
+JSON
+"$PY" "$C4/scripts/build-timeline.py" > "$TMP/corrente.log" 2>&1
+check "sem current, a cena sem in herda whip" "$("$PY" -c 'import json,sys; s=json.load(open(sys.argv[1]))["scenes"]; print("ok" if [c["in"] for c in s] == ["cut", "whip", "whip", "ink"] else "fail")' "$C4/src/tl-master.json" 2>/dev/null || echo fail)"
+"$PY" -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["current"]="push"; json.dump(d, open(p,"w"))' "$C4/film.json"
+"$PY" "$C4/scripts/build-timeline.py" > /dev/null 2>&1
+check "current: push vale para toda cena sem in; o in explícito fica" "$("$PY" -c 'import json,sys; s=json.load(open(sys.argv[1]))["scenes"]; print("ok" if [c["in"] for c in s] == ["cut", "push", "push", "ink"] else "fail")' "$C4/src/tl-master.json" 2>/dev/null || echo fail)"
+"$PY" -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["current"]="voa"; json.dump(d, open(p,"w"))' "$C4/film.json"
+"$PY" "$C4/scripts/build-timeline.py" > "$TMP/corrente-ruim.log" 2>&1; rc=$?
+check "corrente que não existe recusa (veio $rc)" "$([ "$rc" != 0 ] && /usr/bin/grep -qF "corrente 'voa'" "$TMP/corrente-ruim.log" && echo ok || echo fail)"
+for k in "export const SETTLE" "export const EXIT" "export const POP" "export const ANTIC" "export const hitStop" "ease = EASE"; do
+  check "lib.tsx: $k" "$(tem "$A/src/lib.tsx" "$k")"
+done
+check "Film.tsx: Breathe só por props.breathe ou no outro/logo3d" "$(/usr/bin/grep -qF 's.props.breathe ?? BREATHE_BY_TYPE.has(s.type)' "$A/src/Film.tsx" && /usr/bin/grep -qF 'new Set(["outro", "logo3d"])' "$A/src/Film.tsx" && echo ok || echo fail)"
+check "numbers: clímax só com focus: \"last\"" "$(tem "$A/src/film-scenes.tsx" 'p.focus === "last"')"
+check "statement: lineFracs" "$(tem "$A/src/film-scenes.tsx" "g.lineFracs")"
+check "outro: fade de 16 quadros com EXIT" "$(tem "$A/src/film-scenes.tsx" "[p.len - 16, p.len], [1, 0], EXIT")"
+check "transicoes.md: repita a corrente" "$(tem "$SK/references/transicoes.md" "Repita a corrente; varie só com motivo")"
+check "vocabulario.md: doutrina como padrão, sem cor de foco" "$(tem "$SK/references/vocabulario.md" "sem cor de foco no clímax")"
 
 echo
 if [ "$falhas" = 0 ]; then echo "tudo ok"; else echo "$falhas falha(s)"; fi

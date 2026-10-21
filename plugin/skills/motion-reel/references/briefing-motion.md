@@ -36,7 +36,7 @@ Uma mensagem só, com o que o contexto não responde. Não comece a escrever cen
 
 | Intensidade | Deslocamento | Escala | Entrada | Stagger | No template |
 |---|---|---|---|---|---|
-| sutil | 20–40 px | 95–102 % | 400–600 ms | 0–60 ms | `Breathe` (zoom de 3 %), números que esmaecem |
+| sutil | 20–40 px | 95–102 % | 400–600 ms | 0–60 ms | `Breathe` (zoom de 3 %, só no fim), números que esmaecem |
 | moderada (padrão) | 40–80 px | 80–110 % | 300–500 ms | 60–100 ms | `MaskUp` (sobe 110 % da linha em 14 frames, ≈ 470 ms), linhas do `statement` a 5 frames |
 | intensa | 60 px ou mais, ou corte pela borda | 50–150 % | 100–300 ms | 30–50 ms | letras do `title` (60 px e escala 1,5 → 1 em 14 frames), tremor do `shake`, `glitch` |
 
@@ -82,12 +82,12 @@ número com o rótulo, a frase. Regras:
 - **Um read por vez.** Dois textos novos no mesmo instante disputam o olho; o segundo entra quando o primeiro já foi lido.
 - **Duração pela leitura:** 2,5 palavras/s + 0,5 s. Cinco palavras pedem 2,5 s. Se os reads não cabem, alongue a cena ou corte um read; nunca esprema.
 - **Ação rápida, significado segurado:** a mudança acontece em poucos frames e o resultado fica na tela.
-- O `build-timeline.py` conta as palavras das `props` (fora a moldura de UI: sessão, arquivos, status, painel ilustrativo, botão), grava `read` (`words`, `need`, `secs`) em cada cena da timeline e avisa "leitura curta" quando a cena dura menos que a leitura. Quando a contagem pega texto que é só decoração, declare na cena do `film.json` o que precisa ser lido: `"read": ["O cliente chama.", "Ninguém responde."]`.
+- O `build-timeline.py` conta as palavras das `props` (fora a moldura de UI: sessão, arquivos, status, painel ilustrativo, botão, palavra de fundo), grava `read` (`words`, `need`, `secs`) em cada cena da timeline e avisa "leitura curta" quando a cena dura menos que a leitura. Quando a contagem pega texto que é só decoração, declare na cena do `film.json` o que precisa ser lido: `"read": ["O cliente chama.", "Ninguém responde."]`.
 
 ### Checklist do storyboard (antes de construir)
 
 - [ ] **Evento em toda cena:** algo acontece (causa e reação, número que conta, frase que vira); cena só de texto parado é cartão.
-- [ ] **Transição motivada:** cada `in` diz por que muda (`iris` = fecha um assunto, `whip` = enquanto isso, corte seco = na batida). Dois ou três tipos por filme, um dominante.
+- [ ] **Transição motivada:** a corrente (`"current"` no `film.json`, padrão `whip`) leva a maioria das trocas na mesma direção; `in` explícito só com motivo (`iris`/`ink` = fecha, `whipUp` = conclusão que sobe, `cut` = match ou smash cut). Dois ou três tipos por filme.
 - [ ] **Final que rima com a abertura:** a última cena devolve um elemento da primeira (a mesma palavra, o símbolo, a cor de fundo).
 - [ ] **Leitura:** nenhuma cena com aviso de leitura curta, ou o aviso foi aceito de propósito.
 - [ ] **Beat-chave no meio da cena,** onde a transição não come.
@@ -122,14 +122,17 @@ As que mais aparecem num roteiro novo (o resto está em `armadilhas.md`):
 ## Exemplo resolvido: explicativo de negócio (`presets/explicativo.json`)
 
 Entradas: serviço que responde clientes no WhatsApp; sem voz; 16:9 + 9:16; ~20 s; número com fonte.
+Direção: `"current": "whip"` no `film.json` (a corrente da doutrina), `iris` só no fechamento.
 
 | # | Ideia | Duração | Reads | `type` | `in` | Som |
 |---|---|---|---|---|---|---|
 | 1 | o problema | 105 frames (3,5 s) | "O cliente chama." → "Ninguém responde." | `statement` | corte (abre) | — |
-| 2 | o que você faz | 105 (3,5 s) | o nome → "resolve" | `title` | `push`: a resposta empurra o problema | `braam` |
-| 3 | como funciona em 3 passos | 120 (4 s) | "Como funciona" → 3 passos, um por batida | `beats` | `whip`: enquanto isso | `drop` |
-| 4 | uma prova com fonte | 195 (6,5 s) | "Na prática" → 87 % e o rótulo com a fonte | `highlights` | `panel` | — |
+| 2 | o que você faz | 105 (3,5 s) | o nome → "resolve" | `title` | corrente (`whip`) | `braam` |
+| 3 | como funciona em 3 passos | 120 (4 s) | "Como funciona" → 3 passos, um por batida | `beats` | corrente (`whip`) | `drop` |
+| 4 | uma prova com fonte | 195 (6,5 s) | "Na prática" → 87 e o rótulo → a fonte, num cartão próprio | `glass` | corrente (`whip`) | — |
 | 5 | o nome | 120 (4 s) | a marca → o @ | `logo3d` | `iris`: fecha | `finale` |
 
-Leitura medida pelo `build-timeline.py`: 2,5 s, 1,7 s, 3,7 s, 5,7 s e 0,9 s, todas dentro da cena.
+Leitura medida pelo `build-timeline.py`: 2,5 s, 1,7 s, 3,7 s, 6,1 s e 0,9 s, todas dentro da cena.
+Sem voz, `statement`, `title` e `glass` não têm fala para revelar aos poucos: ficam com `breathe: true`
+(regra 7 da doutrina), e o `qa.sh` sai sem aviso de cena parada nos dois formatos.
 O número do exemplo é placeholder: troque pelo da pessoa, com a fonte dela.

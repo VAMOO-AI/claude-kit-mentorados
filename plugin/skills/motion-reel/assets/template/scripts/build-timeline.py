@@ -4,14 +4,15 @@
 Cada cena: f = 0 no corte. A 1ª fala entra em `pre` frames, as seguintes depois de `gap`
 (+ gaps[k] extra depois da fala k), e a cena termina `post` frames após a última fala; nunca
 menos que `min`. A duração sobe para o próximo múltiplo de 15 (120 BPM a 30 fps): todo corte
-cai na batida. Cena sem `in` ganha a próxima transição do ciclo, sem repetir a anterior.
+cai na batida. Cena sem `in` herda a corrente do filme (`"current"` no film.json, padrão `whip`):
+uma transição dominante na mesma direção; `in` explícito só onde a troca tem motivo.
 
 Fala sem WAV ainda (storyboard antes da voz): a duração é estimada pelo texto do vo.json
 (~14 caracteres/s) e o script avisa. Rode de novo depois do split-vo.py.
 
 Leitura: o texto da tela (props, ou a lista `read` da cena, quando o autor declara só o que o
 espectador precisa ler) pede 2,5 palavras/s + 0,5 s. A moldura de UI (sessão, arquivos, status,
-painel ilustrativo, botão) não conta. Cena mais curta que isso ganha aviso de leitura curta; o
+painel ilustrativo, botão, palavra de fundo) não conta. Cena mais curta que isso ganha aviso de leitura curta; o
 cálculo vai em `read` ({words, need, secs}) de cada cena da timeline, que o storyboard mostra.
 Uso: build-timeline.py [master|reel ...]   (sem argumento: todos os formatos do film.json)
 """
@@ -20,12 +21,12 @@ import json, math, pathlib, sys, wave
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FPS, BEAT = 30, 15
 CPS = 14  # estimativa sem WAV
-CYCLE = ["whip", "push", "spin", "whipUp", "glitch", "whip", "push", "iris"]
+CURRENT = "whip"  # corrente padrão (doutrina de motion, regra 6): repita a corrente, varie só com motivo
 D = {"iris": 14, "ink": 16, "whip": 10, "whipUp": 10, "push": 12, "bars": 18, "glitch": 10, "panel": 18, "spin": 12, "echo": 12, "cut": 0}
 FORMATS = ("master", "reel")
 WPS, PAD = 2.5, 0.5  # leitura: palavras por segundo + respiro da cena
 # Props que não são leitura: arquivo, tipo, cor e a moldura de UI (sessão, arquivos, status, painel ilustrativo).
-NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files", "working", "motif", "ui", "button", "done"}
+NOT_TEXT = {"kind", "photo", "logo", "mark", "bg", "symbol", "session", "files", "working", "motif", "ui", "button", "done", "word"}
 
 
 def texts():
@@ -72,7 +73,10 @@ def read_need(items):
 
 
 def build(name, spec, film, txt):
-    out, cut, last_in, k, faltas, curtas = [], 0, None, 0, [], []
+    out, cut, faltas, curtas = [], 0, [], []
+    current = film.get("current", CURRENT)
+    if current not in D or current == "cut":
+        sys.exit(f"!! {name}: corrente '{current}' não existe ({', '.join(t for t in D if t != 'cut')})")
     for idx, s in enumerate(spec):
         pre, gap, post = s.get("pre", 6), s.get("gap", 8), s.get("post", 8)
         extra = s.get("gaps", [])
@@ -88,9 +92,7 @@ def build(name, spec, film, txt):
         if idx == 0:
             tin = "cut"
         elif tin is None:
-            while CYCLE[k % len(CYCLE)] == last_in:
-                k += 1
-            tin = CYCLE[k % len(CYCLE)]; k += 1
+            tin = current
         if tin not in D:
             sys.exit(f"!! {name} cena {idx} ({s['type']}): transição '{tin}' não existe ({', '.join(D)})")
         out.append({"id": f"{s['type']}-{idx}", "type": s["type"], "cut": cut, "in": tin, "d": s.get("d", D[tin]),
@@ -101,7 +103,6 @@ def build(name, spec, film, txt):
         out[-1]["read"] = {"words": words, "need": need, "secs": round(length / FPS, 1)}
         if need > length / FPS:
             curtas.append(f"{out[-1]['id']} ({words} palavras pedem {need:.1f}s, a cena dura {length / FPS:.1f}s)")
-        last_in = tin
         cut += length
     # energia herdada: cena sem "energy" repete a anterior (0 tenso · 1 calmo · 2 andando · 3 cheio)
     e = 1

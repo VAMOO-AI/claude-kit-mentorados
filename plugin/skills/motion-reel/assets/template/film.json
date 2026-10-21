@@ -1,5 +1,6 @@
 {
  "letterbox": "title",
+ "current": "whip",
  "master": [
   {
    "type": "desk", "vo": ["a1"], "energy": 0, "pre": 18,
@@ -14,15 +15,16 @@
   },
   {
    "type": "statement", "vo": ["a2"], "in": "glitch", "energy": 0,
-   "props": { "bg": "night", "groups": [{ "beat": 0, "lines": ["Sem copiar.", "Sem colar."], "hollowLast": true }] }
+   "props": { "bg": "night", "groups": [{ "beat": 0, "lines": ["Sem copiar.", "Sem colar."], "hollowLast": true, "lineFracs": [0, 0.6] }] }
   },
   {
    "type": "title", "vo": ["t1", "t2"], "in": "cut", "mark": "braam", "energy": 1, "pre": 8,
-   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos" }
+   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos", "breathe": true }
   },
   {
-   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2,
-   "props": { "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
+   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2, "gaps": [0, 12],
+   "cues": [{ "at": "b2+1", "sfx": "low-hit", "gain": 0.5 }],
+   "props": { "focus": "last", "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
   },
   { "type": "chapter", "vo": [], "min": 45, "in": "bars", "energy": 2, "props": { "n": 1, "name": "Como funciona", "count": "3 passos" } },
   {
@@ -52,7 +54,7 @@
   {
    "type": "commands", "vo": ["i1", "i2"], "energy": 2,
    "props": {
-    "line1": "2 comandos.", "line2": "E pronto.", "badge": "↻ se atualiza sozinho",
+    "line1": "2 comandos.", "line2": "E pronto.", "badge": "↻ se atualiza sozinho", "breathe": true,
     "cmds": [{ "cmd": "/instalar seu-produto", "reply": "Instalado." }, { "cmd": "/seu-produto:setup", "reply": "Configurado. Nada sobrescrito." }]
    }
   },
@@ -65,14 +67,15 @@
  "reel": [
   {
    "type": "title", "vo": ["t1", "t2"], "in": "cut", "mark": "braam", "energy": 1, "pre": 8,
-   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos" }
+   "props": { "line1": "Seu", "line2": "Produto", "sub": "Uma frase com o benefício principal", "pill": "pronto em 2 minutos", "breathe": true }
   },
   {
-   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2,
-   "props": { "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
+   "type": "numbers", "vo": ["n1", "n2", "n3"], "energy": 2, "gaps": [0, 12],
+   "cues": [{ "at": "b2+1", "sfx": "low-hit", "gain": 0.5 }],
+   "props": { "focus": "last", "items": [{ "v": 3, "label": "cliques" }, { "v": 12, "label": "relatórios por mês" }, { "v": 40, "label": "horas de volta" }] }
   },
   {
-   "type": "card", "vo": ["c2"], "energy": 3, "mark": "hit",
+   "type": "card", "vo": ["c2"], "energy": 3,
    "props": {
     "n": 2, "total": 3, "kicker": "Passo 2", "name": "confere", "line": "Testa cada número antes de mostrar",
     "before": "Número errado na reunião", "proof": "4 de 4 conferidos", "cmd": "/confere", "session": "RELATÓRIO MENSAL",
