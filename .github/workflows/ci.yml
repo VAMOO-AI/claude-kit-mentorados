@@ -468,6 +468,26 @@ jobs:
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
 
+  # Mentorado e mantenedor usam Mac, e a diferença que pega é a do bash 3.2, do BSD sed/date
+  # e do mktemp. Até a 0.66 a suíte só rodava no Mac de quem mantém. Fase F0 do núcleo único
+  # (#241). Job separado, não matriz no validate: o `validate` é check obrigatório pelo nome.
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: A suíte inteira roda no macOS
+        run: |
+          fail=0
+          for t in tests/test-*.sh; do
+            if bash "$t" > "/tmp/$(basename "$t").log" 2>&1; then echo "ok   $t"
+            else echo "::error file=$t::reprovou no macOS"; tail -20 "/tmp/$(basename "$t").log"; fail=1; fi
+          done
+          exit $fail
+
   # O kit promete funcionar no Windows com o Git Bash (README, "Funciona no Windows?"), e é
   # lá que um hook quebrado falha aberto sem ninguém ver: o guard sai 0 e nada protege. Este
   # job roda o boot dos hooks e as suítes dos guard-rails no bash do Git para Windows, com o
