@@ -1,10 +1,10 @@
 ---
 name: secscan
 description: >-
-  Use quando o usuário pedir revisão de segurança, code audit, "checa a
-  segurança", "tem RLS faltando?", "secret vazando?", ou "roda um secscan"
-  num projeto LOCAL Next.js / React / Supabase em desenvolvimento.
-  Read-only — NUNCA edita o código auditado. Não é pra alvo deployado/produção.
+  Varredura de segurança do repositório LOCAL inteiro (Next.js / React /
+  Supabase): scanners, RLS faltando, secret vazando, "roda um secscan",
+  "checa a segurança do projeto". Read-only, nunca edita. Revisão só do diff
+  é o /security-review; entregável para terceiro é a auditoria-seguranca.
 ---
 
 # secscan — Revisão de segurança (read-only)

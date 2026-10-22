@@ -252,8 +252,8 @@ no plugin. Até então eram "skills de domínio" que ficavam só no time. A part
 
 | Item | Aqui | Diverge, e por quê |
 |---|---|---|
-| `n8n-workflow-agent` (com `references/` e o `scripts/simular-conversa.mjs` da QA simulada) | `plugin/skills/n8n-workflow-agent` | **slash-only** (`disable-model-invocation: true`): com quase 3 mil linhas e assunto de nicho, não deve pesar na request de quem não está mexendo com n8n. Sem nome de cliente, telefone real, host do servidor UAZAPI, contagem de instância nem data de incidente interno; telefones de exemplo com DDD `00`. O `db-query.sh`, o 1Password e a `vamoo-infra` viram "o cliente SQL do projeto" e "segredo no ambiente". O `references/guardrails-ia.md` fica só com o que é de n8n e aponta para a skill `guardrails-ia` daqui |
-| `whatsapp-inbox-stack` | `plugin/skills/whatsapp-inbox-stack` | slash-only, mesma limpeza; o `hitl-loop.sh` é o do plugin (`${CLAUDE_PLUGIN_ROOT}/scripts/`) |
+| `n8n-workflow-agent` (com `references/` e o `scripts/simular-conversa.mjs` da QA simulada) | `plugin/skills/n8n-workflow-agent` | acionável pelo modelo desde a 0.64.1 (antes, slash-only): a description custa pouco, e as travas mais caras (webhook derrubado, flood, teste que atinge gente real) precisam carregar sem o mentorado lembrar de chamar (#261). Sem nome de cliente, telefone real, host do servidor UAZAPI, contagem de instância nem data de incidente interno; telefones de exemplo com DDD `00`. O `db-query.sh`, o 1Password e a `vamoo-infra` viram "o cliente SQL do projeto" e "segredo no ambiente". O `references/guardrails-ia.md` fica só com o que é de n8n e aponta para a skill `guardrails-ia` daqui |
+| `whatsapp-inbox-stack` | `plugin/skills/whatsapp-inbox-stack` | acionável pelo modelo desde a 0.64.1, mesma limpeza; o `hitl-loop.sh` é o do plugin (`${CLAUDE_PLUGIN_ROOT}/scripts/`) |
 | `tests/test-sem-dado-de-cliente.sh` | só aqui | o kit é público: o gate reprova nome de cliente (lista guardada como sha256, para o teste não publicar a carteira), telefone com DDD real e host `*.uazapi.com` que não seja exemplo, em todo arquivo versionado |
 
 ## 0.53.9 (15/10): caminho Windows no path-rules

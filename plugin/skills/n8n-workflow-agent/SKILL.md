@@ -4,9 +4,8 @@ description: >-
   Construir, editar, depurar ou publicar workflow n8n, com ou sem agente de
   WhatsApp: layout sem cruzamento, baseline + diff antes de PUT, Code Node, e
   referências de UAZAPI, NotificaMe, Chatwoot, Pipedrive, Postgres, disparo,
-  pausa Redis e QA simulada de agente (lead falso + juiz). Só dispara quando
-  você chama. A ponta do inbox no app é da /kit-vamoo:whatsapp-inbox-stack.
-disable-model-invocation: true
+  pausa Redis e QA simulada de agente (lead falso + juiz). A ponta do inbox
+  no app é da whatsapp-inbox-stack.
 ---
 
 # n8n Workflow Agent

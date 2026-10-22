@@ -73,7 +73,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 |---|---|---|
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (a skill instala o `ctx7` na primeira vez, se faltar) |
 | **auditoria-seguranca** | Auditoria em 6 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com ferramentas) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
-| **secscan** | Revisão de segurança read-only: RLS, secrets, deps vulneráveis. "roda um secscan". Ver `docs/seguranca.md`. | nenhum |
+| **secscan** | Varredura de segurança read-only do repositório inteiro: RLS, secrets, deps vulneráveis. "roda um secscan". Revisão só do que mudou no diff é o `/security-review` do Claude Code. Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 8 pilares: bundle, RLS, login e permissão, limites de uso, carga e cache, observabilidade, segredos e perímetro (o que fica exposto na internet). Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
