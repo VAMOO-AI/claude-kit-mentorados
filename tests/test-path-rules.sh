@@ -58,8 +58,8 @@ check() { # check <descrição> <ok|fail>
   if [ "$2" = ok ]; then printf '  ok    %s\n' "$1"
   else printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); fi
 }
-tem() { printf '%s' "$saida" | grep -q "$1" && echo ok || echo fail; }
-tem_literal() { printf '%s' "$saida" | grep -qF -- "$1" && echo ok || echo fail; }
+tem() { printf '%s' "$saida" | grep >/dev/null "$1" && echo ok || echo fail; }
+tem_literal() { printf '%s' "$saida" | grep >/dev/null -F -- "$1" && echo ok || echo fail; }
 vazio() { [ -z "$saida" ] && echo ok || echo fail; }
 formato_pretooluse() {
   node -e '
@@ -77,7 +77,7 @@ check "node continua nesse PATH"            "$( (PATH="$SEM_JQ"; command -v node
 roda s1 /Users/x/PROJ/supabase/migrations/001_init.sql
 check "migration injeta a regra"            "$(tem 'irreversível')"
 check "sai como additionalContext"          "$(tem 'additionalContext')"
-check "não devolve permissionDecision"      "$(printf '%s' "$saida" | grep -q permissionDecision && echo fail || echo ok)"
+check "não devolve permissionDecision"      "$(printf '%s' "$saida" | grep >/dev/null permissionDecision && echo fail || echo ok)"
 check "não bloqueia (exit 0)"               "$([ "$codigo" -eq 0 ] && echo ok || echo fail)"
 # A regra de migration tem aspas no texto: é o caso que quebraria um JSON montado à mão.
 check "saída é JSON válido, no formato do PreToolUse" "$(formato_pretooluse)"
@@ -102,7 +102,7 @@ check "package.json lembra do audit"        "$(tem 'audit')"
 # também com o .claude/settings.json de projeto, que vai para o git.
 roda s8 /Users/x/.claude/settings.json
 check "settings.json global: o setup mescla"         "$(tem 'mescla')"
-check "settings.json global: não diz 'é sobrescrito'" "$(printf '%s' "$saida" | grep -q 'é sobrescrito' && echo fail || echo ok)"
+check "settings.json global: não diz 'é sobrescrito'" "$(printf '%s' "$saida" | grep >/dev/null 'é sobrescrito' && echo fail || echo ok)"
 roda s9 /Users/x/PROJ/.claude/settings.json
 check "settings.json de projeto: o pessoal vai no settings.local.json do projeto" "$(tem 'settings.local.json do projeto')"
 

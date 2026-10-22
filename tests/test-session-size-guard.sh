@@ -38,7 +38,7 @@ run() { # <sid> [transcript]: stdout do hook; o stderr fica em $TMP/err
 check() { # <regex-ou-vazio> <descrição> <saída>
   local ok=0
   if [ -z "$1" ]; then [ -z "$3" ] && ok=1
-  else printf '%s' "$3" | grep -q -- "$1" && ok=1; fi
+  else printf '%s' "$3" | grep >/dev/null -- "$1" && ok=1; fi
   if [ "$ok" = 1 ]; then printf '  ok    %s\n' "$2"
   else printf '  FALHA %s (veio: %s)\n' "$2" "${3:-<vazio>}"; falhas=$((falhas+1)); fi
 }
@@ -46,7 +46,7 @@ avisos() { printf '%s\n' "$1" | grep -c '^@usuario '; }
 PARA_PESSOA='^@usuario .*K tokens'
 # sem_dinheiro <faixa> <aviso>: o texto fala em tokens, sem "barato" nem "custo".
 sem_dinheiro() {
-  if [ -n "$2" ] && ! printf '%s' "$2" | grep -qiE 'barat|custo'; then
+  if [ -n "$2" ] && ! printf '%s' "$2" | grep >/dev/null -iE 'barat|custo'; then
     printf '  ok    faixa %s: fala em tokens, não em dinheiro\n' "$1"
   else printf '  FALHA faixa %s: sem aviso ou com promessa de dinheiro (veio: %s)\n' "$1" "${2:-<vazio>}"; falhas=$((falhas+1)); fi
 }

@@ -61,23 +61,23 @@ check "não imprime nada quando não há novidade" "$([ -z "$saida" ] && echo ok
 
 echo "== uma versão nova =="
 reset; semeia 1.3.0; saida="$(roda)"
-check "cabeçalho sem contagem"          "$(printf '%s' "$saida" | grep -q '1.3.0 → 1.4.0\.$' && echo ok || echo fail)"
+check "cabeçalho sem contagem"          "$(printf '%s' "$saida" | grep >/dev/null '1.3.0 → 1.4.0\.$' && echo ok || echo fail)"
 check "1 bullet"                        "$([ "$(bullets "$saida")" = 1 ] && echo ok || echo fail)"
 check "marcador avança pra versão carregada" "$([ "$(marca)" = 1.4.0 ] && echo ok || echo fail)"
 check "no máx. 3 linhas"                "$([ "$(linhas "$saida")" -le 3 ] && echo ok || echo fail)"
 
 echo "== três versões novas, uma delas pede /kit-vamoo:setup =="
 reset; semeia 1.1.0; saida="$(roda)"
-check "cabeçalho diz 3 versões"         "$(printf '%s' "$saida" | grep -q '(3 versões)' && echo ok || echo fail)"
+check "cabeçalho diz 3 versões"         "$(printf '%s' "$saida" | grep >/dev/null '(3 versões)' && echo ok || echo fail)"
 check "3 bullets"                       "$([ "$(bullets "$saida")" = 3 ] && echo ok || echo fail)"
-check "manda rodar /kit-vamoo:setup"    "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo ok || echo fail)"
-check "a lista do que o setup instala inclui o subagentes.md" "$(printf '%s' "$saida" | grep -q 'subagentes.md.*kit-vamoo:setup' && echo ok || echo fail)"
+check "manda rodar /kit-vamoo:setup"    "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo ok || echo fail)"
+check "a lista do que o setup instala inclui o subagentes.md" "$(printf '%s' "$saida" | grep >/dev/null 'subagentes.md.*kit-vamoo:setup' && echo ok || echo fail)"
 check "cabe em 5 linhas"                "$([ "$(linhas "$saida")" -le 5 ] && echo ok || echo fail)"
 
 echo "== versão sem a flag setup não manda rodar o setup =="
 reset; semeia 1.3.0; saida="$(roda)"
 check "sem menção ao setup quando nenhuma versão pede" \
-  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo fail || echo ok)"
 
 echo "== resumo com | no meio: o 3º campo some, e com ele a linha do setup =="
 # Comportamento REAL, não desejado. `IFS='|' read -r v resumo flag` trunca o resumo no
@@ -96,19 +96,19 @@ FIM
 reset; semeia 1.3.0; saida="$(roda "" "$MAL")"
 check "1 bullet mesmo com a linha torta"  "$([ "$(bullets "$saida")" = 1 ] && echo ok || echo fail)"
 check "a flag setup é engolida pelo | do resumo (por isso existe o gate de formato)" \
-  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo fail || echo ok)"
 check "o resumo sai truncado no primeiro |" \
-  "$(printf '%s' "$saida" | grep -q 'pipe no meio' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'pipe no meio' && echo fail || echo ok)"
 
 echo "== mentorado muito atrás: corta em 3 e diz quantas pulou =="
 reset; semeia 1.0.0; saida="$(roda)"
-check "cabeçalho diz 4 versões"         "$(printf '%s' "$saida" | grep -q '(4 versões — as 3 mais recentes' && echo ok || echo fail)"
+check "cabeçalho diz 4 versões"         "$(printf '%s' "$saida" | grep >/dev/null '(4 versões — as 3 mais recentes' && echo ok || echo fail)"
 check "ainda são 3 bullets"             "$([ "$(bullets "$saida")" = 3 ] && echo ok || echo fail)"
 check "corte cabe em 5 linhas"          "$([ "$(linhas "$saida")" -le 5 ] && echo ok || echo fail)"
 
 echo "== marcador que nem está no arquivo (versão pré-histórica) =="
 reset; semeia 0.5.0; saida="$(roda)"
-check "lista tudo que o arquivo tem (5)" "$(printf '%s' "$saida" | grep -q '(5 versões' && echo ok || echo fail)"
+check "lista tudo que o arquivo tem (5)" "$(printf '%s' "$saida" | grep >/dev/null '(5 versões' && echo ok || echo fail)"
 check "marcador vai pra versão carregada mesmo vindo de versão pré-histórica" \
   "$([ "$(marca)" = 1.4.0 ] && echo ok || echo fail)"
 
@@ -120,14 +120,14 @@ cp "$ROOT/.claude-plugin/plugin.json" "$PODADO/.claude-plugin/"
 printf '1.4.0|a quarta coisa\n1.3.0|a terceira coisa\n' > "$PODADO/novidades.txt"
 reset; semeia 1.1.0; saida="$(roda "" "$PODADO")"
 check "marcador mais velho que o arquivo manda rodar o setup" \
-  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo ok || echo fail)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo ok || echo fail)"
 reset; semeia 1.3.0; saida="$(roda "" "$PODADO")"
 check "marcador dentro do arquivo, sem flag setup: não pede" \
-  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo fail || echo ok)"
 printf '1.4.0|a quarta coisa\n1.2.0|a segunda coisa\n' > "$PODADO/novidades.txt"
 reset; semeia 1.3.0; saida="$(roda "" "$PODADO")"
 check "marcador fora do arquivo mas mais novo que a última linha: nada foi podado, não pede" \
-  "$(printf '%s' "$saida" | grep -q 'kit-vamoo:setup' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'kit-vamoo:setup' && echo fail || echo ok)"
 
 echo "== rollback (marcador à frente do carregado): realinha e cala =="
 reset; semeia 1.9.0; saida="$(roda)"
@@ -138,8 +138,8 @@ echo "== baixada mas não aplicada: avisa e NÃO mexe no marcador =="
 reset; semeia 1.4.0
 registro '{"version":2,"plugins":{"kit-vamoo@vamoo-ai":[{"scope":"user","version":"1.5.0"}]}}'
 saida="$(roda)"
-check "manda rodar /reload-plugins"     "$(printf '%s' "$saida" | grep -q 'reload-plugins' && echo ok || echo fail)"
-check "cita a baixada e a carregada"    "$(printf '%s' "$saida" | grep -q '1.5.0' && printf '%s' "$saida" | grep -q '1.4.0' && echo ok || echo fail)"
+check "manda rodar /reload-plugins"     "$(printf '%s' "$saida" | grep >/dev/null 'reload-plugins' && echo ok || echo fail)"
+check "cita a baixada e a carregada"    "$(printf '%s' "$saida" | grep >/dev/null '1.5.0' && printf '%s' "$saida" | grep >/dev/null '1.4.0' && echo ok || echo fail)"
 check "marcador de versão avisada intocado no reload" "$([ "$(marca)" = 1.4.0 ] && echo ok || echo fail)"
 check "aviso de reload é uma linha só"  "$([ "$(linhas "$saida")" = 1 ] && echo ok || echo fail)"
 
@@ -151,15 +151,15 @@ reset; semeia 1.4.0
 registro '{"version":2,"plugins":{"kit-vamoo@vamoo-ai":[{"scope":"project","version":"1.5.0"},{"scope":"user","version":"0.9.0"}]}}'
 saida="$(roda)"
 check "avisa da 1.5.0 mesmo com a 0.9.0 por último no array" \
-  "$(printf '%s' "$saida" | grep -q '1.5.0' && echo ok || echo fail)"
+  "$(printf '%s' "$saida" | grep >/dev/null '1.5.0' && echo ok || echo fail)"
 check "não confunde a 0.9.0 com a versão baixada" \
-  "$(printf '%s' "$saida" | grep -q '0.9.0' && echo fail || echo ok)"
+  "$(printf '%s' "$saida" | grep >/dev/null '0.9.0' && echo fail || echo ok)"
 
 echo "== ordem de versão, não de string: 1.10.0 é maior que 1.9.0 =="
 reset; semeia 1.4.0
 registro '{"version":2,"plugins":{"kit-vamoo@vamoo-ai":[{"scope":"user","version":"1.9.0"},{"scope":"project","version":"1.10.0"}]}}'
 saida="$(roda)"
-check "escolhe a 1.10.0 e não a 1.9.0"  "$(printf '%s' "$saida" | grep -q '1\.10\.0' && echo ok || echo fail)"
+check "escolhe a 1.10.0 e não a 1.9.0"  "$(printf '%s' "$saida" | grep >/dev/null '1\.10\.0' && echo ok || echo fail)"
 
 echo "== registro com entrada sem version não quebra nem inventa aviso =="
 reset; semeia 1.4.0
@@ -194,7 +194,7 @@ registro '{"version":2,"plugins":{"kit-vamoo@vamoo-ai":[{"version":"1.5.0"}]}}'
 saida="$(com_node)"
 check "1 node"                          "$([ "$(nodes)" = 1 ] && echo ok || echo fail)"
 check "avisa do reload quando o registro é mais novo" \
-  "$(printf '%s' "$saida" | grep -q 'reload-plugins' && echo ok || echo fail)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'reload-plugins' && echo ok || echo fail)"
 check "marcador segue na versão carregada depois do aviso de reload" \
   "$([ "$(marca)" = 1.4.0 ] && echo ok || echo fail)"
 
@@ -208,7 +208,7 @@ sleep 1   # mtime de segundo inteiro: o registro precisa ser estritamente mais n
 registro '{"version":2,"plugins":{"kit-vamoo@vamoo-ai":[{"version":"1.6.0"}]}}'
 saida="$(com_node)"
 check "avisa da versão mais nova que baixou depois" \
-  "$(printf '%s' "$saida" | grep -q '1.6.0' && echo ok || echo fail)"
+  "$(printf '%s' "$saida" | grep >/dev/null '1.6.0' && echo ok || echo fail)"
 
 echo "== sem novidades.txt: silêncio, exit 0 =="
 reset; semeia 1.2.0

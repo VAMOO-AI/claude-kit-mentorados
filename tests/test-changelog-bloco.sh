@@ -64,7 +64,7 @@ v_plugin="$(python3 -c "import json;print(json.load(open('$RAIZ/plugin/.claude-p
 saida="$(bash "$SCRIPT" "$v_plugin" "$RAIZ/CHANGELOG.md")"; codigo=$?
 check "CHANGELOG real: a versão do plugin ($v_plugin) tem bloco" "$([ "$codigo" = 0 ] && [ -n "$saida" ] && echo ok || echo fail)"
 check "CHANGELOG real: o bloco começa em '### ' e não contém outro '## ['" \
-  "$(printf '%s\n' "$saida" | head -1 | grep -q '^### ' && ! printf '%s\n' "$saida" | grep -q '^## \[' && echo ok || echo fail)"
+  "$(printf '%s\n' "$saida" | head -1 | grep -q '^### ' && ! printf '%s\n' "$saida" | grep >/dev/null '^## \[' && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

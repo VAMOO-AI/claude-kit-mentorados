@@ -192,7 +192,7 @@ nao_tem "cfg3.env:8:" "$saida" "config: referência \${…} no lugar do valor n�
 
 echo "== compose v2 e .yaml: o default de senha é achado, mascarado =="
 # no começo da linha: "compose.yml:4:" também está dentro de "docker-compose.yml:4:"
-comeca() { printf '%s\n' "$2" | grep -q "^$1" && ok "$3" || falha "$3 (nenhuma linha começa com '$1')"; }
+comeca() { printf '%s\n' "$2" | grep >/dev/null "^$1" && ok "$3" || falha "$3 (nenhuma linha começa com '$1')"; }
 comeca "compose\.yaml:4:"                 "$saida" "compose.yaml entra na varredura"
 comeca "compose\.yml:4:"                  "$saida" "compose.yml entra na varredura"
 comeca "docker-compose\.override\.yaml:4:" "$saida" "docker-compose*.yaml entra na varredura"

@@ -41,7 +41,7 @@ decide() { # decide <comando> [cwd] [modo]
   out=$(CMD="$1" CWD="${2:-$REPO_GIT}" MODO="$modo" node -e \
       'process.stdout.write(JSON.stringify({cwd:process.env.CWD,permission_mode:process.env.MODO,tool_input:{command:process.env.CMD}}))' \
       | CAREFUL_ON="$on" bash "$HOOK" 2>/dev/null)
-  if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ask; else echo pass; fi
+  if printf '%s' "$out" | grep >/dev/null '"permissionDecision":"ask"'; then echo ask; else echo pass; fi
 }
 check() { # check <esperado> <descrição> <comando> [cwd] [modo]
   local got; got=$(decide "$3" "${4:-}" "${5:-}")

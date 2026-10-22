@@ -123,7 +123,7 @@ x="xxxxxxxx"
 git -C "$FIX" add -A
 saida=$(confere "$FIX"); rc=$?
 falhas=0
-espera() { if printf '%s' "$saida" | grep -qF -- "$1"; then printf '  ok    %s\n' "$2"; else printf '  FALHA %s\n' "$2"; falhas=$((falhas+1)); fi; }
+espera() { if printf '%s' "$saida" | grep >/dev/null -F -- "$1"; then printf '  ok    %s\n' "$2"; else printf '  FALHA %s\n' "$2"; falhas=$((falhas+1)); fi; }
 echo "== o gate reprova o erro plantado =="
 [ "$rc" = 1 ] && printf '  ok    sai 1\n' || { printf '  FALHA rc=%s\n' "$rc"; falhas=$((falhas+1)); }
 espera 'nome de cliente' "nome de cliente pelo hash, em qualquer caixa"

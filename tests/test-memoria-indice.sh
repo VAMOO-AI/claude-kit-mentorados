@@ -75,9 +75,9 @@ saida="$(bash "$SCRIPT" "$MEM" --cap "$CAP" 2>&1)"; rc=$?
 check "dry-run sai 0" "$rc" "0"
 cmp -s "$MEM/MEMORY.md" "$TMP/antes.md" && ok "MEMORY.md intacto no dry-run" || falha "dry-run alterou o MEMORY.md"
 [ -e "$MEM/MEMORY-completo.md" ] && falha "dry-run criou o MEMORY-completo.md" || ok "dry-run não cria o completo"
-printf '%s' "$saida" | grep -q 'dry-run' && ok "saída diz que é dry-run" || falha "saída não avisa que é dry-run"
-printf '%s' "$saida" | grep -q 'sem arquivo: fantasma.md' && ok "avisa o alvo inexistente" || { falha "não avisou o alvo inexistente"; printf '%s\n' "$saida"; }
-printf '%s' "$saida" | grep -q 'Acervo migrado' && ok "avisa a linha de prosa que sai" || { falha "não avisou a prosa que sai"; printf '%s\n' "$saida"; }
+printf '%s' "$saida" | grep >/dev/null 'dry-run' && ok "saída diz que é dry-run" || falha "saída não avisa que é dry-run"
+printf '%s' "$saida" | grep >/dev/null 'sem arquivo: fantasma.md' && ok "avisa o alvo inexistente" || { falha "não avisou o alvo inexistente"; printf '%s\n' "$saida"; }
+printf '%s' "$saida" | grep >/dev/null 'Acervo migrado' && ok "avisa a linha de prosa que sai" || { falha "não avisou a prosa que sai"; printf '%s\n' "$saida"; }
 
 echo "== --apply: cap, linha fixa, ordem, cauda =="
 bash "$SCRIPT" "$MEM" --cap "$CAP" --apply >"$TMP/apply.log" 2>&1 || { falha "--apply saiu com erro"; cat "$TMP/apply.log"; }
@@ -102,7 +102,7 @@ cp "$MEM/MEMORY.md" "$TMP/curto1.md"; cp "$MEM/MEMORY-completo.md" "$TMP/cauda1.
 saida="$(bash "$SCRIPT" "$MEM" --cap "$CAP" --apply 2>&1)"
 cmp -s "$MEM/MEMORY.md" "$TMP/curto1.md" && cmp -s "$MEM/MEMORY-completo.md" "$TMP/cauda1.md" \
   && ok "segunda rodada não muda nada" || falha "segunda rodada alterou os arquivos"
-printf '%s' "$saida" | grep -q 'já em dia' && ok "e diz que está em dia" || falha "não disse 'já em dia'"
+printf '%s' "$saida" | grep >/dev/null 'já em dia' && ok "e diz que está em dia" || falha "não disse 'já em dia'"
 
 echo "== linha nova no MEMORY.md é redistribuída na próxima rodada =="
 mem fb-fresca feedback 2026-09-03 >> "$MEM/MEMORY.md"

@@ -79,11 +79,11 @@ echo "== fora do macOS: sai 0, diz por quê e não escreve nada =="
 echo Linux > "$TMP/uname-s"
 out="$(bash "$SCR/inventario.sh" "$TMP/plano-linux" "$TMP/ws" 2>&1)"; rc=$?
 check "inventário sai 0 fora do Darwin"           "$([ "$rc" = 0 ] && echo ok || echo fail)"
-check "inventário diz que é só macOS"             "$(printf '%s' "$out" | grep -q 'só macOS' && echo ok || echo fail)"
+check "inventário diz que é só macOS"             "$(printf '%s' "$out" | grep >/dev/null 'só macOS' && echo ok || echo fail)"
 check "inventário não cria o plano"               "$(sumiu "$TMP/plano-linux")"
 out="$(bash "$SCR/aplicar.sh" "$TMP/plano-linux" "$TMP/ledger-linux" 2>&1)"; rc=$?
 check "aplicar sai 0 fora do Darwin"              "$([ "$rc" = 0 ] && echo ok || echo fail)"
-check "aplicar diz que é só macOS"                "$(printf '%s' "$out" | grep -q 'só macOS' && echo ok || echo fail)"
+check "aplicar diz que é só macOS"                "$(printf '%s' "$out" | grep >/dev/null 'só macOS' && echo ok || echo fail)"
 check "aplicar não cria o ledger"                 "$(sumiu "$TMP/ledger-linux")"
 echo Darwin > "$TMP/uname-s"
 
@@ -299,7 +299,7 @@ else
   echo "  pulado: 'no macOS de verdade o inventário roda' só existe no Darwin (aqui: $UNAME_REAL)"
   out="$(PATH="${PATH#"$TMP/bin:"}" bash "$SCR/inventario.sh" "$TMP/plano-real" "$TMP/ws" 2>&1)"
   check "em $UNAME_REAL de verdade o inventário sai limpo" \
-    "$(printf '%s' "$out" | grep -q 'só macOS' && [ ! -e "$TMP/plano-real" ] && echo ok || echo fail)"
+    "$(printf '%s' "$out" | grep >/dev/null 'só macOS' && [ ! -e "$TMP/plano-real" ] && echo ok || echo fail)"
 fi
 
 echo; [ "$falhas" -eq 0 ] && echo "tudo ok" || echo "$falhas falha(s)"

@@ -58,9 +58,9 @@ skill "$BOM" deploy-staging deploy-staging "Use ao subir para staging, quando o 
 skill "$BOM" webhook-stripe webhook-stripe "Use ao mexer no webhook de pagamento: assinatura, retentativa, idempotência." 30
 saida="$(bash "$SCAN" "$BOM")"; codigo=$?
 check "scan sai 0 dentro do teto"          "$([ $codigo -eq 0 ] && echo ok || echo fail)"
-check "diz que está dentro do teto"        "$(printf '%s' "$saida" | grep -q 'dentro do teto' && echo ok || echo fail)"
+check "diz que está dentro do teto"        "$(printf '%s' "$saida" | grep >/dev/null 'dentro do teto' && echo ok || echo fail)"
 check "lista as duas skills"               "$([ "$(printf '%s\n' "$saida" | grep -c '^\(deploy-staging\|webhook-stripe\) ')" = 2 ] && echo ok || echo fail)"
-check "mostra o custo estimado por request" "$(printf '%s' "$saida" | grep -q 'tokens por request' && echo ok || echo fail)"
+check "mostra o custo estimado por request" "$(printf '%s' "$saida" | grep >/dev/null 'tokens por request' && echo ok || echo fail)"
 saida="$(roda_hook "$BOM")"
 check "hook cala com projeto dentro do teto" "$([ -z "$saida" ] && echo ok || echo fail)"
 
@@ -69,24 +69,24 @@ QUEBRADO="$TMP/quebrado"
 skill "$QUEBRADO" refactoring Refactoring "Refatoração de código." 10
 saida="$(bash "$SCAN" "$QUEBRADO")"; codigo=$?
 check "scan sai 1 com skill que não roteia" "$([ $codigo -eq 1 ] && echo ok || echo fail)"
-check "aponta name ≠ pasta"                 "$(printf '%s' "$saida" | grep -q 'não roteia' && echo ok || echo fail)"
-check "nomeia a skill quebrada"             "$(printf '%s' "$saida" | grep -q 'refactoring' && echo ok || echo fail)"
+check "aponta name ≠ pasta"                 "$(printf '%s' "$saida" | grep >/dev/null 'não roteia' && echo ok || echo fail)"
+check "nomeia a skill quebrada"             "$(printf '%s' "$saida" | grep >/dev/null 'refactoring' && echo ok || echo fail)"
 
 echo "== casca (corpo vazio) cobra e não ensina: também reprova =="
 CASCA="$TMP/casca"
 skill "$CASCA" testes testes "Ajuda com testes." 0
 saida="$(bash "$SCAN" "$CASCA")"; codigo=$?
 check "scan sai 1 com casca"                "$([ $codigo -eq 1 ] && echo ok || echo fail)"
-check "chama a casca pelo nome"             "$(printf '%s' "$saida" | grep -q 'casca' && echo ok || echo fail)"
+check "chama a casca pelo nome"             "$(printf '%s' "$saida" | grep >/dev/null 'casca' && echo ok || echo fail)"
 check "manda o que não ensina para o AGENTS.md do projeto" \
-  "$(printf '%s' "$saida" | grep -q 'uma linha no AGENTS.md do projeto' && echo ok || echo fail)"
+  "$(printf '%s' "$saida" | grep >/dev/null 'uma linha no AGENTS.md do projeto' && echo ok || echo fail)"
 
 echo "== skill sem description: o modelo não tem como saber quando usar =="
 SEMD="$TMP/sem-description"; d="$SEMD/.claude/skills/orfa"; mkdir -p "$d"
 printf -- '---\nname: orfa\n---\n\ncorpo\ncom\nvárias\nlinhas\nde texto\n' > "$d/SKILL.md"
 saida="$(bash "$SCAN" "$SEMD")"; codigo=$?
 check "scan sai 1 sem description"          "$([ $codigo -eq 1 ] && echo ok || echo fail)"
-check "diz que falta description"           "$(printf '%s' "$saida" | grep -q 'sem description' && echo ok || echo fail)"
+check "diz que falta description"           "$(printf '%s' "$saida" | grep >/dev/null 'sem description' && echo ok || echo fail)"
 
 echo "== acima do teto de skills: o total é o alarme, não a skill individual =="
 MUITAS="$TMP/muitas"
@@ -96,10 +96,10 @@ i=1; while [ "$i" -le 9 ]; do
 done
 saida="$(bash "$SCAN" "$MUITAS")"; codigo=$?
 check "scan sai 1 acima do teto de skills"  "$([ $codigo -eq 1 ] && echo ok || echo fail)"
-check "nenhuma skill individual foi acusada" "$(printf '%s' "$saida" | grep -q 'cobram sem servir' && echo fail || echo ok)"
+check "nenhuma skill individual foi acusada" "$(printf '%s' "$saida" | grep >/dev/null 'cobram sem servir' && echo fail || echo ok)"
 resumo="$(bash "$SCAN" "$MUITAS" --resumo)"
-check "resumo do hook aparece acima do teto" "$(printf '%s' "$resumo" | grep -q 'TODA request' && echo ok || echo fail)"
-check "o resumo não cita \${CLAUDE_PLUGIN_ROOT}" "$(printf '%s' "$resumo" | grep -qF 'CLAUDE_PLUGIN_ROOT' && echo fail || echo ok)"
+check "resumo do hook aparece acima do teto" "$(printf '%s' "$resumo" | grep >/dev/null 'TODA request' && echo ok || echo fail)"
+check "o resumo não cita \${CLAUDE_PLUGIN_ROOT}" "$(printf '%s' "$resumo" | grep >/dev/null -F 'CLAUDE_PLUGIN_ROOT' && echo fail || echo ok)"
 cmd_scan="$(scan_do_aviso "$resumo")"
 check "o scan que o resumo manda rodar existe" "$([ -n "$cmd_scan" ] && [ -f "$cmd_scan" ] && echo ok || echo fail)"
 
@@ -111,7 +111,7 @@ longa="Use quando $(printf 'o fluxo de cobrança falhar e for preciso reprocessa
 i=1; while [ "$i" -le 5 ]; do skill "$GORDA" "area-$i" "area-$i" "$longa" 10; i=$((i+1)); done
 saida="$(bash "$SCAN" "$GORDA")"; codigo=$?
 check "scan sai 1 acima do teto de chars"   "$([ $codigo -eq 1 ] && echo ok || echo fail)"
-check "mostra o teto na saída"              "$(printf '%s' "$saida" | grep -q 'teto: 8 skills / 2000 chars' && echo ok || echo fail)"
+check "mostra o teto na saída"              "$(printf '%s' "$saida" | grep >/dev/null 'teto: 8 skills / 2000 chars' && echo ok || echo fail)"
 
 echo "== teto configurável (é orçamento, não lei da física) =="
 saida="$(TETO_SKILLS=20 TETO_CHARS=99999 TETO_UMA=99999 bash "$SCAN" "$MUITAS")"; codigo=$?
@@ -138,23 +138,23 @@ done
 roda_hg() { HOME="$HG" bash "$SCAN" "$@"; }
 saida="$(roda_hg "$HG")"; codigo=$?
 check "scan sai 0 em ~"                     "$([ $codigo -eq 0 ] && echo ok || echo fail)"
-check "não mede o catálogo global como projeto" "$(printf '%s' "$saida" | grep -q 'TODA request\|tokens por request' && echo fail || echo ok)"
-check "diz que é o catálogo global"         "$(printf '%s' "$saida" | grep -q 'catálogo global' && echo ok || echo fail)"
+check "não mede o catálogo global como projeto" "$(printf '%s' "$saida" | grep >/dev/null 'TODA request\|tokens por request' && echo fail || echo ok)"
+check "diz que é o catálogo global"         "$(printf '%s' "$saida" | grep >/dev/null 'catálogo global' && echo ok || echo fail)"
 check "--resumo cala em ~"                  "$([ -z "$(roda_hg "$HG" --resumo)" ] && echo ok || echo fail)"
 saida="$(printf '{"session_id":"s1","hook_event_name":"SessionStart","cwd":"%s"}' "$HG" | HOME="$HG" bash "$HOOK" 2>/dev/null)"
 check "hook cala em sessão aberta em ~"     "$([ -z "$saida" ] && echo ok || echo fail)"
 L="$TMP/link"; mkdir -p "$L/.claude"; ln -s "$HG/.claude/skills" "$L/.claude/skills"
 check "symlink para o global também cala"   "$([ -z "$(roda_hg "$L" --resumo)" ] && echo ok || echo fail)"
 r_hg="$(roda_hg "$MUITAS" --resumo)"   # sai 1: o projeto passa do teto
-check "projeto de verdade segue medido"     "$(printf '%s' "$r_hg" | grep -q 'TODA request' && echo ok || echo fail)"
+check "projeto de verdade segue medido"     "$(printf '%s' "$r_hg" | grep >/dev/null 'TODA request' && echo ok || echo fail)"
 
 echo "== o hook fala uma vez por mudança, não uma por sessão =="
 rm -rf "$FAKE_HOME"; mkdir -p "$FAKE_HOME"
 s1="$(roda_hook "$MUITAS")"
 s2="$(roda_hook "$MUITAS")"
 s3="$(roda_hook "$MUITAS")"
-check "primeira abertura avisa"             "$(printf '%s' "$s1" | grep -q 'skills deste projeto' && echo ok || echo fail)"
-check "o aviso diz quanto custa por request" "$(printf '%s' "$s1" | grep -q 'TODA request' && echo ok || echo fail)"
+check "primeira abertura avisa"             "$(printf '%s' "$s1" | grep >/dev/null 'skills deste projeto' && echo ok || echo fail)"
+check "o aviso diz quanto custa por request" "$(printf '%s' "$s1" | grep >/dev/null 'TODA request' && echo ok || echo fail)"
 cmd_scan="$(scan_do_aviso "$s1")"
 check "pelo hook, o scan que o aviso cita também existe" "$([ -n "$cmd_scan" ] && [ -f "$cmd_scan" ] && echo ok || echo fail)"
 check "/clear e /compact seguintes calam"   "$([ -z "$s2" ] && [ -z "$s3" ] && echo ok || echo fail)"
@@ -163,7 +163,7 @@ echo "== instalou mais uma skill: o hook volta a falar =="
 sleep 1   # mtime de segundo inteiro
 skill "$MUITAS" skill-nova skill-nova "Use quando o caso novo aparecer." 10
 s4="$(roda_hook "$MUITAS")"
-check "skill nova reabre o aviso"           "$(printf '%s' "$s4" | grep -q 'skills deste projeto' && echo ok || echo fail)"
+check "skill nova reabre o aviso"           "$(printf '%s' "$s4" | grep >/dev/null 'skills deste projeto' && echo ok || echo fail)"
 s5="$(roda_hook "$MUITAS")"
 check "e depois cala de novo"               "$([ -z "$s5" ] && echo ok || echo fail)"
 
@@ -178,9 +178,9 @@ printf -- '---\nname: skill-link\ndescription: Use quando o caso do link aparece
   "$(printf 'linha %s\n' 1 2 3 4 5 6)" > "$MUITAS/.agents/skills/skill-link/SKILL.md"
 ln -s ../../.agents/skills/skill-link "$MUITAS/.claude/skills/skill-link"
 s6="$(roda_hook "$MUITAS")"
-check "skill por symlink reabre o aviso"    "$(printf '%s' "$s6" | grep -q 'skills deste projeto' && echo ok || echo fail)"
+check "skill por symlink reabre o aviso"    "$(printf '%s' "$s6" | grep >/dev/null 'skills deste projeto' && echo ok || echo fail)"
 tabela="$(bash "$SCAN" "$MUITAS")"   # sai 1: o projeto passa do teto
-check "o scan conta a skill do symlink"     "$(printf '%s\n' "$tabela" | grep -q '^skill-link ' && echo ok || echo fail)"
+check "o scan conta a skill do symlink"     "$(printf '%s\n' "$tabela" | grep >/dev/null '^skill-link ' && echo ok || echo fail)"
 s7="$(roda_hook "$MUITAS")"
 check "e depois cala de novo (symlink)"     "$([ -z "$s7" ] && echo ok || echo fail)"
 
