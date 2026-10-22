@@ -16,6 +16,29 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.62.1] — 2026-10-22
+
+### Corrigido
+
+- **`/kit-vamoo:setup` tira o MCP do dotcontext de quem ainda o tem (#239).** O plugin parou
+  de registrar o MCP na 0.56.0. Só que o `install.sh` de antes de 24/08/2026 o gravou no
+  escopo de usuário, e ele continuava abrindo um processo node a cada sessão e lendo arquivo
+  sem passar pelo deny de `.env*`. O setup agora lê o `~/.claude.json` e, se o dotcontext
+  estiver lá, roda `claude mcp remove dotcontext --scope user`. Sem o registro, ele nem chama
+  o `claude`. Prova em `tests/test-kit-setup-dotcontext.sh`, com o `claude` substituído por um
+  stub.
+- **`ship`: PR em rascunho sai do rascunho antes da espera do CI (#258).** CI que pula
+  rascunho deixa os jobs `SKIPPED`, e o `gh pr checks` sai 0. A §4 agora confere `isDraft`,
+  roda `gh pr ready` e espera o run novo aparecer antes do watch. Espelho do kit do time
+  (VAMOO-AI/claude-config-team#390).
+
+### Alterado
+
+- **`gerar-imagem` só manual e descriptions mais curtas (#237).** Cada geração é paga, por
+  isso a `gerar-imagem` ganhou `disable-model-invocation: true`, e a `diretor-imagem` aponta
+  para `/kit-vamoo:gerar-imagem`. As descriptions da `diretor-imagem` e da `guardrails-ia`
+  encolheram para o texto do kit do time, sem perder gatilho.
+
 ## [0.62.0] — 2026-10-22
 
 ### Removido
