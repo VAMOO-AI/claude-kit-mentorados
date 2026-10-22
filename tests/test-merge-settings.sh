@@ -209,15 +209,20 @@ if [ -z "$SEM_RUNNER" ]; then echo "  ok    todo deny de supabase/vercel cobre o
 else echo "  FALHA deny sem a forma por runner: $SEM_RUNNER"; falhas=$((falhas+1)); fi
 
 # O glob do deny é quase o do `case` do bash; a diferença é o ` *` final, que o matcher do
-# Claude Code também aceita sem argumento nenhum — daí testar o padrão com e sem ele. O
+# Claude Code também aceita sem argumento nenhum, mas SÓ quando é o único curinga da regra
+# (code.claude.com/docs/en/permissions#wildcard-patterns: `Bash(* --help *)` não casa
+# `npm --help`). `Bash(npx *supabase* db push *)` tem três curingas e não pega
+# `npx supabase db push`; quem pega é o gêmeo sem o ` *` final (issue #249). Até a 0.61.1 este
+# teste aceitava o comando sem argumento em qualquer regra e dava verde sem cobertura. O
 # sufixo é ` *`, não `*`: `link*` pegava `functions deploy link-preview`.
 PADROES="$(node -e 'for (const e of require(process.argv[1]).permissions.deny)
   if (e.startsWith("Bash(") && !e.endsWith(":*)")) console.log(e.slice(5, -1))' "$TEMPLATE")"
 negado() {
   local p; while IFS= read -r p; do
     [ -z "$p" ] && continue
+    # shellcheck disable=SC2254  # o padrão é glob de propósito
     case "$1" in $p) return 0 ;; esac
-    case "$p" in *' *') case "$1" in ${p% \*}) return 0 ;; esac ;; esac
+    case "$p" in *' *') case "${p% \*}" in *'*'*) ;; *) [ "$1" = "${p% \*}" ] && return 0 ;; esac ;; esac
   done <<< "$PADROES"; return 1
 }
 for c in 'npx supabase db push' 'npx -y supabase@latest db push --linked' 'bunx supabase db push' \
@@ -231,6 +236,25 @@ for c in 'npx supabase db reset' 'npx supabase migration new link_table' 'npx su
          'yarn dlx supabase migration new link_table' 'npm exec supabase functions deploy linkedin-sync'; do
   if negado "$c"; then echo "  FALHA deny pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    deny deixa: $c"; fi
 done
+# Invariante do #249: todo padrão de deny ou ask com mais de um curinga que termina em ` *`
+# tem o gêmeo sem o ` *` final, em Bash e em PowerShell (a doc diz que as regras PowerShell
+# têm "the same shape as Bash rules"). Os casos acima só cobrem o gêmeo que tem caso; este
+# cobre todos, inclusive o do próximo padrão que entrar.
+SEM_GEMEO="$(node -e '
+const p = require(process.argv[1]).permissions
+const falta = []
+for (const l of ["deny", "ask"]) {
+  const lista = p[l] || []
+  for (const r of lista) {
+    const m = /^(Bash|PowerShell)\(([\s\S]*) \*\)$/.exec(r)
+    if (!m || !m[2].includes("*")) continue
+    const g = `${m[1]}(${m[2]})`
+    if (!lista.includes(g)) falta.push(`${l}:${g}`)
+  }
+}
+console.log(falta.join("\n"))' "$TEMPLATE")"
+if [ -z "$SEM_GEMEO" ]; then echo "  ok    todo padrão com mais de um curinga que termina em ' *' tem o gêmeo"
+else echo "  FALHA falta o gêmeo sem o ' *' final ($(printf '%s\n' "$SEM_GEMEO" | wc -l | tr -d ' ')): $(printf '%s\n' "$SEM_GEMEO" | head -3 | tr '\n' ' ')…"; falhas=$((falhas+1)); fi
 
 # `Read(**/.env.*)` bloquearia o .env.example, que é commitado e lido de propósito; os
 # arquivos de ambiente com segredo vão enumerados.
