@@ -4,9 +4,7 @@ description: >-
   Inbox/chat de WhatsApp sobre n8n + Supabase (página própria ou Chatwoot, via
   NotificaMe ou UAZAPI): mídia que não chega ou não toca, IA e humano no mesmo
   fio, sessão que cai ou mensagem sem confirmação de entrega, relatório de quem
-  falou com o lead. Só dispara quando você chama. O workflow n8n em si é da
-  /kit-vamoo:n8n-workflow-agent.
-disable-model-invocation: true
+  falou com o lead. O workflow n8n em si é da n8n-workflow-agent.
 ---
 
 # WhatsApp Inbox Stack

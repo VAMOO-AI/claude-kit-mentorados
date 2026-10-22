@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.64.1|o Claude passa a abrir sozinho as skills de n8n e de inbox de WhatsApp quando você mexe nisso, com as travas de produção junto, e a secscan deixa de disputar com o /security-review
 0.64.0|monitoramento-infra ganhou o boot-guard, um timer que reata o seu Swarm sozinho quando a VPS reinicia sem você e o Traefik volta sem as portas 80 e 443
 0.63.0|o deny agora barra force push na main, rm -rf no home e login de supabase/vercel sem argumento, e protege cópias .env.bak e o token da Vercel|setup
 0.62.2|no n8n, o dedup de mensagem só descarta duplicata de verdade (antes, um erro de disco deixava o agente mudo) e explica o caso de vários workers; no mcp-sistema, o passo do ChatGPT segue o fluxo atual de Plugins

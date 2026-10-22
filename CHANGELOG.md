@@ -16,6 +16,21 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.64.1] — 2026-10-22
+
+### Alterado
+
+Itens da avaliação contra o Opus 5.5 (#261):
+
+- **`n8n-workflow-agent` e `whatsapp-inbox-stack` voltam a ser acionadas pelo Claude.** Eram
+  só-slash, e assim as travas mais caras (webhook derrubado, flood, teste que atinge gente real)
+  só carregavam quando o mentorado lembrava de chamar. As duas descriptions somam poucas
+  centenas de caracteres; a soma do catálogo segue dentro do teto do
+  `test-skill-descriptions.sh`.
+- **`secscan`: o gatilho deixa de disputar com o `/security-review`.** A description agora diz
+  que ela varre o repositório inteiro, aponta o `/security-review` para revisão só do diff e a
+  `auditoria-seguranca` para o entregável a terceiro.
+
 ## [0.64.0] — 2026-10-22
 
 ### Adicionado
