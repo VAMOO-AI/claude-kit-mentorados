@@ -353,10 +353,19 @@ UAZAPI pode enviar o mesmo webhook 2+ vezes:
 var fs = require('fs');
 var lockFile = '/tmp/dedup_' + messageId + '.lock';
 try {
-  fs.writeFileSync(lockFile, '1', { flag: 'wx' }); // wx = fail if exists
+  fs.writeFileSync(lockFile, '1', { flag: 'wx' }); // wx = falha se o arquivo existe
 } catch(e) {
-  return [{ json: { skip: true, reason: 'duplicate' } }];
+  // Só EEXIST é duplicata. Disco cheio ou permissão negada não podem deixar o agente mudo:
+  // a mensagem segue, e o erro vai para o log.
+  if (e.code === 'EEXIST') return [{ json: { skip: true, reason: 'duplicate' } }];
+  console.log('dedup indisponível (' + e.code + '); seguindo sem dedup');
 }
 ```
+
+Este lock em `/tmp` só vale com **um** processo do n8n. Em queue mode, cada worker tem o
+próprio `/tmp`, e a duplicata que cai em outro worker passa. Nesse caso faça o dedup no Redis
+(`SET dedup:<messageId> 1 NX EX 86400`: se a resposta não for `OK`, é duplicata) ou numa
+tabela com `message_id` único (`INSERT … ON CONFLICT DO NOTHING RETURNING`; sem linha
+devolvida, é duplicata).
 
 ---
