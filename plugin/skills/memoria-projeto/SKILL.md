@@ -19,8 +19,7 @@ allowed-tools:
 A memória do Claude Code mora na **sua máquina** (`~/.claude/projects/<slug>/memory`): não
 vai junto para outro computador, e quem clona o repo (pessoa, Codex, Grok) não a vê. Aqui ela
 passa a ser versionada em `.context/memoria/`. O formato de um fato está no
-`.context/memoria/README.md` que a adoção escreve; o que vale salvar, em
-`references/vale-salvar.md`.
+`.context/memoria/README.md` que a adoção escreve.
 
 ## 1. Onde estamos
 

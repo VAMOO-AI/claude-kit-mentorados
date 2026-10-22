@@ -13,19 +13,17 @@ allowed-tools:
 
 # Harness Check — para onde vai o seu token
 
-O erro clássico de quem tenta economizar é cortar o que dá pra ver: o CLAUDE.md.
-Quase sempre ele é a menor parte. Meça antes de cortar, e separe o que você mediu do
-que é chute.
+Quem tenta economizar corta o que dá pra ver, o CLAUDE.md, e quase sempre ele é a menor
+parte. Meça antes de cortar.
 
 ## Regra de ouro: rotule todo número
 
 - **MEDIDO** — saiu de um comando ou de um relatório nesta sessão.
 - **ESTIMADO** — `chars ÷ 4`, extrapolação, regra de bolso.
-- **INDISPONÍVEL** — você não tem acesso. Diga isso; não chute por baixo só pra
-  a tabela ficar completa.
+- **INDISPONÍVEL** — você não tem acesso. Diga isso; não chute para completar a tabela.
 
-Número sem rótulo não entra no relatório. A maior fatia do contexto inicial são schemas
-de ferramenta, que você **não** consegue medir arquivo por arquivo: só o `/context` entrega.
+Número sem rótulo não entra no relatório. A maior fatia do preload são schemas de
+ferramenta, que só o `/context` mede.
 
 ## Passo 1 — o que a sessão carrega antes do primeiro prompt
 
@@ -35,10 +33,9 @@ em toda request da sessão.
 
 Leia o output com esta pergunta: **quanto do preload é arquivo meu?** Numa medição de
 03/09/2026 (conta do autor do kit) o preload era **52,7K tokens** (MEDIDO) e só ~5K, 10%,
-vinha de arquivo editável (ESTIMADO por `chars÷4`: CLAUDE.md 2,1K, descrições das skills
-1,7K, memória 0,9K). Os outros 90% eram system prompt, schemas de ferramenta e MCP.
-Enxugar o CLAUDE.md ali economizaria ~2% do preload, e é o corte que todo mundo tenta
-primeiro.
+vinha de arquivo editável (ESTIMADO por `chars÷4`; CLAUDE.md 2,1K). O resto era system
+prompt, schemas de ferramenta e MCP: enxugar o CLAUDE.md, o corte que todo mundo tenta
+primeiro, economizaria ~2%.
 
 O total do preload você mede sem pedir nada, direto do transcript:
 
@@ -47,16 +44,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" --ultimas 3
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" --comparar --cwd "$PWD"   # app × terminal
 ```
 
-Por sessão: superfície (app desktop, terminal, SDK), versão, `nascimento` = tokens do
-primeiro request (MEDIDO) e ferramentas MCP por servidor (MEDIDO quando o transcript
-registra a lista; `?` quando não registra, e aí só o `/context` responde). Numa medição de
-23/09/2026 (conta do autor, mesmo diretório), o app nascia com ~74K tokens e 340 tools de
-26 servidores, e o terminal com ~41K.
+Por sessão: superfície, versão, `nascimento` = tokens do primeiro request (MEDIDO) e tools
+MCP por servidor (MEDIDO quando o transcript registra; `?` quando não, e aí só o `/context`
+responde). Em 23/09/2026 (conta do autor, mesmo diretório) o app nascia com ~74K tokens e
+340 tools de 26 servidores, e o terminal com ~41K.
 
 **Custo por skill e auditoria do prompt** não se reimplementam aqui: peça ao usuário rodar
-e colar o `/skill-doctor` (CLI 2.1.261 ou mais novo), para o custo por skill, e o
-`/doctor prompt-audit` (2.1.283 ou mais novo), para a auditoria do prompt carregado. Os dois são built-in, como o `/context`. CLI mais velho: o número sai
-INDISPONÍVEL, não estimado.
+e colar o `/skill-doctor` (CLI 2.1.261 ou mais novo) e o `/doctor prompt-audit` (2.1.283
+ou mais novo), built-in como o `/context`. CLI mais velho: INDISPONÍVEL, não estimado.
 
 ## Passo 2 — o gasto durante o uso
 
@@ -85,9 +80,8 @@ claude.ai não sai por `claude mcp remove`**: no CLI, `"disableClaudeAiConnector
 mostra o app muito acima do terminal, o corte é desconectar em Conectores, na conta do
 claude.ai, ou trabalhar pelo terminal.
 
-Skill que você só chama na mão sai da listagem com `disable-model-invocation: true` no
-frontmatter ou `"skillOverrides": {"minha-skill": "user-invocable-only"}` no
-`settings.json`; o `/minha-skill` continua funcionando.
+Skill que você só chama na mão sai da listagem com `"skillOverrides": {"minha-skill":
+"user-invocable-only"}` no `settings.json`, e o `/minha-skill` continua funcionando.
 
 ## Passo 4 — os hábitos que realmente movem a conta
 
