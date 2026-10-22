@@ -16,6 +16,17 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.65.0] — 2026-10-22
+
+### Alterado
+
+- **Deny: force push em main/master, `supabase db push`/`link`/`login` e `vercel login` por caminho absoluto, `sudo` e `env`** (#270, porte de VAMOO-AI/claude-config-team#400).
+  - **O que passava:** `sudo git push -f origin main`, `/usr/bin/git push --force origin main`, `/usr/bin/env FOO=1 git push …`, `/opt/homebrew/bin/supabase db push`, `sudo supabase link` e `env FOO=1 vercel login --github`. O CLI não tira esses wrappers antes de casar o deny.
+  - **Bash:** entram as famílias `/*/…` (ancorada em `/`, para não pegar `grep -rn "supabase db push"`), `sudo *…`, `env *…` e `/*/env *…`, com o gêmeo, mais os curingas `*supabase* login` e `*vercel* login`. São 142 regras.
+  - **PowerShell:** espelho de `sudo`, `env` e dos curingas, 54 regras. A família por caminho POSIX não tem espelho, porque no Windows o caminho começa pela letra do disco; o teste do espelho isenta só ela e reprova regra `PowerShell(/…)`.
+  - **Quem já tem o kit:** o `merge-settings.js` entrega os 196 padrões novos a quem já tem o settings.
+  - **Fora:** `./node_modules/.bin/supabase …`, `~/.bun/bin/bunx …` e `/usr/local/bin/npx supabase …`.
+
 ## [0.64.3] — 2026-10-22
 
 ### Mudado
