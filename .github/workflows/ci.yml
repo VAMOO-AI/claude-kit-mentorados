@@ -116,29 +116,23 @@ jobs:
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
         run: bash tests/test-limpeza-mac.sh
 
-      - name: O aviso de worktree mergeado não acusa branch sem commit nem manda remover worktree sujo
-        run: bash tests/test-warn-worktree-stale.sh
+      - name: O aviso de git da sessão lê o cwd do payload, não acusa branch sem commit e faz fetch 1x a cada 10 min
+        run: bash tests/test-warn-branch-worktree.sh
 
       - name: O memoria-link não perde projeto sem transcript nem escreve README sem pedir
         run: bash tests/test-memoria-link.sh
 
-      - name: O estado do repo atravessa o compact e volta uma vez só, sem tocar no repo
+      - name: O estado do repo volta no SessionStart(compact), lido do cwd do payload, sem tocar no repo
         run: bash tests/test-precompact.sh
 
-      - name: Worktree novo recebe o .env ignorado, sem sobrescrever nem vazar conteúdo
-        run: bash tests/test-worktree-seed-env.sh
+      - name: O modelo de .worktreeinclude copia o env ignorado e deixa token de registry de fora
+        run: bash tests/test-worktreeinclude-exemplo.sh
 
       - name: O hook de regra por caminho injeta uma vez e nunca bloqueia
         run: bash tests/test-path-rules.sh
 
       - name: Nenhum hook, em evento nenhum, chama o dispatch do dotcontext
         run: bash tests/test-hooks-boot.sh
-
-      - name: O notify-stop consulta o dispositivo de áudio uma vez a cada 10 min
-        run: bash tests/test-notify-stop-cache.sh
-
-      - name: O warn-branch-behind faz fetch uma vez a cada 10 min por repo+branch
-        run: bash tests/test-warn-branch-behind.sh
 
       - name: O aviso de novidades conta as versões certas e não repete o pedido de reload
         run: bash tests/test-warn-kit-updated.sh
@@ -151,9 +145,6 @@ jobs:
 
       - name: O merge com --delete-branch não fecha PR encadeado
         run: bash tests/test-block-delete-branch.sh
-
-      - name: O branch-guard avisa só quando a branch mudou entre prompts
-        run: bash tests/test-branch-guard.sh
 
       - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
@@ -199,13 +190,10 @@ jobs:
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
         run: bash tests/test-changelog-bloco.sh
 
-      - name: Monitor esperando CI/deploy é bloqueado; stream de eventos passa
-        run: bash tests/test-block-monitor-ci.sh
-
       - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
-      - name: O dispatcher do UserPromptSubmit devolve o que os quatro hooks devolviam
+      - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
       - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
@@ -512,7 +500,7 @@ jobs:
           for t in test-hooks-boot test-pre-bash test-block-main-commit \
                    test-check-careful test-block-parallel-clone-switch \
                    test-block-delete-branch test-block-cd-leitura-relativa \
-                   test-block-monitor-ci test-pre-prompt test-path-rules \
+                   test-pre-prompt test-path-rules \
                    test-merge-settings test-warn-sem-node; do
             echo "::group::$t"
             if bash "tests/$t.sh"; then echo "ok $t"; else falhas="$falhas $t"; fi

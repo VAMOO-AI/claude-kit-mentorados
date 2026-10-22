@@ -34,7 +34,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 |---|---|---|
 | `plugin/skills/` | plugin | **25 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
-| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
+| `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
 | `plugin/templates/settings.json` | `~/.claude/settings.json` | **Preferências**: idioma PT, tema, barra de status e uma lista de comandos liberados sem perguntar (git local, `npm test`, `npx tsc`, leitura de arquivo). É **mesclado** com o que você já tem — nada seu é perdido. |
@@ -45,7 +45,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
 | `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
 | `plugin/scripts/instrucoes-projeto.sh` | — | **Migra um projeto que já existia** para o `AGENTS.md` como fonte e o `CLAUDE.md` como a ponte `@AGENTS.md`. Peça ao Claude: "roda o instrucoes-projeto do kit com `--check` neste repo". Ele mostra a classe do par (só import, cópia duplicada, symlink, divergentes…), o tamanho frente ao limite de 32 KiB do Codex e a proposta, sem gravar; depois, com `--apply`, grava só nas classes que não pedem julgamento e mostra o diff antes. |
-| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, CI e **`playwright/`** (testes e2e). |
+| `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, `.worktreeinclude` (o Claude Code copia o `.env` ignorado para cada worktree novo), CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
 
 > **Custo de contexto:** o plugin adiciona poucos milhares de tokens a cada sessão
@@ -422,8 +422,16 @@ o setup e fica.
 
 **Funciona no Windows?**
 Sim, com WSL (Ubuntu). Fora do WSL, o Git Bash roda os hooks e a barra (tudo é
-`bash` + `node`, sem `jq`), mas o som de "terminou" é só macOS — o hook checa se
-o `afplay` existe antes de tocar, então no Windows ele simplesmente não faz nada.
+`bash` + `node`, sem `jq`).
+
+**Como fico sabendo que o Claude terminou?**
+O kit não toca mais som (até a 0.64 tocava, e só no macOS). No app desktop, a
+notificação do sistema sai sozinha quando uma sessão termina e você está olhando
+outra. No terminal, o Claude Code já notifica no iTerm2, no Ghostty e no Kitty; no
+Terminal.app, no terminal do VS Code, no Windows e no Linux ele fica calado por
+padrão. Para ouvir o sino do terminal nesses, ponha `"preferredNotifChannel":
+"terminal_bell"` no seu `~/.claude/settings.json` (ou ligue em `/config`). Doc:
+[terminal-config](https://code.claude.com/docs/en/terminal-config.md#get-a-terminal-bell-or-notification).
 
 **Isso vai deixar minhas sessões mais caras?**
 O plugin adiciona poucos milhares de tokens por sessão: são as descrições das skills,
