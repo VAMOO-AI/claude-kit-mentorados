@@ -9,12 +9,12 @@ description: >-
 
 # bot-discord — do Developer Portal ao container rodando
 
-Bot de Discord parece fácil até ele estar no ar: 80% do trabalho não é o código, é
-**configuração invisível** (uma chavinha desligada no portal, um scope faltando no convite)
-e **operação** (o bot que reprocessa a mesma mensagem, o container que morre calado).
+O que derruba bot de Discord raramente é o código: é configuração invisível (uma chavinha
+do portal, um scope do convite) e operação (a mensagem reprocessada, o container que morre
+calado). Onde diz **ARMADILHA**, um bot em produção já caiu por causa disso.
 
-Este material é a destilação de um bot em produção — inclusive dos incidentes que o derrubaram.
-Onde diz **ARMADILHA**, alguém já perdeu o bot no ar por causa disso.
+VPS em si (hardening, firewall, CPU alta, backup, reboot em Swarm e o `boot-guard`) é da
+skill `monitoramento-infra` (`monitoramento-infra/references/vps.md`). Aqui fica o que é do bot.
 
 ## Como usar esta skill
 
@@ -111,14 +111,10 @@ Nunca diga "está pronto" sem colar a saída real dos passos 1–3.
 
 ## Checklist final
 
-- [ ] App criado, token guardado fora do git, **intents privilegiadas ligadas no portal**
-- [ ] Convite com `bot` + `applications.commands` e permissões mínimas
-- [ ] `GUILD_ID` e IDs de canal em env var — nenhum ID hardcoded
+As sete armadilhas acima resolvidas e a Fase 9 colada, mais:
+
+- [ ] `GUILD_ID` e IDs de canal em env var — nenhum ID hardcoded; convite com permissões mínimas
 - [ ] `.env` fora do git e `chmod 600` na VPS; `.env.example` commitado com as chaves vazias
 - [ ] Banco com `discord_message_id UNIQUE`; bot usando **service role**, nunca a anon key
-- [ ] Parser de texto é função pura e tem teste
-- [ ] Gate de idempotência em todo efeito que notifica gente
-- [ ] Crons com `timezone` e sem postar quando não há nada a dizer
-- [ ] Dockerfile copia `src/` inteiro; compose com `restart: always` e rotação de log
-- [ ] Deploy por `git pull` + `docker compose up -d --build`
-- [ ] **Log de boot conferido** e os cinco testes no Discord executados
+- [ ] Parser de texto é função pura e tem teste; cron não posta quando não há nada a dizer
+- [ ] Compose com `restart: always` e rotação de log; deploy por `git pull` + `docker compose up -d --build`

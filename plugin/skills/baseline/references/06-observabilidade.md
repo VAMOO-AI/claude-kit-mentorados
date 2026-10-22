@@ -131,77 +131,28 @@ e item que estourou o número de tentativas (o equivalente local de *dead letter
 Alerta sai do sistema monitorado — se a fila morreu, o alerta dela não pode
 depender dela.
 
-**Error tracking (Sentry como default do stack):**
+**Error tracking (Sentry como default do stack).** O init é o da documentação; o que
+ela não frisa:
 
-```ts
-// src/lib/observability.ts
-import * as Sentry from '@sentry/react'
-
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,          // DSN é público por design
-  environment: import.meta.env.MODE,
-  release: __BUILD_SHA__,                         // injetado pelo vite define
-  tracesSampleRate: 0.1,
-  sendDefaultPii: false,
-  beforeSend(event) {
-    // nunca mande header de auth nem corpo com dado de cliente
-    delete event.request?.headers
-    if (event.request?.data) event.request.data = '[redacted]'
-    return event
-  },
-})
-```
-
-O `release` é o que faz o sourcemap valer: sem ele o stack trace continua
-minificado. Suba o mapa no CI, em canal privado, e **não** publique junto com o
-bundle (pilar 01):
+- `release` igual ao SHA do build (`define` do Vite), senão o sourcemap não casa e o
+  stack trace continua minificado. `sendDefaultPii: false` e um `beforeSend` que tira
+  `request.headers` e o corpo da requisição.
+- O mapa sobe no CI, em canal privado, e **não** vai junto com o bundle (pilar 01):
 
 ```bash
 sentry-cli sourcemaps upload --release "$GITHUB_SHA" ./dist
 find dist -name '*.map' -delete     # sobe pro Sentry, não pro CDN
 ```
 
-**ErrorBoundary por área.** Um boundary único no topo transforma qualquer erro de
-componente em tela branca do app inteiro:
+- **ErrorBoundary por área** (CRM, faturamento…), com `onError` chamando o
+  `captureException` e a `area` na tag. Um `componentDidCatch` que só faz
+  `console.error` não sobrevive ao build de produção: o minificador remove a chamada e
+  o erro deixa de existir.
 
-```tsx
-<Suspense fallback={<Skeleton />}>
-  <ErrorBoundary area="crm"       onError={report}><CRMModule /></ErrorBoundary>
-  <ErrorBoundary area="faturamento" onError={report}><BillingModule /></ErrorBoundary>
-</Suspense>
-
-function report(error: Error, info: React.ErrorInfo, area: string) {
-  Sentry.captureException(error, { tags: { area }, extra: { componentStack: info.componentStack } })
-}
-```
-
-O `onError` precisa chamar o tracker. Um `componentDidCatch` que só faz
-`console.error` não sobrevive ao build de produção — o minificador remove a
-chamada e o erro deixa de existir.
-
-**Log estruturado no servidor:**
-
-```ts
-const log = (level: 'info'|'warn'|'error', event: string, data: Record<string, unknown> = {}) =>
-  console[level](JSON.stringify({ ts: new Date().toISOString(), fn: 'ai-chat', level, event, ...data }))
-
-log('info',  'request.start', { request_id, user_id })
-log('error', 'llm.failed',    { request_id, code: err.code })   // sem prompt, sem PII
-```
-
-JSON de uma linha é grepável e agregável; texto livre não é. Prefixo de função
-estável (`fn`) é o que permite filtrar quando tudo cai no mesmo stream.
-
-**Correlação ponta a ponta.** Um id gerado no cliente e propagado:
-
-```ts
-const requestId = crypto.randomUUID()
-await fetch(url, { headers: { 'x-request-id': requestId } })   // front
-const requestId = req.headers.get('x-request-id') ?? crypto.randomUUID()  // edge
-await admin.from('job_log').insert({ request_id: requestId, ... })        // banco
-```
-
-Sem isso, investigar um incidente é cruzar timestamps na mão.
+**Log estruturado e correlação.** JSON de uma linha com prefixo de função estável
+(`fn`), sem prompt nem PII, e um `x-request-id` gerado no front e propagado à edge, ao
+n8n e ao banco (`request_id` na linha de log e na tabela de job). Sem isso, investigar
+incidente é cruzar timestamp na mão.
 
 **Alerta que sai do sistema.** O erro comum é o watchdog gravar numa tabela que a
 própria aplicação exibe: quando a aplicação cai, o alerta cai junto e o silêncio

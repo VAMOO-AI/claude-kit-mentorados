@@ -79,7 +79,8 @@ App novo, feature nova, ou primeira ida ao ar. Pode escrever código.
    o item fica `nao_medido`, não `conforme`.
 5. **Registre.** Atualize a tabela de estado do contrato. Se decidiu
    conscientemente ficar fora do padrão, isso é uma **exceção aceita** e vai na
-   tabela com motivo, dono e data de revisão — não fica implícito.
+   tabela com motivo, dono e data de revisão — não fica implícito, senão a próxima
+   auditoria reabre o assunto e você paga de novo pela mesma decisão.
 
 ### A regra que evita a maior parte do retrabalho
 
@@ -111,14 +112,15 @@ com contexto de regressão.
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh"     # o que dá pra medir
-bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh"    # exit≠0 se não mediu nada
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh"     # 1. o que dá pra medir aqui
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh"    # 2. mede (exit 3 = não mediu nada)
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh"   # 3. banco, se houver acesso
 node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" "/tmp/baseline-$(basename "$PWD")/findings.json"
 ```
 
 Da raiz do repo, e cada linha se basta: o shell não guarda variável de uma chamada para a
-outra. O Claude Code preenche o `${CLAUDE_PLUGIN_ROOT}` no texto ao carregar a skill. Os três
-usam `/tmp/baseline-<nome do repo>`, o `--out` padrão do doctor e do collect; o render grava o
+outra. O Claude Code preenche o `${CLAUDE_PLUGIN_ROOT}` no texto ao carregar a skill. Doctor, collect
+e render usam `/tmp/baseline-<nome do repo>`, o `--out` padrão do doctor e do collect; o render grava o
 `report.md` ao lado do `findings.json` e lê dali o `tools.json`.
 
 `doctor.sh` sempre roda primeiro. Descobrir que falta `jq` no meio do collect é
@@ -187,13 +189,7 @@ O contrato por projeto: `references/contrato-template.md`.
 Uma sessão por repo. O primeiro custa mais porque você calibra o julgamento; os
 seguintes são rápidos porque o método já está no lugar.
 
-```bash
-cd <repo>
-bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh"     # 1. o que dá pra medir aqui
-bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/collect.sh"    # 2. mede (exit 3 = não mediu nada)
-bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh"   # 3. banco, se houver acesso
-node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" "/tmp/baseline-$(basename "$PWD")/findings.json"
-```
+**1–3. Meça** com o bloco do Modo AUDITAR, da raiz do repo.
 
 **4. Escreva o contrato** em `.context/docs/baseline.md`, de
 `references/contrato-template.md`. É aqui que está o trabalho de verdade — os
@@ -206,9 +202,7 @@ scripts só medem. Preencha nesta ordem:
 4. **Gates de UI e contrapartidas.** Para cada gate, meça se o banco também nega
    (ver `03-auth.md`); marque `real` ou `cosmético`. Cosmético não é acusação, é
    informação — o risco é não saber qual dos seus gates é.
-5. **Exceções aceitas**, com dono e data de revisão. Decisão consciente de ficar
-   fora do padrão pertence aqui; sem isso, a próxima auditoria reabre o assunto e
-   você paga de novo pela mesma decisão.
+5. **Exceções aceitas**, com motivo, dono e data de revisão (o passo 5 do Modo CONSTRUIR).
 6. **Backlog por custo × risco**, não por pilar.
 
 **5. Julgue o report contra o contrato** (fase 2) e **6. reconfira** rodando os
@@ -233,22 +227,13 @@ outros, e emendar dois na mesma sessão só encarece o contexto.
 
 ## Regras duras
 
-- **Read-only no modo AUDITAR.** Localize, nunca conserte. A correção sai numa
-  sessão com contexto de regressão.
-- **Verify, don't claim.** Todo "conforme"/"passou"/"limpo" precisa do output real
-  colado na mesma mensagem. Não rodou → escreva `não executado` e o comando que
-  faltou.
-- **Zero findings ≠ seguro.** O report diz isso explicitamente, sempre.
+As invariantes e a regra READ-ONLY do Modo AUDITAR valem inteiras; aqui fica o que elas
+não dizem.
+
 - **Semgrep sempre com `--metrics=off` e ruleset fixo.** `--config auto` faz login
   no registry e envia a URL do projeto. **Proibido em repo de cliente.**
 - **Nunca traga o valor de um segredo pro contexto.** Para provar que existe:
   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/env-tem-chave.sh" .env.local KEY` (diz `presente`,
   `vazia` ou `ausente`; o deny nega `grep -c` no `.env`). Fingerprint no report, nunca o valor.
-- **Nunca faça DDL no banco auditado.** Nem `create schema lint`, nem tabela
-  temporária. Os lints do splinter rodam como `select` puro.
-- **Exceção aceita é artefato, não silêncio.** Se a decisão foi ficar fora do
-  padrão, ela vai no contrato com motivo, dono e data — senão a próxima auditoria
-  reabre o assunto e você paga de novo pela mesma decisão.
-- **Um item medido por ferramenta vale mais que dez inferidos.** Se `doctor.sh`
-  disse que a ferramenta falta, o pilar dela é `nao_medido` — não preencha com
-  heurística e chame de cobertura.
+- **Ferramenta que o `doctor.sh` disse faltar deixa o pilar `nao_medido`.** Não
+  preencha com heurística e chame de cobertura.
