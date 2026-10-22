@@ -473,17 +473,35 @@ done
 for c in 'Remove-Item .next -Recurse -Force' 'Remove-Item -Recurse -Force C:\\x' 'Remove-Item dist -r'; do
   if casa ask PowerShell "$c"; then echo "  ok    ask (PowerShell): $c"; else echo "  FALHA ask não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
 done
+# Exceção única ao espelho (issue #270): a regra cujo binário vem por caminho POSIX
+# (`Bash(/*/git …)`, `Bash(/*/supabase …)`, `Bash(/*/env …)`). No Windows o caminho absoluto
+# começa pela letra do disco (`C:\…\git.exe`), e `PowerShell(/*/git …)` nunca casaria: seria
+# regra morta. O que pega o caminho no PowerShell é o curinga `*supabase* login`, espelhado.
+# `sudo` e `env` continuam espelhados: o Windows 11 24H2 traz o Sudo for Windows (desligado
+# por padrão), e o `env *git…` já era espelhado antes.
 SEM_ESPELHO="$(node -e '
 const p = require(process.argv[1]).permissions
 const n = (r) => r.replace(/:\*\)$/, " *)")
+const posix = (r) => r.startsWith("Bash(/*/")
 const falta = []
 for (const l of ["deny", "ask"]) {
   const ps = new Set((p[l] || []).filter((r) => r.startsWith("PowerShell(")).map(n))
-  for (const r of p[l] || []) if (r.startsWith("Bash(") && !ps.has(n("PowerShell(" + r.slice(5)))) falta.push(l + ":" + r)
+  for (const r of p[l] || []) if (r.startsWith("Bash(") && !posix(r) && !ps.has(n("PowerShell(" + r.slice(5)))) falta.push(l + ":" + r)
 }
 console.log(falta.join(" "))' "$TEMPLATE")"
-[ -z "$SEM_ESPELHO" ] && echo "  ok    todo deny/ask de Bash tem o espelho PowerShell(...)" \
+[ -z "$SEM_ESPELHO" ] && echo "  ok    todo deny/ask de Bash tem o espelho PowerShell(...), fora o caminho POSIX" \
   || { echo "  FALHA sem espelho PowerShell: $SEM_ESPELHO"; falhas=$((falhas+1)); }
+MORTA_PS="$(node -e 'const p = require(process.argv[1]).permissions
+console.log([...(p.deny || []), ...(p.ask || [])].filter((r) => r.startsWith("PowerShell(/")).join(" "))' "$TEMPLATE")"
+[ -z "$MORTA_PS" ] && echo "  ok    nenhuma regra PowerShell(/…) morta" \
+  || { echo "  FALHA regra PowerShell por caminho POSIX (nunca casa no Windows): $MORTA_PS"; falhas=$((falhas+1)); }
+for c in 'C:\tools\supabase.exe login' '& "C:\Users\x\AppData\Roaming\npm\vercel.cmd" login' \
+         'sudo git push -f origin main' 'sudo npx supabase db push' 'env FOO=1 supabase link'; do
+  if casa deny PowerShell "$c"; then echo "  ok    deny (PowerShell): $c"; else echo "  FALHA deny não pega (PowerShell): $c"; falhas=$((falhas+1)); fi
+done
+for c in 'C:\tools\supabase.exe db pull' 'sudo git push origin main' 'C:\tools\vercel.exe whoami'; do
+  if casa deny PowerShell "$c"; then echo "  FALHA deny pega o legítimo (PowerShell): $c"; falhas=$((falhas+1)); else echo "  ok    deixa (PowerShell): $c"; fi
+done
 for proibida in 'Bash(*)' 'Bash' 'PowerShell(*)' 'PowerShell' 'Bash(node *)' 'Bash(python3 *)' 'Bash(bash *)' 'PowerShell(node *)'; do
   node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 1 : 0)' "$TEMPLATE" "$proibida" \
     && echo "  ok    allow não tem $proibida" || { echo "  FALHA allow genérico: $proibida"; falhas=$((falhas+1)); }
@@ -514,7 +532,10 @@ negado_cmd() {
 }
 nega_c()  { if negado_cmd "$1"; then echo "  ok    nega: $1"; else echo "  FALHA não nega: $1"; falhas=$((falhas+1)); fi; }
 deixa_c() { if negado_cmd "$1"; then echo "  FALHA nega o legítimo: $1"; falhas=$((falhas+1)); else echo "  ok    deixa: $1"; fi; }
-for pre in '' 'env FOO=1 ' 'env -i '; do
+# O `sudo`, o caminho absoluto e o `/usr/bin/env` também não saem (issue #270): cada um tem a
+# família própria, `Bash(sudo *git *push* …)`, `Bash(/*/git *push* …)` e `Bash(/*/env *git *push* …)`.
+# O caminho é ancorado em `/`: com `/*git*`, o `*` engole a aspa de `grep -rn "git push …"`.
+for pre in '' 'env FOO=1 ' 'env -i ' '/usr/bin/' '/opt/homebrew/bin/' 'sudo ' 'sudo -E ' '/usr/bin/env FOO=1 '; do
   for b in main master; do
     for c in "git push --force origin $b" "git push -f origin $b" "git push --force-with-lease origin $b" \
              "git push --force-with-lease=$b:abc123 origin $b" "git push origin --force $b" "git push origin +$b" \
@@ -535,6 +556,8 @@ for pre in '' 'env FOO=1 ' 'env -i '; do
 done
 deixa_c 'echo git push --force origin main'
 deixa_c "bash -c 'git push origin main'"
+deixa_c '/usr/bin/grep -rn "git push --force origin main" docs'
+deixa_c 'echo /git push -f origin main'
 for c in 'rm -rf /' 'rm -fr /' 'rm -r -f /' 'rm -rf --no-preserve-root /' 'rm -rf / --no-preserve-root' \
          'rm -rf "/"' 'rm -rf ~' 'rm -rf ~/' 'rm -rf $HOME' 'rm -rf $HOME/' 'rm -rf "$HOME"' \
          'rm -rf "$HOME/"' 'rm -rf ${HOME}' 'rm -rf ${HOME}/' 'rm -rf "${HOME}"' 'rm -rf "${HOME}/"' \
@@ -553,8 +576,34 @@ casa allow Bash 'git push origin feat/x' && echo "  ok    allow Bash(git push *)
 casa allow Bash 'git push --force origin main' && negado_cmd 'git push --force origin main' \
   && echo "  ok    force push na main casa o allow e o deny: o deny vence" \
   || { echo "  FALHA o caso deny-vence-allow não se monta"; falhas=$((falhas+1)); }
-# Limite que nenhum glob resolve, registrado para não parecer coberto: `sudo git push …`,
-# `/usr/bin/git push …`, `bash -c '…'` e `git push -f` sem refspec com a branch atual na main.
+# Limite que nenhum glob resolve, registrado para não parecer coberto: `bash -c '…'` e
+# `git push -f` sem refspec com a branch atual na main.
+
+echo "== login, db push e link atrás de caminho absoluto, sudo e env (issue #270) =="
+# Os mesmos wrappers do push: o binário por caminho (`/*/supabase`, `/*/vercel`, ancorado em
+# `/`), o `sudo`, o `env` e o `/*/env`, cada um com o gêmeo sem o ` *` final. Os curingas
+# `*supabase* login` e `*vercel* login` pegam o login sem argumento por qualquer caminho.
+# Fora, por não ter forma ancorada que não pegue também a busca pela frase:
+# `./node_modules/.bin/supabase …`, `~/.bun/bin/bunx …` e `/usr/local/bin/npx supabase …`.
+for pre in '/opt/homebrew/bin/' '/usr/local/bin/' 'sudo ' 'sudo -E ' 'env FOO=1 ' 'env -i ' '/usr/bin/env FOO=1 '; do
+  for c in 'supabase db push' 'supabase db push --linked' 'supabase link' 'supabase link --project-ref abc' \
+           'supabase login' 'supabase login --token x' 'vercel login' 'vercel login --github'; do
+    nega_c "${pre}$c"
+  done
+  for c in 'supabase db pull' 'supabase unlink' 'supabase functions deploy link-preview' 'vercel whoami' \
+           'vercel deploy'; do
+    deixa_c "${pre}$c"
+  done
+done
+nega_c 'sudo npx supabase db push'
+nega_c 'env SUPABASE_ACCESS_TOKEN=x npx supabase link --project-ref abc'
+# shellcheck disable=SC2088  # o til literal é o comando como o CLI o recebe
+nega_c '~/.local/bin/supabase login'
+# A âncora em `/` e no literal deixa passar a busca pela frase, que os docs do kit contêm.
+deixa_c '/usr/bin/grep -rn "supabase db push" docs'
+deixa_c '/usr/bin/grep -rn "vercel login --github" docs'
+deixa_c 'echo /supabase db push'
+deixa_c 'echo supabase link --project-ref abc'
 
 echo "== deny de leitura que passava pelo nome exato (#246, item 1) =="
 # Read(): gitignore. `//` é a raiz e `~/` o home; `*` não atravessa `/` e `**` atravessa.
