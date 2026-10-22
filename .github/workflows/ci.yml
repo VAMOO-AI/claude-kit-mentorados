@@ -92,6 +92,12 @@ jobs:
       - name: O check-careful não interrompe à toa (e ainda pega o destrutivo)
         run: bash tests/test-check-careful.sh
 
+      - name: O check-careful lê o payload do Codex (comando em array, pasta em workdir)
+        run: bash tests/test-check-careful.sh --codex
+
+      - name: A fila de pendentes do núcleo não mente (tests/esperado-falhar.txt)
+        run: bash tests/test-esperado-falhar.sh
+
       - name: O cleanup do git-sync não pula branch mergeada nem apaga trabalho vivo
         run: bash tests/test-git-sync-cleanup.sh
 
@@ -148,8 +154,14 @@ jobs:
       - name: Checkout no clone que outra sessão usa é bloqueado; worktree é livre
         run: bash tests/test-block-parallel-clone-switch.sh
 
+      - name: Checkout no clone que outra sessão usa é bloqueado (payload do Codex)
+        run: bash tests/test-block-parallel-clone-switch.sh --codex
+
       - name: O merge com --delete-branch não fecha PR encadeado
         run: bash tests/test-block-delete-branch.sh
+
+      - name: O merge com --delete-branch não fecha PR encadeado (payload do Codex)
+        run: bash tests/test-block-delete-branch.sh --codex
 
       - name: O session-size-guard avisa pelo contexto real, uma vez por faixa, e a faixa acompanha o /compact
         run: bash tests/test-session-size-guard.sh
@@ -190,6 +202,9 @@ jobs:
         # A suíte inteira (42 casos, incluindo heredoc) nunca rodou aqui: o CI só tinha o
         # teste de fumaça inline mais abaixo. O gate no fim deste arquivo evita a recaída.
         run: bash tests/test-block-main-commit.sh
+
+      - name: O guard de commit na main lê o payload do Codex
+        run: bash tests/test-block-main-commit.sh --codex
 
       - name: O corpo da release sai certo do CHANGELOG
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
@@ -493,6 +508,10 @@ jobs:
           for t in tests/test-*.sh; do
             if bash "$t" > "/tmp/$(basename "$t").log" 2>&1; then echo "ok   $t"
             else echo "::error file=$t::reprovou no macOS"; tail -20 "/tmp/$(basename "$t").log"; fail=1; fi
+            # Suíte de guard com modo --codex (F1 do #241) roda também no payload do Codex.
+            grep -q -- '"--codex"' "$t" || continue
+            if bash "$t" --codex > "/tmp/$(basename "$t").codex.log" 2>&1; then echo "ok   $t --codex"
+            else echo "::error file=$t::reprovou no macOS (--codex)"; tail -20 "/tmp/$(basename "$t").codex.log"; fail=1; fi
           done
           exit $fail
 
@@ -532,6 +551,9 @@ jobs:
                    test-merge-settings test-warn-sem-node; do
             echo "::group::$t"
             if bash "tests/$t.sh"; then echo "ok $t"; else falhas="$falhas $t"; fi
+            if grep -q -- '"--codex"' "tests/$t.sh"; then
+              if bash "tests/$t.sh" --codex; then echo "ok $t --codex"; else falhas="$falhas $t--codex"; fi
+            fi
             echo "::endgroup::"
           done
           if [ -n "$falhas" ]; then echo "::error::falharam no Windows:$falhas"; exit 1; fi

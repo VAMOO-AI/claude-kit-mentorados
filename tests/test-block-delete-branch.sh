@@ -12,11 +12,15 @@
 #
 # Uso: bash tests/test-block-delete-branch.sh [caminho-do-hook]
 set -uo pipefail
+# --codex refaz cada caso no payload do Codex: comando em array (`/bin/zsh -lc <cmd>`) e a
+# pasta em tool_input.workdir, sem o cwd do Claude Code (F1 do núcleo único, #241).
+CODEX=0; [ "${1:-}" = "--codex" ] && { CODEX=1; shift; }
 HOOK="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/hooks/block-delete-branch-with-children.sh}"
 [ -f "$HOOK" ] || { echo "hook não encontrado: $HOOK"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
 
 falhas=0
+. "$(dirname "$0")/lib-esperado-falhar.sh"
 FAKE=$(mktemp -d)
 trap 'rm -rf "$FAKE"' EXIT
 cat > "$FAKE/gh" <<'GH'
@@ -31,15 +35,16 @@ GH
 chmod +x "$FAKE/gh"
 
 decide() { # <comando> [cwd]
-  CMD="$1" CWD="${2:-$PWD}" node -e \
-    'process.stdout.write(JSON.stringify({cwd:process.env.CWD,tool_input:{command:process.env.CMD}}))' \
+  CMD="$1" CWD="${2:-$PWD}" CODEX="$CODEX" node -e \
+    'const e=process.env; process.stdout.write(JSON.stringify(e.CODEX==="1"
+      ? {tool_input:{command:["/bin/zsh","-lc",e.CMD],workdir:e.CWD}}
+      : {cwd:e.CWD,tool_input:{command:e.CMD}}))' \
     | PATH="$FAKE:$PATH" bash "$HOOK" >/dev/null 2>&1
   [ "$?" = 2 ] && echo bloqueia || echo passa
 }
 check() {
   local got; got=$(decide "$3" "${4:-}")
-  if [ "$got" = "$1" ]; then printf '  ok    %s\n' "$2"
-  else printf '  FALHA %s (esperado %s, veio %s)\n' "$2" "$1" "$got"; falhas=$((falhas+1)); fi
+  ef_check "$1" "$got" "$2"
 }
 NL=$'\n'; TAB=$'\t'
 
@@ -154,4 +159,5 @@ case "$msg" in
 esac
 
 echo
+ef_resumo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

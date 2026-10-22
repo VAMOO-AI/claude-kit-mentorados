@@ -1,0 +1,4 @@
+# Fila de pendentes do núcleo: caso portado do kit do time que o hook daqui ainda
+# reprova. Formato e regras em tests/lib-esperado-falhar.sh; conferido por
+# tests/test-esperado-falhar.sh. Uma linha por caso, separado por TAB:
+#   <suíte>[ --codex]<TAB><descrição exata do check>
