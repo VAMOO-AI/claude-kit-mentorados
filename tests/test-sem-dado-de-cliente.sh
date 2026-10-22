@@ -15,7 +15,12 @@
 #   - host <algo>.uazapi.com que não seja placeholder (<...>), docs.uazapi.com ou
 #     free.uazapi.com;
 #   - project ref do Supabase (20 letras minúsculas) em `<ref>.supabase.co`,
-#     `/projects/<ref>` ou no usuário do pooler `postgres.<ref>`. Exemplo usa placeholder (`<ref>`, `$SUPABASE_REF`).
+#     `/projects/<ref>` ou no usuário do pooler `postgres.<ref>`. Exemplo usa placeholder (`<ref>`, `$SUPABASE_REF`);
+#   - URL de capacidade, em que a própria URL é a senha: tópico ntfy com 12+ caracteres
+#     (`ntfy.sh/<topico>` e prefixo curto passam), webhook do Discord ou do Slack com o
+#     token no caminho, e `?token=`/`key=`/`secret=` com valor literal de 16+ caracteres
+#     (`{{env:...}}`, `$VAR` e `<...>` passam). Até a 0.62 um tópico ntfy real passava aqui
+#     (avaliação de 21/10/2026).
 #
 # Uso: bash tests/test-sem-dado-de-cliente.sh [raiz-do-repo]
 set -uo pipefail
@@ -59,6 +64,7 @@ BIN = (".zip", ".png", ".jpg", ".jpeg", ".gif", ".wav", ".mp3", ".mp4", ".ttf", 
 PALAVRA = re.compile(r"[a-z0-9]+")
 TEL = re.compile(r"(?<![0-9])\+?55[ -]?\(?(?:1[1-9]|[2-9][0-9])\)?[ -]?9?[0-9]{4}[ -]?[0-9]{4}(?![0-9])")
 HOST = re.compile(r"(?<![<\w-])([a-z0-9-]+)\.uazapi\.com", re.I)
+CAP = re.compile(r"ntfy\.sh/[A-Za-z0-9_-]{12,}|discord(?:app)?\.com/api/webhooks/[0-9]{6,}/[A-Za-z0-9_-]{20,}|hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]{10,}|[?&](?:token|key|apikey|api_key|secret)=[A-Za-z0-9_-]{16,}", re.I)
 SUPA = re.compile(r"(?<![a-z0-9])[a-z]{20}\.supabase\.(?:co|in)\b|/projects/[a-z]{20}(?![a-z0-9])|\bpostgres\.[a-z]{20}(?![a-z0-9])")
 achados = []
 for rel in sys.stdin.buffer.read().decode().split("\0"):
@@ -80,6 +86,8 @@ for rel in sys.stdin.buffer.read().decode().split("\0"):
             achados.append(f"{rel}:{n}: telefone com DDD real: {m.group(0)}")
         for m in SUPA.finditer(linha):
             achados.append(f"{rel}:{n}: project ref do Supabase: {m.group(0)}")
+        for m in CAP.finditer(linha):
+            achados.append(f"{rel}:{n}: URL de capacidade (a URL é a senha): {m.group(0)[:24]}…")
         for m in HOST.finditer(linha):
             if m.group(1).lower() not in ("docs", "free"):
                 achados.append(f"{rel}:{n}: host UAZAPI que não é exemplo: {m.group(0)}")
@@ -101,7 +109,17 @@ Banco: https://abcdefghijklmnopqrst.supabase.co/rest/v1
 Pooler: user postgres.tsrqponmlkjihgfedcba
 Exemplo que passa: https://<ref>.supabase.co, /v1/projects/$SUPABASE_REF/database/query
 Exemplos que passam: 5500999990001, 550099990001, <sua-instancia>.uazapi.com, docs.uazapi.com
+Passam: ntfy.sh/<topico>, ntfy.sh/alertas-, /webhook/agente?token={{env:TOKEN_WEBHOOK}}, ?token=$TOKEN
 MD
+# As URLs de capacidade falsas são montadas aqui, em pedaços: escritas inteiras neste
+# arquivo, o gitleaks do CI as acusaria como segredo de verdade.
+x="xxxxxxxx"
+{
+  printf 'Alerta: https://%s/%s\n' "ntfy.sh" "meutopico${x}"
+  printf 'Discord: https://%s/%s/%s\n' "discord.com/api""/webhooks" "123456789012" "${x}${x}${x}"
+  printf 'Slack: https://%s/%s/%s/%s\n' "hooks.slack.com/""services" "T0000AAAA" "B0000BBBB" "${x}${x}"
+  printf 'Webhook: https://n8n.exemplo.com/webhook/agente?%s=%s\n' "token" "${x}${x}${x}"
+} >> "$FIX/a.md"
 git -C "$FIX" add -A
 saida=$(confere "$FIX"); rc=$?
 falhas=0
@@ -114,9 +132,13 @@ espera '+55 (21) 90000-0000' "telefone com máscara"
 espera 'minhaempresa.uazapi.com' "host UAZAPI de verdade"
 espera 'abcdefghijklmnopqrst.supabase.co' "project ref do Supabase na URL"
 espera 'postgres.tsrqponmlkjihgfedcba' "project ref no usuário do pooler"
+espera 'ntfy.sh/meutopicoxxx' "tópico ntfy de verdade"
+espera 'discord.com/api/webhook' "webhook do Discord com token"
+espera 'hooks.slack.com/services' "webhook do Slack com token"
+espera '?token=xxxxxxxx' "token literal na query"
 n=$(printf '%s\n' "$saida" | grep -c 'FALHA')
-[ "$n" = 6 ] && printf '  ok    exatamente 6 achados (DDD 00, placeholders e docs passam)\n' \
-  || { printf '  FALHA %s achados, esperava 6:\n%s\n' "$n" "$saida"; falhas=$((falhas+1)); }
+[ "$n" = 10 ] && printf '  ok    exatamente 10 achados (DDD 00, placeholders, docs e env passam)\n' \
+  || { printf '  FALHA %s achados, esperava 10:\n%s\n' "$n" "$saida"; falhas=$((falhas+1)); }
 [ "$falhas" -eq 0 ] || { echo; echo "$falhas falha(s) no autoteste"; exit 1; }
 
 echo

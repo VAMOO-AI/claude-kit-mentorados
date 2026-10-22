@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.62.2|no n8n, o dedup de mensagem só descarta duplicata de verdade (antes, um erro de disco deixava o agente mudo) e explica o caso de vários workers; no mcp-sistema, o passo do ChatGPT segue o fluxo atual de Plugins
 0.62.1|o /kit-vamoo:setup tira o MCP antigo do dotcontext se ele ainda estiver registrado na sua máquina, a /ship tira o PR do rascunho antes de esperar o CI e a /kit-vamoo:gerar-imagem passa a ser só manual, porque cada imagem é paga
 0.62.0|saíram /kit-vamoo:grill-me (use /kit-vamoo:grilling), /kit-vamoo:grill-with-docs (o grilling lê a doc do projeto sozinho), /kit-vamoo:find-skills (a skills-projeto procura skill pronta e só instala quando você pede) e /kit-vamoo:reverse-engineer-anything (ver docs/engenharia-reversa-rea.md)|setup
 0.61.1|na auditoria em workflow (audit-multidim), os auditores conferem se uma chave existe no .env com o env-tem-chave, que diz presente, vazia ou ausente sem mostrar o valor, em vez do grep que o próprio kit bloqueia|setup

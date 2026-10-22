@@ -31,8 +31,8 @@ de card/badge que o app já tem). Não copie classes do exemplo.
       - Claude Code: `claude mcp add --transport http <nome> <url>`
       - Claude: Configurações → Conectores → Adicionar conector personalizado,
         nome `<nome>`, URL.
-      - ChatGPT: Configurações → Conectores (Apps) → modo desenvolvedor → criar
-        conector com a URL.
+      - ChatGPT: Plugins → Adicionar → Criar servidor MCP personalizado, URL e
+        OAuth (o mesmo caminho da tabela de clientes abaixo).
       - Outro: qualquer cliente de MCP remoto com Streamable HTTP e login OAuth.
    3. Faça login: o navegador abre o login do app (com MFA se pedir) e depois a
       tela de consentimento → Permitir. Não há token para copiar.

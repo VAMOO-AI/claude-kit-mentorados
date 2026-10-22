@@ -16,6 +16,27 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.62.2] — 2026-10-22
+
+### Corrigido
+
+Bugs da avaliação contra o Opus 5.5 (#261):
+
+- **`n8n-workflow-agent`: o dedup só descarta a mensagem em `EEXIST`.** O exemplo de
+  `references/messaging-patterns.md` tratava qualquer falha ao gravar o lock em `/tmp` como
+  duplicata. Com disco cheio ou sem permissão, o agente ficava mudo e não deixava log. Agora só
+  `EEXIST` descarta, e qualquer outra falha segue com aviso. A seção também ganhou o caso de
+  queue mode, em que cada worker tem o próprio `/tmp`, com o dedup feito no Redis (`SET … NX EX`)
+  ou numa tabela com chave única. Espelho do kit do time (VAMOO-AI/claude-config-team#397).
+- **`mcp-sistema`: o passo do ChatGPT deixa de se contradizer.** A página de instalação mandava
+  usar o "modo desenvolvedor" na `references/pagina.md:34` e Plugins na tabela da linha 76.
+  Ficou o fluxo de Plugins → Criar servidor MCP personalizado, que é o da doc atual da OpenAI.
+- **`tests/test-sem-dado-de-cliente.sh` reprova URL de capacidade.** São as URLs em que a
+  própria URL é a senha: tópico ntfy com 12 ou mais caracteres, webhook do Discord ou do Slack
+  com token, e `?token=`/`key=`/`secret=` com valor literal. Placeholder, `{{env:…}}` e `$VAR`
+  passam. O autoteste ganhou um caso de cada tipo. Esse é o gate que a F7 pedia antes de portar
+  skills de segurança e de monitoramento.
+
 ## [0.62.1] — 2026-10-22
 
 ### Corrigido
