@@ -16,6 +16,44 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.63.0] — 2026-10-22
+
+### Segurança
+
+Porte do P0 de segurança do kit do time (#246 e #249). Rode `/kit-vamoo:setup` para o deny
+novo chegar ao seu `settings.json` (`|setup` nas novidades).
+
+- **Gêmeo sem o ` *` final.** Pela doc, o ` *` final só casa comando sem argumento quando é o
+  único curinga da regra. Por isso `npx supabase db push`, `bunx supabase link` e
+  `npx vercel login`, sem nada depois, passavam pelo deny. Toda regra de deny e de ask com mais
+  de um curinga que termina em ` *` ganhou o gêmeo, em Bash e em PowerShell.
+  - O `negado()` do `tests/test-merge-settings.sh` dava verde falso a esses casos; foi corrigido
+    e reprova o template antigo.
+  - Uma invariante nova exige o gêmeo em toda regra desse tipo (#249).
+- **Freio em bypass.** O deny passa a barrar force push em `main`/`master`, também atrás de `env`,
+  e `rm -rf` em `/`, `~` e `$HOME`. Push normal, force push em branch de feature e limpeza de
+  pasta descartável continuam livres. Cada padrão tem no teste o caso que ele pega e o vizinho
+  legítimo que ele deixa passar. O allow `Bash(git push *)` continua; o deny vence (#246).
+- **Deny de leitura** de:
+  - cópias `.env.bak*`, `.env.*.bak*` e `.env.tokens*`;
+  - `.env.prod`, `.env.dev` e `.env.preview`;
+  - `~/.codex/auth.json`;
+  - token da Vercel no macOS, no Linux e no Windows. O caminho do Windows não foi medido no CLI.
+- **desktop-commander negado.** As tools dele leem arquivo e rodam shell fora de todo hook e do
+  deny. O merge do settings é união, então quem apagar a regra a recebe de volta no próximo setup.
+
+### Alterado
+
+- **Agentes.** O `revisor` ganhou o alvo padrão (`git diff origin/main...HEAD`), as cinco
+  categorias que revisor costuma pular e a varredura de interpolação em SKILL.md. O `executor`
+  pode dar push, sem force, na branch do próprio lote, e o `subagentes.md` registra essa exceção.
+- **`CLAUDE-global.md`.**
+  - Arquivo de projeto se edita por Read/Edit/Write, porque o `path-rules` e o lint do Stop não
+    veem `cat`/`sed`/heredoc.
+  - O bloco `PENDENTE:` vem antes do `wrap_up`, com a decisão principal no `ask`.
+  - A nota do `cd && grep` deixou de dizer que o modo padrão é o acceptEdits; é o Auto desde a
+    0.56.0.
+
 ## [0.62.2] — 2026-10-22
 
 ### Corrigido

@@ -209,15 +209,20 @@ if [ -z "$SEM_RUNNER" ]; then echo "  ok    todo deny de supabase/vercel cobre o
 else echo "  FALHA deny sem a forma por runner: $SEM_RUNNER"; falhas=$((falhas+1)); fi
 
 # O glob do deny é quase o do `case` do bash; a diferença é o ` *` final, que o matcher do
-# Claude Code também aceita sem argumento nenhum — daí testar o padrão com e sem ele. O
+# Claude Code também aceita sem argumento nenhum, mas SÓ quando é o único curinga da regra
+# (code.claude.com/docs/en/permissions#wildcard-patterns: `Bash(* --help *)` não casa
+# `npm --help`). `Bash(npx *supabase* db push *)` tem três curingas e não pega
+# `npx supabase db push`; quem pega é o gêmeo sem o ` *` final (issue #249). Até a 0.61.1 este
+# teste aceitava o comando sem argumento em qualquer regra e dava verde sem cobertura. O
 # sufixo é ` *`, não `*`: `link*` pegava `functions deploy link-preview`.
 PADROES="$(node -e 'for (const e of require(process.argv[1]).permissions.deny)
   if (e.startsWith("Bash(") && !e.endsWith(":*)")) console.log(e.slice(5, -1))' "$TEMPLATE")"
 negado() {
   local p; while IFS= read -r p; do
     [ -z "$p" ] && continue
+    # shellcheck disable=SC2254  # o padrão é glob de propósito
     case "$1" in $p) return 0 ;; esac
-    case "$p" in *' *') case "$1" in ${p% \*}) return 0 ;; esac ;; esac
+    case "$p" in *' *') case "${p% \*}" in *'*'*) ;; *) [ "$1" = "${p% \*}" ] && return 0 ;; esac ;; esac
   done <<< "$PADROES"; return 1
 }
 for c in 'npx supabase db push' 'npx -y supabase@latest db push --linked' 'bunx supabase db push' \
@@ -231,6 +236,25 @@ for c in 'npx supabase db reset' 'npx supabase migration new link_table' 'npx su
          'yarn dlx supabase migration new link_table' 'npm exec supabase functions deploy linkedin-sync'; do
   if negado "$c"; then echo "  FALHA deny pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    deny deixa: $c"; fi
 done
+# Invariante do #249: todo padrão de deny ou ask com mais de um curinga que termina em ` *`
+# tem o gêmeo sem o ` *` final, em Bash e em PowerShell (a doc diz que as regras PowerShell
+# têm "the same shape as Bash rules"). Os casos acima só cobrem o gêmeo que tem caso; este
+# cobre todos, inclusive o do próximo padrão que entrar.
+SEM_GEMEO="$(node -e '
+const p = require(process.argv[1]).permissions
+const falta = []
+for (const l of ["deny", "ask"]) {
+  const lista = p[l] || []
+  for (const r of lista) {
+    const m = /^(Bash|PowerShell)\(([\s\S]*) \*\)$/.exec(r)
+    if (!m || !m[2].includes("*")) continue
+    const g = `${m[1]}(${m[2]})`
+    if (!lista.includes(g)) falta.push(`${l}:${g}`)
+  }
+}
+console.log(falta.join("\n"))' "$TEMPLATE")"
+if [ -z "$SEM_GEMEO" ]; then echo "  ok    todo padrão com mais de um curinga que termina em ' *' tem o gêmeo"
+else echo "  FALHA falta o gêmeo sem o ' *' final ($(printf '%s\n' "$SEM_GEMEO" | wc -l | tr -d ' ')): $(printf '%s\n' "$SEM_GEMEO" | head -3 | tr '\n' ' ')…"; falhas=$((falhas+1)); fi
 
 # `Read(**/.env.*)` bloquearia o .env.example, que é commitado e lido de propósito; os
 # arquivos de ambiente com segredo vão enumerados.
@@ -468,6 +492,156 @@ grep -q '"Write(' "$TEMPLATE" && { echo "  FALHA regra Write( no template (nunca
   || echo "  ok    nenhuma regra Write("
 node -e 'process.exit(require(process.argv[1]).permissions.allow.some(r=>r.startsWith("PowerShell(")) ? 0 : 1)' "$TEMPLATE" \
   && echo "  ok    allow tem regras PowerShell(...)" || { echo "  FALHA allow sem PowerShell"; falhas=$((falhas+1)); }
+
+echo "== freio em bypass: force push em main/master e rm -rf em / ou ~ (#246, item 3) =="
+# Em bypassPermissions os hooks se calam e o deny é o freio que sobra: pela doc, regra de deny
+# que casa bloqueia "even in bypassPermissions mode". O freio é estreito: force push em
+# main/master e `rm -rf` em `/`, `~` e `$HOME`. Cada caso `nega` tem ao lado o vizinho
+# legítimo que precisa continuar livre.
+# Composto: o deny vale quando qualquer subcomando casa (`&&`, `||`, `;`, `|`), e o CLI casa
+# também a string inteira. O binário `env` não está entre os wrappers que o CLI tira antes de
+# casar (`command`, `timeout`, `nice`…), então `env FOO=1 git push …` chega com o `env` na frente
+# e só a família `Bash(env *git *push* …)` pega (time, VAMOO-AI/claude-config-team#381).
+negado_cmd() {
+  local c="$1" sub
+  c=${c//'&&'/$'\n'}; c=${c//'||'/$'\n'}; c=${c//';'/$'\n'}; c=${c//'|'/$'\n'}
+  while IFS= read -r sub; do
+    sub="${sub#"${sub%%[![:space:]]*}"}"; sub="${sub%"${sub##*[![:space:]]}"}"
+    [ -n "$sub" ] || continue
+    negado "$sub" && return 0
+  done <<< "$1"$'\n'"$c"
+  return 1
+}
+nega_c()  { if negado_cmd "$1"; then echo "  ok    nega: $1"; else echo "  FALHA não nega: $1"; falhas=$((falhas+1)); fi; }
+deixa_c() { if negado_cmd "$1"; then echo "  FALHA nega o legítimo: $1"; falhas=$((falhas+1)); else echo "  ok    deixa: $1"; fi; }
+for pre in '' 'env FOO=1 ' 'env -i '; do
+  for b in main master; do
+    for c in "git push --force origin $b" "git push -f origin $b" "git push --force-with-lease origin $b" \
+             "git push --force-with-lease=$b:abc123 origin $b" "git push origin --force $b" "git push origin +$b" \
+             "git push origin $b --force" "git push origin $b -f" "git push origin $b --tags -f" \
+             "git push -f origin HEAD:$b" "git push --force origin HEAD:$b" "git push origin +HEAD:$b" \
+             "git push origin HEAD:$b --force" "git push origin HEAD:$b -f" "git -C /x/repo push --force origin $b" \
+             "cd /x/repo && git push --force origin $b" "git push --force origin $b | cat"; do
+      nega_c "${pre}$c"
+    done
+  done
+  for c in 'git push origin main' 'git push -u origin main' 'git push --follow-tags origin main' \
+           'git push origin main --follow-tags' 'git push --force origin feat/x' 'git push -f origin fix/main-menu' \
+           'git push --force-with-lease origin feat/main' 'git push origin feat/x --force' 'git push origin domain-fix --force' \
+           'git push --force origin maintenance' 'git push origin HEAD:feat/x --force' 'git push -f origin fix/main' \
+           'git push origin +feat/main' 'git push --force origin HEAD:feat/main' 'git log --oneline main'; do
+    deixa_c "${pre}$c"
+  done
+done
+deixa_c 'echo git push --force origin main'
+deixa_c "bash -c 'git push origin main'"
+for c in 'rm -rf /' 'rm -fr /' 'rm -r -f /' 'rm -rf --no-preserve-root /' 'rm -rf / --no-preserve-root' \
+         'rm -rf "/"' 'rm -rf ~' 'rm -rf ~/' 'rm -rf $HOME' 'rm -rf $HOME/' 'rm -rf "$HOME"' \
+         'rm -rf "$HOME/"' 'rm -rf ${HOME}' 'rm -rf ${HOME}/' 'rm -rf "${HOME}"' 'rm -rf "${HOME}/"' \
+         'rm -rf /tmp/x ~' 'cd /tmp && rm -rf ~'; do
+  nega_c "$c"
+done
+for c in 'rm -rf /tmp/descartavel' 'rm -rf ./dist' 'rm -rf dist/ build/' 'rm -rf ~/tmp/descartavel' \
+         'rm -rf ~/.cache/foo' 'rm -rf "$HOME/projetos/x/node_modules"' 'rm -rf $HOME/x' \
+         'rm -rf ${HOME}/x' 'rm -f ~/.zcompdump' 'rm -rf "$TMP"' 'rm -rf .next' 'rm -rf node_modules'; do
+  deixa_c "$c"
+done
+# O allow `Bash(git push *)` continua: o push normal segue sem pergunta, e no force push na
+# main o deny vence o allow (ordem deny → ask → allow da doc).
+casa allow Bash 'git push origin feat/x' && echo "  ok    allow Bash(git push *) continua no template" \
+  || { echo "  FALHA o push normal saiu do allow"; falhas=$((falhas+1)); }
+casa allow Bash 'git push --force origin main' && negado_cmd 'git push --force origin main' \
+  && echo "  ok    force push na main casa o allow e o deny: o deny vence" \
+  || { echo "  FALHA o caso deny-vence-allow não se monta"; falhas=$((falhas+1)); }
+# Limite que nenhum glob resolve, registrado para não parecer coberto: `sudo git push …`,
+# `/usr/bin/git push …`, `bash -c '…'` e `git push -f` sem refspec com a branch atual na main.
+
+echo "== deny de leitura que passava pelo nome exato (#246, item 1) =="
+# Read(): gitignore. `//` é a raiz e `~/` o home; `*` não atravessa `/` e `**` atravessa.
+CASA_T=/home/teste
+READ_P="$(node -e 'for (const e of require(process.argv[1]).permissions.deny) if (e.startsWith("Read(")) console.log(e.slice(5, -1))' "$TEMPLATE")"
+read_negado() {
+  local f="$1" p base pre
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in
+      '//**/'*)
+        base=${p#'//**/'}
+        case "$base" in */*) continue ;; esac
+        # shellcheck disable=SC2254
+        case "${f##*/}" in $base) return 0 ;; esac
+        continue ;;
+      '~/'*) pre="$CASA_T/${p#'~/'}" ;;
+      '//'*) pre="/${p#'//'}" ;;
+      *) continue ;;
+    esac
+    case "$pre" in
+      *'/**') case "$f" in "${pre%/\*\*}"/*) return 0 ;; esac ;;
+      *'/**/'*) # shellcheck disable=SC2254
+         case "$f" in "${pre%%/\*\*/*}"/*) case "${f##*/}" in ${pre##*/}) return 0 ;; esac ;; esac ;;
+      *) [ "${f%/*}" = "${pre%/*}" ] || continue
+         # shellcheck disable=SC2254
+         case "${f##*/}" in ${pre##*/}) return 0 ;; esac ;;
+    esac
+  done <<< "$READ_P"
+  return 1
+}
+for f in /x/proj/.env.local.bak-1785263322 /x/proj/.env.production.bak /x/proj/.env.bak /x/proj/.env.bak-2026-10-08 \
+         "$CASA_T/.claude/.env.tokens.bak-2026-10-08" /x/proj/.env.tokens /x/proj/.env.prod /x/proj/.env.dev /x/proj/.env.preview \
+         "$CASA_T/.codex/auth.json" "$CASA_T/Library/Application Support/com.vercel.cli/auth.json" \
+         "$CASA_T/Library/Application Support/com.vercel.cli/.auth.json.38107.1778616964077.tmp" \
+         "$CASA_T/.local/share/com.vercel.cli/auth.json" "$CASA_T/AppData/Roaming/com.vercel.cli/Data/auth.json" \
+         /x/proj/.env.local /x/proj/.env.production.local /x/proj/supabase/.env; do
+  if read_negado "$f"; then echo "  ok    nega leitura: $f"; else echo "  FALHA não nega leitura: $f"; falhas=$((falhas+1)); fi
+done
+for f in /x/proj/.env.example /x/proj/.env.local.example /x/proj/.env.example.pt-BR /x/proj/.env.migracao.example \
+         "$CASA_T/.codex/config.toml" "$CASA_T/Library/Application Support/com.vercel.cli/config.json" \
+         "$CASA_T/AppData/Roaming/com.vercel.cli/Data/config.json" /x/proj/src/env.ts; do
+  if read_negado "$f"; then echo "  FALHA nega leitura legítima: $f"; falhas=$((falhas+1)); else echo "  ok    deixa ler: $f"; fi
+done
+
+echo "== desktop-commander: tool MCP fora de todo hook (#246, item 2) =="
+# Deny aceita glob no nome inteiro da tool, e a tool que casa sai do contexto (doc). O
+# desktop-commander lê arquivo fora do deny de Read() e roda shell fora do matcher Bash.
+TOOL_P="$(node -e 'for (const e of require(process.argv[1]).permissions.deny) if (/^[A-Za-z_*][^()]*$/.test(e)) console.log(e)' "$TEMPLATE")"
+tool_negada() { local p; while IFS= read -r p; do [ -n "$p" ] || continue
+  # shellcheck disable=SC2254
+  case "$1" in $p) return 0 ;; esac; done <<< "$TOOL_P"; return 1; }
+for t in start_process read_file get_file_info write_file interact_with_process; do
+  tool_negada "mcp__plugin_desktop-commander_desktop-commander__$t" && echo "  ok    nega: desktop-commander $t" \
+    || { echo "  FALHA não nega: desktop-commander $t"; falhas=$((falhas+1)); }
+done
+for t in mcp__claude-in-chrome__navigate mcp__plugin_outro_servidor__read_file Read; do
+  tool_negada "$t" && { echo "  FALHA nega tool legítima: $t"; falhas=$((falhas+1)); } || echo "  ok    deixa: $t"
+done
+
+echo "== o deny novo chega a quem já tem o settings instalado =="
+# Quem rodou o setup antes desta versão tem o deny antigo e o allow `Bash(git push *)`. O
+# merge é união: todo deny do template precisa chegar, o allow fica e a 2ª passada não muda nada.
+cat > "$TMP/instalado.json" <<'JSON'
+{ "permissions": { "defaultMode": "auto",
+  "allow": ["Bash(git push *)", "Bash(meu-script:*)"],
+  "deny": ["Read(//**/.env)", "Read(//**/.env.tokens)", "Bash(npx *supabase* db push *)", "Bash(meu-deny:*)"] } }
+JSON
+node "$MERGE" "$TEMPLATE" "$TMP/instalado.json" >/dev/null 2>&1
+FALTA_DENY="$(node -e '
+const t = require(process.argv[1]).permissions.deny, u = require(process.argv[2]).permissions.deny
+console.log(t.filter((r) => !u.includes(r)).join(" "))' "$TEMPLATE" "$TMP/instalado.json")"
+[ -z "$FALTA_DENY" ] && echo "  ok    todo deny do template chega ao settings instalado" \
+  || { echo "  FALHA deny do template não chegou: $FALTA_DENY"; falhas=$((falhas+1)); }
+for r in 'Bash(npx *supabase* db push)' 'Bash(git *push* --force* main)' 'Bash(env *git *push* -f* main)' \
+         'Bash(rm * ~)' 'Read(//**/.env.bak*)' 'mcp__plugin_desktop-commander_desktop-commander__*' 'Bash(meu-deny:*)'; do
+  node -e 'process.exit(require(process.argv[1]).permissions.deny.includes(process.argv[2]) ? 0 : 1)' "$TMP/instalado.json" "$r" \
+    && echo "  ok    deny no settings instalado: $r" || { echo "  FALHA falta no settings instalado: $r"; falhas=$((falhas+1)); }
+done
+for r in 'Bash(git push *)' 'Bash(meu-script:*)'; do
+  node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 0 : 1)' "$TMP/instalado.json" "$r" \
+    && echo "  ok    allow continua: $r" || { echo "  FALHA o merge tirou o allow $r"; falhas=$((falhas+1)); }
+done
+ANTES_I="$(cat "$TMP/instalado.json")"
+node "$MERGE" "$TEMPLATE" "$TMP/instalado.json" >/dev/null 2>&1
+[ "$ANTES_I" = "$(cat "$TMP/instalado.json")" ] && echo "  ok    2ª passada com o template não muda nada" \
+  || { echo "  FALHA 2ª passada mudou o settings instalado"; falhas=$((falhas+1)); }
 
 echo "== settings.json quebrado não pode ser sobrescrito =="
 echo '{ isso não é json' > "$TMP/ruim.json"

@@ -15,7 +15,7 @@
 - Severidade diz a ordem; **natureza** diz quem decide o fix. O revisor não edita nem classifica: reporta cada achado com `arquivo:linha`, confiança (alta/média/baixa), o cenário de falha e a correção proposta, inclusive os de severidade baixa e os que não confirmou. Quem separa mecânico de decisão e aplica é a conversa principal. Mecânico (um sênior aplicaria sem discutir) entra quando você mandar "aplica os mecânicos"; decisão (dois sêniores poderiam discordar) você decide um a um.
 - Mecânico: dead code, variável nunca lida, N+1 sem eager loading, comentário que contradiz o código, número mágico → constante, validação faltando em saída de IA, versão/caminho desatualizado.
 - Decisão: segurança (auth, XSS, injeção), race / ler-e-depois-gravar, remover funcionalidade, mudança de comportamento visível, qualquer fix acima de ~20 linhas.
-- Cinco categorias que revisor costuma pular e entram em todo review: valor novo de enum/status (ler TODOS os consumidores fora do diff), saída de IA que vira dado, ler-e-depois-gravar sem atomicidade, migration (checklist em `baseline/references/02-banco.md`) e versão de dependência que subiu (é mudança de código: changelog lido, lockfile commitado junto, um pacote por vez; skill `secscan`, C5.2).
+- O alvo padrão do review, as cinco categorias que revisor costuma pular, a régua de versão de dependência e a varredura de interpolação em SKILL.md vêm no próprio agente (`plugin/agents/revisor.md`), porque este arquivo não chega ao contexto do subagente: o prompt do dispatch só diz o alvo (diff, PR ou spec).
 
 ## Contrato de escopo (writes em paralelo)
 - Cada agente recebe no prompt:
@@ -41,7 +41,7 @@
 - Antes de reportar, confira o conjunto pelo `git diff --stat`: é a lista de "Arquivos tocados".
 - Rename: grep separado por chamadas, tipos, strings, imports e testes/mocks.
 - Nunca delete arquivo sem checar quem referencia.
-- Nunca rode `push --force`, `reset --hard` ou ação destrutiva sem autorização explícita do orquestrador.
+- Nunca rode `git push`, `push --force`, `reset --hard` ou ação destrutiva sem autorização explícita do orquestrador. Exceção: o `executor` dá push (sem force) na branch do próprio lote, que é o que abre o PR.
 
 ## Atenção ao contexto
 - Arquivos grandes (>500 linhas): leia em pedaços (offset/limit).

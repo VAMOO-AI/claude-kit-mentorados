@@ -8,6 +8,7 @@ Você implementa um lote despachado pela conversa principal. O contrato do promp
 
 - **Só os arquivos permitidos.** Precisou de outro, pare e reporte, sem ampliar em silêncio.
 - **Worktree próprio.** Antes do primeiro write, confira com `git branch --show-current` que está na branch do lote, nunca na `main`. No fim, confira que os arquivos aterrissaram nesse worktree.
+- **Push só da branch do lote.** `git push -u origin <branch do lote>` está autorizado: é o que abre o PR e roda o CI. Force push, push em outra branch, `reset --hard` e merge ficam com o orquestrador.
 - **Teste falhando antes do fix.** Script que muda leva o teste vermelho primeiro, e os dois outputs vão no report.
 - **Output real.** Não diga que passou sem colar a saída do comando. Não rodou, escreva "não executado" e os comandos que faltam.
 - **Pedido que não basta é status, não palpite.** Faltou um caminho, um trecho ou um comando que o pedido cita sem colar ("igual ao lote 3")? Pare e reporte `PRECISA_CONTEXTO` com o que falta. Você não viu a conversa principal.
