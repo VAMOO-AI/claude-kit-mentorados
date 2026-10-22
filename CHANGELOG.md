@@ -16,6 +16,11 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.64.2] — 2026-10-22
+
+### Mudado
+- `worktrees`, `orquestracao` e `git-sync` enxutas contra o Opus 5.5 (#261): de 311, 131 e 492 linhas para 95, 86 e 94. Sai o que o modelo já faz sem skill: git genérico, o catálogo do guard que a 2.1.306 já resolve, a mecânica do Workflow que a `workflow-authoring` built-in cobre e o fallback manual de escrita da git-sync. Ficam a prova de cleanup, o banco local compartilhado, o seed de env e os lotes por dependência. Flags, `--cleanup-apply`, `gh`/API REST e convivência de time foram para `git-sync/references/flags.md`. Pressure test com a skill: 6/6 antes e 6/6 depois nas duas skills com cenário.
+
 ## [0.64.1] — 2026-10-22
 
 ### Alterado
