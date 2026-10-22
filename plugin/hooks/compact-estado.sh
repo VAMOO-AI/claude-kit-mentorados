@@ -23,9 +23,9 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 
-# O cache do par antigo (um .md por sessão) não tem mais quem o pode aqui. Só por idade, e
-# nunca a pasta inteira: o kit do time grava no mesmo lugar, e numa máquina com os dois
-# (KIT_VAMOO_HOOKS=1) o snapshot dele de agora ainda vai ser lido.
+# O cache do par antigo (um .md por sessão) não tem mais quem o leia: o kit do time também
+# fundiu o par num compact-estado.sh em 22/10/2026 e não grava mais lá. A poda só limpa o
+# resto que os dois pares deixaram na máquina; por idade, e nunca a pasta inteira.
 [ -d "$HOME/.claude/.cache/precompact" ] && find "$HOME/.claude/.cache/precompact" -type f -name '*.md' -mmin +2880 -delete 2>/dev/null
 
 info="$(cat | node "$H" source cwd 2>/dev/null)"

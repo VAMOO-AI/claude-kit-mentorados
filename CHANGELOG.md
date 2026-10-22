@@ -10,6 +10,30 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.69.0] — 2026-10-22
+
+### Adicionado
+
+- **O `instrucoes-projeto.sh` instala o `.worktreeinclude`.** Desde a 0.66.0 quem copia o
+  `.env` ignorado para o worktree novo é o próprio Claude Code, mas só com um
+  `.worktreeinclude` na raiz, e nada o instalava (a 0.66.0 só mandava copiar o modelo). Num
+  repositório git sem o arquivo, o `--check` acusa a falta e o `--apply` copia o
+  `plugin/templates/worktreeinclude.exemplo`, em qualquer classe; nunca sobrescreve o do
+  projeto e não age fora de repositório git. O `setup` e a skill `worktrees` apontam o
+  passo. Na máquina do kit do time, 23 de 24 projetos com `.env*` ignorado não tinham o
+  arquivo.
+
+### Corrigido
+
+- **O `memoria-link.sh` não liga mais o diretório de projeto do worktree.** A memória
+  automática é por repositório e compartilhada entre worktrees
+  ([doc](https://code.claude.com/docs/en/memory.md#auto-memory)), então esse link nunca era
+  lido. O `ligar_worktrees()` saiu, e o teste agora reprova se o worktree ganhar link. Os
+  links que já existem caem no `limpar_quebrados` quando o worktree é removido.
+- **Comentário do `compact-estado.sh`:** o kit do time também fundiu o par antigo e não
+  grava mais no `~/.claude/.cache/precompact`; a poda por idade só limpa o resto.
+- Porte de VAMOO-AI/claude-config-team#406 e #408 (#280).
+
 ## [0.68.0] — 2026-10-22
 
 ### Adicionado

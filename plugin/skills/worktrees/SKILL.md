@@ -25,8 +25,8 @@ allowed-tools:
   os arquivos que casam com o padrão e que o git ignora, em todo worktree que ele cria
   (`--worktree`, subagent com `isolation: worktree`, sessão paralela do desktop;
   [doc](https://code.claude.com/docs/en/worktrees.md#copy-gitignored-files-into-worktrees)).
-  O modelo é o `plugin/templates/worktreeinclude.exemplo`: copie como `.worktreeinclude` e
-  commite. `.npmrc`/`bunfig.toml` ficam de fora (token de registry). A doc não diz se o
+  O modelo é o `plugin/templates/worktreeinclude.exemplo`, e o
+  `instrucoes-projeto.sh --apply` o copia quando falta; commite. `.npmrc`/`bunfig.toml` ficam de fora (token de registry). A doc não diz se o
   `EnterWorktree` aplica o arquivo, e worktree criado fora do Claude Code não recebe nada:
   confira e copie à mão. Sintoma da falta: login com **"Failed to fetch"**.
 - **`node_modules`** não vem: `npm install` no worktree. Symlink quebra os binários do `.bin`.

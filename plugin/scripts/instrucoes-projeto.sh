@@ -24,7 +24,13 @@
 #              meio da frase), e o CLAUDE.md fica com @AGENTS.md
 # Nas outras classes imprime a proposta e não grava nada: o que cita hook, skill, /comando
 # ou ferramenta do Claude Code fica no CLAUDE.md, o resto vai para o AGENTS.md, e quem
-# decide é quem migra. Não faz commit e não toca nada além do CLAUDE.md e do AGENTS.md da
+# decide é quem migra.
+#
+# Num repositório git sem `.worktreeinclude`, o --check acusa a falta e o --apply copia o
+# templates/worktreeinclude.exemplo do plugin, em qualquer classe. É ele que faz o Claude
+# Code copiar o .env ignorado para o worktree novo; nunca sobrescreve o do projeto.
+#
+# Não faz commit e não toca nada além do CLAUDE.md, do AGENTS.md e do .worktreeinclude da
 # raiz.
 #
 # Sai 0 quando classificou (tendo gravado ou não), 1 se uma gravação falhou, 2 com uso
@@ -33,6 +39,7 @@ set -uo pipefail
 
 LIMITE_CODEX=32768
 MODELO="$(cd "$(dirname "$0")/.." && pwd)/templates/AGENTS-projeto.md.exemplo"
+MODELO_WI="$(cd "$(dirname "$0")/.." && pwd)/templates/worktreeinclude.exemplo"
 CAB_FICA="proposta: fica no CLAUDE.md, abaixo do @AGENTS.md (parece exclusivo do Claude Code)"
 
 uso() {
@@ -394,6 +401,21 @@ case "$E_CLASSE" in
   nenhum)
     echo "ação: crie o AGENTS.md (modelo em $MODELO) e o CLAUDE.md com @AGENTS.md; o --apply não grava aqui" ;;
 esac
+
+# Até a 0.65 o hook worktree-seed-env.sh copiava o .env para o worktree novo; desde a 0.66
+# quem copia é o próprio Claude Code, mas só com um .worktreeinclude na raiz, e nada o
+# instalava. Fora de repositório git não há worktree, e o arquivo seria lixo.
+if [ ! -e "$REPO/.worktreeinclude" ] && git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
+  if [ "$MODO" = apply ]; then
+    if cp "$MODELO_WI" "$REPO/.worktreeinclude"; then
+      echo "gravado: .worktreeinclude, do modelo do plugin (o worktree novo recebe o .env ignorado); commite junto"
+    else
+      echo "falhou ao gravar .worktreeinclude" >&2
+    fi
+  else
+    echo "worktreeinclude: falta; o --apply copia o modelo $MODELO_WI (o worktree novo nasce sem o .env sem ele)"
+  fi
+fi
 
 [ "$MODO" = apply ] || exit 0
 
