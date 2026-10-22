@@ -343,20 +343,11 @@ ligar() {
   LIGADOS=$((LIGADOS + 1))
 }
 
-# Worktree tem diretório de projeto PRÓPRIO (o slug sai do cwd), e o link do clone
-# não serve pra ele: numa sessão isolada em worktree, escrever no `.context/memoria`
-# do clone é escrever fora da árvore da branch — o guard do harness recusa, e com
-# razão. Sem link próprio a memória não tem para onde ir e a sessão desiste de
-# registrar. Ligado, o fato nasce dentro do worktree e viaja no PR, igual a código.
-ligar_worktrees() {
-  local repo="$1" wt
-  for wt in "$repo"/.claude/worktrees/*/; do
-    [ -d "$wt" ] || continue
-    wt="${wt%/}"
-    [ -d "$wt/.context/memoria" ] || continue
-    ligar "$wt" worktree
-  done
-}
+# Worktree não ganha link próprio (22/10/2026): a memória automática é por repositório e
+# compartilhada entre worktrees (https://code.claude.com/docs/en/memory.md#auto-memory), e
+# o diretório de projeto do slug do worktree nunca é lido. Até a 0.68 um ligar_worktrees()
+# criava esse link a cada varredura; os que já existem caem no limpar_quebrados quando o
+# worktree sai.
 
 # Worktree removido deixa o symlink apontando para o vazio. Um link quebrado não é
 # só sujeira: o Claude escreve nele achando que gravou, e o arquivo não existe em
@@ -387,13 +378,11 @@ if [ -n "$ALVO" ]; then
     exit 1
   fi
   ligar "$ALVO"
-  ligar_worktrees "$ALVO"
 else
   [ -d "$PROJ_DIR" ] || { diz "sem $PROJ_DIR — o Claude Code ainda não rodou aqui."; exit 0; }
   # Um clone por vez: o `cwd` do transcript pode apontar para o clone ou para um
   # worktree dele, e sem colapsar os dois o mesmo repo seria varrido uma vez por
-  # worktree que já existiu. Os worktrees VIVOS são ligados por `ligar_worktrees`,
-  # lendo o disco — o diretório de projeto de um worktree já apagado não interessa.
+  # worktree que já existiu.
   VISTOS="|"
   for d in "$PROJ_DIR"/*/; do
     [ -d "$d" ] || continue
@@ -409,11 +398,9 @@ else
     if [ ! -d "$repo/.context/memoria" ]; then
       [ "$ADOTAR" -eq 1 ] || continue
       adotar "$repo"
-      ligar_worktrees "$repo"
       continue
     fi
     ligar "$repo"
-    ligar_worktrees "$repo"
   done
   limpar_quebrados
 fi

@@ -169,6 +169,9 @@ printf '%s' "$AG" > "$NG/.claude/worktrees/wt/AGENTS.md"; printf '@AGENTS.md\n' 
 printf '%s' "$AG" > "$NG/packages/solo/AGENTS.md"
 printf 'vendor/\n' > "$NG/.gitignore"
 git -C "$NG" init -q
+# Repo git sem .worktreeinclude ganha o modelo no --apply (caso próprio, mais abaixo);
+# aqui o caso é o aninhado, e a foto não pode mudar por outro motivo.
+printf '.env\n' > "$NG/.worktreeinclude"
 NF="$(novo aninhado-find)"
 mkdir -p "$NF/docs" "$NF/node_modules/pkg" "$NF/.claude/worktrees/wt"
 printf '%s' "$AG" > "$NF/docs/AGENTS.md"; printf '%s' "$CY" > "$NF/docs/CLAUDE.md"
@@ -377,6 +380,24 @@ SA2="$(novo so-agents-ruido)"; printf '%s' "$AG" > "$SA2/AGENTS.md"
 err="$(bash "$SCRIPT" --apply "$SA2" 2>&1 >/dev/null)"
 check "stderr vazio no --apply de so-agents (veio: ${err:-nada})" "$(sim mesmo "$err" "")"
 check "e o CLAUDE.md nasceu a ponte"                 "$(sim ponte_ok "$SA2/CLAUDE.md")"
+
+echo "== .worktreeinclude: só em repo git, do modelo do plugin, nunca por cima =="
+WI_MODELO="$RAIZ/plugin/templates/worktreeinclude.exemplo"
+WG="$(novo wi-git)"; printf '%s' "$AG" > "$WG/AGENTS.md"; printf '@AGENTS.md\n' > "$WG/CLAUDE.md"
+git -C "$WG" init -q
+out="$(roda "$WG")"
+check "--check acusa o .worktreeinclude que falta"      "$(sim tem "$out" '^worktreeinclude: falta')"
+check "--check não cria o arquivo"                      "$(sim test ! -e "$WG/.worktreeinclude")"
+out="$(roda --apply "$WG")"
+check "--apply cria o .worktreeinclude igual ao modelo" "$(sim cmp -s "$WI_MODELO" "$WG/.worktreeinclude")"
+check "--apply diz que gravou e pede o commit"          "$(sim tem "$out" '^gravado: .worktreeinclude')"
+printf '.env.local\n' > "$WG/.worktreeinclude"; roda --apply "$WG" >/dev/null
+check "--apply não sobrescreve o do projeto"            "$(sim mesmo "$(cat "$WG/.worktreeinclude")" .env.local)"
+out="$(roda "$WG")"
+check "com o arquivo, o --check não fala dele"          "$(sim nao_tem "$out" '^worktreeinclude:')"
+WN="$(novo wi-solto)"; printf '%s' "$AG" > "$WN/AGENTS.md"; printf '@AGENTS.md\n' > "$WN/CLAUDE.md"
+roda --apply "$WN" >/dev/null
+check "fora de repo git não cria (worktree é coisa de git)" "$(sim test ! -e "$WN/.worktreeinclude")"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

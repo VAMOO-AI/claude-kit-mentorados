@@ -78,11 +78,11 @@ grep -q '^# Memória do projeto' "$C/.context/memoria/README.md" && printf '  ok
 check 'commite: git add .context/memoria'                 "diz como publicar (sem script que o kit não tem)"                   "$OUT"
 existe existe "$C/.context/memoria/c1.md"                 "fato da máquina migrou para o repositório"
 
-echo "== --repo liga o worktree, mas o README do formato é só do clone =="
+echo "== --repo liga só o clone: a memória é por repositório, e o README é do clone =="
 OUT="$(run --repo "$G")"
 existe existe "$G/.context/memoria/README.md"             "clone proj-g ganhou o README"
 existe nao "$GW/.context/memoria/README.md"               "worktree NÃO ganhou README (nasceria untracked numa branch de feature)"
-[ -L "$PROJ/$(slug "$GW")/memory" ] && printf '  ok    worktree ligado mesmo sem README\n' || { printf '  FALHA worktree de proj-g não foi ligado\n'; falhas=$((falhas+1)); }
+[ -e "$PROJ/$(slug "$GW")/memory" ] && { printf '  FALHA worktree de proj-g ganhou link próprio (nunca é lido; a memória é por repositório)\n'; falhas=$((falhas+1)); } || printf '  ok    worktree sem link próprio\n'
 
 echo "== varredura automática: liga, conta, mas não escreve README em repo alheio =="
 OUT="$(run)"
