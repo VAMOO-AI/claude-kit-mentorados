@@ -253,7 +253,17 @@ jobs:
         run: bash tests/test-motion-reel-sem-marca.sh
 
       - name: ffmpeg para o teste do final.sh da motion-reel
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg && ffmpeg -version | head -1
+        # Não interativo e com teto próprio: em 22/10/2026, com o ubuntu-latest migrando para o
+        # Ubuntu 26, o apt ficou parado aqui até o job estourar (CANCELLED aos 10 e depois aos
+        # 20 min). Travar de novo vira falha deste passo em 8 min, com nome, não do job inteiro.
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+        run: |
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y -qq --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
 
       - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
         # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
