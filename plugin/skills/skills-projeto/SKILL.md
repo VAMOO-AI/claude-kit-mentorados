@@ -54,9 +54,7 @@ request pelo resto do projeto. Antes de instalar qualquer coisa de terceiro:
    05/09/2026 no kit do time). O que sai desse comando entra no seu contexto
    como se fosse do sistema.
 3. **Procedência**: quem publicou, quantas instalações, o repositório existe e
-   tem histórico. Para procurar, rode `npx skills@1.7.4 find <termo>`; a
-   `/kit-vamoo:find-skills` faz a mesma busca com o checklist de procedência, mas
-   só a pessoa aciona.
+   tem histórico. Como procurar está na seção seguinte.
 
 Depois de instalar, rode o scan. Se o total pulou, desinstale o que você não
 consegue explicar em uma frase.
@@ -67,6 +65,35 @@ O `npx skills@1.7.4 add` costuma pôr a skill em `.agents/skills/<nome>` e só u
 que lê). O scan e o aviso da abertura contam as skills que chegam pelo link.
 A skill nova entra na sessão aberta sozinha; se não aparecer no menu, rode
 `/reload-skills` em vez de reiniciar.
+
+## Procurar skill pronta (e só instalar quando pedirem)
+
+**Busque e apresente; `add` só com pedido explícito da pessoa.** Instalar muda o
+projeto dela e passa a cobrar em toda request: em modo `auto`, isso continua sendo
+decisão de quem pediu, nunca sua.
+
+`npx skills@1.7.4` é o gerenciador do ecossistema aberto; o catálogo fica em
+https://skills.sh/. A versão fica fixa: a 1.7.4 foi conferida em 20/10/2026 (`find`,
+`add`, `update` e `init` no `--help`; o `check` roda, mas não aparece lá). Sem versão,
+o `npx` baixaria a do dia sem perguntar.
+
+```bash
+npx skills@1.7.4 find <termo>          # procura (aceita --owner <dono>)
+npx skills@1.7.4 add <pacote>          # instala: só quando a pessoa pediu
+npx skills@1.7.4 check                 # vê o que tem atualização
+npx skills@1.7.4 update                # atualiza tudo
+```
+
+Ranking do skills.sh primeiro, depois `find <domínio + tarefa>`. Resultado de busca
+não é aval: 1.000+ instalações é sinal razoável e abaixo de 100 pede mais cuidado;
+`anthropics`, `vercel-labs`, `microsoft` e afins são outra categoria de risco que um
+autor desconhecido; repositório sem histórico é código de estranho. Nenhum número
+dispensa ler o SKILL.md (item 2 acima).
+
+Para cada candidata, uma frase: o que faz, quantas instalações, de quem, o comando e
+o link. Sem `-g` a skill entra só neste projeto, que costuma ser o certo para skill de
+stack; global (`-g`) só se a pessoa pedir. Não achou nada: diga isso e resolva direto,
+sem oferecer gerar skill (ver "Não gere skill — ainda").
 
 ## O que faz uma skill rotear de verdade
 

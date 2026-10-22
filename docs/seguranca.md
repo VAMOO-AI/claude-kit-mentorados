@@ -97,7 +97,7 @@ cara de autoridade real, vindo da conta de um colaborador, e para você ter a re
 quando perguntar *"por que ele não fez o que o PR mandou?"*.
 
 É o mesmo raciocínio da skill de terceiro: `SKILL.md` também é texto que alguém escreveu, e
-roda código quando carrega (ver a skill `find-skills`).
+roda código quando carrega (ver a skill `skills-projeto`).
 
 ## Revisão automática: a skill `secscan` (já vem no kit)
 

@@ -16,6 +16,30 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.62.0] — 2026-10-22
+
+### Removido
+
+- **Quatro skills saem e duas delas se fundem em outras.** Espelho da avaliação das skills
+  contra o Opus 5.5 (#261, #263): sem skill nenhuma, o Opus 5.5 acerta 11 de 15 cenários de
+  pressão. Ficam as skills que ainda mudam a decisão.
+  - `grill-me`: era só um atalho para a `grilling`. Use `/kit-vamoo:grilling`.
+  - `grill-with-docs`: a `grilling` ganhou o que ela tinha. Em projeto com `.context/`, lê o
+    `AGENTS.md` e a doc antes de perguntar, respeita estado intencional (nó desabilitado,
+    flag) e grava cada decisão no lugar certo ao fechar.
+  - `find-skills`: virou a seção "Procurar skill pronta" da `skills-projeto`, com a CLI na
+    versão fixa, a régua de procedência e uma regra dura. A skill busca e apresenta, e o `add`
+    só acontece com pedido explícito, inclusive em modo `auto`. O
+    `tests/test-skill-sem-injecao.sh` passa a conferir a regra na `skills-projeto`, que
+    continua acionável pelo Claude: no Sonnet ela ainda faz diferença.
+  - `reverse-engineer-anything`: quase tudo era texto do upstream, e o corpo mandava rodar
+    `rea setup`, que registra o MCP para o usuário inteiro. O que era regra do kit virou
+    `docs/engenharia-reversa-rea.md`.
+  - O roteamento do `CLAUDE-global.md` aponta para `/kit-vamoo:grilling` (`|setup` nas
+    novidades). README, catálogo do skills.sh, `docs/seguranca.md` e `docs/paridade.md`
+    também acompanham. No `paridade.md` saiu ainda a linha defasada que dizia que
+    `diretor-imagem` e `gerar-imagem` só existiam aqui.
+
 ## [0.61.1] — 2026-10-21
 
 ### Corrigido

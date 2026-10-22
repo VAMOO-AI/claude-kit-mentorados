@@ -25,7 +25,7 @@
 # o teto aqui é este, de propósito.
 #
 # SKILL.md de TERCEIRO exige LEITURA HUMANA do corpo inteiro antes de instalar — é o que
-# a skill `find-skills` manda fazer, e é o que vale. Rodar este grep numa pasta baixada
+# a skill `skills-projeto` manda fazer, e é o que vale. Rodar este grep numa pasta baixada
 # não substitui essa leitura: verde aqui não é atestado de nada.
 #
 # O padrão procurado é a forma EXECUTÁVEL: exclamação + crase + corpo não vazio +
@@ -106,13 +106,16 @@ check "prosa com outra crase na mesma linha passa" \
 d="$(fixture exclamacao 'Não faça isso! Sério: leia antes de instalar.')"
 check "exclamação comum passa"                    "$([ "$(rc_varredura "$d")" = 0 ] && echo ok || echo fail)"
 
-echo "== a skill find-skills manda verificar isso antes de instalar =="
-FS="$SKILLS/find-skills/SKILL.md"
-check "find-skills existe"                        "$([ -f "$FS" ] && echo ok || echo fail)"
-check "find-skills avisa da execução no carregamento" \
-  "$(grep -q 'executa shell' "$FS" 2>/dev/null || grep -q 'executar shell' "$FS" 2>/dev/null && echo ok || echo fail)"
-check "find-skills é só-slash (não paga description em toda request)" \
-  "$(grep -q '^disable-model-invocation: true' "$FS" 2>/dev/null && echo ok || echo fail)"
+echo "== a skill skills-projeto manda verificar isso antes de instalar =="
+# Até a 0.62.0 isto morava na find-skills, que era só-slash. A skills-projeto é acionável
+# pelo modelo (no Sonnet ela ainda discrimina), então o freio é o texto: buscar e
+# apresentar, instalar só com pedido explícito.
+SP="$SKILLS/skills-projeto/SKILL.md"
+check "skills-projeto existe"                     "$([ -f "$SP" ] && echo ok || echo fail)"
+check "skills-projeto avisa da execução no carregamento" \
+  "$(grep -q 'executa shell' "$SP" 2>/dev/null && echo ok || echo fail)"
+check "skills-projeto só instala com pedido explícito" \
+  "$(grep -q 'só com pedido explícito' "$SP" 2>/dev/null && echo ok || echo fail)"
 
 echo
 [ "$falhas" -eq 0 ] && { echo "tudo verde"; exit 0; }
