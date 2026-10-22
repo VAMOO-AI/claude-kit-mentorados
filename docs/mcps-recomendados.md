@@ -6,8 +6,8 @@ mais contexto consumido. Adicione quando a necessidade aparecer.
 
 > O kit não instala MCP nenhum: tudo abaixo é opcional. Até a 0.55.0 ele trazia o
 > **dotcontext**. Instalou o kit antes de 24/08/2026 pelo `install.sh`? Ele pode ter ficado
-> registrado na sua máquina: `claude mcp list` mostra, e `claude mcp remove dotcontext --scope user`
-> tira.
+> registrado na sua máquina. Desde a 0.62.1 o `/kit-vamoo:setup` o tira sozinho; sem rodar o
+> setup, `claude mcp remove dotcontext --scope user` faz o mesmo.
 
 Todos os comandos usam `--scope user` (vale em todos os seus projetos). Troque por
 `--scope project` se quiser versionar a config junto com um repo específico.

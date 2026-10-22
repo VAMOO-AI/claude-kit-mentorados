@@ -148,6 +148,19 @@ else
   INSTALOU_CLAUDE=1
 fi
 
+# ── MCP do dotcontext: saiu do kit na 0.56.0, mas o install.sh de antes de 24/08/2026 o
+# registrou no escopo de usuário (~/.claude.json). Ele sobe um processo node por sessão e
+# lê arquivo fora do deny de .env*, que não vale para tool de MCP (#239). Só chama o
+# `claude` quando o registro existe, para o setup não depender do CLI.
+if [ -f "$HOME/.claude.json" ] && node -e 'process.exit((((require(process.argv[1])||{}).mcpServers)||{}).dotcontext ? 0 : 1)' "$HOME/.claude.json" 2>/dev/null; then
+  if command -v claude >/dev/null 2>&1; then
+    run claude mcp remove dotcontext --scope user
+    ok "MCP do dotcontext removido do escopo de usuário (saiu do kit na 0.56.0)"
+  else
+    warn "O MCP do dotcontext ainda está registrado e o comando claude não está no PATH: rode claude mcp remove dotcontext --scope user"
+  fi
+fi
+
 # ── Regras dos subagentes: subagentes.md ────────────────────────────────────
 # O nome antigo, agents.md, em disco que não diferencia maiúscula (macOS, Windows) é o
 # ~/.claude/AGENTS.md que o Claude Code lê em toda sessão: as regras de subagente
