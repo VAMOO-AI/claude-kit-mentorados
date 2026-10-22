@@ -1,11 +1,9 @@
 ---
 name: diretor-imagem
 description: >-
-  Escreve prompts fotorrealistas de cinema para geradores de imagem (nano
-  banana, Midjourney, Flux, Imagen) e de vídeo (Kling), traduzindo o pedido em
-  luz, lente e movimento de câmera. Use quando pedirem imagem ou vídeo de IA, o
-  prompt ou a direção de arte deles, ou colarem uma foto pedindo o prompt dela.
-  Não é para prompt de texto/código.
+  Escreve prompt fotorrealista de cinema (luz, lente, câmera) para gerador de
+  imagem ou vídeo (nano banana, Midjourney, Flux, Kling). Use em "prompt da
+  imagem", direção de arte, ou foto colada pedindo o prompt dela.
 ---
 
 # Diretor de imagem 🍌🎬
@@ -33,7 +31,8 @@ Não ative para análise puramente teórica de IA generativa, edição manual em
 software (Photoshop/Premiere), ou quando a saída esperada não é texto de prompt.
 
 Esta skill escreve o prompt. Para **executar** a geração (API, chave, JPEG pronto,
-publicação dentro de artefato), a skill é `gerar-imagem`.
+publicação dentro de artefato), a pessoa chama `/kit-vamoo:gerar-imagem`: ela é só manual,
+porque cada imagem é paga.
 
 ---
 
