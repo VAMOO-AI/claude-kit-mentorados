@@ -256,13 +256,22 @@ jobs:
         # Não interativo e com teto próprio: em 22/10/2026, com o ubuntu-latest migrando para o
         # Ubuntu 26, o apt ficou parado aqui até o job estourar (CANCELLED aos 10 e depois aos
         # 20 min). Travar de novo vira falha deste passo em 8 min, com nome, não do job inteiro.
-        timeout-minutes: 8
+        # Não interativo não bastou: o apt também para no espelho, de forma intermitente (o mesmo
+        # passo passou num repo e travou no outro no mesmo minuto). Teto por comando e até 3
+        # tentativas; -q (não -qq) para o log dizer onde parou.
+        timeout-minutes: 15
         env:
           DEBIAN_FRONTEND: noninteractive
           NEEDRESTART_MODE: a
         run: |
-          sudo -E apt-get update -qq
-          sudo -E apt-get install -y -qq --no-install-recommends ffmpeg
+          for i in 1 2 3; do
+            if timeout 150 sudo -E apt-get update -q \
+               && timeout 300 sudo -E apt-get install -y -q --no-install-recommends ffmpeg; then
+              break
+            fi
+            echo "::warning::apt do ffmpeg falhou ou passou do teto (tentativa $i de 3)"
+            sleep 15
+          done
           ffmpeg -version | head -1
 
       - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
