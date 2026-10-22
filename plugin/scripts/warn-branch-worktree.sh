@@ -14,7 +14,8 @@
 #       repositório+branch);
 #   (2) a sessão está num worktree cuja branch JÁ FOI MERGEADA. Branch sem commit próprio
 #       não conta como mergeada, e worktree com mudança não commitada nunca é lixo;
-#   (3) numa sessão em worktree, o CLONE PRINCIPAL não está em main.
+#   (3) o CLONE PRINCIPAL não está em main — numa sessão em worktree, ou no próprio clone
+#       quando o repo tem worktree vivo.
 # Não modifica o git: só lê e avisa. Silencioso quando está tudo em ordem. Falha-aberta.
 set -uo pipefail
 
@@ -62,8 +63,14 @@ atras
 GIT_DIR="$(cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)" || exit 0
 COMMON="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)" || exit 0
 PRIMARY="$(dirname "$COMMON")"
-# Clone principal: nada de worktree para avisar.
-[ "$GIT_DIR" != "$COMMON" ] || exit 0
+# Sessão no clone principal: o (2) não se aplica, e o (3) só vale com worktree vivo. Sem
+# worktree nenhum, branch no clone é o jeito normal de trabalhar e o aviso seria ruído; com
+# worktree, o clone é a base deles e fica na main (decisão de 22/10/2026, F2 do #241).
+NO_CLONE=0
+if [ "$GIT_DIR" = "$COMMON" ]; then
+  [ "$(git worktree list --porcelain 2>/dev/null | grep -c '^worktree ')" -gt 1 ] || exit 0
+  NO_CLONE=1
+fi
 
 # Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
 # `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, num projeto real, o
@@ -84,7 +91,7 @@ sem_commit_proprio() {
 }
 
 # ── (2) worktree cuja branch já foi mergeada ─────────────────────────────────────────
-if [ -n "$br" ] && [ "$br" != "main" ] && [ "$br" != "master" ]; then
+if [ "$NO_CLONE" = 0 ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br" != "master" ]; then
   merged=0
   tip="$(git rev-parse --verify -q "refs/heads/$br")"
   if [ -n "$tip" ] && ! sem_commit_proprio "$tip"; then

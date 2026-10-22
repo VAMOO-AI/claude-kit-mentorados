@@ -179,12 +179,20 @@ calado "commit próprio sem merge e sem PR"                              "$(run 
 
 G checkout -q -b no-clone
 [ "$(G branch --show-current)" = no-clone ] || { echo "fixture: o clone não saiu da main"; exit 2; }
-calado "sessão no próprio clone, numa feat/x: nada a avisar"            "$(roda_em "$CLONE")"
+# Com worktree vivo, o clone é a base deles e fica na main, só pra leitura: avisa também na
+# sessão do próprio clone (decisão de 22/10/2026, F2 do #241). Sem worktree nenhum, branch no
+# clone é o jeito normal de trabalhar, e o aviso seria ruído (caso logo abaixo).
+OUT="$(roda_em "$CLONE")"
+check  "clone principal .* está em 'no-clone'"   "sessão no próprio clone fora da main, com worktree vivo: avisa também" "$OUT"
+refute "worktree:"                               "sessão no clone não fala de worktree mergeado" "$OUT"
 OUT="$(run viva)"
 check  "clone principal .* está em 'no-clone'"   "sessão em worktree: avisa o clone fora da main" "$OUT"
 check  "ofereça ao usuário voltar pra main"      "oferece a volta, sem dar ordem"               "$OUT"
 refute "Sua regra|Volte pra main"                "sem 'sua regra' nem 'volte pra main'"         "$OUT"
 G checkout -q main
+git -C "$WORK" checkout -q -b feat/x
+calado "clone sem worktree nenhum, numa feat/x: nada a avisar"          "$(roda_em "$WORK")"
+git -C "$WORK" checkout -q main
 
 echo "== (C) o diretório vem do .cwd do payload, não do \$PWD nem do CLAUDE_PROJECT_DIR =="
 # O caso do app desktop: o processo do hook nasce na raiz do clone principal (em main, em
