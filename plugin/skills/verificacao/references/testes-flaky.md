@@ -3,6 +3,34 @@
 A memória do time tem um caso por semestre de "E2E que falha e não é o seu
 código". Quase sempre é uma destas duas.
 
+
+## 0. Antes: CI vermelho se lê pelo erro literal
+
+Diagnóstico de CI é onde mais se inventa causa plausível e errada. A ordem que
+funciona:
+
+1. **Pegue a mensagem literal.** `gh run view <id> --log-failed` (o
+   `sed -e 's/\x1b\[[0-9;]*m//g'` limpa os códigos de cor). Se você já rerodou
+   e passou, o `--log-failed` volta vazio: baixe a tentativa 1 com
+   `gh api "repos/<owner>/<repo>/actions/runs/<id>/attempts/1/logs"`.
+2. **Só então** olhe o diff e a arquitetura.
+
+Num caso real (2026-08-11) a hipótese de pé era estado compartilhado entre
+testes. Errada: o erro literal era `duplicate key value violates unique
+constraint`. O seed gerava sufixo aleatório num espaço pequeno demais, e a
+colisão aparecia em menos de 1% das execuções. Uma linha de log encerrou o que
+horas de teoria de arquitetura não encerravam.
+
+Antes de chamar um teste de **instável**, exija as três coisas juntas: o arquivo
+não está no seu diff, ele passa localmente **e** o rerun fecha verde. Duas não
+bastam. Quando for instável mesmo, **corrija a causa** e escreva um teste
+determinístico que provaria o bug antigo; rode-o contra o código anterior pra
+confirmar que ele falharia. Teste novo que passa nos dois lados não prova nada.
+
+Nunca pipe `tsc`/`eslint` pra `head`/`tail` sem `set -o pipefail` (ou checar
+`${PIPESTATUS[0]}`): o exit code é o do pipe, não do checker, e falha vira falso
+verde.
+
 ## 1. Espera por tempo em vez de espera por condição
 
 `sleep(50)`, `setTimeout(r, 2000)`, `waitForTimeout(1000)`: o teste chuta
