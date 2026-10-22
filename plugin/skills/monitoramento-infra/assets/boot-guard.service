@@ -1,0 +1,12 @@
+[Unit]
+Description=boot-guard: reata service do Swarm que subiu fora da overlay
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/boot-guard.sh
+# Config em outra pasta? Descomente e troque <sua-pasta>:
+#Environment=BOOT_GUARD_CONF=/etc/<sua-pasta>/boot-guard.env
+TimeoutStartSec=45min
+SyslogIdentifier=boot-guard

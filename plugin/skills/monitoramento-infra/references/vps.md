@@ -336,6 +336,93 @@ done | grep -oE 'Host\(`[^`]+`\)' | grep -oE '`[^`]+`' | tr -d '`' | sort -u
 Meça com `curl --resolve <rota>:443:<ip-do-host>` para bater no host certo sem
 depender de DNS. Na frota isso achou bem mais rotas que a lista "oficial".
 
+### Guard automático depois do boot (`boot-guard`)
+
+A sequência acima só roda quando **você** reinicia. Reboot feito pelo provedor
+(manutenção, hypervisor, queda de energia) volta sem ninguém olhando, e o
+Traefik `1/1` sem 80/443 fica fora até um cliente reclamar. O `boot-guard`
+automatiza o detector de netns e o reatar desta seção: um timer systemd que
+roda 90s depois de cada boot.
+
+**Quando instalar:** VPS própria com Docker Swarm de nó único e Traefik (ou
+outro proxy) publicando porta em `mode: host`. Sem Swarm não serve: ele reata
+com `docker service update`.
+
+O que ele faz, em ordem:
+
+1. Espera o dockerd, o Swarm `active` com o node `Ready` e duas leituras sem
+   réplica faltando (teto de 10 min cada; app em crash loop nunca estabiliza,
+   então vencido o teto ele segue), mais 60s de folga.
+2. Procura service que voltou sem rede (netns só com `lo`) ou com porta em
+   `mode: host` que não escuta no `ss`.
+3. Reata por tier, na ordem de `ORDEM_TIERS` (padrão `dado proxy app`): banco,
+   cache e fila primeiro, depois o proxy, depois o app. **Vítima** (app que
+   divide rede com uma dependência reatada e segue com réplica faltando ou
+   `unhealthy`) também leva `--force`.
+4. Até 3 passadas. No fim, imprime a tabela de netns, o `ss` de 80/443 e o
+   código de cada rota do Traefik medida no `127.0.0.1`.
+
+Travas: service de `dado` ou `proxy` com `update_config.order: start-first`
+**não** é forçado (subiria um segundo Postgres no mesmo volume, ou disputaria
+80/443), só relatado. A label `boot-guard=ignore` tira um service da conta, e
+`boot-guard.tier=dado|proxy|app` corrige um que a imagem classifica errado.
+
+**Instalar** (os três arquivos estão em `assets/`; copie por `scp`, não
+colando no terminal):
+
+```bash
+# na sua máquina
+scp assets/boot-guard.sh assets/boot-guard.service \
+  assets/boot-guard.timer root@<ip-da-vps>:/tmp/
+
+# na VPS
+install -m 755 /tmp/boot-guard.sh /usr/local/sbin/boot-guard.sh
+install -m 644 /tmp/boot-guard.service /tmp/boot-guard.timer \
+  /etc/systemd/system/
+install -d -m 700 /etc/boot-guard
+umask 077
+echo 'NOME=<nome-do-host>' > /etc/boot-guard/boot-guard.env
+echo 'NTFY_URL=https://ntfy.sh/<topico-da-vps>' >> /etc/boot-guard/boot-guard.env
+systemctl daemon-reload
+systemctl enable --now boot-guard.timer
+boot-guard.sh --dry-run    # só relata: confira a tabela antes do primeiro boot
+```
+
+A pasta é sua: se preferir `/etc/<sua-pasta>/`, descomente a linha
+`Environment=BOOT_GUARD_CONF=` no `boot-guard.service` com o mesmo caminho.
+Arquivo que não existe não dá erro: o guard roda com os padrões e o alerta
+fica só no journal. Outras variáveis (ordem dos tiers, lista de imagens de
+`dado` e `proxy`, tetos de espera) estão no cabeçalho do script.
+
+**Verificar** depois de um boot:
+
+```bash
+systemctl list-timers --all boot-guard.timer   # LAST preenchido = o timer disparou
+systemctl status boot-guard.service            # Result=success ou failed
+journalctl -u boot-guard.service -b --no-pager -o cat   # o que ele viu e fez
+```
+
+O journal começa com `== boot-guard <nome> | boot <data> | modo boot` e
+termina em `RESUMO:`. Saída 1 (unit `failed`, aparece em `systemctl --failed`)
+quer dizer que algo segue sem rede, sem porta, incompleto ou foi pulado pela
+trava de `start-first`.
+
+Pegadinhas:
+
+- `enable --now` num host já de pé **dispara o timer na hora** (o `OnBootSec`
+  já venceu). O script vê uptime maior que 30 min, roda como `fora-do-boot` e
+  não avisa nada se estiver são. Não é boot de verdade.
+- Alerta: prioridade 2 em boot são (reboot que ninguém pediu precisa ser
+  visto), 4 quando reatou algo ou há rota 000/5xx, 5 quando segue quebrado. Use
+  um tópico ntfy **só da VPS**, não o do seu monitor: quem tem root na máquina
+  lê o arquivo de config e passa a ler todos os alertas daquele tópico.
+- Reboot controlado quase sempre volta são: prova que a unit dispara, **não**
+  que o conserto funciona. O conserto se testa sem reboot, numa stack
+  **descartável** (nunca em produção): um `redis:7-alpine`, um app que morre
+  sem o Redis e um service com porta em `mode=host`, todos numa overlay de
+  teste. Tire a rede do Redis com `nsenter -t <pid> -n ip link delete eth0`,
+  mate o `docker-proxy` da porta e rode `boot-guard.sh --agora`.
+
 ## Firewall: porta do Docker passa por cima do ufw
 
 O `ufw` liberando só 22/80/443 **não fecha** porta publicada por container: o

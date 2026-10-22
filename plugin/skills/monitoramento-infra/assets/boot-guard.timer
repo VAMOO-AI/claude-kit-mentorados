@@ -1,0 +1,9 @@
+[Unit]
+Description=Roda o boot-guard 90s depois de cada boot
+
+[Timer]
+OnBootSec=90s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
