@@ -5,8 +5,8 @@ description: >-
   entendimento compartilhado, resolvendo cada ramo da árvore de decisão antes
   de codar. Acione ao detectar uma implementação GRANDE — multi-sistema,
   schema/auth/infra, irreversível ou de escopo material — onde vale fechar o
-  plano antes de codar. NÃO acione por vagueza genérica de tarefa pequena. Os
-  comandos manuais "/grill-me" e "/grill-with-docs" continuam sendo do usuário.
+  plano antes de codar. NÃO acione por vagueza genérica de tarefa pequena.
+  Também em "/kit-vamoo:grilling", "me interroga", "fecha o plano".
 ---
 
 # Grilling — interrogatório de plano
@@ -18,11 +18,13 @@ levado a sério.
 ## Antes de começar: projeto com `.context/`?
 
 Se o projeto tem `.context/` e o plano toca regra de negócio, automação
-(n8n/Pipedrive) ou dado sensível, **ancore o loop na doc**: leia `.context/docs`
-antes de perguntar (não re-pergunte o que já está decidido lá) e grave as
-decisões novas de volta em `.context/docs` ao fechar. (Não delegue pra
-`grill-with-docs` — essa skill é `disable-model-invocation`, roda só quando o
-usuário a dispara manualmente com `/grill-with-docs`.)
+(n8n/Pipedrive) ou dado sensível, **ancore o loop na doc**:
+
+1. **Leia antes de perguntar:** `AGENTS.md` da raiz, `.context/docs/` e a memória
+   do projeto. Não pergunte o que a doc já responde; traga como fato.
+2. **Respeite estado intencional.** Nó n8n desabilitado, flag, decisão de negócio
+   registrada no projeto: não desfaça sem autorização explícita. Acordo verbal não
+   basta; vale o que está escrito no `AGENTS.md` ou no `.context/`.
 
 ## O loop
 
@@ -66,6 +68,11 @@ tocar (arquivo, tabela, endpoint, comportamento). Aí feche com o plano em
 passos curtos, cada um com o check que o prova: o comando, o teste que falha
 antes e passa depois, ou o que a pessoa vê na tela. Passo sem check está vago
 demais; quebre até ter um. Peça "go".
+
+Fechado o entendimento, grave cada decisão no lugar dela: regra dura do projeto →
+`AGENTS.md` da raiz (o `CLAUDE.md` do projeto só importa `@AGENTS.md`); decisão e
+conhecimento do projeto → `.context/docs/`; fato durável → memória. O histórico da
+conversa não vai para o `AGENTS.md`: ele cresce com regra, não com changelog.
 
 ## Modo EXECUTE (atalho)
 

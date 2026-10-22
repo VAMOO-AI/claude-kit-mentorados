@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **25 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; guarda o estado do repo antes de um compact e devolve no prompt seguinte; copia o `.env.local` ignorado para worktree novo em `.claude/worktrees/`; avisa quando a branch mudou entre um prompt e outro, quando ela está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -50,9 +50,9 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 > **Custo de contexto:** o plugin adiciona poucos milhares de tokens a cada sessão
 > (as descrições das skills, que é como o Claude sabe quando usar cada uma). Skill
-> que você não usa pode ser desligada em `/plugin`. A `find-skills` é só-slash:
-> só existe quando você a chama, então não entra nessa conta — é a mesma regra
-> que a skill `skills-projeto` ensina a aplicar nas skills do seu projeto.
+> que você não usa pode ser desligada em `/plugin`. Skill só-slash (como a
+> `limpeza-mac`) só existe quando você a chama e não entra nessa conta — é a mesma
+> regra que a skill `skills-projeto` ensina a aplicar nas skills do seu projeto.
 
 > 📖 **Antes de tudo, leia [`docs/como-trabalhar-com-claude.md`](docs/como-trabalhar-com-claude.md).** É o que mais vai te ajudar — config sem método não adianta.
 
@@ -60,7 +60,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 29. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 25. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -82,11 +82,9 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, PRs abertos e prova de merge vêm pela API com o token que `git config git-sync.tokenVar` nomeia; sem token, só perde a visão de PR) |
 | **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
 | **mcp-sistema** | Cria o **MCP do seu sistema** (Supabase, com Next.js ou SPA) pra você e seu time perguntarem ao Claude ou ao ChatGPT com a própria conta: login OAuth pelo navegador sem token, cada pessoa vê só o que o nível de acesso dela permite, alteração só com prévia + confirmação + registro, e uma página de instalação no app (num SPA, a receita de edge function liga um dono, só leitura). Conduz entrevista → spec → 4 PRs → produção, com o código de referência de um MCP que está no ar. | projeto Supabase: Next.js com Supabase Auth, ou SPA (Vite) com domínio próprio na Vercel via edge function |
-| **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) e segura o `npx skills add` de um pacote com dezenas. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
-| **find-skills** | `/kit-vamoo:find-skills` — procura skill pronta no ecossistema aberto (`npx skills`, skills.sh) e verifica procedência antes de recomendar. Você chama; o Claude não aciona sozinho, então ela não pesa nas suas requests. | `npx` disponível |
+| **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) segura o `npx skills add` de um pacote com dezenas e procura skill pronta no skills.sh, instalando só quando você pede. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 | **limpeza-mac** | `/kit-vamoo:limpeza-mac` — limpeza profunda de um Mac de dev: worktrees e branches já mergeadas, node_modules e .next de repo parado, caches e versões velhas de CLI. Faz um inventário read-only primeiro e guarda o SHA de cada branch num ledger antes de apagar; worktree só sai com o `worktree-gc.sh --verificar` liberando: ignorado só passa se for env igual ao do clone principal, symlink ou cache que o build recria (`node_modules`, `.next`, `dist`, `build`, `target`, `.cache`…); qualquer outro, `outputs/` e `out/` inclusive, segura o worktree com o motivo. Você chama; o Claude não aciona sozinho. | macOS; `gh` (opcional — sem ele, branch mergeada por squash fica) |
-| **reverse-engineer-anything** | `/kit-vamoo:reverse-engineer-anything` — engenharia reversa com o [REA](https://github.com/morluto/rea): descobre como um programa, app Electron, APK ou firmware funciona por dentro, a partir do que foi entregue (não do código-fonte), e separa o que foi observado do que é inferência. Cópia fiel do upstream (MIT). Você chama; o Claude não aciona sozinho. | MCP do REA: `npx -y rea-agents@latest setup` (Node 22.19+); Ghidra/JADX só se o alvo pedir |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
@@ -96,9 +94,7 @@ que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande. | nenhum |
-| **grill-me** | Gatilho manual do `/kit-vamoo:grill-me` — dispara o `grilling` na hora que você quiser. | nenhum |
-| **grill-with-docs** | Igual ao grilling, mas ancorado na doc do projeto (quando tem `.context/`). | projeto com `.context/` |
+| **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande; você chama com `/kit-vamoo:grilling`. Em projeto com `.context/`, lê a doc antes e grava as decisões no fim. | nenhum |
 | **guardrails-ia** | Agente de IA que fala com cliente: o que ele pode afirmar, pedido de parar, escalar pra humano, e quem responde o fio quando IA e humano disputam. | nenhum |
 | **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod), o formato do veredito de QA e o método pra teste instável (esperar condição, achar o teste que suja o estado). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
@@ -242,7 +238,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 29 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 25 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
@@ -257,7 +253,7 @@ para quem quer as skills **em outro agente**, ou quer levar uma skill isolada; p
 inteiro, use o `/plugin install` + `/kit-vamoo:setup`.
 
 Antes de instalar skill de terceiro por esse caminho — inclusive as nossas — vale a régua de
-procedência da skill `find-skills`: `SKILL.md` é execução de código, não documentação; leia
+procedência da skill `skills-projeto`: `SKILL.md` é execução de código, não documentação; leia
 antes. A CLI do skills.sh tem telemetria própria, e o kit não a desliga. Para desligar só
 naquela chamada, ponha `DO_NOT_TRACK=1` na frente do comando: `DO_NOT_TRACK=1 npx skills add …`.
 Dá para deixar fixo pondo `DO_NOT_TRACK=1` e `DISABLE_TELEMETRY=1` no `env` do seu
@@ -376,8 +372,8 @@ a release com o bloco daquela versão do `CHANGELOG.md`. Não crie tag na mão.
   skill `verificacao` antes do "pronto" → `/ship` pra commit, PR e deploy.
 - **Modo aprendizado:** diga **"explica"** ou **"modo aula"** e o Claude passa a ensinar
   o porquê de cada coisa, passo a passo (definido no seu CLAUDE.md).
-- **Skills de decisão:** use `/kit-vamoo:grill-me` quando quiser testar um plano e
-  `/kit-vamoo:grill-with-docs` quando a decisão precisar considerar a documentação do projeto.
+- **Skills de decisão:** use `/kit-vamoo:grilling` quando quiser testar um plano; em projeto
+  com `.context/`, ele lê a documentação antes de perguntar.
 - **TDD e debugging:** as regras do `CLAUDE.md` já exigem teste failing-first e
   investigação de causa raiz; não dependem de plugin externo.
 
