@@ -135,7 +135,25 @@ subshell, e o heredoc dentro de `$(…)` também): escreva o corpo num arquivo, 
 `--body-file <arquivo>` e ponha o comando num `.sh` no scratchpad, chamado pelo
 caminho literal (`bash /caminho/abs/pr.sh`) — skill `worktrees`.
 
-Capture a URL do PR.
+Capture a URL do PR. Se o PR nasceu antes de o trabalho terminar, abra-o com
+`gh pr create --draft`, e lembre que ele está em rascunho na hora de esperar o CI.
+
+**PR em rascunho: tire do rascunho antes de esperar o CI.** Um CI que pula rascunho
+(`if: ${{ !github.event.pull_request.draft }}` com `ready_for_review` nos `types`)
+deixa os jobs `SKIPPED`. Aí o `gh pr checks` sai 0, o que parece verde, ou responde
+`no checks reported` e o watch espera algo que nunca vem. `SKIPPED` de rascunho não é verde:
+
+```bash
+gh pr view <n> --json isDraft --jq .isDraft     # true = rascunho
+gh pr ready <n>                                 # só se deu true
+gh run list --branch "$(git branch --show-current)" --event pull_request --limit 3 \
+  --json databaseId,status,createdAt,headSha
+```
+
+O `gh pr ready` dispara um run novo no mesmo SHA, que leva alguns segundos para
+aparecer. Só siga para o watch com o run novo na lista (`createdAt` depois do
+`ready`). Se o repo não pula rascunho, o `ready` não dispara run, e os checks do último
+push continuam valendo.
 
 **Esperando o CI sem torrar contexto:** rode a espera como comando de background
 (`run_in_background`), nunca como monitor de stream:

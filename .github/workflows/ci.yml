@@ -172,6 +172,9 @@ jobs:
       - name: O setup em HOME temporário termina em auto e sem allow de execução arbitrária
         run: bash tests/test-kit-setup-permissoes.sh
 
+      - name: O kit-setup tira o MCP do dotcontext de quem ainda o tem registrado
+        run: bash tests/test-kit-setup-dotcontext.sh
+
       - name: Com o kit do time na máquina, os hooks do plugin saem sem fazer nada
         # Sem a guarda, cada hook rodava duas vezes: dois sons por turno, texto repetido no
         # contexto e corrida no dotcontext. KIT_VAMOO_HOOKS=1 religa para teste.
