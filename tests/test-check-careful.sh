@@ -19,12 +19,16 @@
 #   Sem argumento testa o hook do plugin. Rode contra a versão anterior
 #   (`git show <base>:plugin/hooks/check-careful.sh`) para ver os casos novos falharem.
 set -uo pipefail
+# --codex refaz cada caso no payload do Codex: comando em array (`/bin/zsh -lc <cmd>`) e a
+# pasta em tool_input.workdir, sem o cwd do Claude Code (F1 do núcleo único, #241).
+CODEX=0; [ "${1:-}" = "--codex" ] && { CODEX=1; shift; }
 HOOK="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/hooks/check-careful.sh}"
 export CHECK_CAREFUL_LOG=""   # a suíte não escreve no log real de decisões
 [ -f "$HOOK" ] || { echo "hook não encontrado: $HOOK"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
 
 falhas=0
+. "$(dirname "$0")/lib-esperado-falhar.sh"
 REPO_GIT=$(cd "$(dirname "$0")/.." && pwd)
 FORA_GIT=$(mktemp -d)
 CLONE=$(mktemp -d); git -C "$CLONE" init -q 2>/dev/null
@@ -38,15 +42,16 @@ trap 'rm -rf "$FORA_GIT" "$CLONE" "$NA_MAIN" "$NA_FEAT"' EXIT
 decide() { # decide <comando> [cwd] [modo]
   local modo="${3:-default}" on="" out
   case "$modo" in *_com_careful_on) modo="${modo%%_com_careful_on}"; on=1;; esac
-  out=$(CMD="$1" CWD="${2:-$REPO_GIT}" MODO="$modo" node -e \
-      'process.stdout.write(JSON.stringify({cwd:process.env.CWD,permission_mode:process.env.MODO,tool_input:{command:process.env.CMD}}))' \
+  out=$(CMD="$1" CWD="${2:-$REPO_GIT}" MODO="$modo" CODEX="$CODEX" node -e \
+      'const e=process.env; process.stdout.write(JSON.stringify(e.CODEX==="1"
+        ? {permission_mode:e.MODO,tool_input:{command:["/bin/zsh","-lc",e.CMD],workdir:e.CWD}}
+        : {cwd:e.CWD,permission_mode:e.MODO,tool_input:{command:e.CMD}}))' \
       | CAREFUL_ON="$on" bash "$HOOK" 2>/dev/null)
   if printf '%s' "$out" | grep >/dev/null '"permissionDecision":"ask"'; then echo ask; else echo pass; fi
 }
 check() { # check <esperado> <descrição> <comando> [cwd] [modo]
   local got; got=$(decide "$3" "${4:-}" "${5:-}")
-  if [ "$got" = "$1" ]; then printf '  ok    %s\n' "$2"
-  else printf '  FALHA %s (esperado %s, veio %s)\n' "$2" "$1" "$got"; falhas=$((falhas+1)); fi
+  ef_check "$1" "$got" "$2"
 }
 
 echo "== em bypassPermissions o hook não pergunta NADA =="
@@ -191,4 +196,5 @@ case "$msg" in
 esac
 
 echo
+ef_resumo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

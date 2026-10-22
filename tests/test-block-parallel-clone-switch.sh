@@ -8,6 +8,9 @@
 #
 # Uso: bash tests/test-block-parallel-clone-switch.sh [caminho-do-hook]
 set -uo pipefail
+# --codex refaz cada caso no payload do Codex: comando em array (`/bin/zsh -lc <cmd>`) e a
+# pasta em tool_input.workdir, sem o cwd do Claude Code (F1 do núcleo único, #241).
+CODEX=0; [ "${1:-}" = "--codex" ] && { CODEX=1; shift; }
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="${1:-$RAIZ/plugin/hooks/block-parallel-clone-switch.sh}"
 SESSAO="$RAIZ/plugin/hooks/repo-session.sh"
@@ -15,6 +18,7 @@ SESSAO="$RAIZ/plugin/hooks/repo-session.sh"
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
 
 falhas=0
+. "$(dirname "$0")/lib-esperado-falhar.sh"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -55,8 +59,10 @@ mkdir -p "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E"
 touch "$COM_SESSAO/.claude/.cache/repo-sessions/$H_E/outra-sessao"
 
 payload() { # <comando> <cwd> [sid]
-  CMD="$1" CWD="$2" SID="${3:-sessao-teste}" node -e \
-    'process.stdout.write(JSON.stringify({session_id:process.env.SID,cwd:process.env.CWD,tool_input:{command:process.env.CMD}}))'
+  CMD="$1" CWD="$2" SID="${3:-sessao-teste}" CODEX="$CODEX" node -e \
+    'const e=process.env; process.stdout.write(JSON.stringify(e.CODEX==="1"
+      ? {session_id:e.SID,tool_input:{command:["/bin/zsh","-lc",e.CMD],workdir:e.CWD}}
+      : {session_id:e.SID,cwd:e.CWD,tool_input:{command:e.CMD}}))'
 }
 decide() { # <comando> <cwd> [home]
   payload "$1" "$2" | HOME="${3:-$COM_SESSAO}" bash "$HOOK" >/dev/null 2>&1
@@ -64,8 +70,7 @@ decide() { # <comando> <cwd> [home]
 }
 check() { # check <esperado> <descrição> <comando> <cwd> [home]
   local got; got=$(decide "$3" "$4" "${5:-}")
-  if [ "$got" = "$1" ]; then printf '  ok    %s\n' "$2"
-  else printf '  FALHA %s (esperado %s, veio %s)\n' "$2" "$1" "$got"; falhas=$((falhas+1)); fi
+  ef_check "$1" "$got" "$2"
 }
 
 echo "== repo-session registra e apaga o marker =="
@@ -209,4 +214,5 @@ check pass "variável reatribuída a partir dela mesma aponta pro worktree" \
 check block "variável literal para o clone continua bloqueando" \
   "W=$CLONE; git -C \$W checkout main"                                                "$FORA"
 echo
+ef_resumo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

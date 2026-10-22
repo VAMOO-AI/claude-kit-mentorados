@@ -10,6 +10,31 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.68.0] — 2026-10-22
+
+### Adicionado
+
+- **Os guards entendem o payload do Codex.** O Codex manda o comando em array
+  (`["/bin/zsh","-lc","<cmd>"]`) e a pasta em `tool_input.workdir`, sem o `cwd` do Claude
+  Code. O kit não registra hook no Codex, mas o kit do time registra. Quando ele passar a
+  usar estes guards, o `hookjson.js` daria `/bin/zsh,-lc,<cmd>` e um `cwd` vazio, e o guard
+  decidiria sobre o texto errado.
+  - O `hookjson.js` devolve o script do `-lc`/`-c` em `tool_input.command`. O `cwd` cai
+    para `tool_input.workdir` e depois para `tool_input.cwd`, na mesma ordem do kit do
+    time. Nenhum hook mudou, e o payload continua lido uma vez só.
+  - As suítes de `check-careful`, `block-main-commit`, `block-delete-branch` e
+    `block-parallel-clone-switch` ganham o modo `--codex`. Contra o `hookjson.js` da
+    0.67.0, falham 16, 37, 30 e 29 casos; com o fix, zero. O CI roda os dois modos no
+    `validate`, no `macos` e no `windows`.
+  - Porte de VAMOO-AI/claude-config-team#345. Fase F1 do núcleo único (#241), o trilho para
+    o kit do time usar os hooks e scripts daqui. No Claude Code de quem usa o kit nada muda.
+- **Fila de pendentes do núcleo: `tests/esperado-falhar.txt`.** Caso portado do kit do
+  time que o hook daqui ainda reprova entra nessa fila, com a contagem, em vez de ser
+  apagado. As suítes de guard leem a fila pela `tests/lib-esperado-falhar.sh`. Caso
+  listado que falha sai como pendente e não reprova. Caso listado que passou reprova como
+  órfã, para a linha sair. O `tests/test-esperado-falhar.sh` confere o formato e a lib. A
+  fila nasce vazia: a F1 não porta caso.
+
 ## [0.67.0] — 2026-10-22
 
 ### Corrigido

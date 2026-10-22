@@ -11,11 +11,15 @@
 #
 # Uso: bash tests/test-block-main-commit.sh [caminho-do-hook]
 set -uo pipefail
+# --codex refaz cada caso no payload do Codex: comando em array (`/bin/zsh -lc <cmd>`) e a
+# pasta em tool_input.workdir, sem o cwd do Claude Code (F1 do núcleo único, #241).
+CODEX=0; [ "${1:-}" = "--codex" ] && { CODEX=1; shift; }
 HOOK="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/hooks/block-main-commit.sh}"
 [ -f "$HOOK" ] || { echo "hook não encontrado: $HOOK"; exit 2; }
 command -v jq >/dev/null 2>&1 || { echo "jq ausente"; exit 2; }
 
 falhas=0
+. "$(dirname "$0")/lib-esperado-falhar.sh"
 MAIN=$(mktemp -d);  git -C "$MAIN" init -q -b main 2>/dev/null
 FEAT=$(mktemp -d);  git -C "$FEAT" init -q -b feat/x 2>/dev/null
 COM_ESPACO=$(mktemp -d)/"pasta com espaço"; mkdir -p "$COM_ESPACO"; git -C "$COM_ESPACO" init -q -b feat/y 2>/dev/null
@@ -41,14 +45,16 @@ TIL_MAIN="~/${HOME_MAIN#"$HOME"/}"
 trap 'rm -rf "$MAIN" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME"' EXIT
 
 decide() { # decide <comando> [cwd]
-  jq -nc --arg c "$1" --arg d "${2:-$MAIN}" '{cwd:$d, tool_input:{command:$c}}' \
-    | bash "$HOOK" >/dev/null 2>&1
+  if [ "$CODEX" = 1 ]; then
+    jq -nc --arg c "$1" --arg d "${2:-$MAIN}" '{tool_input:{command:["/bin/zsh","-lc",$c], workdir:$d}}'
+  else
+    jq -nc --arg c "$1" --arg d "${2:-$MAIN}" '{cwd:$d, tool_input:{command:$c}}'
+  fi | bash "$HOOK" >/dev/null 2>&1
   [ "$?" = 2 ] && echo bloqueia || echo passa
 }
 check() { # check <esperado> <descrição> <comando> [cwd]
   local got; got=$(decide "$3" "${4:-}")
-  if [ "$got" = "$1" ]; then printf '  ok    %s\n' "$2"
-  else printf '  FALHA %s (esperado %s, veio %s)\n' "$2" "$1" "$got"; falhas=$((falhas+1)); fi
+  ef_check "$1" "$got" "$2"
 }
 
 NL=$'\n'; TAB=$'\t'
@@ -236,4 +242,5 @@ check bloqueia "/tmp comum não é descartável por nome"    "git -C /tmp/outra/
 check bloqueia "claude- sem uid não é a raiz de scratch"  "git -C /tmp/claude-x/coisa commit -m x"
 
 echo
+ef_resumo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
