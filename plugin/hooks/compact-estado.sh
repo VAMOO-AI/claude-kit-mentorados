@@ -69,7 +69,13 @@ else
 fi
 [ -n "$wt" ] && printf 'worktrees: %s\n' "$wt"
 if [ "${mem:-0}" -gt 0 ]; then
-  printf 'memória do projeto: %s arquivo(s) escrito(s) e não commitado(s) em .context/memoria — skill memoria-projeto, passo 4 (git status --short .context/memoria/)\n' "$mem"
+  # O kit do time roda este mesmo arquivo (nucleo.lista) e publica a memória com o
+  # publicar-memoria.sh que instala em ~/.claude/scripts; este kit não tem o script.
+  if [ -f "$HOME/.claude/scripts/publicar-memoria.sh" ]; then
+    printf 'memória do projeto: %s arquivo(s) escrito(s) e não publicado(s) — ~/.claude/scripts/publicar-memoria.sh\n' "$mem"
+  else
+    printf 'memória do projeto: %s arquivo(s) escrito(s) e não commitado(s) em .context/memoria — skill memoria-projeto, passo 4 (git status --short .context/memoria/)\n' "$mem"
+  fi
 fi
 printf 'Confira antes de agir: o que estava em andamento pode ter saído do contexto.\n'
 exit 0

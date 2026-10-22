@@ -78,6 +78,12 @@ VIVO="$TMP/home-vivo"; mkdir -p "$VIVO"
 payload 'ls' "$CLONE" sessao-a | HOME="$VIVO" bash "$SESSAO" touch
 [ -f "$VIVO/.claude/.cache/repo-sessions/$H/sessao-a" ] && printf '  ok    touch cria o marker da sessão no hash do repo\n' || { printf '  FALHA touch não criou o marker\n'; falhas=$((falhas+1)); }
 [ "$(cat "$VIVO/.claude/.cache/repo-sessions/$H/.root" 2>/dev/null)" = "$ROOT" ] && printf '  ok    .root guarda o caminho do repo\n' || { printf '  FALHA .root errado\n'; falhas=$((falhas+1)); }
+# Como o kit do time instala (nucleo.lista, F2 do #241): o hook em ~/.claude/hooks, o
+# hookjson.js em ~/.claude/scripts, e o settings.json de lá chamando pelo ~/.claude.
+NUC="$TMP/home-nucleo"; mkdir -p "$NUC/.claude/hooks" "$NUC/.claude/scripts"
+cp "$SESSAO" "$NUC/.claude/hooks/repo-session.sh"; cp "$RAIZ/plugin/scripts/hookjson.js" "$NUC/.claude/scripts/"
+payload 'ls' "$CLONE" sessao-n | HOME="$NUC" bash -c '[ -f "$HOME/.claude/hooks/repo-session.sh" ] && bash "$HOME/.claude/hooks/repo-session.sh" touch || exit 0'
+[ -f "$NUC/.claude/.cache/repo-sessions/$H/sessao-n" ] && printf '  ok    instalado como o kit do time instala: touch cria o marker\n' || { printf '  FALHA instalado em ~/.claude/hooks: touch não criou o marker\n'; falhas=$((falhas+1)); }
 payload 'ls' "$CLONE" sessao-a | HOME="$VIVO" bash "$SESSAO" end
 [ ! -f "$VIVO/.claude/.cache/repo-sessions/$H/sessao-a" ] && printf '  ok    end remove o marker\n' || { printf '  FALHA end não removeu\n'; falhas=$((falhas+1)); }
 payload 'ls' "$FORA" sessao-b | HOME="$VIVO" bash "$SESSAO" touch

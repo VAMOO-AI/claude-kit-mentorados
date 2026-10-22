@@ -10,6 +10,23 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.70.0] — 2026-10-22
+
+### Mudado
+
+- **`compact-estado.sh` e `repo-session.sh` servem também ao kit do time** (F2 do núcleo
+  único, #241). O time passa a copiá-los do cache do plugin (`nucleo.lista`) e apaga as
+  cópias dele.
+  - Casos do time portados para o `test-precompact.sh`: acento no nome e no HEAD longo, nome
+    com espaço sem aspas, poda só por idade, o hook instalado em `~/.claude/hooks` com o
+    `hookjson.js` em `~/.claude/scripts` e o hook não instalado.
+  - O único vermelho: com o `~/.claude/scripts/publicar-memoria.sh` na máquina (o kit do
+    time), a memória pendente aponta esse script; sem ele, segue a skill `memoria-projeto`.
+  - O `test-block-parallel-clone-switch.sh` prova o `repo-session.sh` instalado do mesmo
+    jeito.
+  - Fica de fora o `warn-branch-worktree.sh`: o time avisa o clone fora da main também na
+    sessão do próprio clone, e este kit não avisa de propósito. É decisão pendente na #241.
+
 ## [0.69.0] — 2026-10-22
 
 ### Adicionado

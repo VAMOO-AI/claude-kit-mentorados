@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.70.0|preparação interna: o aviso depois do compact e o registro de sessão passam a servir também ao kit do time; no seu Claude Code nada muda
 0.69.0|projeto novo já sai com o .worktreeinclude: o --apply do instrucoes-projeto.sh copia o modelo, e o worktree novo recebe o seu .env sem você copiar à mão
 0.68.0|preparação interna: os guard-rails do kit também entendem o formato de comando do Codex; no seu Claude Code nada muda
 0.67.0|a /kit-vamoo:git-sync passa a olhar sempre o repo do seu origin, mesmo quando o projeto tem um remote upstream de template, então os PRs e a prova de merge saem do repo certo
