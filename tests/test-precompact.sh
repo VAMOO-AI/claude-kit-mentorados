@@ -12,8 +12,10 @@
 #     PreCompact nem devolução no pre-prompt;
 #   - o repositório vem do `.cwd` do payload, não do $PWD do processo;
 #   - o conteúdo (branch, HEAD, modificados, worktrees, memória pendente) e os nomes de
-#     arquivo difíceis (espaço, rename, seta no nome);
-#   - fail-open: fora de repo, sem node, payload de outro `source`.
+#     arquivo difíceis (acento, espaço, rename, seta no nome, HEAD longo com acento);
+#   - fail-open: fora de repo, sem node, payload de outro `source`;
+#   - o hook instalado como o kit do time instala (nucleo.lista, F2 do #241): em
+#     ~/.claude/hooks, com o hookjson.js em ~/.claude/scripts, e o publicar-memoria.sh de lá.
 #
 # Uso: bash tests/test-precompact.sh [raiz-do-repo]
 set -uo pipefail
@@ -88,7 +90,8 @@ check "traz a branch (lida do cwd do payload, com o processo fora do repo)" "$(s
 check "traz o HEAD" "$(sim grep -q 'primeiro commit' <<<"$out")"
 check "conta os modificados" "$(sim grep -q 'modificados: 3' <<<"$out")"
 check "nomeia os arquivos separados por vírgula e espaço" "$(sim grep -qF 'a.txt, b.txt' <<<"$out")"
-check "nome com espaço sai inteiro" "$(sim grep -qF 'com espaço.txt' <<<"$out")"
+check "nome com espaço sai inteiro, sem aspas" "$(sim grep -qF 'com espaço.txt' <<<"$out")"
+check "acento sai como acento, não \\303\\247" "$(sim nao grep -qF '\303' <<<"$out")"
 check "não escreveu nada no repo" "$(sim [ "$(git -C "$REPO" status --porcelain)" = "$antes" ])"
 check "não grava cache em ~/.claude/.cache" "$(sim [ ! -d "$HOME/.claude/.cache/precompact" ])"
 rm -f "$REPO/com espaço.txt"
@@ -112,10 +115,29 @@ out="$(roda "$REPO")"
 check "conta os arquivos, não a pasta nova (2, não 1)" "$(sim grep -q 'memória do projeto: 2 arquivo' <<<"$out")"
 check "aponta a skill memoria-projeto" "$(sim grep -q 'memoria-projeto' <<<"$out")"
 check "não manda rodar script que este kit não tem" "$(sim nao grep -q 'publicar-memoria' <<<"$out")"
+# Na máquina do kit do time o núcleo roda pelo settings.json de lá, e quem publica é o
+# publicar-memoria.sh que o update.sh instala em ~/.claude/scripts (F2 do #241).
+mkdir -p "$HOME/.claude/scripts"; printf '#!/bin/sh\n' > "$HOME/.claude/scripts/publicar-memoria.sh"
+out="$(roda "$REPO")"
+check "com o publicar-memoria.sh instalado (kit do time): e o comando de publicar" "$(sim grep -q 'publicar-memoria.sh' <<<"$out")"
+rm -f "$HOME/.claude/scripts/publicar-memoria.sh"
 check "a memória continua não commitada (o hook não publica)" "$(sim [ -n "$(git -C "$REPO" status --porcelain -- .context/memoria)" ])"
 rm -rf "$REPO/.context"
 
 echo "== nomes difíceis =="
+REPO2="$TMP/repo2"; mkdir -p "$REPO2"
+git -C "$REPO2" init -q -b main
+git -C "$REPO2" config user.email t@t.t
+git -C "$REPO2" config user.name teste
+printf 'x\n' > "$REPO2/x.txt"
+git -C "$REPO2" add x.txt
+# Hash de 7 + espaço + "x" = 9 bytes; o resto é ã (2 bytes cada). Com `cut -c1-72`
+# por byte o corte cai no byte 72, no meio de um ã.
+git -C "$REPO2" commit -qm "x$(printf 'ã%.0s' $(seq 40))"
+printf 'y\n' > "$REPO2/configuração.md"
+out="$(roda "$REPO2")"
+check "nome com acento sai como acento" "$(sim grep -qF 'configuração.md' <<<"$out")"
+check "HEAD com acento não sai partido ao meio" "$(sim sh -c 'sed -n 2p | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1' <<<"$out")"
 REPO3="$TMP/repo3"; mkdir -p "$REPO3"
 git -C "$REPO3" init -q -b main
 git -C "$REPO3" config user.email t@t.t
@@ -150,10 +172,10 @@ out="$( PATH="$SEM_NODE" "$(command -v bash)" "$HOOK" < "$TMP/p6.json" )"; rc=$?
 check "sem node: sai 0 calado" "$(sim [ "$rc" = 0 ] && [ -z "$out" ])"
 mkdir -p "$HOME/.claude/.cache/precompact"
 printf 'velho\n' > "$HOME/.claude/.cache/precompact/abandonada.md"; touch -t 202601010000 "$HOME/.claude/.cache/precompact/abandonada.md"
-printf 'recente\n' > "$HOME/.claude/.cache/precompact/do-time.md"
+printf 'recente\n' > "$HOME/.claude/.cache/precompact/recente.md"
 roda "$REPO" >/dev/null
 check "snapshot antigo (>2 dias) do par anterior é podado" "$(sim [ ! -f "$HOME/.claude/.cache/precompact/abandonada.md" ])"
-check "…e o recente (o kit do time grava no mesmo lugar) fica" "$(sim [ -f "$HOME/.claude/.cache/precompact/do-time.md" ])"
+check "…e o recente fica (poda por idade, nunca a pasta inteira)" "$(sim [ -f "$HOME/.claude/.cache/precompact/recente.md" ])"
 
 echo "== o comando do hooks.json, como o Claude Code roda =="
 payload "$REPO" > "$TMP/p.json"
@@ -162,6 +184,19 @@ check "imprime o estado" "$(sim [ "$rc" = 0 ] && grep -q 'branch feat/algo' <<<"
 H3="$TMP/home-time"; mkdir -p "$H3/.claude"; : > "$H3/.claude/.team-manifest"
 out="$( cd "$TMP" && HOME="$H3" CLAUDE_PLUGIN_ROOT="$RAIZ/plugin" sh -c "$comando" < "$TMP/p.json" )"; rc=$?
 check "com o kit do time na máquina, cede (sai 0 calado)" "$(sim [ "$rc" = 0 ] && [ -z "$out" ])"
+
+echo "== como o kit do time instala: ~/.claude/hooks, com o hookjson.js em ~/.claude/scripts =="
+# O update.sh do time copia o hook e o hookjson.js do cache do plugin (nucleo.lista) e o
+# settings.json de lá chama pelo ~/.claude, sem CLAUDE_PLUGIN_ROOT e sem a guarda de convidado.
+CMD_TIME='[ -f "$HOME/.claude/hooks/compact-estado.sh" ] && bash "$HOME/.claude/hooks/compact-estado.sh" || exit 0'
+H4="$TMP/home-nucleo"; mkdir -p "$H4/.claude/hooks" "$H4/.claude/scripts"; : > "$H4/.claude/.team-manifest"
+cp "$HOOK" "$H4/.claude/hooks/compact-estado.sh"; cp "$RAIZ/plugin/scripts/hookjson.js" "$H4/.claude/scripts/"
+payload "$REPO" > "$TMP/p.json"
+out="$( cd "$TMP" && env -u CLAUDE_PLUGIN_ROOT HOME="$H4" sh -c "$CMD_TIME" < "$TMP/p.json" )"; rc=$?
+check "imprime o estado" "$(sim [ "$rc" = 0 ] && grep -q 'branch feat/algo' <<<"$out")"
+rm -f "$H4/.claude/hooks/compact-estado.sh"
+out="$( cd "$TMP" && env -u CLAUDE_PLUGIN_ROOT HOME="$H4" sh -c "$CMD_TIME" < "$TMP/p.json" )"; rc=$?
+check "hook não instalado: sai 0 calado" "$(sim [ "$rc" = 0 ] && [ -z "$out" ])"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
