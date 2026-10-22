@@ -17,14 +17,18 @@ allowed-tools:
 ## Isolamento
 
 - Sessão que vai **escrever**, com outra sessão possivelmente ativa no repo: worktree
-  próprio com o `EnterWorktree` (cria em `<repo>/.claude/worktrees/`, onde o kit copia o env
-  e liga a memória). O clone principal fica na `main`, só leitura.
+  próprio com o `EnterWorktree` (cria em `<repo>/.claude/worktrees/`). O clone principal fica
+  na `main`, só leitura.
 - Arquivo **versionado** se restaura de `origin` (`git restore --source=origin/<branch> <arq>`),
   nunca copiado do clone principal: ele pode estar commits atrás.
-- **Env:** no primeiro prompt dentro do worktree, um hook copia do clone os `.env*` que o git
-  ignora, sem sobrescrever. Worktree criado no meio de uma resposta só recebe no prompt
-  seguinte; criado fora de `.claude/worktrees/`, copie à mão. `.npmrc`/`bunfig.toml` ficam de
-  fora (token de registry). Sintoma da falta: login com **"Failed to fetch"**.
+- **Env:** com um `.worktreeinclude` na raiz do projeto, o próprio Claude Code copia do clone
+  os arquivos que casam com o padrão e que o git ignora, em todo worktree que ele cria
+  (`--worktree`, subagent com `isolation: worktree`, sessão paralela do desktop;
+  [doc](https://code.claude.com/docs/en/worktrees.md#copy-gitignored-files-into-worktrees)).
+  O modelo é o `plugin/templates/worktreeinclude.exemplo`: copie como `.worktreeinclude` e
+  commite. `.npmrc`/`bunfig.toml` ficam de fora (token de registry). A doc não diz se o
+  `EnterWorktree` aplica o arquivo, e worktree criado fora do Claude Code não recebe nada:
+  confira e copie à mão. Sintoma da falta: login com **"Failed to fetch"**.
 - **`node_modules`** não vem: `npm install` no worktree. Symlink quebra os binários do `.bin`.
 
 ## Quando o guard recusa o comando
@@ -52,8 +56,7 @@ scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de
 - O kit bloqueia `git commit` na `main` (`HOTFIX_MAIN=1` de propósito) e checa a branch
   **antes** do comando: crie a branch num comando, commite em outro.
 - O kit bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone principal com outra
-  sessão ativa nos últimos 30 min (`PARALLEL_OK=1` só com certeza) e avisa se a branch mudou
-  entre prompts.
+  sessão ativa nos últimos 30 min (`PARALLEL_OK=1` só com certeza).
 
 ## O banco local NÃO é isolado por worktree
 

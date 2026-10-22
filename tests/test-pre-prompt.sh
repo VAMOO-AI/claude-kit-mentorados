@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Prova de regressão do plugin/hooks/pre-prompt.sh, o dispatcher do UserPromptSubmit.
 #
-# Até a 0.28.3 eram quatro entries no settings.json (session-size-guard, repo-session,
-# branch-guard, memoria-worktree-link), cada um um processo `sh` mais um `bash <hook>` por
-# prompt. O dispatcher lê o payload uma vez e tem que devolver o que os quatro devolviam:
-# os avisos concatenados na ordem, o exit ≠ 0 do primeiro que falha, e nada quando ninguém
-# fala. Cada caso passa pelo DISPATCHER, com os hooks reais ao lado dele.
+# Até a 0.28.3 eram entries separados no settings.json, cada um um processo `sh` mais um
+# `bash <hook>` por prompt. O dispatcher lê o payload uma vez e tem que devolver o que os
+# hooks devolviam separados: os avisos concatenados na ordem, o exit ≠ 0 do primeiro que
+# falha, e nada quando ninguém fala. Cada caso passa pelo DISPATCHER, com os hooks reais
+# ao lado dele.
 #
-# Hoje são seis: o precompact-devolve.sh abre a fila (lê o payload, é dele que sai o
-# session_id do snapshot) e o worktree-seed-env.sh fecha (recebe /dev/null, como o link de
-# memória — hook que não lê stdin não pode segurar o pipe do payload).
+# Depois da 0.64 a fila ficou com três (warn-sem-node, session-size-guard, repo-session): o
+# branch-guard, o memoria-worktree-link e o worktree-seed-env foram cortados, e a
+# devolução do compact virou o compact-estado.sh no SessionStart(compact).
 #
 # Linha que começa com `@usuario ` (o aviso do session-size) é para a pessoa: sai num JSON,
 # no systemMessage, e o resto vai para o modelo no additionalContext do mesmo JSON. Sem
@@ -79,7 +79,7 @@ H=$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | { shasum 2>/dev/
 [ -f "$HOME/.claude/.cache/repo-sessions/$H/s1" ] && ok "repo-session marcou s1 no repo" || falha "repo-session não marcou a sessão"
 
 echo
-echo "== contexto de 160K: o session-size vai para a pessoa, o branch-guard para o modelo =="
+echo "== contexto de 160K: o session-size vai para a pessoa, e nada para o modelo =="
 contexto 160000
 git -C "$REPO" switch -q -c feat/outra
 rc=$(roda s1 "$REPO")
@@ -87,10 +87,7 @@ espera_rc 0 "$rc" "sai 0"
 aviso=$(json systemMessage)
 tem "~160K tokens" "$aviso" "systemMessage traz o aviso do session-size"
 case "$aviso" in "@usuario"*|"<"*) falha "systemMessage com o prefixo, ou ausente: $aviso" ;; *) ok "systemMessage sem o prefixo @usuario" ;; esac
-igual "UserPromptSubmit" "$(json hookSpecificOutput.hookEventName)" "hookEventName é UserPromptSubmit"
-modelo=$(json hookSpecificOutput.additionalContext)
-tem "branch-guard" "$modelo" "o aviso do branch-guard (main → feat/outra) continua chegando ao modelo"
-nao_tem "session-size" "$modelo" "o session-size não entra no additionalContext"
+igual "<ausente>" "$(json hookSpecificOutput)" "troca de branch entre prompts não vira aviso (o branch-guard saiu)"
 rc=$(roda s1 "$REPO")
 [ -s "$TMP/out" ] && falha "repetiu aviso: $(cat "$TMP/out")" || ok "prompt seguinte: nada a repetir"
 rc=$(roda s2 "$REPO")
@@ -101,28 +98,31 @@ echo
 echo "== aviso para a pessoa com outros hooks falando: separa, na ordem =="
 PESSOA="$(árvore "$TMP/pessoa")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo "@usuario pra-pessoa"' 'exit 0' > "$PESSOA/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo segundo' 'exit 0' > "$PESSOA/branch-guard.sh"
-printf '%s\n' '#!/bin/bash' 'echo terceiro' 'exit 0' > "$PESSOA/memoria-worktree-link.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo primeiro' 'exit 0' > "$PESSOA/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo terceiro' 'exit 0' > "$PESSOA/repo-session.sh"
 rc=$(roda s5 "$REPO" "$PESSOA")
 espera_rc 0 "$rc" "sai 0"
 igual "pra-pessoa" "$(json systemMessage)" "systemMessage é só a linha @usuario, sem o prefixo"
-igual "$(printf 'segundo\nterceiro')" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto, na ordem dos hooks"
+igual "$(printf 'primeiro\nterceiro')" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto, na ordem dos hooks"
 
 echo
-echo "== seis hooks: o devolve abre a fila com o payload, o seed-env fecha com /dev/null =="
-SEIS="$(árvore "$TMP/seis")"
-printf '%s\n' '#!/bin/bash' 'case "$(cat)" in *\"session_id\":\"s4\"*) echo devolve-leu-o-payload ;; *) echo devolve-sem-payload ;; esac' 'exit 0' > "$SEIS/precompact-devolve.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo meio' 'exit 0' > "$SEIS/branch-guard.sh"
-printf '%s\n' '#!/bin/bash' 'echo "seed-leu:[$(cat)]"' 'exit 0' > "$SEIS/worktree-seed-env.sh"
-rc=$(roda s4 "$REPO" "$SEIS")
+echo "== três hooks, na ordem, todos com o payload; os cortados não rodam mais =="
+TRES="$(árvore "$TMP/tres")"
+for h in warn-sem-node session-size-guard repo-session; do
+  printf '%s\n' '#!/bin/bash' "case \"\$(cat)\" in *'\"session_id\":\"s4\"'*) echo $h-leu ;; *) echo $h-sem-payload ;; esac" 'exit 0' > "$TRES/$h.sh"
+done
+for h in precompact-devolve branch-guard memoria-worktree-link worktree-seed-env; do
+  printf '%s\n' '#!/bin/bash' "echo $h-RODOU" 'exit 0' > "$TRES/$h.sh"
+done
+rc=$(roda s4 "$REPO" "$TRES")
 espera_rc 0 "$rc" "sai 0"
-igual "$(printf 'devolve-leu-o-payload\nmeio\nseed-leu:[]')" "$(cat "$TMP/out")" "devolve primeiro com o payload, seed-env por último com stdin vazio"
+igual "$(printf 'warn-sem-node-leu\nsession-size-guard-leu\nrepo-session-leu')" "$(cat "$TMP/out")" "os três leem o payload, nesta ordem, e nenhum hook cortado roda"
 
 echo
 echo "== sem linha @usuario, texto puro como antes, na ordem =="
 TEXTO="$(árvore "$TMP/texto")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo primeiro' 'exit 0' > "$TEXTO/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo segundo' 'exit 0' > "$TEXTO/branch-guard.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo segundo' 'exit 0' > "$TEXTO/repo-session.sh"
 rc=$(roda s6 "$REPO" "$TEXTO")
 espera_rc 0 "$rc" "sai 0"
 texto_puro "não vira JSON"
@@ -133,21 +133,19 @@ echo "== sem node (ou com o node quebrado): texto puro, sem o prefixo =="
 SEM="$(sem_node "$TMP/sem-node")"
 rc=$(roda s7 "$REPO" "$PESSOA" "$SEM")
 espera_rc 0 "$rc" "sem node: sai 0"
-igual "$(printf 'pra-pessoa\nsegundo\nterceiro')" "$(cat "$TMP/out")" "sem node: tudo em texto, o aviso sem @usuario"
+igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "sem node: tudo em texto, o aviso sem @usuario"
 QUEBRADO="$(sem_node "$TMP/node-quebrado")"
 printf '%s\n' '#!/bin/sh' 'exit 1' > "$QUEBRADO/node"; chmod +x "$QUEBRADO/node"
 rc=$(roda s8 "$REPO" "$PESSOA" "$QUEBRADO")
 espera_rc 0 "$rc" "node que falha: sai 0"
-igual "$(printf 'pra-pessoa\nsegundo\nterceiro')" "$(cat "$TMP/out")" "node que falha: mesmo texto de quem não tem node"
+igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "node que falha: mesmo texto de quem não tem node"
 
 echo
 echo "== hook ausente é pulado; pasta vazia sai 0 calado =="
-SO_UM="$(árvore "$TMP/so-um")"; cp "$HOOKS_DIR/branch-guard.sh" "$SO_UM/"
-git -C "$REPO" switch -q main
-rc=$(roda s1 "$REPO" "$SO_UM")
-espera_rc 0 "$rc" "só branch-guard instalado: sai 0"
-contem "$TMP/out" "branch-guard" "…e o branch-guard que existe segue avisando"
-texto_puro "…em texto puro, como antes"
+SO_UM="$(árvore "$TMP/so-um")"; cp "$HOOKS_DIR/session-size-guard.sh" "$SO_UM/"
+rc=$(roda s10 "$REPO" "$SO_UM")
+espera_rc 0 "$rc" "só session-size-guard instalado: sai 0"
+tem "~160K tokens" "$(json systemMessage)" "…e o session-size-guard que existe segue avisando"
 VAZIO="$(árvore "$TMP/vazio")"
 rc=$(roda s1 "$REPO" "$VAZIO")
 espera_rc 0 "$rc" "pasta sem hook sai 0"
@@ -156,9 +154,9 @@ espera_rc 0 "$rc" "pasta sem hook sai 0"
 echo
 echo "== cadeia: o primeiro código ≠ 0 encerra, com o stdout e o stderr dele =="
 FALSOS="$(árvore "$TMP/falsos")"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo "@usuario aviso-do-primeiro"' 'exit 0' > "$FALSOS/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo bloqueio' 'echo motivo >&2' 'exit 2' > "$FALSOS/branch-guard.sh"
-printf '%s\n' '#!/bin/bash' 'echo NAO-DEVIA-RODAR' 'exit 0' > "$FALSOS/memoria-worktree-link.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo "@usuario aviso-do-primeiro"' 'exit 0' > "$FALSOS/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo bloqueio' 'echo motivo >&2' 'exit 2' > "$FALSOS/session-size-guard.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo NAO-DEVIA-RODAR' 'exit 0' > "$FALSOS/repo-session.sh"
 rc=$(roda s9 "$REPO" "$FALSOS")
 espera_rc 2 "$rc" "exit 2 do hook vira exit 2 da cadeia"
 contem "$TMP/out" 'aviso-do-primeiro' "o que os anteriores disseram é repassado"
@@ -170,21 +168,21 @@ nao_contem "$TMP/out" 'NAO-DEVIA-RODAR' "o hook seguinte não roda"
 
 echo
 echo "== cadeia: exit fora de 0 e 2 é bug do hook, e os seguintes rodam =="
-# O memoria-worktree-link.sh tem `set -eu` e roda antes do worktree-seed-env.sh: um erro
-# nele desligava o seed de env do worktree. Entries separados rodavam todos.
+# Até a 0.53 um `set -eu` num hook do meio desligava os seguintes. Entries separados
+# rodavam todos.
 BUG="$(árvore "$TMP/bug")"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo aviso-do-primeiro' 'exit 0' > "$BUG/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'echo saida-do-bug' 'echo erro-do-bug >&2' 'exit 1' > "$BUG/memoria-worktree-link.sh"
-printf '%s\n' '#!/bin/bash' 'echo seed-rodou' 'exit 0' > "$BUG/worktree-seed-env.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo aviso-do-primeiro' 'exit 0' > "$BUG/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-bug' 'echo erro-do-bug >&2' 'exit 1' > "$BUG/session-size-guard.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo seguinte-rodou' 'exit 0' > "$BUG/repo-session.sh"
 rc=$(roda s9 "$REPO" "$BUG")
 espera_rc 0 "$rc" "hook com exit 1 não encerra a cadeia: sai 0"
 modelo=$(json hookSpecificOutput.additionalContext)
 pessoa=$(json systemMessage)
-tem 'seed-rodou' "$modelo" "o hook seguinte roda e chega ao modelo"
+tem 'seguinte-rodou' "$modelo" "o hook seguinte roda e chega ao modelo"
 tem 'aviso-do-primeiro' "$modelo" "o que os anteriores disseram continua chegando"
 nao_tem 'saida-do-bug' "$modelo" "o stdout do hook com bug não vira contexto"
-tem 'memoria-worktree-link.sh saiu 1' "$pessoa" "a pessoa vê qual hook falhou (systemMessage)"
-contem "$TMP/err" '[pre-prompt] memoria-worktree-link.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
+tem 'session-size-guard.sh saiu 1' "$pessoa" "a pessoa vê qual hook falhou (systemMessage)"
+contem "$TMP/err" '[pre-prompt] session-size-guard.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
 contem "$TMP/err" 'erro-do-bug' "stderr do hook com bug é repassado"
 contem "$TMP/err" 'saida-do-bug' "…e o stdout dele também, para diagnóstico"
 

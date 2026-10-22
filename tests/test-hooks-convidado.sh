@@ -66,7 +66,7 @@ payload() { # payload <evento>
 # O stdin vem de arquivo, não de pipe: com a guarda o comando sai sem ler o payload, e o
 # SIGPIPE de quem escreve no pipe viraria o rc do caso.
 roda() {
-  ( cd "$REPO" && HOME="$4" CLAUDE_PLUGIN_ROOT="$RAIZ/plugin" TMPDIR="$TMP" CLAUDE_STOP_QUIET=1 \
+  ( cd "$REPO" && HOME="$4" CLAUDE_PLUGIN_ROOT="$RAIZ/plugin" TMPDIR="$TMP" \
       KIT_VAMOO_HOOKS="${5:-}" "$1" -c "$2" <"$3" >"$TMP/out" 2>"$TMP/err" )
   echo $?
 }

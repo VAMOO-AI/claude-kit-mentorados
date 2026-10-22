@@ -68,11 +68,10 @@ liga), o passo é curto:
 git status --short .context/memoria/
 ```
 
-Numa sessão em worktree, rode o comando acima dentro dele: o hook
-`memoria-worktree-link.sh` liga a memória do worktree no `.context/memoria/` do
-próprio worktree, e o que aparecer ali entra no commit do código antes do push.
-Rode também no clone principal (`git -C <clone-principal> status --short
-.context/memoria/`): é onde grava a sessão que foi aberta nele.
+Numa sessão em worktree, rode o comando também no clone principal (`git -C
+<clone-principal> status --short .context/memoria/`): a memória automática é por
+repositório e compartilhada entre os worktrees, então o que a sessão registrou cai
+no `.context/memoria/` do clone principal, não no do worktree.
 
 O que aparecer aí foi escrito nesta sessão e ainda não está no repositório. Antes
 de fechar, passe os olhos em cada arquivo tocado e faça três coisas:

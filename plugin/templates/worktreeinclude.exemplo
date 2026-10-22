@@ -1,0 +1,17 @@
+# Copie para a raiz do projeto com o nome .worktreeinclude (e commite).
+#
+# Todo worktree que o Claude Code cria (claude --worktree, subagent com isolation: worktree,
+# sessão paralela do app desktop) nasce só com o que está commitado. O .env.local não está:
+# o `npm run dev` sobe, o app não acha a URL do Supabase, e a tela de login devolve
+# "Failed to fetch", sem nada dizendo "faltou env".
+#
+# Com este arquivo o Claude Code copia, do clone principal para o worktree novo, os arquivos
+# que casam com os padrões abaixo E que o git ignora; arquivo versionado nunca é duplicado.
+# A sintaxe é a do .gitignore. Doc: https://code.claude.com/docs/en/worktrees.md
+#
+# Fica de fora de propósito: .npmrc, bunfig.toml e .bunfig.toml. Ali costuma morar token de
+# registry, que vale para o pacote inteiro e não só para o app; se o install do worktree
+# falhar por autenticação, copie à mão. node_modules também fica fora: rode o install no
+# worktree (npm ci / bun install), sem symlink do node_modules do clone.
+.env
+.env.*

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # pre-prompt.sh — dispatcher do UserPromptSubmit: lê o payload UMA vez e o entrega, em
-# ordem, aos hooks que até a 0.25.0 eram quatro entries no hooks.json. Hoje são sete: o
-# aviso de node ausente (primeiro: sem node os outros guards saem calados), os quatro de
-# antes, a devolução do estado gravado antes do compact e o seed de env do worktree novo
-# (último).
+# ordem, aos hooks que até a 0.25.0 eram entries separados no hooks.json. Hoje são três: o
+# aviso de node ausente (primeiro: sem node os outros guards saem calados), o
+# session-size-guard e o repo-session. Depois da 0.64 saíram o branch-guard, o
+# memoria-worktree-link, o worktree-seed-env e a devolução do compact (que virou o
+# compact-estado.sh, no SessionStart(compact)).
 #
 # Mesma razão do pre-bash.sh: cada entry custa um processo de shell mais um `bash <hook>`
 # antes de o hook olhar o payload — um por hook, a cada prompt, em toda sessão.
@@ -14,11 +15,7 @@
 # ≠ 0 tem bug e não desliga os seguintes: com entries separados o harness rodava todos, e
 # exit 1 não bloqueia. O stdout dele vai para o stderr, a linha "[pre-prompt] <hook> saiu
 # <rc> (bug do hook; cadeia segue)" sai no stderr e, para a pessoa, como "@usuario ", e a
-# cadeia segue. Até a 0.53 qualquer rc ≠ 0 encerrava, e o `set -eu` do
-# memoria-worktree-link desligava o worktree-seed-env. Hook que não lê stdin (o link
-# de memória e o seed de env do worktree) recebe /dev/null — um prompt maior que o buffer
-# do pipe travaria o `printf`. O precompact-devolve.sh lê: é do payload que sai o
-# session_id do snapshot.
+# cadeia segue.
 #
 # A exceção é a linha que começa com `@usuario `: é aviso para a pessoa, não contexto (hoje
 # só o session-size-guard usa). Com uma dessas, a saída vira um JSON só — elas no
@@ -55,12 +52,11 @@ emite() { # <código com que a cadeia vai sair>
 }
 
 saida=""
-for h in warn-sem-node.sh precompact-devolve.sh session-size-guard.sh repo-session.sh branch-guard.sh memoria-worktree-link.sh worktree-seed-env.sh; do
+for h in warn-sem-node.sh session-size-guard.sh repo-session.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
   case "$h" in
     repo-session.sh)          out=$(printf '%s' "$payload" | ( . "$f" touch )); rc=$? ;;
-    memoria-worktree-link.sh|worktree-seed-env.sh) out=$( ( . "$f" ) </dev/null ); rc=$? ;;
     *)                        out=$(printf '%s' "$payload" | ( . "$f" )); rc=$? ;;
   esac
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then

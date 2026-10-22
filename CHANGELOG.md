@@ -16,6 +16,28 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.66.0] — 2026-10-22
+
+### Hooks: 4 cortados, 1 trocado pelo nativo, 2 pares fundidos (#261)
+
+- **Cortados:** `block-monitor-ci` (0 bloqueios; o Monitor nativo já ensina a espera),
+  `branch-guard` (o `block-parallel-clone-switch` corta a troca na origem),
+  `memoria-worktree-link` (a memória automática é por repositório e compartilhada entre
+  worktrees) e `notify-stop` (o app desktop notifica; `afplay`/`osascript` não existem no
+  Windows nem no Linux). No terminal fora do iTerm2/Ghostty/Kitty, o sino é
+  `"preferredNotifChannel": "terminal_bell"` no settings.json.
+- **`worktree-seed-env` vira `.worktreeinclude`:** modelo em
+  `plugin/templates/worktreeinclude.exemplo` (`.env` e `.env.*`, sem `.npmrc`/`bunfig.toml`).
+  Copie para a raiz do projeto: o Claude Code copia o env ignorado para cada worktree novo.
+- **Fundidos:** `precompact-snapshot` + `precompact-devolve` viram `compact-estado.sh`, que
+  calcula o estado no `SessionStart(compact)` (sem cache, sem PreCompact, fora do
+  `pre-prompt`); `warn-branch-behind` + `warn-worktree-stale` viram `warn-branch-worktree.sh`,
+  que lê o `.cwd` do payload. Numa sessão de worktree do desktop, o aviso de worktree
+  mergeado agora dispara.
+- **`path-rules` fica:** plugin não entrega `rules/`, e subagent em worktree não carrega
+  `.claude/rules/`.
+- `pre-prompt.sh` com 3 hooks; `hooks.json` de 16 para 12 entradas.
+
 ## [0.65.0] — 2026-10-22
 
 ### Alterado
