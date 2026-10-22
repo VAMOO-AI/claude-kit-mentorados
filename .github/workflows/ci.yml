@@ -16,7 +16,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Era 10. Em 22/10/2026 três runs estouraram o teto no apt do ffmpeg (passo lento do
+    # runner, não teste travado) e saíram CANCELLED; com a suíte maior, 10 min não sobra.
+    timeout-minutes: 20
     steps:
       # Actions pinadas por SHA (tag móvel pode ser reescrita por quem controla o repo da
       # action); o Dependabot (.github/dependabot.yml) abre o PR de atualização.
