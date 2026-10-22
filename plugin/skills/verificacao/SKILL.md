@@ -11,9 +11,8 @@ description: >-
 
 # Verificação e2e — casos de produção
 
-Os **princípios** ("verify don't claim", tsc+eslint antes de pronto, caminho
-real do usuário) vivem no CLAUDE.md e valem sempre. Esta skill guarda os
-war-stories e checklists por categoria.
+Os princípios (verificar antes de afirmar, tsc+lint, caminho real do usuário)
+vivem no CLAUDE.md. Aqui ficam os casos de produção, por categoria.
 
 ## Fix em fluxo com ramos → teste TODOS os ramos
 
@@ -56,17 +55,12 @@ foi coberto. "Nenhum achado" sem contagem é relatório vazio.
 
 ## O que só um humano consegue verificar → roteiro, não pedido no meio da prosa
 
-Tem verificação que o agente não fecha sozinho: "o áudio toca no celular", "a
-notificação chegou no aparelho", "o PDF sai certo na impressora", "o cliente
-consegue entrar com o login dele". É aqui que mais se declara pronto sem estar:
-"testei e funcionou" quando ninguém abriu o app no celular. Build verde e teste
-verde não dizem nada sobre o som que sai do alto-falante.
-
-Por isso, em feature com **mídia, push ou impressão**, o roteiro humano faz parte
-da definição de pronto, do mesmo jeito que `tsc` e lint. Não é pedir em prosa no
-meio da resposta ("dá uma olhada se tocou?") — a resposta volta três mensagens
-depois, solta, e não vira evidência de nada. O agente **escreve um roteiro** num
-arquivo, a pessoa roda no terminal dela, e as respostas voltam em `KEY=VALUE`:
+"O áudio toca no celular", "a notificação chegou", "o PDF sai certo na
+impressora": build e teste verdes não dizem nada sobre isso. Em feature com
+**mídia, push ou impressão**, o roteiro humano faz parte do pronto, como `tsc` e
+lint. Pedido em prosa ("dá uma olhada se tocou?") volta solto e não vira
+evidência: **escreva um roteiro** num arquivo, a pessoa roda no terminal dela, e
+as respostas voltam em `KEY=VALUE`:
 
 ```bash
 # /tmp/roteiro-push.txt (escrito pelo agente)
@@ -78,58 +72,28 @@ captura ERRO Se não chegou, cole o erro do console (ou 'nenhum')
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-push.txt --saida /tmp/capturado.txt
 ```
 
-Regras que fazem o roteiro valer alguma coisa:
+Regras do roteiro:
 
-- **Você não roda o script no seu Bash.** Ele precisa de alguém digitando; sem
-  terminal ele para com "sem terminal interativo" (exit 2) antes da primeira
-  pergunta. Quem roda é a pessoa.
-- **Entregue o comando pronto para colar**, com caminhos absolutos: o
-  `${CLAUDE_PLUGIN_ROOT}` já vem preenchido quando esta skill carrega, mas o
-  terminal da pessoa não conhece essa variável. Roteiro e `--saida` também em
-  caminho absoluto.
+- **Você não roda o script no seu Bash**: sem terminal ele sai 2 ("sem terminal
+  interativo") antes da primeira pergunta. Quem roda é a pessoa.
+- **Comando pronto para colar, com caminhos absolutos**: o `${CLAUDE_PLUGIN_ROOT}`
+  vem preenchido para você, mas o terminal da pessoa não conhece a variável.
 - **Uma pergunta por observação, com resposta objetiva** (s/n, o número, a
   mensagem colada). "Deu certo?" não é observação.
-- **Enter vazio reprova** — o script sai 1 nomeando a variável sem resposta.
-  Silêncio não é "verificado".
-- **Exit 0 quer dizer "todas respondidas", não "passou".** `CHEGOU=n` com exit 0
-  é reprovação. Leia os valores antes de concluir qualquer coisa.
-- **A resposta é a evidência.** Leia o arquivo do `--saida` e cole o bloco
-  `--- capturado ---` no relatório, igual output de `tsc`. Vale também para o
-  degrau 3 (smoke real) da seção de efeito colateral externo abaixo: quem
-  confirma que chegou é quem recebeu.
+- **Enter vazio reprova** (exit 1 nomeando a variável). **Exit 0 quer dizer
+  "todas respondidas", não "passou"**: `CHEGOU=n` com exit 0 é reprovação.
+- **A resposta é a evidência**: cole o bloco `--- capturado ---` do `--saida` no
+  relatório, igual output de `tsc`. Vale para o degrau 3 (smoke real) do efeito
+  colateral externo abaixo: quem confirma que chegou é quem recebeu.
 
-## Pipe não mascara falha
+## CI vermelho ou teste instável → o erro literal antes da hipótese
 
-Nunca pipe `tsc`/`eslint` pra `head`/`tail` sem `set -o pipefail` (ou checar
-`${PIPESTATUS[0]}`) — o exit code é o do pipe, não do checker, e mascara falha
-como falso verde.
-
-## CI vermelho → leia o erro literal antes de formular hipótese
-
-Diagnóstico de CI é onde mais se inventa causa plausível e errada. A ordem que
-funciona:
-
-1. **Pegue a mensagem literal.** `gh run view <id> --log-failed` (o
-   `sed -e 's/\x1b\[[0-9;]*m//g'` limpa os códigos de cor). Se você já rerodou
-   e passou, o `--log-failed` volta vazio — baixe a tentativa 1 com
-   `gh api "repos/<owner>/<repo>/actions/runs/<id>/attempts/1/logs"`.
-2. **Só então** olhe o diff e a arquitetura.
-
-Num caso real (2026-08-11) a hipótese de pé era estado compartilhado entre
-testes. Errada: o erro literal era `duplicate key value violates unique
-constraint` — o seed gerava sufixo aleatório num espaço pequeno demais, e a
-colisão aparecia em menos de 1% das execuções. Uma linha de log encerrou o que
-horas de teoria de arquitetura não encerravam.
-
-Antes de chamar um teste de **instável**, exija as três coisas juntas: o arquivo
-não está no seu diff, ele passa localmente **e** o rerun fecha verde. Duas não
-bastam. E quando for instável mesmo, **corrija a causa** e escreva um teste
-determinístico que provaria o bug antigo — rode-o contra o código anterior pra
-confirmar que ele falharia. Teste novo que passa nos dois lados não prova nada.
-
-As duas causas de instabilidade que mais voltam, com o fix de cada uma (espera
-por condição em vez de `sleep`; bisseção do teste que suja o estado com
-`scripts/find-polluter.sh`), estão em `references/testes-flaky.md`.
+Pegue a mensagem literal (`gh run view <id> --log-failed`; rerodado e verde, a
+tentativa 1 sai pelo `gh api .../attempts/1/logs`) antes de olhar diff e
+arquitetura. "Instável" exige as três juntas: fora do seu diff, passa local **e**
+o rerun fecha verde. O caso que ensinou isso, os comandos completos e as duas
+causas que mais voltam (`sleep` no lugar de condição; o teste que suja o estado,
+achado com `scripts/find-polluter.sh`) estão em `references/testes-flaky.md`.
 
 ## Efeito colateral externo → simulado, dry-run, e só então o real
 
@@ -160,8 +124,6 @@ não dispare; um filtro está errado.
 
 ## Fechamento
 
-Converta o teste descartável em ao menos UM teste que fica no repo. Após fix:
-causa raiz + como prevenir a categoria do bug. Antes de reportar, leia o
-`git diff`: ele mostra de uma vez tudo o que mudou, inclusive o que entrou sem
-querer. Reabrir cada arquivo editado não acrescenta nada, porque o Edit já
-falha quando a troca não acontece.
+Converta o teste descartável em ao menos UM teste que fica no repo. Antes de
+reportar, leia o `git diff`, que mostra inclusive o que entrou sem querer; reabrir
+cada arquivo editado não acrescenta nada.

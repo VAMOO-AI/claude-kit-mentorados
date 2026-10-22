@@ -16,6 +16,19 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.66.1] — 2026-10-22
+
+### Alterado
+
+- **Skills enxutas contra o Opus 5.5** (#261): `verificacao` (167 → 129 linhas), `harness-check` (175 → 125), `find-docs` (151 → 45) e `memoria-projeto` (181 → 74).
+  - Fica o que contraria a intuição do modelo: casos de produção, rótulos MEDIDO/ESTIMADO, a defasagem contra o kit, o ID pela versão instalada, o gate de credencial e a publicação.
+  - O que é da casa e saiu do corpo foi para `references/`: o CI vermelho em `verificacao/references/testes-flaky.md`, e o índice e as armadilhas em `memoria-projeto/references/`.
+  - A `harness-check` aponta o `/skill-doctor` e o `/doctor prompt-audit` para o custo por skill e para a auditoria do prompt.
+
+### Corrigido
+
+- **`find-docs`: o `ctx7` velho é atualizado.** A checagem compara a versão com o pin 0.5.13 em vez de só ver se o comando existe. Antes, uma 0.5.10 instalada ficava para sempre.
+
 ## [0.66.0] — 2026-10-22
 
 ### Hooks: 4 cortados, 1 trocado pelo nativo, 2 pares fundidos (#261)

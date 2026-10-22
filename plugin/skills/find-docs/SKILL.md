@@ -7,145 +7,39 @@ description: >-
   Gatilhos: "find-docs", dúvida de API/SDK/CLI, migração.
 ---
 
-# Documentation Lookup
+# Doc oficial pelo Context7
 
-Retrieve current documentation and code examples for any library using the Context7 CLI.
-
-Use the installed CLI; only install it if missing:
-
-```bash
-command -v ctx7 >/dev/null || npm install -g ctx7@0.5.13
-```
-
-Or run directly without installing: `npx ctx7@0.5.13 <command>`.
-
-## Workflow
-
-Two-step process: resolve the library name to an ID, then query docs with that ID.
+O kit fixa o `ctx7` na 0.5.13 e confere a versão, não a presença: um já instalado mais
+velho (ou mais novo) é trocado pelo fixado. Sem instalar: `npx ctx7@0.5.13 <comando>`.
 
 ```bash
-# Step 1: Resolve library ID
-ctx7 library <name> <query>
-
-# Step 2: Query documentation
-ctx7 docs <libraryId> <query>
+[ "$(ctx7 --version 2>/dev/null)" = "0.5.13" ] || npm install -g ctx7@0.5.13
+ctx7 library nextjs "How to set up app router with middleware"   # ID /org/project e Versions
+ctx7 docs /vercel/next.js "How to set up app router with middleware"
 ```
 
-Call `ctx7 library` first to get a valid library ID (`ctx7 docs` fails without one), unless
-the user already gave an ID in the form `/org/project` or `/org/project/version`.
+O `docs` falha sem ID com `/` na frente: o `library` vem antes, salvo se a pessoa deu o ID
+(`/org/project` ou `/org/project/versão`). A query é a pergunta inteira ("hooks" devolve
+resultado genérico) e nunca leva chave, senha, dado pessoal nem código proprietário.
 
-Stop after 3 commands per question — the Context7 quota is monthly. If you still haven't
-found it, use the best result you have and say what the docs didn't cover.
-
-## Step 1: Resolve a Library
-
-Resolves a package/product name to a Context7-compatible library ID and returns matching libraries.
-
-```bash
-ctx7 library react "How to clean up useEffect with async operations"
-ctx7 library nextjs "How to set up app router with middleware"
-ctx7 library prisma "How to define one-to-many relations with cascade delete"
-```
-
-Always pass a `query` argument — it is required and directly affects result ranking. Use the user's intent to form the query, which helps disambiguate when multiple libraries share a similar name. Do not include any sensitive or confidential information such as API keys, passwords, credentials, personal data, or proprietary code in your query.
-
-### Result fields
-
-Each result includes:
-
-- **Library ID** — Context7-compatible identifier (format: `/org/project`)
-- **Name** — Library or package name
-- **Description** — Short summary
-- **Code Snippets** — Number of available code examples
-- **Source Reputation** — Authority indicator (High, Medium, Low, or Unknown)
-- **Benchmark Score** — Quality indicator (100 is the highest score)
-- **Versions** — List of versions if available. Use one of those versions if the user provides a version in their query. The format is `/org/project/version`.
-
-### Choosing the match
-
-Pick the result that best fits the query's intent: name (exact match first), description,
-documentation coverage (Code Snippets), Source Reputation, Benchmark Score. If several fit,
-proceed with the best one and say which you chose. If none fits, say so and retry with a
-refined query. Ask the user only when the plausible readings point to genuinely different
-libraries.
-
-### Version-specific IDs
-
-If the user mentions a specific version, use a version-specific library ID:
-
-```bash
-# General (latest indexed)
-ctx7 docs /vercel/next.js "How to set up app router"
-
-# Version-specific
-ctx7 docs /vercel/next.js/v14.3.0-canary.87 "How to set up app router"
-```
-
-The available versions are listed in the `ctx7 library` output. Use the closest match to what the user specified.
-
-### Projeto com `package.json`: a versão instalada escolhe o ID
+## Projeto com `package.json`: a versão instalada escolhe o ID
 
 Sem versão dita pela pessoa, a doc certa é a da versão que o projeto roda, não a última
 indexada (`cookies()` virou async no Next 15; o Tailwind v4 trocou o config por `@theme`).
-Antes do Step 2:
+Antes do `ctx7 docs`:
 
-1. Leia a versão instalada no campo `version` de `node_modules/<lib>/package.json` (abra o
-   arquivo, não precisa de `jq`); sem `node_modules`, procure a lib no lockfile; sem os dois,
-   use a faixa do `package.json`.
+1. Leia o campo `version` de `node_modules/<lib>/package.json` (abra o arquivo, não precisa
+   de `jq`); sem `node_modules`, procure a lib no lockfile; sem os dois, use a faixa do
+   `package.json`.
 2. Na linha `Versions` do `ctx7 library`, escolha a mesma major, e dentro dela a minor mais
    próxima. A lista vem fora de ordem e mistura `canary` e `__branch__…`: ignore esses dois.
 3. Diga qual ID usou. Sem versão da mesma major na lista, use o ID geral e avise que a doc é
    da última versão indexada, não da instalada.
 
-## Step 2: Query Documentation
+## Teto e cota
 
-Retrieves up-to-date documentation and code examples for the resolved library.
-
-```bash
-ctx7 docs /facebook/react "How to clean up useEffect with async operations"
-ctx7 docs /vercel/next.js "How to add authentication middleware to app router"
-ctx7 docs /prisma/prisma "How to define one-to-many relations with cascade delete"
-```
-
-### Writing good queries
-
-The query directly affects the quality of results. Be specific and include relevant details. Do not include any sensitive or confidential information such as API keys, passwords, credentials, personal data, or proprietary code in your query.
-
-| Quality | Example |
-|---------|---------|
-| Good | `"How to set up authentication with JWT in Express.js"` |
-| Good | `"React useEffect cleanup function with async operations"` |
-| Bad | `"auth"` |
-| Bad | `"hooks"` |
-
-Use the user's full question as the query when possible, vague one-word queries return generic results.
-
-The output contains two types of content: **code snippets** (titled, with language-tagged blocks) and **info snippets** (prose explanations with breadcrumb context).
-
-## Authentication
-
-Works without authentication. For higher rate limits:
-
-```bash
-# Option A: environment variable
-export CONTEXT7_API_KEY=your_key
-
-# Option B: OAuth login
-ctx7 login
-```
-
-## Error Handling
-
-If a command fails with a quota error ("Monthly quota reached" or "quota exceeded"):
-1. Inform the user their Context7 quota is exhausted
-2. Suggest they authenticate for higher limits: `ctx7 login`
-3. If they cannot or choose not to authenticate, answer from training knowledge and clearly note it may be outdated
-
-Do not silently fall back to training data — always tell the user why Context7 was not used.
-
-## Common Mistakes
-
-- Library IDs require a `/` prefix — `/facebook/react` not `facebook/react`
-- Always run `ctx7 library` first — `ctx7 docs react "hooks"` will fail without a valid ID
-- Use descriptive queries, not single words — `"React useEffect cleanup function"` not `"hooks"`
-- Do not include sensitive information (API keys, passwords, credentials) in queries
+Pare em 3 comandos por pergunta: a cota do Context7 é mensal. Não achou, use o melhor
+resultado e diga o que a doc não cobriu. Erro de cota ("Monthly quota reached", "quota
+exceeded"): avise a pessoa, sugira `ctx7 login` (ou `CONTEXT7_API_KEY`) para limite maior e,
+se ela não quiser, responda do conhecimento do modelo dizendo que pode estar desatualizado.
+Nunca caia no conhecimento do modelo calado.

@@ -50,7 +50,7 @@ Cada coisa tem um lugar. Misturar incha o contexto e degrada tudo.
 ficaria surpreso ao descobrir isso e grato por já saber? "O projeto usa Supabase" não
 passa: está no código. "O preview da Vercel pede login e o cliente aprova pelo WhatsApp"
 passa: ninguém descobre isso lendo o projeto. O que só vale hoje (prazo, quem revisa
-amanhã) também não entra. A skill `memoria-projeto` tem mais exemplos dos dois lados.
+amanhã) também não entra.
 
 > **Anti-pattern comum:** "toda vez que termino uma feature, mando atualizar o
 > AGENTS.md". NÃO. O AGENTS.md entra **inteiro** no contexto em **toda** sessão (o
