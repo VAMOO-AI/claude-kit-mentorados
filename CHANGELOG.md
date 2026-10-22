@@ -16,6 +16,11 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.64.3] — 2026-10-22
+
+### Mudado
+- `ship`, `baseline` e `bot-discord` mais curtas (#261). A `ship` cai de 297 para 250 linhas: a Vercel bloqueada pelo author do commit vira `references/vercel-author-bloqueado.md`, e as Regras duras deixam de repetir o corpo. A `baseline` diz uma vez só o bloco de comandos e a exceção aceita, e o pilar 06 troca o init genérico do Sentry pelas pegadinhas. O `03-deploy-vps.md` da `bot-discord` (336 para 200) aponta para a `monitoramento-infra` em reboot, `boot-guard`, CPU alta, firewall, backup e hardening, e fica com o que é do bot.
+
 ## [0.64.2] — 2026-10-22
 
 ### Mudado
