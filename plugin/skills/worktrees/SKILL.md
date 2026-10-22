@@ -14,298 +14,82 @@ allowed-tools:
 
 # Terminais paralelos & worktrees
 
-## Por que isso importa
+## Isolamento
 
-Várias abas/sessões abertas no MESMO clone compartilham a mesma branch e a mesma
-área de staging do Git. Se uma sessão troca de branch, a outra pode commitar sem
-perceber no lugar errado. Duas formas de se proteger:
+- Sessão que vai **escrever**, com outra sessão possivelmente ativa no repo: worktree
+  próprio com o `EnterWorktree` (cria em `<repo>/.claude/worktrees/`, onde o kit copia o env
+  e liga a memória). O clone principal fica na `main`, só leitura.
+- Arquivo **versionado** se restaura de `origin` (`git restore --source=origin/<branch> <arq>`),
+  nunca copiado do clone principal: ele pode estar commits atrás.
+- **Env:** no primeiro prompt dentro do worktree, um hook copia do clone os `.env*` que o git
+  ignora, sem sobrescrever. Worktree criado no meio de uma resposta só recebe no prompt
+  seguinte; criado fora de `.claude/worktrees/`, copie à mão. `.npmrc`/`bunfig.toml` ficam de
+  fora (token de registry). Sintoma da falta: login com **"Failed to fetch"**.
+- **`node_modules`** não vem: `npm install` no worktree. Symlink quebra os binários do `.bin`.
 
-## Isolamento (o jeito seguro)
+## Quando o guard recusa o comando
 
-- Sessão que vai **escrever**: entre num *worktree* próprio (pasta separada com
-  branch própria) sempre que outra sessão puder estar ativa no mesmo repo — no
-  Claude Code, com a ferramenta `EnterWorktree`: ela cria em
-  `<repo>/.claude/worktrees/`, põe a sessão lá dentro, e é ali que o kit copia o
-  `.env.local` e liga a memória. O clone principal fica na `main`, só pra leitura.
-  Fora do Claude Code: `git worktree add ../meu-worktree -b feat/minha-tarefa`
-  (sem esses dois hooks — seção abaixo).
-- **NUNCA** faça `git checkout`/`switch`/`stash`/`reset` num clone que outra
-  sessão está usando sem avisar — ela pode ter trabalho em andamento.
-- Um worktree branca da versão do `origin`. Pra restaurar um arquivo
-  **versionado**, use `git restore --source=origin/<branch> <arquivo>` — não
-  copie arquivo versionado do clone principal nem de outro clone na mão (ele
-  pode estar commits atrás e você sobrescreve código novo com velho). Arquivo
-  que o git ignora, como o `.env.local`, é o caso oposto: ele não existe em
-  `origin`, então o clone principal é a única fonte (seção abaixo).
+*"too complex to verify that it stays inside the worktree"* é do harness, não do kit. Na
+2.1.306 seguem recusados: `bash "$VAR/x.sh"` (o caminho literal passa), `source <arquivo>`,
+`gh` com `VAR="$(…)"` somado a `-q`/`--jq` entre aspas, launcher antes do `git` (o `git` tem
+de ser o primeiro token) e heredoc seguido de `&&`. Contorno: `Write` o comando num `.sh` no
+scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de ferramenta.
 
-### O `.env.local` vem sozinho; o `node_modules` não
+## Base velha
 
-Worktree nasce só com o que está **commitado**. O `.env.local` é ignorado pelo
-git, então não vem — e o sintoma aparece longe da causa: o `npm run dev` sobe,
-o app não acha `NEXT_PUBLIC_SUPABASE_URL` (ou `VITE_SUPABASE_URL`) e a tela de
-login devolve **"Failed to fetch"**. Nada na tela diz "faltou env".
+- O squash do GitHub não apaga arquivo que só existe na `main`. Diff de PR é de **três
+  pontos** (`origin/main...HEAD`); dois pontos mostra o alheio como deleção.
+- **O verde do CI é do seu SHA, não da `main` de agora.** Cruze `git diff --name-only
+  origin/main...HEAD` com `git log --name-only HEAD..origin/main`: arquivo ou comportamento
+  nas duas → traga a `main` (rebase se a branch é só sua, merge se outra pessoa commita nela) e
+  rode os testes de novo. Sem sobreposição, siga: rebase por higiene vira esteira.
+- Branch de **outra sessão viva**: não rebase por baixo dela. Worktree próprio de
+  `origin/main` e `git cherry-pick` dos commits.
 
-O kit resolve isso com um hook: no primeiro prompt que você manda dentro de um
-worktree sob `<repo>/.claude/worktrees/` (onde o `EnterWorktree` cria), ele
-copia do clone principal os arquivos `.env*` que o git **ignora e não estão no
-índice** — no clone e também na branch do worktree —, e nunca sobrescreve
-arquivo que já existe no worktree. `.npmrc`, `bunfig.toml` e `.bunfig.toml` ficam de
-fora de propósito (costumam guardar token de registry): o kit só avisa que existem, e
-você copia à mão se o install pedir autenticação. Duas consequências:
+## Commit seguro em clone compartilhado
 
-- O worktree criado no meio de uma resposta só recebe o env no **prompt
-  seguinte**. Se o dev server falhar no mesmo turno em que o worktree nasceu,
-  confira se o `.env.local` já está lá antes de depurar outra coisa.
-- Worktree criado fora dali (`git worktree add ../outro-lugar`) não recebe
-  nada. Copie você: `cp <clone>/.env.local <worktree>/`. Não contradiz a regra
-  de cima — ela vale para arquivo versionado.
-
-O **`node_modules`** fica de fora de propósito: rode `npm install` (ou o
-gerenciador do projeto) dentro do worktree. Symlink para o `node_modules` do
-clone quebra binário de `.bin` com caminho absoluto e faz dois worktrees
-disputarem o mesmo lock de ferramenta. Enquanto ele não existe, `npx
-<ferramenta>` resolve uma versão de fora do projeto, e o erro que aparece não
-fala em instalação faltando.
-
-## Quando o Claude recusa seu comando dentro do worktree
-
-Trabalhando numa sessão isolada, alguns comandos de shell são recusados com
-*"too complex to verify that it stays inside the worktree"*. Isso é do **harness**,
-não do kit, e não é bug: ele não consegue provar que aquele comando fica dentro
-do worktree, então nega.
-
-Pega heredoc grande (`cat > arquivo <<'EOF'`, `python3 - <<'EOF'`), encadeamento
-de `&&` com heredoc, laço artesanal com `for`/`comm`/`jq`, e qualquer coisa com
-`cd` para o clone compartilhado — inclusive `git worktree add` rodado de lá.
-
-**A detecção é por texto, não por semântica.** É por isso que ela pega comando
-sem nada de git. Casos medidos no Claude Code 2.1.258 (02/09/2026), salvo onde
-o item diz outra versão; as recusas de `source` e do `gh` com `-q` também
-foram vistas na 2.1.277 e na 2.1.278 (19/09/2026):
-
-- **a substring `git` dentro de outra palavra conta** — um script Python que lia
-  a chave JSON `githubCommitSha` da API da Vercel foi recusado como se fosse
-  git, sendo `curl` puro (`print('gith'+'ubCommitSha')` passa, o que confirma o
-  casamento de texto);
-- **colchete de rota dinâmica** (`src/app/.../[id]/route.ts`) num comando
-  composto vira "construct too complex";
-- **`cd` para OUTRO repositório** também é recusado, não só para o clone pai: de
-  dentro de um worktree você não mexe em outro repo, nem para ler o status;
-- **`git` tem de ser o PRIMEIRO token do comando.** Qualquer launcher na frente
-  esconde o git e a recusa muda de texto: *"runs `<launcher>` with a git command
-  among its operands: what runs it … cannot be read here"*. Um hook que reescreve
-  `git add x` para `<launcher> git add x` faz um `git add` de um arquivo só parar
-  de rodar (2.1.259, 03/09/2026). Se você tem hook de PreToolUse que prefixa comandos,
-  desligue-o para git quando o `cwd` estiver sob `.claude/worktrees/`;
-- **parêntese no título do PR é lido como subshell.** `gh pr create --title
-  "docs(escopo): …"` — o `(escopo)` do Conventional Commit — é recusado com
-  *"uses a subshell in a command in a plain command"*. Como todo PR usa esse
-  formato, a recusa atinge todo `gh pr create` feito de dentro de um worktree
-  (2.1.259, 03/09/2026);
-- **`source <arquivo>` é recusado, mesmo sendo só um `.env`.** `set -a; source
-  ~/.claude/.env.tokens; set +a; python3 /abs/script.py` vira *"runs a string
-  through source, which can't be verified to stay inside the worktree"*. Não há
-  git na linha — é o padrão de carregar credencial antes de um `curl`
-  (2.1.259, 03/09/2026);
-- **`gh` também é inspecionado**, e dois gatilhos somados o derrubam: prefixo
-  de env com substituição de comando (`VAR="$(…)"`) e a expressão `--jq` entre
-  aspas — *"runs gh with the text … inside a construct too complex to verify"*
-  (2.1.259, 03/09/2026);
-- **`bash "$VAR/script.sh"` é recusado; `bash /caminho/absoluto/script.sh` passa.**
-  Com o caminho numa variável o guard não sabe qual arquivo vai ser lido e recusa
-  (*"what it reads or is handed as shell text cannot be shown not to run git"*).
-  Com o caminho literal passa, mesmo que o script seja git puro (17/09/2026).
-
-**O guard inspeciona a linha de comando, não o corpo do arquivo.** Medido na 2.1.259
-(03/09/2026): `printf 'print("chave:", "githubCommitSha")\n' > t.py` é recusado
-(a substring está na linha); o mesmo arquivo escrito com `Write` e rodado com
-`python3 /abs/t.py` executa e imprime `githubCommitSha`. Isso decide o contorno:
-o script pode usar o nome literal — obfuscação commitada
-(`"".join(["gi","thubCommitSha"])`) lê como bug para a próxima pessoa.
-
-**Não insista no mesmo comando.** Troque de ferramenta:
-
-| Em vez de | Faça |
-|---|---|
-| `cat > arquivo <<'EOF'` com conteúdo longo | `Write` |
-| `python3 - <<'EOF'` com patch de texto | `Edit` (é exatamente o caso de uso dele) |
-| `python3 -c "…"` citando `github`/`git` | `Write` num arquivo e `python3 <path>` |
-| `cd <clone>` + `git worktree add` | rode `git worktree add` de dentro do próprio worktree |
-| `cd <outro-repo>` + qualquer coisa | saia do worktree antes; ele é de um repo só |
-| heredoc `&&` comando encadeado | comandos separados, um por chamada |
-| path com `[colchetes]` em comando composto | o comando sozinho, sem `&&` nem `${VAR[0]}` |
-| `gh pr create --title "tipo(escopo): …"` | `Write` o comando num `.sh` no scratchpad e `bash <path>` — ou abra o PR depois do `ExitWorktree keep` |
-| `source <arquivo de env>` antes do comando | o script lê o arquivo sozinho; a linha de comando chama só o script |
-| `VAR="$(…)" gh … -q '"\(.a)"'` | token num arquivo + wrapper `.sh`; `--json` sem `-q` |
-| `bash "$VAR/script.sh"` | o mesmo script pelo caminho literal; comando composto recusado vira um `.sh` no scratchpad chamado assim |
-
-Heredoc curto (10–15 linhas, sem `&&` depois) costuma passar. O sinal de que
-você está insistindo é a **segunda recusa idêntica**: pare e troque de
-ferramenta em vez de reescrever o mesmo comando.
-
-Uma pegadinha relacionada: da pasta onde a sessão abriu, o `EnterWorktree` com
-`path:` entra em qualquer worktree que apareça em `git worktree list` (fora de
-`.claude/worktrees/` o Claude Code pode pedir permissão); de dentro de um
-worktree, só troca para outro sob `<repo>/.claude/worktrees/` do mesmo repo. O
-`ExitWorktree` não remove worktree em que a sessão só entrou por `path:` — a
-limpeza dele é a manual ("Limpeza no fim"). Se você já está num worktree e precisa
-de outra branch, o barato é `git checkout -b <nova> origin/main` no worktree que
-você já tem — desde que o trabalho anterior já esteja mergeado ou pusheado.
-
-## Base velha: o que ela custa (e o que NÃO custa)
-
-Worktrees abertos ao mesmo tempo branchan todos do mesmo commit. A primeira
-sessão que mergeia move a `main`; as outras continuam com a base de antes.
-
-**O que NÃO acontece:** o squash do GitHub não apaga o trabalho alheio. Ele faz
-merge de três vias e depois achata — arquivo que só existe na `main` continua lá:
-
-```bash
-# main: a.txt → + c.txt (alheio) | feat (branchada antes): a.txt + b.txt
-git merge --squash feat && git commit -m x
-ls   # a.txt  b.txt  c.txt   ← c.txt sobreviveu
-```
-
-**A armadilha:** `git diff origin/main..branch` (DOIS pontos) compara os dois
-topos, então tudo que só existe na `main` aparece como deleção — centenas de
-linhas "apagadas" em arquivos que a sua branch nunca tocou. O diff de um PR é
-**três pontos** (`origin/main...branch`, do ponto onde a branch saiu até a
-ponta dela): é o que o GitHub mostra e o que o merge aplica. Dois pontos serve
-para "o que existe lá e não aqui", nunca para prever um merge.
-
-**O que base velha custa de verdade:**
-
-- **O verde do CI é do seu commit, não da `main` de agora.** Conflito
-  semântico (sua branch e a que entrou no meio mexeram no mesmo comportamento
-  por caminhos diferentes) passa nos dois CIs e quebra depois do merge. Só o
-  CI rodando sobre a `main` nova prova: `git rebase origin/main` se a branch é
-  só sua, `git merge origin/main` se outra pessoa também commita nela (rebase
-  ali pede force-push, que a `git-sync` proíbe). Conflito textual não é
-  problema: o GitHub acusa e recusa o merge.
-- **Trabalho duplicado.** Duas sessões no mesmo escopo escrevem o mesmo código
-  e a segunda só descobre no PR. O git não resolve — resolve escopo disjunto
-  combinado antes (skill `orquestracao`).
-
-**Quando rebasear:** quando o que entrou na `main` toca os mesmos arquivos ou o
-mesmo comportamento que a sua branch. Cruze as duas listas:
-
-```bash
-git fetch origin -q
-git diff --name-only origin/main...HEAD     # o que o SEU PR mexe (três pontos)
-git log --name-only --oneline HEAD..origin/main   # o que entrou desde a sua base
-```
-
-Arquivo nas duas → traga a `main` (rebase ou merge, como acima), rode os testes
-de novo e só então abra ou mergeie o PR. Sem sobreposição, mergeie como está:
-rebase por higiene, com merges alheios a cada poucos minutos, vira esteira —
-você rebaseia, o CI roda, a base envelhece de novo.
-
-**A branch é de outra sessão viva (worktree em uso, commit recente)?** Não
-rebase por baixo dela — reescrever o histórico debaixo de uma sessão ativa lhe
-tira o chão. Crie worktree próprio a partir de `origin/main` e traga os commits
-com `git cherry-pick`; a branch original fica intacta.
-
-## Commit seguro quando o clone é compartilhado
-
-- Confirme a branch **no mesmo comando** do commit, não em passos separados (a
-  branch pode mudar no meio):
-  `[ "$(git branch --show-current)" = "feat/x" ] && git commit ...`.
-- `git add` só nos arquivos que você mexeu (`git add <arquivos>`), **nunca**
-  `git add -A`/`-u`/`.` — o staging é compartilhado; arquivo de outra sessão
-  entra de carona no seu commit.
-- Depois de todo commit: `git log --oneline -1` e confira que caiu na branch
-  certa ANTES de push/merge.
-- O kit instala um hook que **bloqueia `git commit` na `main`/`master`**. Se um
-  dia precisar mesmo commitar na main de propósito, rode o comando com
-  `HOTFIX_MAIN=1` na frente. O hook checa a branch **antes** do comando —
-  `git checkout -b X && git commit` é bloqueado (ele vê a main). Crie a branch
-  num comando separado, depois commite.
-- O kit também **bloqueia `git checkout`/`switch`/`stash`/`reset --hard` no
-  clone principal quando outra sessão Claude esteve ativa nele nos últimos 30
-  minutos** — é a regra de cima virando hook. Worktree próprio é livre. Se tiver
-  certeza de que ninguém mais está escrevendo naquele clone, prefixe o comando
-  com `PARALLEL_OK=1`. E, a cada prompt, ele avisa se a branch mudou desde o
-  prompt anterior: alguém trocou por fora — confirme antes de editar.
+- Branch conferida no mesmo comando do commit; `git add <arquivos>`, nunca `-A`/`.`.
+- O kit bloqueia `git commit` na `main` (`HOTFIX_MAIN=1` de propósito) e checa a branch
+  **antes** do comando: crie a branch num comando, commite em outro.
+- O kit bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone principal com outra
+  sessão ativa nos últimos 30 min (`PARALLEL_OK=1` só com certeza) e avisa se a branch mudou
+  entre prompts.
 
 ## O banco local NÃO é isolado por worktree
 
-O worktree isola os arquivos do projeto. O banco de desenvolvimento — o
-`supabase start`, o Postgres em Docker, o que for — é **um só na sua máquina**,
-compartilhado por todos os worktrees. A migration que você roda num worktree
-aparece no banco que o outro está usando.
+O `supabase start` (ou o Postgres em Docker) é um só na máquina: a migration de um worktree
+aparece no banco do outro. O sintoma é um **`git push` recusado** por gate de schema que acha
+tabela fora das suas migrations.
 
-O sintoma não é um erro de banco: é um **`git push` recusado** por um gate que
-compara o schema do código com o schema vivo (tipos gerados, checagem de
-migrations). Ele acha tabelas que não estão nas suas migrations e reprova por
-um motivo que não tem nada a ver com o que você mexeu.
-
-O que fazer, nessa ordem:
-
-1. **`git fetch && git log HEAD..origin/main`.** Quase sempre o trabalho do
-   outro worktree já foi mergeado. Traga a `main` para a sua branch — as
-   tabelas "estranhas" viram legitimamente suas e o gate fica verde sozinho.
-2. Se ainda não foi mergeado: pular o hook no push (`--no-verify`) é decisão da
-   pessoa — a `ship` só pula hook com pedido explícito. Proponha só se o gate
-   completo passou antes do drift aparecer: mostre o que ele acusou, que as
-   tabelas vêm das migrations do outro worktree e que o CI roda contra um banco
-   limpo. Com o OK, pushe e diga no PR que o hook foi pulado e por quê.
-3. **Nunca resete o banco para "limpar".** `db reset` apaga as migrations do
-   outro worktree junto: você desbloqueia o seu push destruindo o ambiente de
-   quem está trabalhando ao lado.
-
-Vale para os DADOS também: linha de teste que você inserir para provar alguma
-coisa aparece na tela da outra sessão. Insira, prove e **apague o que você
-criou** — não com um reset.
+1. `git fetch && git log HEAD..origin/main`: quase sempre o outro já mergeou; traga a `main`.
+2. Não mergeado: `--no-verify` é decisão da pessoa, com o motivo dito no PR.
+3. **Nunca `db reset` para "limpar"**: apaga as migrations do outro worktree. Dado de teste
+   que você inseriu, apague você, linha a linha.
 
 ## Limpeza no fim
 
-Apagar worktree e branch é com pedido da pessoa ("pode limpar") e com prova de
-que o trabalho está na `main`. A prova vem do PR: squash merge quebra a
-ancestralidade, então o `git branch -d` recusa, e um `-D` sem prova apaga também
-commit que nunca subiu.
+Só com pedido da pessoa ("pode limpar") e com a **prova completa**:
 
 ```bash
-gh pr list --state merged --head <branch> --json number,headRefOid
-git rev-parse <branch>                # igual ao headRefOid: nenhum commit ficou fora do PR
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>
+gh pr list --state merged --head <branch> --json number,headRefOid   # MERGED
+git rev-parse <branch>                                               # == headRefOid
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>   # exit 0
 ```
 
-O `status` não mostra o que o git ignora, e o `git worktree remove` apaga esses
-arquivos sem recusar, mesmo sem `--force`: o `.env.local` que o hook copiou e a
-sessão editou, um `outputs/video.mp4`, um repositório clonado dentro do worktree.
-O `--verificar` não remove nada (só atualiza as refs remotas com `git fetch --prune`); ele junta as travas num check só e sai 0 com
-`pode remover: <caminho>` ou 1 com `keep: <caminho> — <motivos>`:
+O `git worktree remove` apaga o que o git ignora sem recusar (`.env.local` editado,
+`outputs/video.mp4`, repo clonado dentro). O `--verificar` não remove nada: sai 0 com
+`pode remover:` ou 1 com `keep: <caminho> — <motivos>` (não commitado, env diferente do clone,
+repo aninhado, ignorado de valor, branch não mergeada); exit 2 é uso errado. Quando o motivo
+diz "sem gh nem token da API", a prova do PR acima vale à mão, com uma conta do `gh` que
+enxergue o repo.
 
-- mudança não commitada, inclusive untracked;
-- env ignorado (`.env*`, `.npmrc`, `bunfig.toml`, `.bunfig.toml`, de qualquer
-  pasta) diferente do clone principal ou que só existe no worktree;
-- repositório aninhado ignorado, que o remove apagaria com `.git` e tudo;
-- qualquer outro ignorado de valor (`outputs/`, `.context/runtime/`), com os
-  caminhos. Passam só symlink (remover o link não apaga o alvo) e cache/build que
-  uma instalação recria (`node_modules`, `.next`, `dist`, `build`, `.venv`...);
-- branch não mergeada na branch padrão do origin (sem padrão descoberta, é keep com o
-  motivo). O squash é provado pelo PR, pelo `gh` ou, se a conta dele não enxerga o repo,
-  pela API REST com o token de `git config git-sync.tokenVar`, como no git-sync. Só
-  quando o motivo diz "sem gh nem token da API" vale a prova do PR acima à mão, com uma
-  conta do `gh` que enxergue o repo, e os
-  outros motivos continuam valendo.
+- Faltou um item (exit 1): o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz à
+  pessoa o que faltou, com a linha `keep:`.
+- Prova completa: `git worktree remove <wt>` (nunca `--force`), `git branch -D`, `git worktree
+  prune`. Worktree do `EnterWorktree`: `ExitWorktree` `action: "remove"`; `discard_changes:
+  true` só com a prova completa e o `--verificar` rodado de novo **logo antes** (ele apaga
+  ignorado sem listar).
+- Vários: `git-sync --cleanup-dry-run`; `--cleanup-apply` só com o pedido.
 
-Exit 2 é uso errado (o clone principal, caminho que não é raiz de worktree).
-
-- Prova completa (PR mergeado, head == tip e o `--verificar` sem outro motivo):
-  `git worktree remove <worktree>` (nunca `--force`), `git branch -D <branch>` e
-  `git worktree prune`. Worktree que esta sessão criou com o `EnterWorktree`:
-  `ExitWorktree` com `action: "remove"`; se ele recusar por commits fora da branch
-  original (é o squash), `discard_changes: true` só com a prova completa — ele
-  também apaga o que não foi commitado e o que o git ignora, sem listar, como um
-  `--force`. Por isso o `--verificar` roda de novo **logo antes** do re-invoke, não só
-  no começo da limpeza: exit 0 libera, qualquer outro exit é `action: "keep"`.
-- Faltou um item: o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz
-  à pessoa o que faltou — a linha `keep:` do `--verificar` já traz o arquivo, o repo
-  aninhado ou os caminhos ignorados.
-- Vários de uma vez: `git-sync --cleanup-dry-run`, e o `--cleanup-apply` só com o
-  pedido. Ele cobra a mesma prova e as mesmas travas de ignorado (ou a
-  ancestralidade, quando o merge não foi squash).
-
-Depois, `git fetch --prune`. O clone principal fica na `main`; atualize-o com
-`git pull --ff-only`, sem trocar a branch dele — outra sessão pode estar lendo dali.
+Depois, `git fetch --prune`; o clone principal se atualiza com `git pull --ff-only`, sem trocar
+de branch.
