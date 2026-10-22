@@ -60,9 +60,15 @@ da API, a branch fica. Remoto nunca é apagado.
   ```
 
   O token é lido só na linha dele, nunca impresso, e vai ao `curl` pelo stdin.
-  `git config git-sync.repo dono/nome` sobrepõe o slug do `origin`. Sem token, o cleanup diz
+  Sem token, o cleanup diz
   "sem prova" e não apaga nada. Com o `gh` instalado mas cego para o repo, só a prova de merge
   cai sozinha na API; a lista de PRs continua no `gh` e só avisa que ele falhou.
+
+- **Qual repo o `gh` consulta:** o do `origin`. O script exporta `GH_REPO` com o slug dele,
+  porque sem `gh repo set-default` o `gh` preferiria um remote `upstream` (template, fork de
+  origem), e o relatório inteiro sairia do repo errado. `git config git-sync.repo dono/nome`
+  sobrepõe o slug (no `gh` e na API REST), e um `GH_REPO` já exportado no ambiente vence os
+  dois. Fork que abre PR no upstream: `git config git-sync.repo dono/upstream`.
 
 ## Convivência em repo de time
 
