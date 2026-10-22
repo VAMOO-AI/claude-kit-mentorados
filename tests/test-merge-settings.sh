@@ -120,7 +120,7 @@ check "a fonte que você já tinha NÃO é trocada pela do kit" \
   "d.extraKnownMarketplaces['vamoo-ai'].source.source" '"directory"'
 check "marketplace de outro time continua no arquivo" \
   "'marketplace-do-meu-time' in d.extraKnownMarketplaces" "true"
-printf '%s' "$SAIDA" | grep -q 'extraKnownMarketplaces.vamoo-ai.autoUpdate' \
+printf '%s' "$SAIDA" | grep >/dev/null 'extraKnownMarketplaces.vamoo-ai.autoUpdate' \
   && echo "  ok    a saída nomeia o auto-update que ligou" \
   || { echo "  FALHA a saída não nomeia o auto-update: $SAIDA"; falhas=$((falhas+1)); }
 
@@ -151,7 +151,7 @@ process.exit(d.extraKnownMarketplaces['vamoo-ai'].autoUpdate === false ? 0 : 1);
 " < "$TMP/desligado.json" 2>/dev/null \
   && echo "  ok    autoUpdate:false continua false" \
   || { echo "  FALHA o kit religou um auto-update que a pessoa desligou"; falhas=$((falhas+1)); }
-printf '%s' "$SAIDA_OFF" | grep -qi 'auto-update' \
+printf '%s' "$SAIDA_OFF" | grep >/dev/null -i 'auto-update' \
   && echo "  ok    avisa que manteve a escolha da pessoa" \
   || { echo "  FALHA não avisou sobre o auto-update desligado: $SAIDA_OFF"; falhas=$((falhas+1)); }
 
@@ -172,14 +172,14 @@ process.exit('hooks' in JSON.parse(require('fs').readFileSync(0, 'utf8')) ? 1 : 
   || { echo "  FALHA a limpeza do hook antigo criou a chave hooks em quem não tinha"; falhas=$((falhas+1)); }
 
 echo "== o instalador precisa dizer o que fez =="
-printf '%s' "$SAIDA" | grep -q 'permissions.deny (+2)' \
+printf '%s' "$SAIDA" | grep >/dev/null 'permissions.deny (+2)' \
   && echo "  ok    a saída nomeia as barreiras acrescentadas" \
   || { echo "  FALHA a saída não nomeia o deny acrescentado: $SAIDA"; falhas=$((falhas+1)); }
-printf '%s' "$SAIDA" | grep -q 'pra voltar ao manual de vez' \
-  && printf '%s' "$SAIDA" | grep -q 'manter-modo-manual' \
+printf '%s' "$SAIDA" | grep >/dev/null 'pra voltar ao manual de vez' \
+  && printf '%s' "$SAIDA" | grep >/dev/null 'manter-modo-manual' \
   && echo "  ok    diz que trocou o modo e como voltar (com o marcador)" \
   || { echo "  FALHA não explicou a troca de modo nem como voltar: $SAIDA"; falhas=$((falhas+1)); }
-printf '%s' "$SAIDA" | grep -q 'removido: hook antigo do dotcontext (2)' \
+printf '%s' "$SAIDA" | grep >/dev/null 'removido: hook antigo do dotcontext (2)' \
   && echo "  ok    a saída nomeia o hook antigo que tirou" \
   || { echo "  FALHA a saída não nomeia a remoção do hook antigo: $SAIDA"; falhas=$((falhas+1)); }
 
@@ -303,7 +303,7 @@ grep -qF 'Accept edits ("acceptEdits") → "auto"' "$ULTIMO_DIR/saida.txt" && gr
   || { echo "  FALHA a troca do acceptEdits não explica o que mudou nem como voltar: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
 ANTES_AE="$(cat "$ULTIMO_DIR/settings.json")"
 SEGUNDA_AE="$(node "$MERGE" "$TMP/kit.json" "$ULTIMO_DIR/settings.json" 2>&1)"
-[ "$ANTES_AE" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA_AE" | grep -q 'modo de permissão' \
+[ "$ANTES_AE" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA_AE" | grep >/dev/null 'modo de permissão' \
   && echo "  ok    depois de migrar o acceptEdits, a segunda passada fica calada" \
   || { echo "  FALHA segunda passada depois do acceptEdits mexeu ou anunciou: $SEGUNDA_AE"; falhas=$((falhas+1)); }
 esperado "marcador kit-vamoo/manter-accept-edits segura o acceptEdits" "$(modo_apos acceptEdits marcador-accept)" "acceptEdits"
@@ -332,7 +332,7 @@ grep -q 'mantive o manual' "$ULTIMO_DIR/saida.txt" \
 modo_apos default >/dev/null
 ANTES_MODO="$(cat "$ULTIMO_DIR/settings.json")"
 SEGUNDA="$(node "$MERGE" "$TMP/kit.json" "$ULTIMO_DIR/settings.json" 2>&1)"
-[ "$ANTES_MODO" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA" | grep -q 'modo de permissão' \
+[ "$ANTES_MODO" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA" | grep >/dev/null 'modo de permissão' \
   && echo "  ok    segunda passada não troca nem anuncia o modo de novo" \
   || { echo "  FALHA segunda passada mexeu no modo: $SEGUNDA"; falhas=$((falhas+1)); }
 
@@ -435,13 +435,13 @@ for r in 'Bash(npm run build)' 'Bash(meu-script:*)' 'Bash(ls:*)'; do
   node -e 'process.exit(require(process.argv[1]).permissions.allow.includes(process.argv[2]) ? 0 : 1)' "$TMP/legado.json" "$r" \
     && echo "  ok    allow seu fica: $r" || { echo "  FALHA o merge tirou um allow que não era do kit: $r"; falhas=$((falhas+1)); }
 done
-printf '%s' "$SAIDA_L" | grep -qF 'removido do allow: Bash(awk:*), Bash(npm run:*), Bash(npx tsx:*), PowerShell(npm run *), PowerShell(npx tsx *)' \
+printf '%s' "$SAIDA_L" | grep >/dev/null -F 'removido do allow: Bash(awk:*), Bash(npm run:*), Bash(npx tsx:*), PowerShell(npm run *), PowerShell(npx tsx *)' \
   && echo "  ok    a saída nomeia os allows que tirou" || { echo "  FALHA a saída não nomeia a remoção: $SAIDA_L"; falhas=$((falhas+1)); }
-printf '%s' "$SAIDA_L" | grep -qF '"Bash(npm run build)"' \
+printf '%s' "$SAIDA_L" | grep >/dev/null -F '"Bash(npm run build)"' \
   && echo "  ok    a saída ensina a liberar o comando exato no projeto" || { echo "  FALHA a saída não diz como liberar no projeto: $SAIDA_L"; falhas=$((falhas+1)); }
 ANTES_L="$(cat "$TMP/legado.json")"
 SAIDA_L2="$(node "$MERGE" "$TEMPLATE" "$TMP/legado.json" 2>&1)"
-[ "$ANTES_L" = "$(cat "$TMP/legado.json")" ] && ! printf '%s' "$SAIDA_L2" | grep -q 'removido do allow' \
+[ "$ANTES_L" = "$(cat "$TMP/legado.json")" ] && ! printf '%s' "$SAIDA_L2" | grep >/dev/null 'removido do allow' \
   && echo "  ok    segunda passada não mexe nem anuncia a remoção de novo" \
   || { echo "  FALHA segunda passada mexeu ou repetiu a remoção: $SAIDA_L2"; falhas=$((falhas+1)); }
 for r in 'Bash(awk:*)' 'Bash(npm run:*)' 'Bash(npx tsx:*)' 'PowerShell(npm run *)' 'PowerShell(npx tsx *)'; do
@@ -457,13 +457,13 @@ cat > "$TMP/meu-allow.json" <<'JSON'
 JSON
 SAIDA_A="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
 for r in 'Bash(git push origin main)' 'Bash(env)'; do
-  printf '%s' "$SAIDA_A" | grep -qF -- "- $r (agora pergunta" && echo "  ok    avisa que $r passa a perguntar" \
+  printf '%s' "$SAIDA_A" | grep >/dev/null -F -- "- $r (agora pergunta" && echo "  ok    avisa que $r passa a perguntar" \
     || { echo "  FALHA não avisou de $r: $SAIDA_A"; falhas=$((falhas+1)); }
 done
-printf '%s' "$SAIDA_A" | grep -qF -- '- Bash(git status:*)' && { echo "  FALHA avisou de allow que nada anula"; falhas=$((falhas+1)); } \
+printf '%s' "$SAIDA_A" | grep >/dev/null -F -- '- Bash(git status:*)' && { echo "  FALHA avisou de allow que nada anula"; falhas=$((falhas+1)); } \
   || echo "  ok    não avisa de allow que nenhum ask anula"
 SAIDA_A2="$(node "$MERGE" "$TEMPLATE" "$TMP/meu-allow.json" 2>&1)"
-printf '%s' "$SAIDA_A2" | grep -q 'passa(m) a perguntar' && { echo "  FALHA repete o aviso na 2ª passada"; falhas=$((falhas+1)); } \
+printf '%s' "$SAIDA_A2" | grep >/dev/null 'passa(m) a perguntar' && { echo "  FALHA repete o aviso na 2ª passada"; falhas=$((falhas+1)); } \
   || echo "  ok    2ª passada não repete o aviso"
 
 for c in 'rm -rf .next' 'rm -rf node_modules' 'rm -rf dist' 'rm -r build'; do
@@ -700,7 +700,7 @@ grep -q 'isso não é json' "$TMP/ruim.json" \
   || { echo "  FALHA o arquivo inválido foi sobrescrito"; falhas=$((falhas+1)); }
 printf '{\n  "a": 1,\n}\n' > "$TMP/virgula.json"
 SAIDA_V="$(node "$MERGE" "$TMP/kit.json" "$TMP/virgula.json" 2>&1)"
-printf '%s' "$SAIDA_V" | grep -q 'linha 3, coluna 1' \
+printf '%s' "$SAIDA_V" | grep >/dev/null 'linha 3, coluna 1' \
   && echo "  ok    o aviso de JSON inválido diz a linha do erro" \
   || { echo "  FALHA o aviso não diz onde está o erro: $SAIDA_V"; falhas=$((falhas+1)); }
 

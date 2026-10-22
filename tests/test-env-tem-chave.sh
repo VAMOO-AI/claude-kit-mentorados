@@ -74,7 +74,7 @@ echo
 echo "== nenhum valor sai, nem em erro =="
 tudo=$( { bash "$S" "$F" TOKEN VAZIA ASPAS_VAZIAS EXPORTADA COM_ESPACO DUPLICADA CRLF CRLF_VAZIA NAO_E_CHAVE NAO_EXISTE
           bash "$S" "$F" 'TOKEN.*'; bash "$S" "$F"; bash "$S" "$TMP/x"; } 2>&1 )
-if printf '%s' "$tudo" | grep -q 'valor-'; then falha "algum valor vazou: $(printf '%s' "$tudo" | grep 'valor-')"
+if printf '%s' "$tudo" | grep >/dev/null 'valor-'; then falha "algum valor vazou: $(printf '%s' "$tudo" | grep 'valor-')"
 else ok "nenhum 'valor-…' na saída nem no stderr"; fi
 
 echo

@@ -211,7 +211,7 @@ decide_em() { # decide_em <ferramenta> <cwd> <comando> → ask | block | pass
   local out rc
   out=$(T="$1" D="$2" C="$3" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-matriz",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:process.env.T,tool_input:{command:process.env.C}}))' \
     | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" 2>/dev/null); rc=$?
-  if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ask
+  if printf '%s' "$out" | grep >/dev/null '"permissionDecision":"ask"'; then echo ask
   elif [ "$rc" = 2 ]; then echo block; else echo pass; fi
 }
 while IFS='|' read -r esp sh repo cmd; do

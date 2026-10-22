@@ -34,7 +34,7 @@ sim() { if "$@"; then echo ok; else echo fail; fi; }
 
 roda() { bash "$SCRIPT" "$@" 2>&1; }
 classe_de() { printf '%s\n' "$1" | sed -n 's/^classe: //p' | head -1; }
-tem() { printf '%s\n' "$1" | grep -q -- "$2"; }            # tem <saída> <regex>
+tem() { printf '%s\n' "$1" | grep >/dev/null -- "$2"; }            # tem <saída> <regex>
 nao_tem() { ! tem "$1" "$2"; }
 # na_secao <saída> <regex do cabeçalho> <regex do item>: o item aparece indentado debaixo
 # daquele cabeçalho, antes da próxima linha que começa na coluna 0. As regex vão pelo

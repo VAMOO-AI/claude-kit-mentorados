@@ -175,7 +175,7 @@ echo "== nunca bloqueia, teto, sessão saneada =="
 # 6) erro que o --fix não resolve vira aviso, não bloqueio
 anota s5 "$A/minha.ts"
 novo_log; ESLINT_EXIT=1 roda s5 "$A"
-if [ "$codigo" -eq 0 ] && printf '%s' "$saida" | grep -q "lint pendente"; then
+if [ "$codigo" -eq 0 ] && printf '%s' "$saida" | grep >/dev/null "lint pendente"; then
   ok "erro de lint vira aviso, não bloqueio"
 else
   falha "erro de lint vira aviso (codigo=$codigo saida=$saida)"

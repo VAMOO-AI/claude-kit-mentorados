@@ -82,7 +82,7 @@ ramo() { # ramo <nome> — branch nova a partir de origin/HEAD, sem sobra do cen
 echo "== base que não existe: exit 3, com a base no stderr e sem relatório =="
 roda 1 origin/nao-existe
 [ "$EXIT" -eq 3 ] && ok "--diff origin/nao-existe sai 3" || falha "--diff origin/nao-existe saiu $EXIT (esperado 3)"
-printf '%s' "$ERR" | grep -qF 'origin/nao-existe' \
+printf '%s' "$ERR" | grep >/dev/null -F 'origin/nao-existe' \
   && ok "stderr diz qual base não resolveu" || falha "stderr não cita a base: ${ERR:-<vazio>}"
 [ ! -f "$TMP/out-1/findings.json" ] \
   && ok "não emite findings.json" || falha "emitiu findings.json sem ter base para medir"
@@ -207,7 +207,7 @@ git -C "$REPO" checkout -q feat/x
 git -C "$REPO" remote set-head origin -d
 roda 4 origin/HEAD
 [ "$EXIT" -eq 3 ] && ok "sem origin/HEAD: exit 3" || falha "sem origin/HEAD saiu $EXIT (esperado 3), com o .env no diff"
-printf '%s' "$ERR" | grep -qF 'set-head' \
+printf '%s' "$ERR" | grep >/dev/null -F 'set-head' \
   && ok "stderr aponta o git remote set-head" || falha "stderr não diz como consertar: ${ERR:-<vazio>}"
 
 echo

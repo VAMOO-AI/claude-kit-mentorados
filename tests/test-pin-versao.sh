@@ -252,7 +252,7 @@ git -C "$FIX" add -A
 saida=$(confere_repo "$FIX" "$FIX/tests/pin-versao.allow"); rc=$?
 falhas_fix=0
 espera() { # <padrão> <descrição>
-  if printf '%s' "$saida" | grep -qF -- "$1"; then printf '  ok    %s\n' "$2"
+  if printf '%s' "$saida" | grep >/dev/null -F -- "$1"; then printf '  ok    %s\n' "$2"
   else printf '  FALHA %s (não achei %s)\n' "$2" "$1"; falhas_fix=$((falhas_fix+1)); fi
 }
 echo "== o gate reprova o erro plantado =="

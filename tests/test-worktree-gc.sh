@@ -39,11 +39,11 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/wtgc.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 check() { # <esperado-regex> <descrição> <saída>
-  if printf '%s' "$3" | grep -qE "$1"; then printf '  ok    %s\n' "$2"
+  if printf '%s' "$3" | grep >/dev/null -E "$1"; then printf '  ok    %s\n' "$2"
   else printf '  FALHA %s (não casou: %s)\n' "$2" "$1"; falhas=$((falhas+1)); fi
 }
 refute() { # <regex-proibido> <descrição> <saída>
-  if printf '%s' "$3" | grep -qE "$1"; then printf '  FALHA %s (apareceu: %s)\n' "$2" "$1"; falhas=$((falhas+1))
+  if printf '%s' "$3" | grep >/dev/null -E "$1"; then printf '  FALHA %s (apareceu: %s)\n' "$2" "$1"; falhas=$((falhas+1))
   else printf '  ok    %s\n' "$2"; fi
 }
 no_disco() { # <worktree> <por que não podia sumir>
@@ -253,7 +253,7 @@ echo "== --verificar: um worktree só, sem remover =="
 verif() { # <esperado-exit> <regex> <descrição> <args...>
   local ex="$1" re="$2" d="$3" out rc; shift 3
   out="$(run "$@")"; rc=$?
-  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep -qE "$re"; then printf '  ok    %s\n' "$d"
+  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep >/dev/null -E "$re"; then printf '  ok    %s\n' "$d"
   else printf '  FALHA %s (exit %s, esperado %s; saída: %s)\n' "$d" "$rc" "$ex" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"; falhas=$((falhas+1)); fi
 }
 verif 1 'keep: .*wt-ign-outputs .*outputs/'  "outputs/ ignorado: exit 1 e o caminho"   --verificar "$WTS/wt-ign-outputs"
@@ -319,7 +319,7 @@ runrest() { (cd "$CLONE" && env -u GH_TOKEN -u GITHUB_TOKEN GIT_SYNC_TOKENS_FILE
 verifrest() { # <esperado-exit> <regex> <descrição> <args...>
   local ex="$1" re="$2" d="$3" out rc; shift 3
   out="$(runrest "$@")"; rc=$?
-  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep -qE "$re"; then printf '  ok    %s\n' "$d"
+  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep >/dev/null -E "$re"; then printf '  ok    %s\n' "$d"
   else printf '  FALHA %s (exit %s, esperado %s; saída: %s)\n' "$d" "$rc" "$ex" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"; falhas=$((falhas+1)); fi
   RESTOUT="${RESTOUT:-}$out"
 }
@@ -436,7 +436,7 @@ verifm() { # <esperado-exit> <regex> <descrição> <prefixo env...> -- <args...>
   local ex="$1" re="$2" d="$3" out rc pre=(); shift 3
   while [ "$1" != -- ]; do pre+=("$1"); shift; done; shift
   ARGS=("$@"); out="$(runm env ${pre[@]+"${pre[@]}"})"; rc=$?
-  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep -qE "$re"; then printf '  ok    %s\n' "$d"
+  if [ "$rc" = "$ex" ] && printf '%s' "$out" | grep >/dev/null -E "$re"; then printf '  ok    %s\n' "$d"
   else printf '  FALHA %s (exit %s, esperado %s; saída: %s)\n' "$d" "$rc" "$ex" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"; falhas=$((falhas+1)); fi
 }
 verifm 0 'pode remover: .*wt-feat-m'       "mergeada em origin/master (origin/HEAD): exit 0"  -- --verificar "$WTS_M/wt-feat-m"

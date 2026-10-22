@@ -98,7 +98,7 @@ case "$COB" in
   *) falha "o motivo não nomeia supabase/migrations: ${COB:-<ausente>}" ;;
 esac
 # "migrations" também está dentro de "supabase/migrations": a da raiz vem depois de espaço ou ':'
-printf '%s' "$COB" | grep -qE '(^|[ :(])migrations' \
+printf '%s' "$COB" | grep >/dev/null -E '(^|[ :(])migrations' \
   && ok "o motivo nomeia migrations/ da raiz" || falha "o motivo não nomeia migrations/ da raiz: ${COB:-<ausente>}"
 
 echo "== --diff: a cobertura nomeia a pasta da migration medida =="

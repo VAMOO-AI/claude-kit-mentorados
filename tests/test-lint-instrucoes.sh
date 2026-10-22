@@ -255,7 +255,7 @@ cp "\$R/scripts/ok.sh" "\$HOME/.claude/scripts/ok.sh"
 $2
 SH
 }
-dispara()    { local s; s="$(lint "$2" "${3:-}")" && falha "$1 (não disparou)" || { printf '%s\n' "$s" | grep -q "^$4 " && ok "$1" || falha "$1 (disparou outra coisa: $s)"; }; }
+dispara()    { local s; s="$(lint "$2" "${3:-}")" && falha "$1 (não disparou)" || { printf '%s\n' "$s" | grep >/dev/null "^$4 " && ok "$1" || falha "$1 (disparou outra coisa: $s)"; }; }
 nao_dispara() { local s; s="$(lint "$2" "${3:-}")" && ok "$1" || falha "$1 (disparou: $s)"; }
 
 echo "== R1 caminho citado que não existe =="

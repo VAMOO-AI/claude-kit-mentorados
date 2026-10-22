@@ -29,11 +29,11 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/gitsync-semgh.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 check() { # <esperado-regex> <descrição> <saída>
-  if printf '%s' "$3" | grep -qE "$1"; then printf '  ok    %s\n' "$2"
+  if printf '%s' "$3" | grep >/dev/null -E "$1"; then printf '  ok    %s\n' "$2"
   else printf '  FALHA %s (não casou: %s)\n' "$2" "$1"; falhas=$((falhas+1)); fi
 }
 refute() { # <regex-proibido> <descrição> <saída>
-  if printf '%s' "$3" | grep -qE -- "$1"; then printf '  FALHA %s (apareceu: %s)\n' "$2" "$1"; falhas=$((falhas+1))
+  if printf '%s' "$3" | grep >/dev/null -E -- "$1"; then printf '  FALHA %s (apareceu: %s)\n' "$2" "$1"; falhas=$((falhas+1))
   else printf '  ok    %s\n' "$2"; fi
 }
 
