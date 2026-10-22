@@ -16,6 +16,23 @@ dois PRs nasceram 0.53.1 e outros dois disputaram a 0.53.4.
 Se a mudança tocar a barra de status ou as preferências, rode também
 `/kit-vamoo:setup` — ele faz backup de tudo antes.
 
+## [0.64.0] — 2026-10-22
+
+### Adicionado
+
+- **`monitoramento-infra`: `boot-guard`** (#238). É um timer systemd para VPS com Docker Swarm +
+  Traefik.
+  - Roda 90 s depois de cada boot e reata o service que voltou `1/1` fora da overlay ou sem
+    escutar a porta em `mode: host`.
+  - A ordem dos tiers é configurável em `ORDEM_TIERS` (padrão: dado → proxy → app).
+  - As labels `boot-guard=ignore` e `boot-guard.tier=` ajustam service por service.
+  - Service de dado ou proxy com `start-first` não é forçado: o guard só relata.
+  - Instalação e verificação em `references/vps.md`. O teste em `tests/test-boot-guard.sh`
+    simula o Swarm com stubs e foi provado contra três mutantes.
+  - Veio do guard que o kit do time usa na própria frota, escrito sem nenhum nome dela.
+  - Ainda não rodou num Swarm de verdade: o teste exercita a lógica, não o `nsenter` nem o `ss`
+    reais.
+
 ## [0.63.0] — 2026-10-22
 
 ### Segurança

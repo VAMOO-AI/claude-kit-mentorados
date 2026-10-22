@@ -27,6 +27,7 @@ Este arquivo é o roteador. **Leia só a referência do tema da tarefa.**
 | Sonda rodando no Supabase (pg_cron + pg_net + edge function) | [references/supabase-cron.md](references/supabase-cron.md) |
 | O que sondar em n8n, VPS/Portainer, WhatsApp, Vercel, job agendado | [references/sondas.md](references/sondas.md) |
 | VPS caiu, 404 em todas as rotas, CPU alta do Docker, reboot, firewall, backup, SSH | [references/vps.md](references/vps.md) + [assets/fix-vps-hardening.sh](assets/fix-vps-hardening.sh) |
+| VPS com Swarm que reinicia sem você (provedor, hypervisor) e volta com site fora | [references/vps.md](references/vps.md#guard-automático-depois-do-boot-boot-guard) + [assets/boot-guard.sh](assets/boot-guard.sh) |
 
 Erro de front, Sentry, log estruturado, custo de IA e trilha de auditoria são o
 **lado do app**: pilar 06 (observabilidade) da `/kit-vamoo:baseline`.
