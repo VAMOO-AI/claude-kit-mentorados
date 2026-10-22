@@ -144,7 +144,8 @@ Em Swarm, um service pode voltar `1/1 Running` e **fora da rede overlay**, e o b
 Redis dele) cai em crash loop com `getaddrinfo`. O detector por netns, a ordem de reatar
 (dependência antes da vítima) e o timer que faz isso sozinho depois de cada boot estão na
 `monitoramento-infra/references/vps.md`: "Reboot em Swarm: rota em 200 não prova que
-voltou" e "Guard automático depois do boot (`boot-guard`)".
+voltou" e "Guard automático depois do boot (`boot-guard`)". Rode o detector como root: sem
+root o `nsenter` falha, a lista de interfaces vem vazia, e vazio é `NÃO MEDIDO`, não verde.
 
 O que é do bot: depois de qualquer reboot, rode a Fase 9 inteira. O `Online as` no log é a
 prova de que ele voltou; `1/1 Running` e rota HTTP respondendo não são.
