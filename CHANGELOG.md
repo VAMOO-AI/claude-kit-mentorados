@@ -10,6 +10,18 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.71.0] — 2026-10-22
+
+### Mudado
+
+- **O aviso de clone fora da main vale também na sessão do próprio clone, quando o repo tem
+  worktree vivo.** Até aqui só a sessão do worktree avisava. Com worktree, o clone é a base
+  deles e fica na main, só pra leitura; sem worktree nenhum, branch no clone é o jeito normal
+  de trabalhar e segue sem aviso. O caso "sessão no próprio clone, numa feat/x: nada a avisar"
+  da suíte se inverteu (o fixture tem worktree vivo), e entrou o caso do clone sem worktree,
+  calado. Decisão de 22/10/2026 na #241: com isso o `warn-branch-worktree.sh` faz o mesmo nos
+  dois kits e o kit do time passa a copiá-lo daqui (F2 do núcleo único).
+
 ## [0.70.0] — 2026-10-22
 
 ### Mudado
