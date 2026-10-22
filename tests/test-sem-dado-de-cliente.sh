@@ -109,12 +109,17 @@ Banco: https://abcdefghijklmnopqrst.supabase.co/rest/v1
 Pooler: user postgres.tsrqponmlkjihgfedcba
 Exemplo que passa: https://<ref>.supabase.co, /v1/projects/$SUPABASE_REF/database/query
 Exemplos que passam: 5500999990001, 550099990001, <sua-instancia>.uazapi.com, docs.uazapi.com
-Alerta: https://ntfy.sh/meutopicosecreto123
-Discord: https://discord.com/api/webhooks/123456789012/abcdefghijklmnopqrstuvwxyz0123
-Slack: https://hooks.slack.com/services/T0000AAAA/B0000BBBB/abcdefghij123456
-Webhook: https://n8n.exemplo.com/webhook/agente?token=abcdef0123456789abcd
 Passam: ntfy.sh/<topico>, ntfy.sh/alertas-, /webhook/agente?token={{env:TOKEN_WEBHOOK}}, ?token=$TOKEN
 MD
+# As URLs de capacidade falsas são montadas aqui, em pedaços: escritas inteiras neste
+# arquivo, o gitleaks do CI as acusaria como segredo de verdade.
+x="xxxxxxxx"
+{
+  printf 'Alerta: https://%s/%s\n' "ntfy.sh" "meutopico${x}"
+  printf 'Discord: https://%s/%s/%s\n' "discord.com/api""/webhooks" "123456789012" "${x}${x}${x}"
+  printf 'Slack: https://%s/%s/%s/%s\n' "hooks.slack.com/""services" "T0000AAAA" "B0000BBBB" "${x}${x}"
+  printf 'Webhook: https://n8n.exemplo.com/webhook/agente?%s=%s\n' "token" "${x}${x}${x}"
+} >> "$FIX/a.md"
 git -C "$FIX" add -A
 saida=$(confere "$FIX"); rc=$?
 falhas=0
@@ -127,10 +132,10 @@ espera '+55 (21) 90000-0000' "telefone com máscara"
 espera 'minhaempresa.uazapi.com' "host UAZAPI de verdade"
 espera 'abcdefghijklmnopqrst.supabase.co' "project ref do Supabase na URL"
 espera 'postgres.tsrqponmlkjihgfedcba' "project ref no usuário do pooler"
-espera 'ntfy.sh/meutopicosecreto' "tópico ntfy de verdade"
+espera 'ntfy.sh/meutopicoxxx' "tópico ntfy de verdade"
 espera 'discord.com/api/webhook' "webhook do Discord com token"
 espera 'hooks.slack.com/services' "webhook do Slack com token"
-espera '?token=abcdef0123456789' "token literal na query"
+espera '?token=xxxxxxxx' "token literal na query"
 n=$(printf '%s\n' "$saida" | grep -c 'FALHA')
 [ "$n" = 10 ] && printf '  ok    exatamente 10 achados (DDD 00, placeholders, docs e env passam)\n' \
   || { printf '  FALHA %s achados, esperava 10:\n%s\n' "$n" "$saida"; falhas=$((falhas+1)); }
