@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.65.0|o deny de force push na main e de login, link e db push do supabase/vercel agora pega também o comando com sudo, env ou caminho completo do programa|setup
 0.64.3|ship, baseline e bot-discord mais curtas: menos repetição, e a VPS do bot aponta para a monitoramento-infra (com o boot-guard).
 0.64.2|worktrees, orquestracao e git-sync mais curtas: a skill carrega mais barato e mantém só as travas da casa (detalhe da git-sync em references/flags.md).
 0.64.1|o Claude passa a abrir sozinho as skills de n8n e de inbox de WhatsApp quando você mexe nisso, com as travas de produção junto, e a secscan deixa de disputar com o /security-review
