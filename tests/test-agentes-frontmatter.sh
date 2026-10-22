@@ -46,6 +46,20 @@ for a in revisor executor; do
     || falha "plugin/agents/$a.md effort: medium (tem '$(campo "$f" effort)')"
 done
 
+# O subagentes.md não chega ao contexto do subagente (é lido pela conversa principal): o que
+# o revisor precisa em todo review mora no plugin/agents/revisor.md. O executor abre PR, então
+# o push da branch do lote é dele; force push e o resto do que é destrutivo, não (#246, item 5).
+tem() { grep -qF -- "$2" "$DIR/$1" && ok "plugin/agents/$1: $3" || falha "plugin/agents/$1: $3"; }
+tem revisor.md "grep -rnE '(^|[[:space:]]|[([{>|])!\`'" "traz a varredura de interpolação em SKILL.md"
+tem revisor.md "check-then-set" "traz as cinco categorias que revisor costuma pular"
+tem revisor.md "git diff origin/main...HEAD" "traz o alvo padrão do review"
+tem executor.md "git push -u origin <branch do lote>" "autoriza o push da branch do lote"
+grep -qiE 'force[ -]push' "$DIR/executor.md" && ok "plugin/agents/executor.md: force push segue proibido" \
+  || falha "plugin/agents/executor.md: force push segue proibido"
+SUB="$RAIZ/plugin/templates/subagentes.md"
+grep -qF 'Exceção: o `executor`' "$SUB" && ok "subagentes.md: abre a exceção do push do executor" \
+  || falha "subagentes.md: abre a exceção do push do executor"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; exit 0; fi
 echo "FALHOU ($falhas)"; exit 1
