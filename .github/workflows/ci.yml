@@ -219,6 +219,10 @@ jobs:
       - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
+      - name: O rtk-claude não reescreve git em worktree, git push, segredo nem saída consumida
+        # Porte do kit do time (F3 do #241): último da cadeia do pre-bash, inerte sem rtk.
+        run: bash tests/test-rtk-claude.sh
+
       - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
@@ -572,7 +576,7 @@ jobs:
           for t in test-hooks-boot test-pre-bash test-block-main-commit \
                    test-check-careful test-block-parallel-clone-switch \
                    test-block-delete-branch test-block-cd-leitura-relativa \
-                   test-pre-prompt test-path-rules \
+                   test-pre-prompt test-path-rules test-rtk-claude \
                    test-merge-settings test-warn-sem-node; do
             echo "::group::$t"
             if bash "tests/$t.sh"; then echo "ok $t"; else falhas="$falhas $t"; fi
