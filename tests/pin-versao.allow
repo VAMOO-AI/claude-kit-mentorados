@@ -5,4 +5,4 @@
 # mudou de linha, atualize o número; se saiu, tire a entrada.
 
 plugin/novidades.txt :: histórico do aviso de novidades, uma linha por versão e a mais nova em cima: registra o que já saiu, e cada release empurra as linhas
-plugin/scripts/merge-settings.js:193 :: literal do hook antigo que o merge procura para remover; trocar o texto quebraria a limpeza de quem ainda o tem
+plugin/scripts/merge-settings.js:393 :: literal do hook antigo que o merge procura para remover; trocar o texto quebraria a limpeza de quem ainda o tem

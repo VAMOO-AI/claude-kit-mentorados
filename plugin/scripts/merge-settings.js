@@ -5,7 +5,7 @@
 // vivia num heredoc dentro do instalador e só dava pra exercitar rodando o
 // instalador inteiro contra o ~/.claude de verdade.
 //
-//   node merge-settings.js <kit.json> <meu.json>
+//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
@@ -17,8 +17,30 @@
 //     bypass, plan e dontAsk ficam;
 //   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
 //     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta;
-//   • hooks são seus — o único que sai é o dispatch do dotcontext que o
-//     instalador antigo gravou, casado pelo comando exato.
+//   • env e enabledPlugins são UNIÃO, e o seu valor vence o empate: o kit acrescenta a
+//     variável ou o plugin novo e nunca troca o que você já tem;
+//   • skillOverrides: o kit governa as chaves DELE; as suas ficam, e com --skills-dir a
+//     de skill que não existe em nenhum desses diretórios cai, com aviso;
+//   • modelSettings: o kit governa só as chaves dele dentro dos modelos que ele define;
+//   • hooks são seus: o kit acrescenta, por evento, o comando que você ainda não tem, e o
+//     único que sai é o dispatch do dotcontext que o instalador antigo gravou (mais os que
+//     o overlay listar em hooksRemovidos).
+//
+// --overlay <arquivo> (F6 do núcleo único): JSON com chaves de topo que substituem as do
+// kit antes do merge; `hooks` se SOMA aos do kit, por evento. A meta-chave `$merge` traz as
+// regras de quem distribui o overlay e nunca é gravada no settings.json:
+//   allowsRevogados {texto exato: substituto|null}, envDoKit {VAR: valor exato} e
+//   chavesDoKit {chave: valor exato} — o que aquele kit gravou e tirou, e sai da máquina só
+//   com o valor exato — e hooksRemovidos [trecho do comando]. E o que muda o padrão:
+//   chavesGovernadas [chave] — chave escalar que o kit governa: volta ao valor do kit, em vez
+//   de "a sua ganha" (não confundir com chavesDoKit, que só tira um valor antigo);
+//   removerHooksAlheios true — hook da pessoa que não está no kit sai, com aviso nomeando
+//   cada um (o backup é de quem chama o merge); scriptsEntregues [nome.sh] — script que o kit
+//   instala por outro caminho, para o aviso não anunciar como perdido o que continua lá.
+//
+// --estrito: settings.json inválido sai com rc 1 em vez de 0 (o arquivo continua intacto). O
+// padrão é 0 porque o kit-setup.sh roda com `set -e`.
+// Nenhum valor da casa mora aqui: quem tem histórico próprio o declara no overlay dele.
 //
 // Perder um `deny` é abrir buraco de segurança — por isso ele entra na união em
 // vez de ficar de fora, que era o caso até 0.8.0: quem já tinha o kit instalado
@@ -32,39 +54,214 @@
 // fazer.
 const fs = require('fs');
 const path = require('path');
-const [, , kitPath, userPath] = process.argv;
-if (!kitPath || !userPath) {
-  console.error('uso: merge-settings.js <kit.json> <meu.json>');
+const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]';
+const posicionais = [];
+let overlayPath = null;
+let estrito = false;
+const skillDirs = [];
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (a === '--estrito') { estrito = true; continue; }
+  if (a === '--overlay' || a === '--skills-dir') {
+    const v = process.argv[++i];
+    if (!v) { console.error(USO); process.exit(2); }
+    if (a === '--overlay') overlayPath = v; else skillDirs.push(v);
+  } else posicionais.push(a);
+}
+const [kitPath, userPath] = posicionais;
+if (!kitPath || !userPath || posicionais.length > 2) {
+  console.error(USO);
   process.exit(2);
 }
 const kit = JSON.parse(fs.readFileSync(kitPath, 'utf8'));
+const objeto = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// Linha e coluna do erro de JSON, para a pessoa achar a vírgula sem abrir o arquivo às cegas.
+const ondeErro = (e, bruto) => {
+  // Node < 22 só diz a posição; linha e coluna saem dela.
+  // Arquivo que acaba no meio ("Unexpected end of JSON input") não traz posição: é o fim dele.
+  const pos = /position (\d+)/.exec(e.message) || (/end of JSON input/.test(e.message) && [null, bruto.trimEnd().length]);
+  // Sem posição (ex.: BOM no início), a mensagem do V8 cita o conteúdo do arquivo — corta.
+  if (!pos) return e.message.replace(/,\s*".*" is not valid JSON$/s, '');
+  const antes = bruto.slice(0, Number(pos[1])).split('\n');
+  return `linha ${antes.length}, coluna ${antes[antes.length - 1].length + 1}`;
+};
+
 let user = {};
-// Arquivo vazio não tem o que perder e vira {}; JSON inválido é mantido, e o aviso traz o
-// lugar do erro (linha e coluna) para a pessoa achar a vírgula sem abrir o arquivo às cegas.
+// Arquivo vazio não tem o que perder e vira {}; JSON inválido é mantido e o setup segue
+// (rc 0: o kit-setup.sh roda com `set -e`). Com --estrito, quem chama recebe rc 1.
 if (fs.existsSync(userPath)) {
   const bruto = fs.readFileSync(userPath, 'utf8');
   if (bruto.trim()) {
     try {
       user = JSON.parse(bruto);
     } catch (e) {
-      // Node < 22 só diz a posição; linha e coluna saem dela.
-      const pos = /position (\d+)/.exec(e.message);
-      // Sem posição (ex.: BOM no início), a mensagem do V8 cita o conteúdo do arquivo — corta.
-      let onde = e.message.replace(/,\s*".*" is not valid JSON$/s, '');
-      if (pos) {
-        const antes = bruto.slice(0, Number(pos[1])).split('\n');
-        onde = `linha ${antes.length}, coluna ${antes[antes.length - 1].length + 1}`;
-      }
-      console.log(`! settings.json existente está com JSON inválido (${onde}) — mantive o seu e não mesclei nada.`);
-      process.exit(0);
+      console.log(`! settings.json existente (${userPath}) está com JSON inválido (${ondeErro(e, bruto)})— mantive o seu e não mesclei nada.`);
+      process.exit(estrito ? 1 : 0);
     }
   }
 }
 
+// ── Overlay ────────────────────────────────────────────────────────────────────────────
+// Overlay quebrado não derruba o merge: segue com o valor do kit, e o aviso diz o que está
+// errado (linha e coluna, ou "vazio").
+let regras = {};
+if (overlayPath) {
+  let ov;
+  let bruto = null;
+  try { bruto = fs.readFileSync(overlayPath, 'utf8'); } catch (e) {
+    console.log(`! overlay ${overlayPath} ilegível (${e.code || e.message}) — ignorado, valem as chaves do kit`);
+  }
+  if (bruto !== null) {
+    try { ov = JSON.parse(bruto); } catch (e) {
+      console.log(`! overlay ${overlayPath} com JSON inválido (${ondeErro(e, bruto)}) — ignorado, valem as chaves do kit`);
+    }
+  }
+  if (ov !== undefined && !objeto(ov)) {
+    console.log(`! overlay ${overlayPath} não é um objeto JSON — ignorado, valem as chaves do kit`);
+  } else if (ov !== undefined && !Object.keys(ov).length) {
+    console.log(`! overlay ${overlayPath} vazio — ignorado, valem as chaves do kit`);
+  } else if (ov !== undefined) {
+    if (objeto(ov.$merge)) regras = ov.$merge;
+    delete ov.$merge;
+    for (const [k, v] of Object.entries(ov)) {
+      if (k !== 'hooks') { kit[k] = v; continue; }
+      if (!objeto(v)) { console.log('! overlay: `hooks` não é um objeto — ignorado'); continue; }
+      // Somar, não trocar: um `hooks` no overlay que substituísse o do kit apagaria todos os
+      // hooks do kit na máquina. Grupo cujos comandos já estão no evento não entra de novo.
+      kit.hooks = objeto(kit.hooks) ? kit.hooks : {};
+      for (const [evento, grupos] of Object.entries(v)) {
+        if (!Array.isArray(grupos)) continue;
+        const atuais = Array.isArray(kit.hooks[evento]) ? kit.hooks[evento] : (kit.hooks[evento] = []);
+        const vistos = new Set(atuais.flatMap((g) => (g && Array.isArray(g.hooks) ? g.hooks : [])).map((h) => h && h.command));
+        for (const g of grupos) {
+          const cmds = (g && Array.isArray(g.hooks) ? g.hooks : []).map((h) => h && h.command);
+          if (cmds.length && cmds.every((c) => vistos.has(c))) continue;
+          atuais.push(g);
+          cmds.forEach((c) => vistos.add(c));
+        }
+      }
+    }
+  }
+}
+const mapa = (v) => (objeto(v) ? v : {});
+const allowsRevogadosOverlay = mapa(regras.allowsRevogados);
+const envDoKit = mapa(regras.envDoKit);
+const chavesDoKit = mapa(regras.chavesDoKit);
+const lista = (v) => (Array.isArray(v) ? v.filter((t) => typeof t === 'string' && t) : []);
+const hooksRemovidos = lista(regras.hooksRemovidos);
+const chavesGovernadas = lista(regras.chavesGovernadas);
+const scriptsEntregues = lista(regras.scriptsEntregues);
+const removerHooksAlheios = regras.removerHooksAlheios === true;
+
+// Env da máquina antes de qualquer mudança: o aviso do Remote Control fala do que ela tem.
+const envOriginal = objeto(user.env) ? { ...user.env } : null;
+
 const novas = [];
+// Chaves dict com regra própria, abaixo. As outras seguem "a sua ganha": o kit só preenche.
+const COM_REGRA = ['permissions', 'extraKnownMarketplaces', 'env', 'enabledPlugins', 'skillOverrides', 'modelSettings', 'hooks'];
 for (const [k, v] of Object.entries(kit)) {
+  if (COM_REGRA.includes(k) && objeto(v) && objeto(user[k])) continue;
   if (k === 'permissions' || k === 'extraKnownMarketplaces') continue;
   if (user[k] === undefined) { user[k] = v; novas.push(k); }
+}
+
+// env e enabledPlugins: união, o seu vence o empate. Enquanto o kit não define a chave, a
+// sua sobrevive pela regra geral; no dia em que define, "o seu ganha no nível da chave"
+// esconderia para sempre a variável ou o plugin novo de quem já tem a chave.
+for (const k of ['env', 'enabledPlugins']) {
+  if (!objeto(kit[k]) || !objeto(user[k])) continue;
+  const acrescentar = Object.keys(kit[k]).filter((n) => !(n in user[k]));
+  if (!acrescentar.length) continue;
+  user[k] = { ...kit[k], ...user[k] };
+  novas.push(`${k} (+${acrescentar.length})`);
+}
+
+// skillOverrides: o kit governa as chaves dele (é o kit dizendo como a skill dele carrega, e
+// é o que deixa o kit mudar de ideia); a sua chave fica enquanto a skill existir. Só com
+// --skills-dir o merge sabe onde procurar: skill de plugin mora no cache do plugin, fora de
+// ~/.claude/skills, e descartar sem saber apagaria override legítimo.
+if (objeto(kit.skillOverrides) && objeto(user.skillOverrides)) {
+  const merged = { ...user.skillOverrides };
+  const mudou = [];
+  for (const [n, v] of Object.entries(kit.skillOverrides)) {
+    if (merged[n] !== v) mudou.push(n);
+    merged[n] = v;
+  }
+  const mortos = [];
+  if (skillDirs.length) {
+    for (const n of Object.keys(user.skillOverrides)) {
+      if (n in kit.skillOverrides) continue;
+      if (!skillDirs.some((d) => fs.existsSync(path.join(d, n)))) { mortos.push(n); delete merged[n]; }
+    }
+  }
+  // Mesma ordem de chaves a cada passada, para a segunda não reescrever o arquivo.
+  user.skillOverrides = merged;
+  if (mudou.length) novas.push(`skillOverrides (${mudou.join(', ')})`);
+  if (mortos.length) {
+    console.log(`! ${mortos.length} override(s) de skill que não existe em nenhum dos diretórios de skill — descartado(s): ${mortos.sort().map((n) => `override morto: ${n}`).join(', ')}`);
+  }
+}
+
+// modelSettings: é onde o /effort salva o padrão de cada modelo. O kit manda nas chaves dele
+// dentro dos modelos que ele define; o modelo que o kit não cita, e a chave que só a máquina
+// tem num modelo do kit (um maxEffortLevel), ficam.
+if (objeto(kit.modelSettings) && objeto(user.modelSettings)) {
+  const mudou = [];
+  for (const [m, v] of Object.entries(kit.modelSettings)) {
+    const atual = user.modelSettings[m];
+    const novo = objeto(v) && objeto(atual) ? { ...atual, ...v } : v;
+    if (JSON.stringify(novo) !== JSON.stringify(atual)) mudou.push(m);
+    user.modelSettings[m] = novo;
+  }
+  if (mudou.length) novas.push(`modelSettings (${mudou.join(', ')})`);
+}
+
+// hooks: o kit acrescenta, por evento, o comando que a pessoa ainda não tem; nada dela sai.
+if (objeto(kit.hooks) && objeto(user.hooks)) {
+  let n = 0;
+  for (const [evento, grupos] of Object.entries(kit.hooks)) {
+    if (!Array.isArray(grupos)) continue;
+    if (user.hooks[evento] !== undefined && !Array.isArray(user.hooks[evento])) continue;
+    const atuais = user.hooks[evento] || [];
+    const vistos = new Set(atuais.flatMap((g) => (g && Array.isArray(g.hooks) ? g.hooks : [])).map((h) => h && h.command));
+    for (const g of grupos) {
+      if (!g || !Array.isArray(g.hooks)) continue;
+      const faltam = g.hooks.filter((h) => h && !vistos.has(h.command));
+      if (!faltam.length) continue;
+      atuais.push({ ...g, hooks: faltam });
+      faltam.forEach((h) => vistos.add(h.command));
+      n += faltam.length;
+    }
+    if (atuais.length) user.hooks[evento] = atuais;
+  }
+  if (n) novas.push(`hooks (+${n})`);
+}
+
+// chavesGovernadas: a chave escalar que o overlay declara governada volta ao valor do kit.
+// Chave dict tem regra própria acima e não entra aqui.
+for (const k of chavesGovernadas) {
+  if (!(k in kit) || objeto(kit[k])) continue;
+  if (JSON.stringify(user[k]) === JSON.stringify(kit[k])) continue;
+  const antes = user[k];
+  user[k] = kit[k];
+  if (antes !== undefined) novas.push(`${k} (${JSON.stringify(antes)} → ${JSON.stringify(kit[k])}, governada pelo kit)`);
+}
+
+// O que o kit de quem distribui o overlay gravou e tirou: sai só com o valor exato.
+const tiradosDoKit = [];
+if (objeto(user.env)) {
+  for (const [k, v] of Object.entries(envDoKit)) {
+    if (user.env[k] !== undefined && String(user.env[k]).trim() === String(v)) {
+      delete user.env[k];
+      tiradosDoKit.push(`env.${k}`);
+    }
+  }
+  if (tiradosDoKit.length && !Object.keys(user.env).length) delete user.env;
+}
+for (const [k, v] of Object.entries(chavesDoKit)) {
+  if (k in kit || user[k] === undefined) continue;
+  if (JSON.stringify(user[k]) === JSON.stringify(v)) { delete user[k]; tiradosDoKit.push(k); }
 }
 
 const kitMarkets = kit.extraKnownMarketplaces || {};
@@ -100,11 +297,14 @@ user.permissions = user.permissions || {};
 // tinha rodado o setup: sai aqui o texto exato que o kit gravou. Quem escreveu a mesma
 // regra por conta própria perde junto — não dá pra distinguir —, e a saída diz como
 // liberar o comando exato no projeto.
-const ALLOWS_LEGADOS = ['Bash(awk:*)', 'Bash(npx tsx:*)', 'Bash(npm run:*)', 'PowerShell(npm run *)', 'PowerShell(npx tsx *)'];
+// O overlay soma a lista dele (allowsRevogados), com o substituto quando houver.
+const ALLOWS_LEGADOS = ['Bash(awk:*)', 'Bash(npx tsx:*)', 'Bash(npm run:*)', 'PowerShell(npm run *)', 'PowerShell(npx tsx *)',
+  ...Object.keys(allowsRevogadosOverlay)];
 const allowsTirados = Array.isArray(user.permissions.allow)
   ? user.permissions.allow.filter((p) => ALLOWS_LEGADOS.includes(p))
   : [];
 if (allowsTirados.length) user.permissions.allow = user.permissions.allow.filter((p) => !ALLOWS_LEGADOS.includes(p));
+if (Array.isArray(kitPerms.allow)) kitPerms.allow = kitPerms.allow.filter((p) => !ALLOWS_LEGADOS.includes(p));
 
 const allowAntes = [...(user.permissions.allow || [])];
 const askAntes = new Set(user.permissions.ask || []);
@@ -191,17 +391,19 @@ if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'def
 // comando que o kit escreveu: um dispatch que você configurou de outro jeito não
 // casa e fica.
 const DISPATCH_LEGADO = '@dotcontext/cli@latest hook dispatch --source claude-code';
-let legados = 0;
-if (user.hooks && typeof user.hooks === 'object' && !Array.isArray(user.hooks)) {
+// Tira de user.hooks todo comando que contém um dos trechos; evento que fica vazio sai.
+const tirarHooks = (trechos) => {
+  let n = 0;
+  if (!objeto(user.hooks) || !trechos.length) return 0;
   for (const [evento, grupos] of Object.entries(user.hooks)) {
     if (!Array.isArray(grupos)) continue;
     let mexeu = false;
     const restantes = grupos.filter((g) => {
       if (!g || !Array.isArray(g.hooks)) return true;
       const antes = g.hooks.length;
-      g.hooks = g.hooks.filter((h) => !(h && typeof h.command === 'string' && h.command.includes(DISPATCH_LEGADO)));
+      g.hooks = g.hooks.filter((h) => !(h && typeof h.command === 'string' && trechos.some((t) => h.command.includes(t))));
       if (g.hooks.length === antes) return true;
-      legados += antes - g.hooks.length;
+      n += antes - g.hooks.length;
       mexeu = true;
       return g.hooks.length > 0;
     });
@@ -209,13 +411,100 @@ if (user.hooks && typeof user.hooks === 'object' && !Array.isArray(user.hooks)) 
     if (restantes.length) user.hooks[evento] = restantes;
     else delete user.hooks[evento];
   }
+  return n;
+};
+const legados = tirarHooks([DISPATCH_LEGADO]);
+const doOverlay = tirarHooks(hooksRemovidos);
+
+// removerHooksAlheios: o kit governa os hooks — o da pessoa que não está no kit (com o overlay
+// já somado) sai. O aviso nomeia só o que de fato some da máquina: hook que o kit reescreveu,
+// virou script ou passou a ser chamado por um dispatcher continua existindo de outra forma, e
+// aviso que grita falso-positivo ensina a pular a saída inteira.
+const comandos = (h) => (objeto(h) ? Object.values(h) : []).filter(Array.isArray).flat()
+  .flatMap((g) => (g && Array.isArray(g.hooks) ? g.hooks : [])).map((x) => x && x.command).filter((c) => typeof c === 'string');
+let alheiosAvisados = [];
+let alheios = 0;
+if (removerHooksAlheios && objeto(user.hooks)) {
+  const kitCmds = new Set(comandos(kit.hooks));
+  const assinatura = (c) => {
+    const m = /([\w-]+)\.sh\b/.exec(c);
+    if (m) return 'sh:' + m[1];
+    const f = ['dotcontext', 'rtk', 'eslint', 'prettier', 'afplay', 'osascript'].find((t) => c.includes(t));
+    return f || 'raw:' + c.split(/\s+/).filter(Boolean).join(' ');
+  };
+  const kitSigs = new Set([...kitCmds].map(assinatura));
+  const kitScripts = new Set([...kitCmds].flatMap((c) => [...c.matchAll(/([\w-]+)\.sh\b/g)].map((m) => m[1])));
+  const kitDir = path.dirname(path.resolve(kitPath));
+  const reembrulhado = (c) => {
+    const sig = assinatura(c);
+    if (kitSigs.has(sig)) return true;
+    if ([...kitScripts].some((n) => c.includes(n))) return true;
+    if (sig.startsWith('sh:')) {
+      const nome = sig.slice(3) + '.sh';
+      if (['hooks', 'scripts'].some((d) => fs.existsSync(path.join(kitDir, d, nome)))) return true;
+      if (scriptsEntregues.some((s) => path.basename(s) === nome)) return true;
+    }
+    if (!sig.startsWith('sh:') && !sig.startsWith('raw:') && [...kitScripts].some((n) => n.includes(sig))) return true;
+    const nucleo = c.trim().replace(/&+\s*$/, '').trim();
+    return !!nucleo && [...kitCmds].some((k) => k.includes(nucleo));
+  };
+  const fora = [...new Set(comandos(user.hooks).filter((c) => !kitCmds.has(c)))];
+  alheiosAvisados = fora.filter((c) => !reembrulhado(c)).sort();
+  if (fora.length) {
+    const tirar = new Set(fora);
+    for (const [evento, grupos] of Object.entries(user.hooks)) {
+      if (!Array.isArray(grupos)) continue;
+      const restantes = grupos.filter((g) => {
+        if (!g || !Array.isArray(g.hooks)) return true;
+        const antes = g.hooks.length;
+        g.hooks = g.hooks.filter((h) => !(h && typeof h.command === 'string' && tirar.has(h.command)));
+        alheios += antes - g.hooks.length;
+        return g.hooks.length > 0 || antes === 0;
+      });
+      if (restantes.length) user.hooks[evento] = restantes;
+      else delete user.hooks[evento];
+    }
+  }
+}
+if (alheiosAvisados.length) {
+  console.log(`! ${alheiosAvisados.length} hook(s) do seu settings.json não estão no kit e foram REMOVIDOS:`);
+  for (const c of alheiosAvisados) console.log(`    ${c.slice(0, 110)}`);
+  console.log('  A cópia integral fica no backup de quem chamou o merge. Hook que precisa sobreviver tem que estar no settings.json do kit ou no overlay.');
+}
+
+// Avisos sobre o env que fica: o merge não tira variável da pessoa, então explica o efeito.
+// Regra de cada var copiada da CLI (2.1.280, testado com `claude remote-control`): as duas
+// primeiras bloqueiam com qualquer valor não vazio, "0" incluso; as outras só com valor verdadeiro.
+if (envOriginal) {
+  const val = (k) => (envOriginal[k] === undefined || envOriginal[k] === null ? '' : String(envOriginal[k]));
+  const presentes = [
+    ...['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC', 'DISABLE_TELEMETRY'].filter((k) => val(k) !== ''),
+    ...['DO_NOT_TRACK', 'DISABLE_GROWTHBOOK'].filter((k) => ['1', 'true', 'yes', 'on'].includes(val(k).trim().toLowerCase())),
+  ];
+  if (presentes.length) {
+    console.log(`! ${presentes.join(', ')} no seu env: o Remote Control fica desligado enquanto existir (DISABLE_TELEMETRY bloqueia até com valor 0).`);
+    console.log('  Para usar o Remote Control, apague a chave do ~/.claude/settings.json; para manter a telemetria desligada, não faça nada. Confira com: claude doctor');
+  }
+}
+// Na CLI a env de budget vence o skillListingBudgetFraction do kit e fixa o budget da lista de
+// skills em qualquer janela de contexto.
+if (kit.skillListingBudgetFraction !== undefined && objeto(user.env) && user.env.SLASH_COMMAND_TOOL_CHAR_BUDGET !== undefined) {
+  console.log(`! SLASH_COMMAND_TOOL_CHAR_BUDGET=${user.env.SLASH_COMMAND_TOOL_CHAR_BUDGET} no seu env: ela anula o skillListingBudgetFraction do kit e fixa o budget da lista de skills em qualquer janela.`);
+  console.log('  Para o budget acompanhar a janela, apague SLASH_COMMAND_TOOL_CHAR_BUDGET do ~/.claude/settings.json.');
 }
 
 fs.writeFileSync(userPath, JSON.stringify(user, null, 2) + '\n');
 if (novas.length) console.log(`  acrescentado: ${novas.join(', ')}`);
 if (legados) console.log(`  removido: hook antigo do dotcontext (${legados}) — o instalador de antes da 0.7.0 tinha gravado no seu settings.json`);
+if (doOverlay) console.log(`  removido: hook listado no overlay (${doOverlay})`);
+// tiradosDoKit sai calado, como no kit do time: é o próprio kit desfazendo o que gravou.
 if (allowsTirados.length) {
-  console.log(`  removido do allow: ${allowsTirados.join(', ')} — rodam código arbitrário sem pergunta, e o kit tinha gravado até a 0.55.0.`);
+  console.log(`  removido do allow: ${allowsTirados.join(', ')} — rodam código arbitrário sem pergunta, ou o kit gravou e tirou.`);
+  for (const r of allowsTirados) {
+    if (!(r in allowsRevogadosOverlay)) continue;
+    const novo = allowsRevogadosOverlay[r];
+    console.log(`  allow do kit antigo saiu: ${r} (${novo ? `agora ${novo}` : 'sem substituto: o comando volta a pedir aprovação'})`);
+  }
   console.log('  projeto que precisa libera o comando exato no próprio .claude/settings.json (ex.: "Bash(npm run build)").');
 }
-if (!novas.length && !legados && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');
+if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');
