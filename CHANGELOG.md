@@ -10,6 +10,44 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.74.0] — 2026-10-23
+
+### Mudado
+
+- **`check-careful` com a união das duas suítes** (F4 do núcleo único, #241). O kit do time
+  passa a receber este hook. A suíte tem 99 casos, verdes também no `--codex`.
+  - **Do kit do time:**
+    - o push na main decidido pela posição de comando e pelo branch do repo-alvo, seguindo o
+      `cd` do próprio comando. Assim "git push" citado num heredoc, numa string do python ou
+      num caso de teste não pergunta, e push na main depois de `cd` para um repo na main
+      pergunta;
+    - a escotilha `HOTFIX_MAIN=1`, que cala só a regra da main;
+    - o DDL (CREATE/ALTER TABLE) com executor;
+    - as regras da casa (`db-query.sh`, `.env.1password`, cofre de tokens), que só disparam
+      onde essas coisas existem.
+  - **Decisões do Ruan sobre os conflitos:**
+    - **segredo citado, meio-termo:** pergunta quando o comando pode imprimir ou mandar o
+      segredo. Passa quem só o carrega no ambiente (`source`/`.`, `--env-file`, captura numa
+      variável, `env $(cat x.env)`) e operação de arquivo (`cp`, `mv`, `rm`, `ln`). Nome que
+      termina em `.env` (`dev.env`) entra na regra, e `process.env`/`import.meta.env` não são
+      arquivo;
+    - **rm -rf de pasta relativa dentro de repo:** pergunta, porque o git não devolve pasta
+      ignorada;
+    - **git push apagando branch:** pergunta só quando a branch não tem PR mergeado. Com o
+      `gh` ausente ou falhando, pergunta.
+  - **Aviso de bypass:** fica o deste kit (um aviso por sessão, sem perguntar nada).
+  - **Velocidade:** campos por expansão de parâmetro, `ask` sem node e pré-filtros sem
+    processo. Sozinho, o hook caiu de 102 para 55 ms. O `pre-bash` com rtk mede 82 ms, abaixo
+    do teto de 120 do plano.
+  - **Replay de 30 dias** (35.821 comandos reais com palavra-gatilho), hook do time contra
+    este:
+    - 32.788 passam e 248 perguntam nos dois;
+    - **todo `ask` que só o time dava era falso positivo** (push ou rm citado em heredoc,
+      string ou laço de teste), com uma exceção: leitura de `dev.env`, que entrou na regra;
+    - a mais, perguntam: segredo 1.449 depois do meio-termo (1,4% do corpus de 106 mil),
+      rm -rf relativo em repo 609, push apagando branch 266 (a maioria com o cwd histórico
+      apagado, sem como confirmar o PR), listagem de ambiente 69 e descarte local 23.
+
 ## [0.73.0] — 2026-10-23
 
 ### Adicionado

@@ -364,6 +364,8 @@ while IFS= read -r seg; do
   [[ $limpo == *--env-file* ]] && continue
   [[ $limpo =~ ^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=\$\( ]] && continue
   [[ $limpo =~ ^[[:space:]]*env[[:space:]]+\$\( ]] && continue
+  # Operação de arquivo (copiar, mover, apagar, ligar) não imprime o conteúdo.
+  [[ $limpo =~ ^[[:space:]]*(cp|mv|rm|ln|install|unlink)[[:space:]] ]] && continue
   case "$limpo" in *'$('*|*'`'*) ;; *)
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(grep|rg)[[:space:]]+(.*[[:space:]])?-[a-zA-Z]*[cqlL][a-zA-Z]*([[:space:]]|$)' && continue
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(test|\[|\[\[|ls|stat|echo|printf|touch|chmod|git[[:space:]]+(check-ignore|ls-files|commit|rm[[:space:]]+--cached)|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit))([[:space:]]|$)' && continue

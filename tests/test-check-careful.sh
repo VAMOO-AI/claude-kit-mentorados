@@ -287,6 +287,12 @@ check pass "env \$(cat dev.env) cmd: o valor vira variável, não texto" 'env $(
 check ask  "echo \$(cat .env.local) imprime"              'echo $(cat .env.local)'
 check ask  "grep sem -c imprime a linha"                   "grep '^VERCEL_TOKEN=' .env.local"
 check ask  "source e depois cat do mesmo arquivo"          'source .env.local; cat .env.local'
+# Operação de arquivo não imprime o conteúdo: semear o .env.local num worktree é rotina.
+check pass "cp do .env.local para o worktree"              'cp ../app/.env.local .env.local && npm ci'
+check pass "rm do .env.local"                              'rm .env.local; git status --short'
+check pass "ln -s do .env.local"                           'ln -sf /x/app/.env.local .env.local'
+# O cabeçalho do for não é isento: o corpo pode ler pela variável.
+check ask  "for com cat pela variável segue perguntando"   'for f in .env.local; do cat "$f"; done'
 
 echo
 echo "== git push apagando branch: pergunta só sem PR mergeado (decisão do Ruan, F4) =="

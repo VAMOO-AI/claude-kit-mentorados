@@ -291,6 +291,8 @@ Desde a 0.72.0 o kit do time recebe os guards e dispatchers pela `nucleo.lista` 
 | `rtk-claude.sh` | último do `pre-bash.sh` | sem jq; não roda depois de um guard que falou (lá, a fusão por jq juntava o `ask` e a reescrita) |
 | Fallback sem node em bash puro | `pre-prompt.sh` | igual |
 
+O `check-careful` (F4, 0.74.0) é a união das duas suítes: a lógica de push do time (posição de comando, `cd`, `HOTFIX_MAIN=1`), o DDL e as regras da casa entram aqui, e os três conflitos (segredo citado, rm -rf relativo em repo, push apagando branch) seguem a decisão do Ruan, registrada no CHANGELOG.
+
 O `warn-skills-projeto` e o `skills-projeto-scan.sh` ficam para a F7, junto do par da skill `skills-projeto`: os dois kits divergem no contrato do scan (`--check`, tetos, veredito por skill), que a skill usa.
 
 ## Como usar
