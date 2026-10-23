@@ -16,9 +16,12 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-j="$(cat)"
-c="$(printf '%s' "$j" | node "$H" tool_input.command)"
-cwd="$(printf '%s' "$j" | node "$H" cwd)"
+# Um node só por payload (invariante 4 do núcleo único): o cwd sai na primeira linha e o
+# comando, que pode ter quebra de linha, no resto.
+r="$(node "$H" cwd tool_input.command)"
+cwd="${r%%$'\n'*}"
+c="${r#*$'\n'}"
+[ "$c" = "$r" ] && c=""
 [ -z "$c" ] && exit 0
 
 # Corpo de heredoc é conteúdo sendo escrito, não comando — some antes de qualquer match.
@@ -188,7 +191,7 @@ checa_alvo() {
   branch_no_comando "$ate" "$p" "$via"; rc_op=$?
   [ "$rc_op" = 0 ] && return 0
   if [ "$rc_op" = 2 ]; then
-    echo "BLOQUEADO pelo hook: o próprio comando troca para a main antes do git commit, então o commit cairia nela. Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Commit na main só se o usuário pediu isso nesta conversa: aí prefixe o comando com HOTFIX_MAIN=1." >&2
+    echo "BLOQUEADO pelo hook: o próprio comando troca para a main antes do git commit, então o commit cairia nela. Crie uma feature branch ou um worktree antes (ex.: git checkout -b feat/minha-mudanca). Commit na main só se o usuário pediu isso nesta conversa: aí prefixe o comando com HOTFIX_MAIN=1." >&2
     exit 2
   fi
   if [ -n "$p" ] && git -C "$p" rev-parse --git-dir >/dev/null 2>&1; then
@@ -208,7 +211,7 @@ checa_alvo() {
       if [ -n "$alvo_incerto" ]; then
         echo "BLOQUEADO pelo hook: o comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, ou expansão que só o shell faz), então decidi pelo cwd da sessão — e ele está em '$b' (repo: $tgt). Não verifiquei a branch do alvo real. Se o alvo é outro repo, escreva o caminho literal; se é repo descartável (fixture, tmpdir de teste), prefixe o comando com HOTFIX_MAIN=1." >&2
       else
-        echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch antes (ex.: git checkout -b feat/minha-mudanca). Commit na main só se o usuário pediu isso nesta conversa: aí prefixe o comando com HOTFIX_MAIN=1." >&2
+        echo "BLOQUEADO pelo hook: git commit cairia na branch '$b' (repo: $tgt). Crie uma feature branch ou um worktree antes (ex.: git checkout -b feat/minha-mudanca). Commit na main só se o usuário pediu isso nesta conversa: aí prefixe o comando com HOTFIX_MAIN=1." >&2
       fi
       exit 2
       ;;

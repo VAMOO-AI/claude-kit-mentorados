@@ -241,6 +241,18 @@ check passa    "scratch do Claude em /tmp"                "git -C /tmp/claude-10
 check bloqueia "/tmp comum não é descartável por nome"    "git -C /tmp/outra/coisa commit -m x"
 check bloqueia "claude- sem uid não é a raiz de scratch"  "git -C /tmp/claude-x/coisa commit -m x"
 
+# Invariante 4 do núcleo único (#241): o payload é lido com um node só. Até a 0.71 o hook
+# abria o node duas vezes, uma para o comando e outra para o cwd, e cada startup custa ~30 ms
+# em todo Bash com `commit`. Um node de mentira na frente do PATH conta as chamadas.
+NODE_REAL="$(command -v node)"
+CONTA="$(mktemp -d)"; trap 'rm -rf "$MAIN" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME" "$CONTA"' EXIT
+printf '#!/bin/sh\necho x >> "%s/chamadas"\nexec "%s" "$@"\n' "$CONTA" "$NODE_REAL" > "$CONTA/node"; chmod +x "$CONTA/node"
+for caso in "bloqueia|$MAIN" "passa|$FEAT"; do
+  : > "$CONTA/chamadas"
+  got=$(PATH="$CONTA:$PATH" decide "git commit -m x" "${caso#*|}")
+  ef_check "${caso%%|*} 1" "$got $(wc -l < "$CONTA/chamadas" | tr -d ' ')" "um node só por payload (${caso%%|*})"
+done
+
 echo
 ef_resumo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
