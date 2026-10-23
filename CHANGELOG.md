@@ -36,6 +36,9 @@ Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTIN
     - **git push apagando branch:** pergunta só quando a branch não tem PR mergeado. Com o
       `gh` ausente ou falhando, pergunta.
   - **Aviso de bypass:** fica o deste kit (um aviso por sessão, sem perguntar nada).
+  - **`scripts/rtk-holdout.sh`** vem junto do `rtk-claude` (o par sorteio no hook e conta no
+    relatório), com a suíte `tests/test-rtk-holdout.sh`. Desligado por padrão: só com
+    `RTK_HOLDOUT_PCT`, e só para quem tem rtk.
   - **Velocidade:** campos por expansão de parâmetro, `ask` sem node e pré-filtros sem
     processo. Sozinho, o hook caiu de 102 para 55 ms. O `pre-bash` com rtk mede 82 ms, abaixo
     do teto de 120 do plano.
