@@ -64,6 +64,43 @@ tem_gatilho() {
 powershell=0
 [[ $payload =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"PowerShell\" ]] && powershell=1
 
+# Leitura única (invariante 4 do núcleo único, #241): os campos que os guards usam saem de um
+# node só, na primeira vez que um gatilho casa, e ficam em variáveis do dispatcher. O guard,
+# que roda em subshell, pede os dele ao kit_campos no formato do hookjson.js (um por linha,
+# o último cru). Fora do dispatcher (Codex, suíte, hook chamado à mão) o guard lê sozinho.
+# Sem node ou sem o hookjson.js nada é lido aqui, e cada guard faz o fail-open dele.
+KIT_CAMPOS_LIDOS=""
+kit_ler() {
+  [ -n "$KIT_CAMPOS_LIDOS" ] && return 0
+  KIT_CAMPOS_LIDOS=0
+  local hj r
+  hj="$(cd "$HOOKS_DIR/../scripts" 2>/dev/null && pwd)/hookjson.js"
+  [ -f "$hj" ] || hj="$HOME/.claude/scripts/hookjson.js"
+  command -v node >/dev/null 2>&1 && [ -f "$hj" ] || return 0
+  r="$(printf '%s' "$payload" | node "$hj" permission_mode cwd session_id tool_input.workdir tool_input.command)"
+  KC_MODO="${r%%$'\n'*}"; r="${r#*$'\n'}"
+  KC_CWD="${r%%$'\n'*}";  r="${r#*$'\n'}"
+  KC_SID="${r%%$'\n'*}";  r="${r#*$'\n'}"
+  KC_WD="${r%%$'\n'*}";   KC_CMD="${r#*$'\n'}"
+  KIT_CAMPOS_LIDOS=1
+}
+kit_campos() { # <campo>... → o que `node hookjson.js <campo>...` imprimiria
+  local v n=$#
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      permission_mode)    v="$KC_MODO" ;;
+      cwd)                v="$KC_CWD" ;;
+      session_id)         v="$KC_SID" ;;
+      tool_input.workdir) v="$KC_WD" ;;
+      tool_input.command) v="$KC_CMD" ;;
+      *)                  v="" ;;
+    esac
+    shift
+    if [ $# -gt 0 ]; then v="${v//$'\r\n'/ }"; printf '%s\n' "${v//$'\n'/ }"; else printf '%s' "$v"; fi
+  done
+  [ "$n" -gt 0 ]
+}
+
 saidas=""
 avisos=""
 for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
@@ -72,6 +109,7 @@ for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
   [ -f "$f" ] || continue
   [ "$powershell" = 1 ] && [ "$h" = block-cd-leitura-relativa.sh ] && continue
   tem_gatilho "$f" || continue
+  kit_ler
   out=$(printf '%s' "$payload" | ( . "$f" ))
   rc=$?
   if [ "$rc" -eq 2 ]; then

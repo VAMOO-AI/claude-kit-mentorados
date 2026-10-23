@@ -16,7 +16,9 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-info="$(cat | node "$H" session_id cwd tool_input.workdir tool_input.command)"
+# Dentro do pre-bash os campos já foram lidos (kit_campos, leitura única); fora dele,
+# o próprio guard abre o node.
+if [ "${KIT_CAMPOS_LIDOS:-}" = 1 ]; then info="$(kit_campos session_id cwd tool_input.workdir tool_input.command)"; else info="$(cat | node "$H" session_id cwd tool_input.workdir tool_input.command)"; fi
 sid="$(printf '%s\n' "$info" | sed -n 1p)"
 cwd="$(printf '%s\n' "$info" | sed -n 2p)"
 wd="$(printf '%s\n' "$info"  | sed -n 3p)"

@@ -31,7 +31,9 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 # Uma chamada de node só: o permission_mode na 1ª linha, o comando cru (com heredoc) depois.
-info="$(cat | node "$H" permission_mode tool_input.command)"
+# Dentro do pre-bash os campos já foram lidos (kit_campos, leitura única); fora dele,
+# o próprio guard abre o node.
+if [ "${KIT_CAMPOS_LIDOS:-}" = 1 ]; then info="$(kit_campos permission_mode tool_input.command)"; else info="$(cat | node "$H" permission_mode tool_input.command)"; fi
 modo=$(printf '%s\n' "$info" | sed -n 1p)
 c=$(printf '%s\n' "$info" | sed '1d')
 [ -z "$c" ] && exit 0

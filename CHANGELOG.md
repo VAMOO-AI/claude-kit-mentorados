@@ -10,6 +10,21 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.72.1] — 2026-10-23
+
+### Mudado
+
+- **`pre-bash.sh` lê o payload uma vez para todos os guards** (F3 do núcleo único, #241,
+  invariante 4). Cada guard abria o próprio node, a ~40 ms cada no macOS. Um comando que casava
+  os cinco gatilhos abria cinco nodes. Agora o dispatcher lê os cinco campos com um node só, na
+  primeira vez que um gatilho casa, e os guards pedem os deles ao `kit_campos`, no formato do
+  `hookjson.js`. Fora do dispatcher (Codex, suíte, hook chamado à mão), o guard lê sozinho,
+  como antes.
+  - A suíte conta as chamadas com um node de mentira no PATH. Contra a 0.72.0, o comando que
+    casa os cinco gatilhos abria 5 nodes.
+  - Um guard de mentira compara o `kit_campos` com o `hookjson.js` em seis payloads: heredoc,
+    CRLF, array do Codex com `workdir`, campo ausente, acento e quebra de linha no cwd.
+
 ## [0.72.0] — 2026-10-23
 
 ### Mudado

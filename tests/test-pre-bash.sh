@@ -314,6 +314,52 @@ pass|A|F|git stash
 CASOS
 
 echo
+echo "== leitura única: um node por Bash, quantos guards rodarem (invariante 4 do #241) =="
+# Cada guard abria o próprio node para ler o payload: ~40 ms cada no macOS. O dispatcher lê
+# os campos uma vez e os guards usam o kit_campos. Um node de mentira na frente do PATH conta
+# as chamadas; o payload é montado antes, com o node de verdade.
+NODE_REAL="$(command -v node)"; CONTA="$TMP/conta"; mkdir -p "$CONTA"
+printf '#!/bin/sh\necho x >> "%s/chamadas"\nexec "%s" "$@"\n' "$CONTA" "$NODE_REAL" > "$CONTA/node"; chmod +x "$CONTA/node"
+conta_nodes() { # <comando> <cwd> → "<rc> <chamadas>"
+  local p rc
+  p=$(C="$1" D="$2" "$NODE_REAL" -e 'process.stdout.write(JSON.stringify({session_id:"s-conta",cwd:process.env.D,permission_mode:"default",tool_input:{command:process.env.C}}))')
+  : > "$CONTA/chamadas"
+  printf '%s' "$p" | HOME="$HOME_OUTRA" TMPDIR="$TMP" PATH="$CONTA:$PATH" bash "$HOOK" >/dev/null 2>&1; rc=$?
+  echo "$rc $(wc -l < "$CONTA/chamadas" | tr -d ' ')"
+}
+TODOS="git stash list && git merge x && cd $FEAT && git checkout -b y && $COMMIT"
+r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos dos cinco guards: 1 node (rc ${r% *})" || falha "comando que casa os cinco gatilhos abriu ${r#* } nodes (esperado 1)"
+r=$(conta_nodes "$COMMIT" "$MAIN");  [ "$r" = "2 1" ] && ok "commit na main: bloqueia com 1 node" || falha "commit na main veio '$r' (esperado '2 1')"
+r=$(conta_nodes 'ls -la' "$FEAT");    [ "$r" = "0 1" ] && ok "comando inocente: 1 node (o check-careful roda sempre)" || falha "comando inocente veio '$r' (esperado '0 1')"
+
+# O kit_campos tem de devolver byte a byte o que o hookjson.js devolveria: um guard de mentira
+# (no lugar do check-careful, que roda sempre) compara os dois para cada combinação de campos
+# que os guards pedem, e imprime IGUAL ou DIFERE.
+EQ="$(árvore "$TMP/eq")"
+cat > "$EQ/check-careful.sh" <<'GUARD'
+H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" && pwd)/hookjson.js"
+j="$(cat)"
+[ "${KIT_CAMPOS_LIDOS:-}" = 1 ] || { echo SEM-LEITURA; exit 0; }
+for campos in "permission_mode tool_input.command" "cwd tool_input.workdir tool_input.command" \
+              "session_id cwd tool_input.workdir tool_input.command" \
+              "permission_mode cwd session_id tool_input.command" "cwd tool_input.command"; do
+  a="$(kit_campos $campos)"; b="$(printf '%s' "$j" | node "$H" $campos)"
+  [ "$a" = "$b" ] || { echo "DIFERE [$campos]"; exit 0; }
+done
+echo IGUAL
+GUARD
+equivale() { # <descrição> <payload>
+  local r; r=$(printf '%s' "$2" | PRE_BASH_HOOKS_DIR="$EQ" bash "$HOOK" 2>&1)
+  [ "$r" = IGUAL ] && ok "kit_campos = hookjson.js: $1" || falha "kit_campos ≠ hookjson.js: $1 ($r)"
+}
+equivale "comando simples"            '{"session_id":"s","cwd":"/x","permission_mode":"default","tool_input":{"command":"ls"}}'
+equivale "heredoc com várias linhas"  '{"session_id":"s","cwd":"/x y","tool_input":{"command":"cat > a <<EOF\nlinha 1\nlinha 2\nEOF\ngit commit -m x"}}'
+equivale "CRLF e linha em branco final" '{"cwd":"/x","tool_input":{"command":"echo a\r\necho b\n\n"}}'
+equivale "Codex: array e workdir"     '{"tool_input":{"command":["/bin/zsh","-lc","git push\ngit status"],"workdir":"/w/d"}}'
+equivale "campo ausente e acento"     '{"tool_input":{"command":"echo ação ✓"},"cwd":"/pasta com espaço/ç"}'
+equivale "cwd com quebra de linha"    '{"cwd":"/a\nb","session_id":"s\r\nt","tool_input":{"command":"x"}}'
+
+echo
 echo "== fail-open =="
 rc=$(printf '' | bash "$HOOK" >/dev/null 2>&1; echo $?)
 espera_rc 0 "$rc" "payload vazio sai 0"
