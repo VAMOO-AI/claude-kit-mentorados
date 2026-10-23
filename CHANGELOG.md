@@ -24,6 +24,10 @@ Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTIN
     casa os cinco gatilhos abria 5 nodes.
   - Um guard de mentira compara o `kit_campos` com o `hookjson.js` em seis payloads: heredoc,
     CRLF, array do Codex com `workdir`, campo ausente, acento e quebra de linha no cwd.
+- **`block-cd-leitura-relativa`, `block-delete-branch-with-children` e
+  `block-parallel-clone-switch` prontos para o kit do time.** As três suítes do time passam
+  inteiras contra os hooks daqui, também no `--codex`. Entram os três casos que só o time tinha:
+  o `rtk` na frente da leitura, o `--repo` entre aspas e a tag de heredoc com hífen.
 
 ## [0.72.0] — 2026-10-23
 

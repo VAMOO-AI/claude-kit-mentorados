@@ -178,6 +178,8 @@ check pass "checkout citado em corpo de heredoc é conteúdo, não comando" \
   "cat > doc.md <<EOF${NL}git checkout main${NL}EOF"                                        "$CLONE"
 check pass "o mesmo com <<-EOF e corpo indentado por tab" \
   "cat > s.sh <<-EOF${NL}${TAB}git checkout main${NL}${TAB}EOF"                             "$CLONE"
+check pass "tag com hífen: o corpo continua sendo conteúdo" \
+  "cat > s.sh <<'END-OF-SCRIPT'${NL}git checkout main${NL}END-OF-SCRIPT"                    "$CLONE"
 check pass "'git checkout' dentro de string não é checkout" 'echo "rode git checkout main"' "$CLONE"
 check pass "worktree linkado tem git-dir próprio"     'git checkout -b feat/y'       "$CLONE/.wt"
 check pass "PARALLEL_OK=1 (override consciente)"      'PARALLEL_OK=1 git checkout main' "$CLONE"

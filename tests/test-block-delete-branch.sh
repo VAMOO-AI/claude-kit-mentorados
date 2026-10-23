@@ -129,6 +129,7 @@ gh_viu() { # gh_viu <descrição> <primeira chamada esperada ao gh> <comando>
 V='--json headRefName -q .headRefName'
 gh_viu "-R é o alias curto de --repo"   "pr view 12 --repo A/B $V" 'gh pr merge -R A/B --squash 12 -d'
 gh_viu "--repo=X"                       "pr view 12 --repo A/B $V" 'gh pr merge 12 --repo=A/B --delete-branch'
+gh_viu "--repo com aspas"               "pr view 12 --repo A/B $V" 'gh pr merge 12 --repo "A/B" --delete-branch'
 gh_viu "-R antes do pr (gh -R A/B pr merge)" "pr view 12 --repo A/B $V" 'gh -R A/B pr merge 12 -d'
 gh_viu "repo sai da URL do PR"          "pr view 12 --repo A/B $V" 'gh pr merge https://github.com/A/B/pull/12 --delete-branch'
 # O -R de outro comando virava o repo: `--repo dist`, o gh real falhava e o guard sumia.
