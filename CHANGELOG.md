@@ -10,6 +10,20 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.72.0] — 2026-10-23
+
+### Mudado
+
+- **`block-main-commit` lê o payload com um node só e passa a servir ao kit do time** (F3 do
+  núcleo único, #241). Até aqui o hook abria o node duas vezes, uma para o comando e outra
+  para o cwd. Agora o `hookjson.js` devolve os dois numa chamada, como manda a invariante 4 do
+  plano: são ~30 ms a menos em todo Bash com `commit`. A suíte conta as chamadas com um node de
+  mentira no PATH, e contra a 0.71.1 os dois casos novos falham, também no modo `--codex`.
+  - O texto do bloqueio sugere "uma feature branch ou um worktree". O worktree é a convenção
+    do time, e assim a mesma mensagem serve aos dois kits.
+  - A paridade com a suíte do time é 82 de 82 casos, sem caso sem par. O kit do time passa a
+    receber este hook pela `nucleo.lista` e apaga a cópia dele.
+
 ## [0.71.2] — 2026-10-23
 
 ### Corrigido
