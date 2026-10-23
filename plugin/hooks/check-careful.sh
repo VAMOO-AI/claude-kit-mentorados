@@ -42,10 +42,11 @@ command -v node >/dev/null 2>&1 || exit 0
 # Dentro do pre-bash os campos já foram lidos (kit_campos, leitura única); fora dele,
 # o próprio guard abre o node.
 if [ "${KIT_CAMPOS_LIDOS:-}" = 1 ]; then info="$(kit_campos permission_mode cwd session_id tool_input.command)"; else info="$(cat | node "$H" permission_mode cwd session_id tool_input.command)"; fi
-modo="$(printf '%s\n' "$info" | sed -n 1p)"
-cwd="$(printf '%s\n' "$info"  | sed -n 2p)"
-sid="$(printf '%s\n' "$info"  | sed -n 3p)"
-c="$(printf '%s\n' "$info"    | sed '1,3d')"
+# Por expansão de parâmetro, sem `sed`: este hook roda em todo Bash, e cada processo a
+# menos conta (F4 do núcleo único, #241: a cadeia tem teto de 120 ms).
+modo="${info%%$'\n'*}"; info="${info#*$'\n'}"
+cwd="${info%%$'\n'*}";  info="${info#*$'\n'}"
+sid="${info%%$'\n'*}";  c="${info#*$'\n'}"
 [ -z "$c" ] && exit 0
 # A escotilha é lida do comando SEM o corpo de heredoc. Medido em 03/09/2026: um doc que
 # apenas MENCIONA `CAREFUL_OFF=1` desligava o hook inteiro para o `rm -rf` real escrito
@@ -93,8 +94,10 @@ registra() {
 
 ask() {
   registra "$1"
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}' \
-    "$(printf '%s' "$1" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(s)))')"
+  # JSON em bash, sem um segundo node: a razão só tem texto nosso e o caminho do ETC.
+  local r="$1"
+  r="${r//\\/\\\\}"; r="${r//\"/\\\"}"; r="${r//$'\n'/\\n}"; r="${r//$'\t'/\\t}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"%s"}}' "$r"
   exit 0
 }
 m()  { printf '%s' "$c" | grep -qiE "$1"; }   # case-insensitive: SQL, nomes de comando
@@ -123,7 +126,11 @@ alvo_descartavel() {
   esac
   return 1
 }
-tem_mktemp=0; printf '%s' "$c_hd" | grep -qE '\bmktemp\b' && tem_mktemp=1
+tem_mktemp=0; [[ $c_hd == *mktemp* ]] && tem_mktemp=1
+# Pré-filtro sem processo: sem um dos comandos de apagar, o laço nem abre.
+shopt -s nocasematch
+if [[ $c_hd =~ (^|[^A-Za-z0-9_-])(rm|remove-item|ri|del|erase|rd|rmdir)([[:space:]]|$) ]]; then
+shopt -u nocasematch
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   case "$seg" in *[![:space:]]*) ;; *) continue ;; esac
@@ -157,21 +164,53 @@ while IFS= read -r seg; do
     ask "[cuidado] apagar pasta inteira (rm -r / Remove-Item -Recurse) fora das descartáveis (node_modules, .next, dist, build…): $ruim. O git não devolve arquivo ignorado. Confirme o alvo."
   fi
 done <<< "$segs"
+fi
+shopt -u nocasematch
 
-# git push (0.48.0). Normaliza `git -C <dir> push` e lê flag, refspec e o branch atual:
+# git push (0.48.0; posição e `cd` vêm do kit do time, F4 do núcleo único). Lê flag, refspec
+# e o branch do repo-alvo:
 #   • force por flag agrupada (`-uf`), `--force` ou refspec com `+`; --force-with-lease e
 #     --force-if-includes são isentos (recusam se o remoto andou);
 #   • apagar por `--delete`/`-d` ou refspec `:branch`; `--mirror` e `--all`;
 #   • destino main/master em qualquer forma (`main`, `HEAD:main`, `x:refs/heads/main`);
 #   • `git push`/`git push origin` sem refspec (ou `HEAD`) estando na main/master.
+# Só conta o push em posição de comando: o corpo de heredoc já saiu, e "git push" citado
+# numa string do python, num doc ou num caso de teste não começa segmento. O branch é o do
+# repo-alvo, seguindo o `cd` do próprio comando e o `git -C <dir>`; `cd` com variável deixa o
+# branch desconhecido, e aí só o destino explícito pergunta. HOTFIX_MAIN=1 (a escotilha do
+# block-main-commit) cala só a regra da main. Medido no time em 15/10/2026 (30 dias): 98
+# disparos sem a posição, a maioria texto; 48 com ela e sem seguir o `cd`.
+case "$c_hd" in *push*)
 alvo_main() { local d="${1#refs/heads/}"; [ "$d" = main ] || [ "$d" = master ]; }
-push_segs=$(printf '%s\n' "$segs" | grep -E '(^|[[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)')
+branch_de() { [ -n "$1" ] && git -C "$1" symbolic-ref --short -q HEAD 2>/dev/null; }
+hotfix=0
+[[ $c_hd =~ (^|[[:space:]\;\&\|\(])HOTFIX_MAIN=1([[:space:]]|\;|$) ]] && hotfix=1
+# O começo de cada segmento sem `(`/`$(`, atribuição de variável e lançador (rtk, sudo,
+# command, nice, time, timeout N): é o que fica antes do `git` sem mudar o que ele faz.
+segs_cmd=$(printf '%s\n' "$segs" | sed -E 's/^[[:space:]]*(\(|\$\()?[[:space:]]*//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+|(rtk|sudo|command|nice|time)[[:space:]]+|timeout[[:space:]]+[0-9]+[smhd]?[[:space:]]+)*//')
+here="${cwd:-.}"
 while IFS= read -r seg; do
-  [ -z "$seg" ] && continue
-  dir="${cwd:-.}"
-  dir_c=$(printf '%s' "$seg" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+).*/\1/p')
-  [ -n "$dir_c" ] && dir="$(desaspa "$dir_c")"
-  args=$(printf '%s' "$seg" | sed -E 's/^(.*[[:space:]])?push([[:space:]]+|$)//')
+  case "$seg" in
+    cd|'cd '|cd$'\t') here="$HOME"; continue ;;
+    'cd '*')'*) continue ;;   # `(cd x)`: o cd morre com o subshell
+    'cd '*)
+      alvo="${seg#cd }"; alvo="${alvo#"${alvo%%[![:space:]]*}"}"; alvo="${alvo%%[[:space:]]*}"
+      alvo="$(desaspa "$alvo")"
+      case "$alvo" in
+        *'$'*|*'`'*|-*) here="" ;;
+        '~'|'~/'*) here="$HOME${alvo#\~}" ;;
+        /*) here="$alvo" ;;
+        *) [ -n "$here" ] && here="$here/$alvo" ;;
+      esac
+      continue ;;
+  esac
+  [[ $seg =~ ^git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+push([[:space:]]|$) ]] || continue
+  dir="$here"
+  if [[ $seg =~ ^git[[:space:]]+-[Cc][[:space:]]+(\"[^\"]*\"|\'[^\']*\'|[^[:space:]]+) ]]; then
+    dir_c="$(desaspa "${BASH_REMATCH[1]}")"
+    case "$dir_c" in *'$'*|*'`'*) dir="" ;; /*) dir="$dir_c" ;; '~'*) dir="$HOME${dir_c#\~}" ;; *) [ -n "$dir" ] && dir="$dir/$dir_c" ;; esac
+  fi
+  args="${seg#*push}"
   force=0; apaga=0; tudo=0; pos=(); pula=0; fim=0
   for w in $args; do
     if [ "$pula" = 1 ]; then pula=0; continue; fi
@@ -193,29 +232,26 @@ while IFS= read -r seg; do
     fi
     pos+=("$(desaspa "$w")")
   done
-  refs=("${pos[@]:1}")
+  refs=(${pos[@]+"${pos[@]:1}"})
   main=0
-  for r in "${refs[@]}"; do
+  for r in ${refs[@]+"${refs[@]}"}; do
     case "$r" in +*) force=1; r="${r#+}" ;; esac
     case "$r" in :*) apaga=1 ;; esac
     dst="${r##*:}"
     alvo_main "$dst" && main=1
-    if [ "$dst" = HEAD ] || [ "$r" = HEAD ]; then
-      atual=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)
-      alvo_main "$atual" && main=1
-    fi
+    if [ "$dst" = HEAD ] || [ "$r" = HEAD ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
   done
-  if [ "${#refs[@]}" = 0 ]; then
-    atual=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)
-    alvo_main "$atual" && main=1
-  fi
+  if [ "${#refs[@]}" = 0 ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
+  [ "$hotfix" = 1 ] && main=0
   [ "$force" = 1 ] && ask "[cuidado] git push --force (ou -f agrupado, ou refspec com +) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
   [ "$apaga" = 1 ] && ask "[cuidado] git push apagando branch remota (--delete, -d ou refspec :branch). Confirme."
   [ "$tudo" = 1 ] && ask "[cuidado] git push --mirror/--all empurra todas as branches, main incluída. Confirme."
   [ "$main" = 1 ] && ask "[cuidado] git push direto na main/master. O fluxo do kit é branch + PR. Confirme."
-done <<< "$push_segs"
+done <<< "$segs_cmd"
+;; esac
 
 # Descartar alteração local não commitada (0.48.0): não há undo nenhum, nem do git.
+case "$c_hd" in *checkout*|*switch*|*restore*|*stash*)
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   printf '%s' "$seg" | grep -qE '(^|[[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(checkout|switch|restore|stash)([[:space:]]|$)' || continue
@@ -240,6 +276,7 @@ while IFS= read -r seg; do
         && ask "[cuidado] git stash drop/clear apaga o que estava guardado no stash. Confirme." ;;
   esac
 done <<< "$segs"
+;; esac
 
 # SQL destrutivo: só quando há EXECUTOR. Corpo de heredoc cuja linha de abertura não tem
 # executor (`cat > x.sql <<SQL`, `python3 - <<PY`) é conteúdo sendo escrito, não comando.
@@ -248,7 +285,8 @@ done <<< "$segs"
 # `cat > x.sql <<'END-OF-SQL' … END-OF-SQL` seguido de `psql -c "DROP TABLE users"`
 # passava calado. Por isso o parser aceita tag com hífen/ponto, terminador indentado
 # por tab do `<<-`, `EOF)` do `$(cat <<EOF` e ignora `<<<` (here-string, não heredoc).
-if m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli)' \
+shopt -s nocasematch; tem_sql=0; [[ $c =~ (psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli) ]] && tem_sql=1; shopt -u nocasematch
+if [ "$tem_sql" = 1 ] && m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli)' \
    && ! m '(--check|--dry-run)' && ! m 'docker[[:space:]]+exec'; then
   c_exec=$(printf '%s\n' "$c" | awk -v ex='psql|db-query\\.sh|supabase[ \t]+db|PGPASSWORD|pgcli' '
     BEGIN { inhd=0; dash=0 }
@@ -268,17 +306,21 @@ if m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD|pgcli)' \
     }')
   printf '%s' "$c_exec" | grep -qiE '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE([[:space:]]+TABLE)?)\b' \
     && ask "[cuidado] SQL destrutivo (DROP/TRUNCATE) sendo EXECUTADO. É produção? Confirme."
+  # DDL também (do kit do time): CREATE/ALTER TABLE direto no banco muda o schema de quem
+  # usa o banco, e em produção não tem desfazer simples.
+  printf '%s' "$c_exec" | grep -qiE '\b(CREATE|ALTER)[[:space:]]+TABLE\b' \
+    && ask "[cuidado] DDL (CREATE/ALTER TABLE) direto no banco. É produção? Confirme."
 fi
 
 # supabase db reset: o local é rotina de migration; só o remoto apaga dado que importa.
-if m 'supabase[[:space:]]+db[[:space:]]+reset' && m '(--linked|--db-url)' \
+if [[ $c == *supabase* ]] && m 'supabase[[:space:]]+db[[:space:]]+reset' && m '(--linked|--db-url)' \
    && ! m '(localhost|127\.0\.0\.1|:54322|host\.docker\.internal)'; then
   ask "[cuidado] supabase db reset em banco REMOTO apaga o banco. Confirme."
 fi
 
 # git add amplo — o risco é o index compartilhado entre sessões no mesmo clone.
 # Worktree tem index próprio, então lá não pergunta.
-if ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-[a-zA-Z]*[Au]\b|--all\b|\.)[[:space:]]*($|[;&|])'; then
+if [[ $c == *add* ]] && ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-[a-zA-Z]*[Au]\b|--all\b|\.)[[:space:]]*($|[;&|])'; then
   em_worktree=0
   case "$cwd" in *worktree*|*.worktrees*) em_worktree=1;; esac
   case "$c" in *worktree*) em_worktree=1;; esac
@@ -293,6 +335,7 @@ fi
 # redirecionamento (`>> .env.local`) e o que não imprime conteúdo (`grep -c/-q/-l`, test, ls,
 # stat, echo/printf, mensagem de commit/PR — sem substituição de comando).
 SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|\.ssh[/\\]|id_rsa|id_ed25519|id_ecdsa|\.pem($|[^A-Za-z0-9_])|\.aws[/\\]credentials|\.netrc|\.npmrc|\.claude\.json|\.config[/\\]gh[/\\]hosts\.yml|serviceAccountKey\.json'
+if [[ $c_hd =~ $SEGREDO ]]; then
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   limpo=$(printf '%s' "$seg" | sed -E 's/\.env(\.[A-Za-z0-9_-]+)*\.(example|sample|template|1password)//g; s/>>?[[:space:]]*[^[:space:]]+//g')
@@ -304,9 +347,12 @@ while IFS= read -r seg; do
   ;; esac
   ask "[cuidado] o comando cita arquivo de segredo (.env, chave SSH, .pem, credencial de nuvem/gh/npm) e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe, sem ver o valor: bash $ETC arquivo CHAVE"
 done <<< "$segs"
+fi
 
 # Variáveis de ambiente inteiras (0.48.0): `env`, `printenv`, `export -p`, `set` e, no
 # PowerShell, `Get-ChildItem Env:` mostram todos os tokens carregados de uma vez.
+shopt -s nocasematch; tem_env=0; [[ $c_hd =~ (env|set|export|declare|nvironment) ]] && tem_env=1; shopt -u nocasematch
+if [ "$tem_env" = 1 ]; then
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   if printf '%s' "$seg" | grep -qE '^[[:space:]]*(env|printenv|set|export[[:space:]]+-p|export|declare[[:space:]]+-[a-zA-Z]*[xp][a-zA-Z]*)([[:space:]]+-0)?[[:space:]]*$|^[[:space:]]*printenv([[:space:]]|$)' \
@@ -314,6 +360,7 @@ while IFS= read -r seg; do
     ask "[cuidado] listar as variáveis de ambiente mostra todos os tokens carregados. Pra uma só: echo \"\${NOME:+definida}\" (Bash) ou [bool]\$env:NOME (PowerShell)."
   fi
 done <<< "$segs"
+fi
 
 # Exfiltração de credencial pra fora da máquina. Nada mais no harness barra isso:
 # permissions.deny só cobre o tool Read, e o `ask` de hook não freia subagent — mas na
@@ -323,7 +370,8 @@ done <<< "$segs"
 # mais comum aqui — 3.407 disparos no corpus de 30 dias contra 118 da versão por
 # segmento. E o destino "dono" da credencial (a própria API do Supabase/n8n/GitHub) é
 # isento: mandar a service_role PRO Supabase é o uso correto dela. Sobram 13 em 30 dias.
-net_seg=$(printf '%s' "$c" | grep -oE '\b(curl|wget|nc|ncat|scp|rsync)\b[^;&|]*' 2>/dev/null)
+net_seg=""
+shopt -s nocasematch; [[ $c =~ (curl|wget|nc|ncat|scp|rsync) ]] && net_seg=$(printf '%s' "$c" | grep -oE '\b(curl|wget|nc|ncat|scp|rsync)\b[^;&|]*' 2>/dev/null); shopt -u nocasematch
 if [ -n "$net_seg" ] \
    && printf '%s' "$net_seg" | grep -qiE '(\.env\b|\.env\.|id_rsa|id_ed25519|\.ssh/|SERVICE_ROLE|SERVICE_KEY|ANTHROPIC_API_KEY)' \
    && ! printf '%s' "$net_seg" | grep -qiE '\.env\.(example|sample|template)' \
