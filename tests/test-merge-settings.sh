@@ -718,9 +718,10 @@ node -e 'process.exit(require(process.argv[1]).language === "portuguese" ? 0 : 1
 # chave que o kit gravou e tirou, hook a remover) não moram no .js: chegam pela meta-chave
 # `$merge` do overlay, e o overlay daqui é uma fixture neutra.
 #
-# Três casos do time contradizem casos do plugin e ficaram de fora até alguém decidir (o kit
-# governa a chave escalar que define x "o seu ganha"; hook da pessoa fora do kit sai x fica;
-# settings.json inválido sai com rc != 0 x rc 0 e o kit-setup.sh segue). Ver o PR da F6.
+# Três casos do time contradiziam casos do plugin. Decisão (23/10/2026): o padrão é o do
+# plugin, e o do time é ligado pela configuração — chave escalar que o kit governa vem em
+# `$merge.chavesGovernadas`; hook da pessoa fora do kit sai com `$merge.removerHooksAlheios`;
+# settings.json inválido sai com rc != 0 só com `--estrito`. Seção "conflitos decididos".
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 saida_tem() { # saida_tem <descrição> <arquivo> <texto fixo>
   if grep -qF -- "$3" "$2"; then echo "  ok    $1"; else echo "  FALHA $1: $(cat "$2")"; falhas=$((falhas+1)); fi
@@ -996,6 +997,89 @@ const t = require(process.argv[1])
 console.log(Object.keys(t).filter((k) => t[k] && typeof t[k] === "object" && !Array.isArray(t[k]) && !ok.includes(k)).join(" "))' "$TEMPLATE")"
 [ -z "$SEM_REGRA" ] && echo "  ok    toda chave dict do template tem regra de merge decidida" \
   || { echo "  FALHA chave dict do template sem regra de merge decidida: $SEM_REGRA"; falhas=$((falhas+1)); }
+
+echo "== conflito 1 decidido: chave escalar — a da pessoa fica; \$merge.chavesGovernadas devolve ao kit =="
+jsmod "$TMP/mine-t.json" "$TMP/mine-canal.json" 'd.autoUpdatesChannel = "latest"'
+cp "$TMP/mine-canal.json" "$TMP/out-c0.json"
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-c0.json" >/dev/null 2>&1
+check "canal: sem overlay, o latest da pessoa fica (padrão do plugin)" "d.autoUpdatesChannel" '"latest"' "$TMP/out-c0.json"
+echo '{"$merge":{"chavesGovernadas":["autoUpdatesChannel"]}}' > "$TMP/overlay-gov.json"
+cp "$TMP/mine-canal.json" "$TMP/out-c1.json"
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-c1.json" --overlay "$TMP/overlay-gov.json" > "$TMP/out-c1.txt" 2>&1
+check "canal: com chavesGovernadas o kit governa (o latest da máquina volta a stable)" "d.autoUpdatesChannel" '"stable"' "$TMP/out-c1.json"
+check "chavesGovernadas não mexe na chave que não lista (theme da pessoa fica)" "d.theme" '"auto"' "$TMP/out-c1.json"
+saida_tem "a saída diz que a chave governada voltou ao valor do kit" "$TMP/out-c1.txt" "autoUpdatesChannel"
+echo '{"autoUpdatesChannel":"latest","$merge":{"chavesGovernadas":["autoUpdatesChannel"]}}' > "$TMP/overlay-gov-latest.json"
+jsmod "$TMP/mine-t.json" "$TMP/out-c2.json" 'd.autoUpdatesChannel = "stable"'
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-c2.json" --overlay "$TMP/overlay-gov-latest.json" >/dev/null 2>&1
+check "canal: o valor do overlay vence o kit e governa a máquina" "d.autoUpdatesChannel" '"latest"' "$TMP/out-c2.json"
+ANTES_C="$(cat "$TMP/out-c1.json")"
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-c1.json" --overlay "$TMP/overlay-gov.json" >/dev/null 2>&1
+[ "$ANTES_C" = "$(cat "$TMP/out-c1.json")" ] && echo "  ok    chavesGovernadas: a segunda passada não muda nada" \
+  || { echo "  FALHA chavesGovernadas: a segunda passada mudou o arquivo"; falhas=$((falhas+1)); }
+
+echo "== conflito 2 decidido: hook da pessoa fora do kit — fica; \$merge.removerHooksAlheios tira e avisa =="
+# Fixture do time: o kit reescreveu o rtk, virou script inline (check-careful), passou hook de
+# Bash para sub-hook de dispatcher (o script continua em hooks/ ao lado do settings.json do kit),
+# entrega um script por outro caminho (scriptsEntregues, a nucleo.lista do time) e trocou o
+# dotcontext inline por um script com o nome dele. Só o afplay sai de verdade.
+mkdir -p "$TMP/kit-rh/hooks"; : > "$TMP/kit-rh/hooks/warn-sem-jq.sh"
+jsmod "$TMP/kit-t.json" "$TMP/kit-rh/settings.json" 'd.hooks.PreToolUse[0].hooks.push({ type: "command",
+  command: "if [ -f \"$HOME/.claude/hooks/pre-bash.sh\" ]; then bash \"$HOME/.claude/hooks/pre-bash.sh\"; exit $?; fi; exit 0" });
+d.hooks.SessionStart = [{ matcher: "*", hooks: [{ type: "command", command: "bash $HOME/.claude/hooks/dotcontext-session.sh" }] }]'
+jsmod "$TMP/mine-t.json" "$TMP/mine-rh.json" 'd.hooks = {
+  PreToolUse: [{ matcher: "Bash", hooks: [
+    { type: "command", command: "rtk hook claude" },
+    { type: "command", command: "afplay /System/Library/Sounds/Glass.aiff &" },
+    { type: "command", command: "mkdir -p $HOME/.claude/.cache/check-careful; echo oi" },
+    { type: "command", command: "if [ -f \"$HOME/.claude/hooks/block-main-commit.sh\" ]; then bash \"$HOME/.claude/hooks/block-main-commit.sh\"; exit $?; fi; exit 0" },
+    { type: "command", command: "if [ -f \"$HOME/.claude/hooks/warn-sem-jq.sh\" ]; then bash \"$HOME/.claude/hooks/warn-sem-jq.sh\"; exit $?; fi; exit 0" } ] }],
+  SessionStart: [{ matcher: "*", hooks: [
+    { type: "command", command: "[ \"$PWD\" != \"$HOME\" ] && npx -y @dotcontext/cli@1.1.1 hook dispatch --source claude-code || exit 0" } ] }] }'
+cp "$TMP/mine-rh.json" "$TMP/out-rh0.json"
+node "$MERGE" "$TMP/kit-rh/settings.json" "$TMP/out-rh0.json" >/dev/null 2>&1
+check "sem a flag, o hook da pessoa fora do kit fica (padrão do plugin)" \
+  "Object.values(d.hooks).flat().flatMap((g) => g.hooks).some((h) => h.command.startsWith('afplay'))" "true" "$TMP/out-rh0.json"
+cat > "$TMP/overlay-rh.json" <<'JSON'
+{ "hooks": { "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "pessoal-hook", "timeout": 120 }] }] },
+  "$merge": { "removerHooksAlheios": true, "scriptsEntregues": ["block-main-commit.sh"] } }
+JSON
+jsmod "$TMP/mine-rh.json" "$TMP/out-rh.json" 'd.hooks.PermissionRequest = [{ hooks: [{ type: "command", command: "pessoal-hook", timeout: 120 }] }]'
+node "$MERGE" "$TMP/kit-rh/settings.json" "$TMP/out-rh.json" --overlay "$TMP/overlay-rh.json" > "$TMP/out-rh.txt" 2>&1
+check "com removerHooksAlheios, o hook fora do kit sai" \
+  "Object.values(d.hooks).flat().flatMap((g) => g.hooks).filter((h) => h.command.includes('afplay')).length" "0" "$TMP/out-rh.json"
+check "com removerHooksAlheios, nenhum hook chama o rtk cru" \
+  "Object.values(d.hooks).flat().flatMap((g) => g.hooks).filter((h) => h.command === 'rtk hook claude').length" "0" "$TMP/out-rh.json"
+check "com removerHooksAlheios, os hooks do kit e do overlay ficam" \
+  "Object.values(d.hooks).flat().flatMap((g) => g.hooks).map((h) => h.command).filter((c) => /check-careful.sh|pre-bash.sh|dotcontext-session.sh|^pessoal-hook$/.test(c)).length" "4" "$TMP/out-rh.json"
+saida_tem "aviso nomeia o hook que realmente sai" "$TMP/out-rh.txt" "afplay"
+saida_tem "aviso diz que o backup é de quem chamou o merge" "$TMP/out-rh.txt" "backup"
+saida_sem "aviso ignora hook substituído pelo kit" "$TMP/out-rh.txt" "rtk hook claude"
+saida_sem "aviso ignora hook que virou script do kit" "$TMP/out-rh.txt" "check-careful"
+saida_sem "aviso ignora hook que virou sub-hook do dispatcher (script ainda no kit)" "$TMP/out-rh.txt" "warn-sem-jq"
+saida_sem "aviso ignora hook que o kit entrega por outro caminho (scriptsEntregues)" "$TMP/out-rh.txt" "block-main-commit"
+saida_sem "aviso ignora ferramenta inline que virou script do kit" "$TMP/out-rh.txt" "dotcontext/cli"
+saida_sem "hook do overlay não é anunciado como removido" "$TMP/out-rh.txt" "pessoal-hook"
+ANTES_RH="$(cat "$TMP/out-rh.json")"
+node "$MERGE" "$TMP/kit-rh/settings.json" "$TMP/out-rh.json" --overlay "$TMP/overlay-rh.json" > "$TMP/out-rh2.txt" 2>&1
+[ "$ANTES_RH" = "$(cat "$TMP/out-rh.json")" ] && ! grep -q 'REMOVIDO' "$TMP/out-rh2.txt" \
+  && echo "  ok    removerHooksAlheios: a segunda passada não muda nem avisa de novo" \
+  || { echo "  FALHA removerHooksAlheios: a segunda passada mudou ou avisou: $(cat "$TMP/out-rh2.txt")"; falhas=$((falhas+1)); }
+
+echo "== conflito 3 decidido: settings.json inválido — rc 0 por padrão, rc != 0 com --estrito =="
+cp "$TMP/mq-antes.json" "$TMP/mq-padrao.json"
+rc=0; node "$MERGE" "$TMP/kit-t.json" "$TMP/mq-padrao.json" > "$TMP/mq-padrao.txt" 2>&1 || rc=$?
+esperado "sem --estrito, JSON inválido sai 0 (o kit-setup.sh com set -e segue)" "$rc" "0"
+cp "$TMP/mq-antes.json" "$TMP/mq-estrito.json"
+rc=0; node "$MERGE" "$TMP/kit-t.json" "$TMP/mq-estrito.json" --estrito > "$TMP/mq-estrito.txt" 2>&1 || rc=$?
+if [ "$rc" -ne 0 ]; then echo "  ok    com --estrito, JSON inválido: o merge recusa (rc=$rc)"
+else echo "  FALHA com --estrito, JSON inválido saiu 0"; falhas=$((falhas+1)); fi
+saida_tem "com --estrito, o erro nomeia o arquivo" "$TMP/mq-estrito.txt" "mq-estrito.json"
+cmp -s "$TMP/mq-antes.json" "$TMP/mq-estrito.json" && echo "  ok    com --estrito, o arquivo inválido fica intacto" \
+  || { echo "  FALHA com --estrito, o arquivo inválido foi reescrito"; falhas=$((falhas+1)); }
+cp "$TMP/mine-t.json" "$TMP/out-est-ok.json"
+rc=0; node "$MERGE" "$TMP/kit-t.json" "$TMP/out-est-ok.json" --estrito >/dev/null 2>&1 || rc=$?
+esperado "com --estrito, settings válido mescla e sai 0" "$rc" "0"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -5,7 +5,7 @@
 // vivia num heredoc dentro do instalador e só dava pra exercitar rodando o
 // instalador inteiro contra o ~/.claude de verdade.
 //
-//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]...
+//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
@@ -31,7 +31,15 @@
 // regras de quem distribui o overlay e nunca é gravada no settings.json:
 //   allowsRevogados {texto exato: substituto|null}, envDoKit {VAR: valor exato} e
 //   chavesDoKit {chave: valor exato} — o que aquele kit gravou e tirou, e sai da máquina só
-//   com o valor exato — e hooksRemovidos [trecho do comando].
+//   com o valor exato — e hooksRemovidos [trecho do comando]. E o que muda o padrão:
+//   chavesGovernadas [chave] — chave escalar que o kit governa: volta ao valor do kit, em vez
+//   de "a sua ganha" (não confundir com chavesDoKit, que só tira um valor antigo);
+//   removerHooksAlheios true — hook da pessoa que não está no kit sai, com aviso nomeando
+//   cada um (o backup é de quem chama o merge); scriptsEntregues [nome.sh] — script que o kit
+//   instala por outro caminho, para o aviso não anunciar como perdido o que continua lá.
+//
+// --estrito: settings.json inválido sai com rc 1 em vez de 0 (o arquivo continua intacto). O
+// padrão é 0 porque o kit-setup.sh roda com `set -e`.
 // Nenhum valor da casa mora aqui: quem tem histórico próprio o declara no overlay dele.
 //
 // Perder um `deny` é abrir buraco de segurança — por isso ele entra na união em
@@ -46,12 +54,14 @@
 // fazer.
 const fs = require('fs');
 const path = require('path');
-const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]...';
+const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]';
 const posicionais = [];
 let overlayPath = null;
+let estrito = false;
 const skillDirs = [];
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
+  if (a === '--estrito') { estrito = true; continue; }
   if (a === '--overlay' || a === '--skills-dir') {
     const v = process.argv[++i];
     if (!v) { console.error(USO); process.exit(2); }
@@ -79,15 +89,15 @@ const ondeErro = (e, bruto) => {
 
 let user = {};
 // Arquivo vazio não tem o que perder e vira {}; JSON inválido é mantido e o setup segue
-// (rc 0: o kit-setup.sh roda com `set -e`).
+// (rc 0: o kit-setup.sh roda com `set -e`). Com --estrito, quem chama recebe rc 1.
 if (fs.existsSync(userPath)) {
   const bruto = fs.readFileSync(userPath, 'utf8');
   if (bruto.trim()) {
     try {
       user = JSON.parse(bruto);
     } catch (e) {
-      console.log(`! settings.json existente (${userPath}) está com JSON inválido (${ondeErro(e, bruto)}) — mantive o seu e não mesclei nada.`);
-      process.exit(0);
+      console.log(`! settings.json existente (${userPath}) está com JSON inválido (${ondeErro(e, bruto)})— mantive o seu e não mesclei nada.`);
+      process.exit(estrito ? 1 : 0);
     }
   }
 }
@@ -138,7 +148,11 @@ const mapa = (v) => (objeto(v) ? v : {});
 const allowsRevogadosOverlay = mapa(regras.allowsRevogados);
 const envDoKit = mapa(regras.envDoKit);
 const chavesDoKit = mapa(regras.chavesDoKit);
-const hooksRemovidos = Array.isArray(regras.hooksRemovidos) ? regras.hooksRemovidos.filter((t) => typeof t === 'string' && t) : [];
+const lista = (v) => (Array.isArray(v) ? v.filter((t) => typeof t === 'string' && t) : []);
+const hooksRemovidos = lista(regras.hooksRemovidos);
+const chavesGovernadas = lista(regras.chavesGovernadas);
+const scriptsEntregues = lista(regras.scriptsEntregues);
+const removerHooksAlheios = regras.removerHooksAlheios === true;
 
 // Env da máquina antes de qualquer mudança: o aviso do Remote Control fala do que ela tem.
 const envOriginal = objeto(user.env) ? { ...user.env } : null;
@@ -222,6 +236,16 @@ if (objeto(kit.hooks) && objeto(user.hooks)) {
     if (atuais.length) user.hooks[evento] = atuais;
   }
   if (n) novas.push(`hooks (+${n})`);
+}
+
+// chavesGovernadas: a chave escalar que o overlay declara governada volta ao valor do kit.
+// Chave dict tem regra própria acima e não entra aqui.
+for (const k of chavesGovernadas) {
+  if (!(k in kit) || objeto(kit[k])) continue;
+  if (JSON.stringify(user[k]) === JSON.stringify(kit[k])) continue;
+  const antes = user[k];
+  user[k] = kit[k];
+  if (antes !== undefined) novas.push(`${k} (${JSON.stringify(antes)} → ${JSON.stringify(kit[k])}, governada pelo kit)`);
 }
 
 // O que o kit de quem distribui o overlay gravou e tirou: sai só com o valor exato.
@@ -392,6 +416,62 @@ const tirarHooks = (trechos) => {
 const legados = tirarHooks([DISPATCH_LEGADO]);
 const doOverlay = tirarHooks(hooksRemovidos);
 
+// removerHooksAlheios: o kit governa os hooks — o da pessoa que não está no kit (com o overlay
+// já somado) sai. O aviso nomeia só o que de fato some da máquina: hook que o kit reescreveu,
+// virou script ou passou a ser chamado por um dispatcher continua existindo de outra forma, e
+// aviso que grita falso-positivo ensina a pular a saída inteira.
+const comandos = (h) => (objeto(h) ? Object.values(h) : []).filter(Array.isArray).flat()
+  .flatMap((g) => (g && Array.isArray(g.hooks) ? g.hooks : [])).map((x) => x && x.command).filter((c) => typeof c === 'string');
+let alheiosAvisados = [];
+let alheios = 0;
+if (removerHooksAlheios && objeto(user.hooks)) {
+  const kitCmds = new Set(comandos(kit.hooks));
+  const assinatura = (c) => {
+    const m = /([\w-]+)\.sh\b/.exec(c);
+    if (m) return 'sh:' + m[1];
+    const f = ['dotcontext', 'rtk', 'eslint', 'prettier', 'afplay', 'osascript'].find((t) => c.includes(t));
+    return f || 'raw:' + c.split(/\s+/).filter(Boolean).join(' ');
+  };
+  const kitSigs = new Set([...kitCmds].map(assinatura));
+  const kitScripts = new Set([...kitCmds].flatMap((c) => [...c.matchAll(/([\w-]+)\.sh\b/g)].map((m) => m[1])));
+  const kitDir = path.dirname(path.resolve(kitPath));
+  const reembrulhado = (c) => {
+    const sig = assinatura(c);
+    if (kitSigs.has(sig)) return true;
+    if ([...kitScripts].some((n) => c.includes(n))) return true;
+    if (sig.startsWith('sh:')) {
+      const nome = sig.slice(3) + '.sh';
+      if (['hooks', 'scripts'].some((d) => fs.existsSync(path.join(kitDir, d, nome)))) return true;
+      if (scriptsEntregues.some((s) => path.basename(s) === nome)) return true;
+    }
+    if (!sig.startsWith('sh:') && !sig.startsWith('raw:') && [...kitScripts].some((n) => n.includes(sig))) return true;
+    const nucleo = c.trim().replace(/&+\s*$/, '').trim();
+    return !!nucleo && [...kitCmds].some((k) => k.includes(nucleo));
+  };
+  const fora = [...new Set(comandos(user.hooks).filter((c) => !kitCmds.has(c)))];
+  alheiosAvisados = fora.filter((c) => !reembrulhado(c)).sort();
+  if (fora.length) {
+    const tirar = new Set(fora);
+    for (const [evento, grupos] of Object.entries(user.hooks)) {
+      if (!Array.isArray(grupos)) continue;
+      const restantes = grupos.filter((g) => {
+        if (!g || !Array.isArray(g.hooks)) return true;
+        const antes = g.hooks.length;
+        g.hooks = g.hooks.filter((h) => !(h && typeof h.command === 'string' && tirar.has(h.command)));
+        alheios += antes - g.hooks.length;
+        return g.hooks.length > 0 || antes === 0;
+      });
+      if (restantes.length) user.hooks[evento] = restantes;
+      else delete user.hooks[evento];
+    }
+  }
+}
+if (alheiosAvisados.length) {
+  console.log(`! ${alheiosAvisados.length} hook(s) do seu settings.json não estão no kit e foram REMOVIDOS:`);
+  for (const c of alheiosAvisados) console.log(`    ${c.slice(0, 110)}`);
+  console.log('  A cópia integral fica no backup de quem chamou o merge. Hook que precisa sobreviver tem que estar no settings.json do kit ou no overlay.');
+}
+
 // Avisos sobre o env que fica: o merge não tira variável da pessoa, então explica o efeito.
 // Regra de cada var copiada da CLI (2.1.280, testado com `claude remote-control`): as duas
 // primeiras bloqueiam com qualquer valor não vazio, "0" incluso; as outras só com valor verdadeiro.
@@ -427,4 +507,4 @@ if (allowsTirados.length) {
   }
   console.log('  projeto que precisa libera o comando exato no próprio .claude/settings.json (ex.: "Bash(npm run build)").');
 }
-if (!novas.length && !legados && !doOverlay && !tiradosDoKit.length && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');
+if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');
