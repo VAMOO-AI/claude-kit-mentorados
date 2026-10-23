@@ -78,7 +78,9 @@ saem da API REST. Detalhe: [references/flags.md](references/flags.md#gh-e-api-re
 ## Cleanup
 
 `--cleanup-dry-run` lista; `--cleanup-apply` só com o pedido. A prova é a mesma da skill
-`worktrees` ("Limpeza no fim"): PR mergeado com head == tip, e
+`worktrees` ("Limpeza no fim"): PR mergeado com o tip igual ao head do PR ou contido nele
+(os últimos commits do PR feitos noutro clone; o head que falta é buscado em
+`refs/pull/<n>/head` sem gravar ref), e
 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>` saindo 0. Sem
 prova, fica.
 

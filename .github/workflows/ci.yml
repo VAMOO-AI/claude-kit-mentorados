@@ -104,6 +104,9 @@ jobs:
       - name: O cleanup do git-sync prova pela API sem gh e lista a remota sua sem cópia local
         run: bash tests/test-git-sync-cleanup-sem-gh.sh
 
+      - name: O cleanup do git-sync aceita o tip atrás do head do PR e só chama de "avançou" o que avançou
+        run: bash tests/test-git-sync-cleanup-head-pr.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 

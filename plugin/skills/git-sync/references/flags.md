@@ -34,13 +34,17 @@ ele faz para você decidir qual flag passar.
    macOS. O que a checagem não vê (sessão que vai voltar, processo de outro usuário), trave antes
    com `git worktree lock --reason "<motivo sem dígitos>"`: lock sem pid legível conta como
    sessão viva. Lock com pid morto (`kill -0`) é stale e só o apply destrava.
-3. **Branches `gone`**: `-d`; se o `-d` recusar, `-D` só com PR mergeado **e** head do PR igual
-   ao tip (squash quebra a ancestralidade; commit depois do merge é trabalho).
+3. **Branches `gone`**: `-d`; se o `-d` recusar, `-D` só com PR mergeado **e** tip igual ao
+   head do PR ou contido nele (squash quebra a ancestralidade; tip atrás do head é o caso dos
+   últimos commits do PR feitos noutro clone). O head que não está no clone é buscado em
+   `refs/pull/<n>/head` sem gravar ref; se não vier, a branch fica com "head do PR
+   indisponível". Head ancestral do tip (commit depois do merge é trabalho) e divergência
+   preservam, cada um com o seu motivo.
 4. **Branches fora do `[gone]`** (remoto vivo ou nunca pushada), com a mesma prova e só a local.
    O `git push origin --delete <b>` sai impresso para você decidir.
 
 Branch sem commit próprio (tip igual a `origin/<default>` ou na linha first-parent dela) nunca
-conta como mergeada: é sessão recém-aberta. Sem PR, sem head para conferir ou sem `gh` nem token
+conta como mergeada: é sessão recém-aberta. Sem PR, sem head para conferir, head indisponível ou sem `gh` nem token
 da API, a branch fica. Remoto nunca é apagado.
 
 ## `gh` e API REST

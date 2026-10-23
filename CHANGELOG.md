@@ -10,6 +10,22 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.71.1] — 2026-10-23
+
+### Corrigido
+
+- **`git-sync`: tip atrás do head do PR não é mais "o tip avançou".** Em 23/10/2026, num
+  projeto de cliente, 9 branches `[gone]` com PR mergeado saíram preservadas por "avançou". Os
+  últimos commits do PR tinham sido feitos noutro clone, e o tip local estava contido no head.
+  Porte do mesmo fix do kit do time (VAMOO-AI/claude-config-team#414).
+  - Uma função só, `relacao_head_pr`, decide em todos os caminhos: dry-run, apply, remoto vivo,
+    remota sem cópia local, worktree e o aviso de push. Ela vale para o `gh` e para a API REST.
+  - Quando o objeto do head não está no clone, a função o busca em `refs/pull/<n>/head` sem
+    gravar ref. Se ele não vier, o motivo é "head do PR indisponível".
+  - Tip igual ao head ou contido nele vira candidata a `-D`. Head ancestral do tip (avançou) e
+    divergência preservam a branch, cada um com o seu motivo.
+  - Prova no `tests/test-git-sync-cleanup-head-pr.sh`: o teste falha no script anterior.
+
 ## [0.71.0] — 2026-10-22
 
 ### Mudado
