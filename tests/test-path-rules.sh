@@ -49,6 +49,7 @@ roda() { # roda <sessao> <caminho> [cwd] [file_path|notebook_path]
   local payload k="${4:-file_path}" ferramenta=Edit c="$2" d="${3:-}"
   [ "$k" = notebook_path ] && ferramenta=NotebookEdit
   c="${c//\\/\\\\}"; d="${d//\\/\\\\}"
+  c="${c//\"/\\\"}"
   payload=$(printf '{"session_id":"%s","hook_event_name":"PreToolUse","cwd":"%s","tool_input":{"%s":"%s"},"tool_name":"%s"}' \
     "$1" "$d" "$k" "$c" "$ferramenta")
   saida=$(HOME="$FAKE" CLAUDE_PLUGIN_ROOT="$FAKE" PATH="$SEM_JQ" bash "$HOOK" <<<"$payload" 2>/dev/null)
@@ -159,6 +160,46 @@ check "duas regras casando vêm juntas"      "$([ "$(tem 'primeira regra')" = ok
 # --- NotebookEdit manda notebook_path, não file_path ------------------------
 roda s10 /tmp/alvo/analise.ipynb "" notebook_path
 check "notebook_path também traz a regra"   "$(tem 'primeira regra')"
+
+# --- `~/` no padrão é o home de quem roda, e só ele (B1 da avaliação de 20/10) ----------
+# `*/.claude/settings.json` casa o global e o de cada projeto. Regra que só vale para o
+# global se escreve `~/.claude/settings.json`: o pedaço do $HOME casa literal.
+printf '%s\n' '~/.claude/settings.json | regra-do-global' > "$FAKE/hooks/path-rules.conf"
+roda b1 "$FAKE/.claude/settings.json"
+check "~/ casa o settings do home"                    "$(tem 'regra-do-global')"
+roda b2 /Users/x/PROJ/.claude/settings.json
+check "~/ não casa o settings de projeto"              "$(vazio)"
+roda b3 .claude/settings.json "$FAKE"
+check "relativo que resolve no home casa o ~/"         "$(tem 'regra-do-global')"
+roda b4 "$FAKE/WORKSPACES/app/.claude/settings.json"
+check "projeto dentro do home não casa o ~/"           "$(vazio)"
+
+# --- o path-rules.local.conf da máquina soma, troca ou tira regra ------------------------
+# É onde mora o que é da casa (o kit do time instala o dele; o mentorado pode ter o seu).
+# Mesmo glob do conf do kit: a linha local troca o texto; texto "-" tira a regra.
+printf '%s\n' '*/alvo/a.txt | regra-do-kit' '*/alvo/b.txt | regra-que-sai' '*/alvo/c.txt | regra-trocada' > "$FAKE/hooks/path-rules.conf"
+mkdir -p "$FAKE/.claude/hooks"
+printf '%s\n' '# regras da casa' '*/alvo/d.txt | regra-da-casa' '*/alvo/b.txt | -' '*/alvo/c.txt | texto-da-casa' > "$FAKE/.claude/hooks/path-rules.local.conf"
+roda l1 /tmp/alvo/a.txt;  check "local não apaga a regra do kit que ele não cita" "$(tem 'regra-do-kit')"
+roda l2 /tmp/alvo/d.txt;  check "local acrescenta regra"                          "$(tem 'regra-da-casa')"
+roda l3 /tmp/alvo/b.txt;  check "local com '-' tira a regra do kit"               "$(vazio)"
+roda l4 /tmp/alvo/c.txt;  check "local com o mesmo glob troca o texto"            "$([ "$(tem 'texto-da-casa')" = ok ] && [ "$(tem 'regra-trocada')" = fail ] && echo ok || echo fail)"
+rm -f "$FAKE/.claude/hooks/path-rules.local.conf"
+roda l5 /tmp/alvo/d.txt;  check "sem o local, só o conf do kit"                    "$(vazio)"
+
+# --- JSON montado sem node: aspas, barra invertida e tab escapados -----------------------
+printf '%s\n' '*/alvo/* | texto com "aspas", barra \ invertida e	tab' > "$FAKE/hooks/path-rules.conf"
+roda j1 '/tmp/alvo/arq "x".txt'
+check "aspas e barra invertida: JSON válido"           "$(formato_pretooluse)"
+check "…e o texto chega inteiro"                        "$(printf '%s' "$saida" | node -e 'const s=JSON.parse(require("fs").readFileSync(0,"utf8")).hookSpecificOutput.additionalContext; process.exit(s.includes("\"aspas\", barra \\ invertida e\ttab") && s.includes("arq \"x\".txt") ? 0 : 1)' && echo ok || echo fail)"
+
+# --- um node por chamada (invariante 4 do #241) ------------------------------------------
+NODE_REAL="$(command -v node)"; mkdir -p "$FAKE/conta"
+printf '#!/bin/sh\necho x >> "%s/conta/chamadas"\nexec "%s" "$@"\n' "$FAKE" "$NODE_REAL" > "$FAKE/conta/node"; chmod +x "$FAKE/conta/node"
+: > "$FAKE/conta/chamadas"
+payload='{"session_id":"n1","cwd":"/tmp","tool_input":{"file_path":"/tmp/alvo/x.txt"}}'
+saida=$(HOME="$FAKE" CLAUDE_PLUGIN_ROOT="$FAKE" PATH="$FAKE/conta:$SEM_JQ" bash "$HOOK" <<<"$payload" 2>/dev/null)
+check "regra que casa: um node só"                      "$([ "$(wc -l < "$FAKE/conta/chamadas" | tr -d ' ')" = 1 ] && [ "$(tem 'aspas')" = ok ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
