@@ -16,7 +16,8 @@
 #   worktree-gc.sh --no-gh ...              # nunca chama o gh: a prova de PR vai pela API REST
 #       (o mesmo que `git config git-sync.noGh true` no repo, como no git-sync)
 #   worktree-gc.sh --verificar <caminho>    # um worktree só; não remove nada, mas atualiza
-#       as refs remotas com `git fetch --prune`. As mesmas travas, exit 0 + "pode remover"
+#       as refs remotas com `git fetch --prune` (e, se o head do PR mergeado não está no
+#       clone, busca os objetos de refs/pull/<n>/head, sem gravar ref). As mesmas travas, exit 0 + "pode remover"
 #       ou exit 1 + "keep: <motivos>"; uso errado ou caminho que não é worktree do repo sai 2.
 #       É o que a skill worktrees roda antes do ExitWorktree / git worktree remove (a remoção
 #       continua só com pedido da pessoa). Aqui o worktree atual conta, e "sem commit
@@ -132,17 +133,18 @@ rest_get() {   # <caminho> [chave=valor ...] — corpo JSON no stdout; falha = s
   printf 'Authorization: Bearer %s\nAccept: application/vnd.github+json\n' "$(rest_token)" \
     | curl -fsS -G -H @- ${args[@]+"${args[@]}"} "https://api.github.com/repos/$REST_SLUG/$p" 2>/dev/null
 }
-# stdin: lista de pulls → head.sha do primeiro MERGED na branch padrão (e com head == <sha>,
-# se dado); vazio quando não há. Resposta que não é lista (erro, credencial ruim) é status 1.
+# stdin: lista de pulls → "<número><TAB><head.sha>" do primeiro MERGED na branch padrão (e com
+# head == <sha>, se dado); vazio quando não há. O número é o que acha refs/pull/<n>/head quando
+# o head não está no clone. Resposta que não é lista (erro, credencial ruim) é status 1.
 json_head_mergeado() {   # [sha]
   if [ "$JSON_TOOL" = jq ]; then
-    jq -er --arg d "$DEF" --arg s "${1:-}" 'if type=="array" then ([.[]|select(.merged_at!=null and .base.ref==$d and ($s=="" or .head.sha==$s))][0].head.sha // "") else error end' 2>/dev/null
+    jq -er --arg d "$DEF" --arg s "${1:-}" 'if type=="array" then ([.[]|select(.merged_at!=null and .base.ref==$d and ($s=="" or .head.sha==$s))][0] | if . == null then "" else "\(.number // "")\t\(.head.sha // "")" end) else error end' 2>/dev/null
   else
     python3 -c 'import json,sys
 d=json.load(sys.stdin); b=sys.argv[1]; s=sys.argv[2] if len(sys.argv)>2 else ""
 if not isinstance(d,list): sys.exit(1)
 m=[p for p in d if p.get("merged_at") and (p.get("base") or {}).get("ref")==b and (not s or (p.get("head") or {}).get("sha")==s)]
-print(m[0]["head"]["sha"] if m else "")' "$DEF" "${1:-}" 2>/dev/null
+print("%s\t%s" % (m[0].get("number") or "", (m[0].get("head") or {}).get("sha") or "") if m else "")' "$DEF" "${1:-}" 2>/dev/null
   fi
 }
 # Keep sem ninguém que respondesse não pode sair igual a negativa provada. Antes o sufixo só
@@ -152,39 +154,61 @@ print(m[0]["head"]["sha"] if m else "")' "$DEF" "${1:-}" 2>/dev/null
 # não é lista): antes esse keep saía sem sufixo e ficava mantido para sempre.
 SEM_PROVA_TXT=" (sem gh nem token da API para provar squash)"
 API_ERRO_TXT=" (a API do GitHub respondeu erro: confira o token)"
-SEM_RESPOSTA=0; API_ERRO=0
+SEM_RESPOSTA=0; API_ERRO=0; HEAD_INDISP=""
 sem_prova() {
-  if [ "$API_ERRO" = 1 ]; then printf '%s' "$API_ERRO_TXT"
+  if [ -n "$HEAD_INDISP" ]; then
+    printf ' (head do PR #%s indisponível: refs/pull/%s/head não veio do origin)' "$HEAD_INDISP" "$HEAD_INDISP"
+  elif [ "$API_ERRO" = 1 ]; then printf '%s' "$API_ERRO_TXT"
   elif [ "$SEM_RESPOSTA" = 1 ] || { [ "$have_gh" = 0 ] && [ "$REST_OK" = 0 ]; }; then printf '%s' "$SEM_PROVA_TXT"; fi
 }
 
-# head do PR MERGED na padrão cuja head é a branch. Status 1 = a API respondeu erro, 2 = ninguém
-# pôde perguntar. O status da pipeline não sobe cru: sob pipefail, um exit 2 do curl se passaria
-# pelo "ninguém perguntou". O gh que falha (a conta ativa não vê o repo) cai na API; o gh que
-# responde "nenhum" não cai.
+# "<número><TAB><head>" do PR MERGED na padrão cuja head é a branch; vazio quando não há.
+# Status 1 = a API respondeu erro, 2 = ninguém pôde perguntar. O status da pipeline não sobe
+# cru: sob pipefail, um exit 2 do curl se passaria pelo "ninguém perguntou". O gh que falha (a
+# conta ativa não vê o repo) cai na API; o gh que responde "nenhum" não cai.
 head_pr_mergeado() {   # <branch>
-  local br="$1" oid
-  if [ "$have_gh" = 1 ] && oid="$(cd "$PRIMARY" && gh pr list --head "$br" --base "$DEF" --state merged \
-       --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null)"; then
-    printf '%s' "$oid"; return 0
+  local br="$1" line
+  if [ "$have_gh" = 1 ] && line="$(cd "$PRIMARY" && gh pr list --head "$br" --base "$DEF" --state merged \
+       --json number,headRefOid --jq '.[0] // empty | "\(.number)\t\(.headRefOid)"' 2>/dev/null)"; then
+    # gh que ignore o template (fake de teste, versão antiga) devolve "número sha"
+    [[ "$line" != *$'\t'* && "$line" == *" "* ]] && line="${line/ /$'\t'}"
+    printf '%s' "$line"; return 0
   fi
   [ "$REST_OK" = 1 ] || return 2
   rest_get pulls state=closed "head=${REST_SLUG%%/*}:$br" "base=$DEF" per_page=10 | json_head_mergeado || return 1
 }
 
+# O head do PR precisa existir aqui para o --is-ancestor. Os últimos commits do PR feitos noutro
+# clone (merge da main, correção de review) deixam o tip local atrás do head, e o objeto só no
+# GitHub, em refs/pull/<n>/head, que o `fetch --prune` não traz: em 23/10/2026 o git-sync
+# preservou assim 9 branches já mergeadas, e este script dava o mesmo "NÃO mergeada". Busca sem
+# gravar ref nem FETCH_HEAD: só entram objetos. Não veio → status 1, e nada é provado.
+head_pr_local() {   # <head> <número-do-PR>
+  git -C "$PRIMARY" cat-file -e "$1^{commit}" 2>/dev/null && return 0
+  case "$2" in ''|*[!0-9]*) return 1 ;; esac
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" \
+    git -C "$PRIMARY" fetch -q --no-tags --no-write-fetch-head origin "refs/pull/$2/head" >/dev/null 2>&1 || true
+  git -C "$PRIMARY" cat-file -e "$1^{commit}" 2>/dev/null
+}
+
 # É mergeada? ancestral da padrão OU tip local contido no head do PR MERGED (squash).
 is_merged() {
-  local br="$1" oid
+  local br="$1" line n oid
+  HEAD_INDISP=""
   [ -n "$DEF" ] || return 1
   git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$ORIGIN_DEF" 2>/dev/null && return 0
   # o tip LOCAL precisa estar contido no head do PR mergeado — commits feitos
   # DEPOIS do merge (não pushados) deixam de contar como "mergeada".
   # subshell: a flag acende aqui, pelo status
-  oid="$(head_pr_mergeado "$br")"
+  line="$(head_pr_mergeado "$br")"
   case $? in 0) ;; 1) API_ERRO=1; return 1 ;; *) SEM_RESPOSTA=1; return 1 ;; esac
-  [ -n "$oid" ] && git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$oid" 2>/dev/null && return 0
-  # Fail-closed: sem PR merged, oid vazio ou inexistente localmente → mantém a branch.
-  return 1
+  n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
+  [ "$oid" != "$line" ] || oid=""
+  # Fail-closed: sem PR merged ou oid vazio → mantém a branch; head que nem o origin tem, idem,
+  # mas com o motivo dito (sem ele, o keep lia como negativa provada).
+  [ -n "$oid" ] || return 1
+  head_pr_local "$oid" "$n" || { HEAD_INDISP="${n:-?}"; return 1; }
+  git -C "$PRIMARY" merge-base --is-ancestor "refs/heads/$br" "$oid" 2>/dev/null
 }
 
 # Detached cujo commit só existe no head de um PR squash-mergeado: nenhum ancestral da padrão
@@ -199,7 +223,7 @@ squash_do_detached() {   # <sha>
   elif [ "$REST_OK" = 1 ]; then API_ERRO=1; return 1
   else SEM_RESPOSTA=1; return 1; fi
   head="$(printf '%s' "$corpo" | json_head_mergeado "$sha")" || { API_ERRO=1; return 1; }
-  [ "$head" = "$sha" ]
+  [ "${head#*$'\t'}" = "$sha" ]
 }
 
 # Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
@@ -320,7 +344,7 @@ while IFS= read -r line; do
     branch\ *)   branch="${line#branch refs/heads/}" ;;
     "")  # fim de um bloco → avalia
       [ -z "$path" ] && { path=""; branch=""; continue; }
-      SEM_RESPOSTA=0; API_ERRO=0
+      SEM_RESPOSTA=0; API_ERRO=0; HEAD_INDISP=""
       p="$(cd "$path" 2>/dev/null && pwd -P || echo "$path")"
 
       # trava 1: nunca o clone principal

@@ -75,9 +75,14 @@ Só com pedido da pessoa ("pode limpar") e com a **prova completa**:
 
 ```bash
 gh pr list --state merged --head <branch> --json number,headRefOid   # MERGED
-git rev-parse <branch>                                               # == headRefOid
+git cat-file -e <headRefOid> || git fetch --no-write-fetch-head origin refs/pull/<number>/head
+git merge-base --is-ancestor <branch> <headRefOid>                   # exit 0: tip igual ou contido
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>   # exit 0
 ```
+
+Tip atrás do head do PR é o caso dos últimos commits do PR feitos noutro clone: o head só
+existe no GitHub, e o `fetch` acima o traz sem gravar ref. Head ancestral do tip (commit
+depois do merge) ou que nem o origin tem não prova nada.
 
 O `git worktree remove` apaga o que o git ignora sem recusar (`.env.local` editado,
 `outputs/video.mp4`, repo clonado dentro). O `--verificar` não remove nada: sai 0 com

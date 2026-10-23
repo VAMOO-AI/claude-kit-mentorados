@@ -146,7 +146,10 @@ while [ \$# -gt 0 ]; do
 done
 oid=""
 case "\$br" in squash) oid="$OID_SQUASH" ;; squash-depois) oid="$OID_X" ;; esac
-case "\$forma" in headRefOid) printf '%s\n' "\$oid" ;; esac
+case "\$forma" in
+  headRefOid) printf '%s\n' "\$oid" ;;
+  number,headRefOid) [ -n "\$oid" ] && printf '1 %s\n' "\$oid" ;;
+esac
 exit 0
 GH
 chmod +x "$BIN/gh"

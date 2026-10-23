@@ -125,6 +125,9 @@ jobs:
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
+      - name: O worktree-gc e o aviso de worktree mergeado buscam o head do PR que não está no clone
+        run: bash tests/test-worktree-gc-head-pr.sh
+
       - name: A limpeza-mac só apaga worktree, branch e build seguros por construção, e sai limpa fora do macOS
         # Aqui é Ubuntu: o teste põe um `uname` de mentira que responde Darwin, e um que
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.

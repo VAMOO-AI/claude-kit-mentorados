@@ -16,7 +16,8 @@
 #       não conta como mergeada, e worktree com mudança não commitada nunca é lixo;
 #   (3) o CLONE PRINCIPAL não está em main — numa sessão em worktree, ou no próprio clone
 #       quando o repo tem worktree vivo.
-# Não modifica o git: só lê e avisa. Silencioso quando está tudo em ordem. Falha-aberta.
+# Não modifica o git: só lê e avisa (os fetches gravam objetos e refs remotas, nunca branch
+# nem HEAD; o do head do PR, nem ref). Silencioso quando está tudo em ordem. Falha-aberta.
 set -uo pipefail
 
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
@@ -100,7 +101,20 @@ if [ "$NO_CLONE" = 0 ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br" != "mas
     elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
       # Squash: o tip precisa estar contido no head do PR mergeado — commit feito depois
       # do merge, ou nome de branch reaproveitado, é trabalho (mesma regra do worktree-gc).
-      oid="$(gh pr list --head "$br" --state merged --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null)"
+      # Os últimos commits do PR feitos noutro clone deixam o head só em refs/pull/<n>/head:
+      # sem o objeto aqui, o --is-ancestor falhava e o aviso nunca acendia. Busca só objetos,
+      # sem ref, e só nesse caso (PR achado, head ausente).
+      line="$(gh pr list --head "$br" --state merged --json number,headRefOid \
+        --jq '.[0] // empty | "\(.number) \(.headRefOid)"' 2>/dev/null)"
+      n="${line%% *}"; oid="${line#* }"
+      [ "$oid" != "$line" ] || oid=""
+      if [ -n "$oid" ] && ! git cat-file -e "$oid^{commit}" 2>/dev/null; then
+        case "$n" in
+          ''|*[!0-9]*) ;;
+          *) GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" \
+               git fetch -q --no-tags --no-write-fetch-head origin "refs/pull/$n/head" >/dev/null 2>&1 || true ;;
+        esac
+      fi
       [ -n "$oid" ] && git merge-base --is-ancestor "$tip" "$oid" 2>/dev/null && merged=1
     fi
   fi

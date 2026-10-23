@@ -25,8 +25,9 @@
 # aplica as mesmas travas a um worktree só, sem remover nada: é o que roda antes do
 # ExitWorktree.
 #
-# O `gh` é falso (PATH): responde às duas formas de consulta — a antiga (`length`) e a
-# nova (`headRefOid`) — para que o mesmo teste rode contra as duas versões do script.
+# O `gh` é falso (PATH): responde às formas de consulta — a antiga (`length`), a do head
+# (`headRefOid`) e a atual (`number,headRefOid`, "número sha") — para que o mesmo teste rode
+# contra todas as versões do script.
 #
 # Uso: bash tests/test-worktree-gc.sh [caminho-do-script]
 set -uo pipefail
@@ -213,6 +214,7 @@ oid=""
 case "\$br" in pr-ok) oid="$OID_PR" ;; pr-after) oid="$OID_AFTER" ;; esac
 case "\$forma" in
   headRefOid) printf '%s\n' "\$oid" ;;
+  number,headRefOid) [ -n "\$oid" ] && printf '1 %s\n' "\$oid" ;;
   number)     [ -n "\$oid" ] && echo 1 || echo 0 ;;
 esac
 exit 0
