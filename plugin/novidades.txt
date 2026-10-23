@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.79.0|preparação interna: o merge do settings aceita configuração em camadas para o kit do time; no seu Claude Code nada muda
 0.78.0|o setup passa a avisar quando uma variável do seu settings.json desliga o Remote Control; o resto é preparação interna e o seu settings sai igual
 0.77.1|o modelo de vídeo da /kit-vamoo:motion-reel instala o fast-uri já corrigido (alertas de segurança de 23/10)
 0.77.0|a barra de status ganha o modo painel, com custo, contexto e os limites de 5h e 7 dias em até 7 linhas; rode o /kit-vamoo:setup e peça o painel, ou fique com a linha de hoje|setup

@@ -5,7 +5,7 @@
 // vivia num heredoc dentro do instalador e só dava pra exercitar rodando o
 // instalador inteiro contra o ~/.claude de verdade.
 //
-//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]
+//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito]
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
@@ -26,8 +26,10 @@
 //     único que sai é o dispatch do dotcontext que o instalador antigo gravou (mais os que
 //     o overlay listar em hooksRemovidos).
 //
-// --overlay <arquivo> (F6 do núcleo único): JSON com chaves de topo que substituem as do
-// kit antes do merge; `hooks` se SOMA aos do kit, por evento. A meta-chave `$merge` traz as
+// --overlay <arquivo> (F6 do núcleo único), repetível e aplicado em ordem: JSON com chaves de
+// topo que substituem as do kit antes do merge (na mesma chave, a última camada vence); `hooks`
+// se SOMA aos do kit, por evento. O `$merge` das camadas se soma: listas concatenam, mapas se
+// juntam e o valor simples da última vale. A meta-chave `$merge` traz as
 // regras de quem distribui o overlay e nunca é gravada no settings.json:
 //   allowsRevogados {texto exato: substituto|null}, envDoKit {VAR: valor exato} e
 //   chavesDoKit {chave: valor exato} — o que aquele kit gravou e tirou, e sai da máquina só
@@ -36,7 +38,10 @@
 //   de "a sua ganha" (não confundir com chavesDoKit, que só tira um valor antigo);
 //   removerHooksAlheios true — hook da pessoa que não está no kit sai, com aviso nomeando
 //   cada um (o backup é de quem chama o merge); scriptsEntregues [nome.sh] — script que o kit
-//   instala por outro caminho, para o aviso não anunciar como perdido o que continua lá.
+//   instala por outro caminho, para o aviso não anunciar como perdido o que continua lá;
+//   modoDaPessoa true — o defaultMode que a pessoa já tem fica, qualquer que seja (o do kit
+//   só entra onde não há modo). chavesGovernadas vale para chave escalar e para objeto sem
+//   regra própria (statusLine); env, hooks, permissions e as outras com regra seguem a delas.
 //
 // --estrito: settings.json inválido sai com rc 1 em vez de 0 (o arquivo continua intacto). O
 // padrão é 0 porque o kit-setup.sh roda com `set -e`.
@@ -54,9 +59,9 @@
 // fazer.
 const fs = require('fs');
 const path = require('path');
-const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>] [--skills-dir <dir>]... [--estrito]';
+const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito]';
 const posicionais = [];
-let overlayPath = null;
+const overlayPaths = [];
 let estrito = false;
 const skillDirs = [];
 for (let i = 2; i < process.argv.length; i++) {
@@ -65,7 +70,7 @@ for (let i = 2; i < process.argv.length; i++) {
   if (a === '--overlay' || a === '--skills-dir') {
     const v = process.argv[++i];
     if (!v) { console.error(USO); process.exit(2); }
-    if (a === '--overlay') overlayPath = v; else skillDirs.push(v);
+    if (a === '--overlay') overlayPaths.push(v); else skillDirs.push(v);
   } else posicionais.push(a);
 }
 const [kitPath, userPath] = posicionais;
@@ -106,7 +111,17 @@ if (fs.existsSync(userPath)) {
 // Overlay quebrado não derruba o merge: segue com o valor do kit, e o aviso diz o que está
 // errado (linha e coluna, ou "vazio").
 let regras = {};
-if (overlayPath) {
+// Soma o `$merge` de uma camada ao das anteriores: lista concatena, mapa junta, valor simples troca.
+const somaRegras = (a, b) => {
+  const r = { ...a };
+  for (const [k, v] of Object.entries(b)) {
+    if (Array.isArray(v) && Array.isArray(r[k])) r[k] = [...r[k], ...v];
+    else if (objeto(v) && objeto(r[k])) r[k] = { ...r[k], ...v };
+    else r[k] = v;
+  }
+  return r;
+};
+for (const overlayPath of overlayPaths) {
   let ov;
   let bruto = null;
   try { bruto = fs.readFileSync(overlayPath, 'utf8'); } catch (e) {
@@ -122,7 +137,7 @@ if (overlayPath) {
   } else if (ov !== undefined && !Object.keys(ov).length) {
     console.log(`! overlay ${overlayPath} vazio — ignorado, valem as chaves do kit`);
   } else if (ov !== undefined) {
-    if (objeto(ov.$merge)) regras = ov.$merge;
+    if (objeto(ov.$merge)) regras = somaRegras(regras, ov.$merge);
     delete ov.$merge;
     for (const [k, v] of Object.entries(ov)) {
       if (k !== 'hooks') { kit[k] = v; continue; }
@@ -153,6 +168,7 @@ const hooksRemovidos = lista(regras.hooksRemovidos);
 const chavesGovernadas = lista(regras.chavesGovernadas);
 const scriptsEntregues = lista(regras.scriptsEntregues);
 const removerHooksAlheios = regras.removerHooksAlheios === true;
+const modoDaPessoa = regras.modoDaPessoa === true;
 
 // Env da máquina antes de qualquer mudança: o aviso do Remote Control fala do que ela tem.
 const envOriginal = objeto(user.env) ? { ...user.env } : null;
@@ -239,9 +255,10 @@ if (objeto(kit.hooks) && objeto(user.hooks)) {
 }
 
 // chavesGovernadas: a chave escalar que o overlay declara governada volta ao valor do kit.
-// Chave dict tem regra própria acima e não entra aqui.
+// Chave com regra própria (env, hooks, permissions…) segue a regra dela e não entra aqui; objeto
+// sem regra (statusLine) é governado inteiro.
 for (const k of chavesGovernadas) {
-  if (!(k in kit) || objeto(kit[k])) continue;
+  if (!(k in kit) || COM_REGRA.includes(k)) continue;
   if (JSON.stringify(user[k]) === JSON.stringify(kit[k])) continue;
   const antes = user[k];
   user[k] = kit[k];
@@ -361,7 +378,9 @@ const MARCADOR_ACCEPT = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-a
 const MODOS_MANTIDOS = ['auto', 'bypassPermissions', 'plan', 'dontAsk', 'acceptEdits'];
 const meuModo = user.permissions.defaultMode;
 const modoKit = kitPerms.defaultMode;
-if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'default')) {
+if (modoDaPessoa && meuModo) {
+  // O overlay declarou o modo como postura de quem senta na cadeira: o da pessoa fica.
+} else if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'default')) {
   if (fs.existsSync(MARCADOR)) {
     console.log(`  modo de permissão: mantive o manual porque existe ${MARCADOR}`);
   } else {
