@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.73.0|as regras que o kit mostra ao abrir certos arquivos aceitam um arquivo seu ao lado (path-rules.local.conf), o aviso de lint pendente aparece na sua tela e quem usa rtk ganha a reescrita no fim da cadeia
 0.72.2|o modelo de vídeo da /kit-vamoo:motion-reel instala o zod já corrigido (alerta de segurança de 23/10)
 0.72.1|cada comando que o Claude roda no terminal passa pelos guard-rails mais rápido: o aviso e o bloqueio continuam os mesmos
 0.72.0|a trava de commit na main fica um pouco mais rápida e, quando barra, lembra que um worktree também resolve

@@ -103,11 +103,19 @@ kit_campos() { # <campo>... → o que `node hookjson.js <campo>...` imprimiria
 
 saidas=""
 avisos=""
+# O rtk-claude é o último, sempre (invariante 1 do núcleo único): reescreve o comando para o
+# rtk, e só depois de todos os guards decidirem sobre o original. Inerte sem rtk no PATH. Não
+# roda no PowerShell, nem quando um guard já falou: com o `ask` na mesa, a pessoa aprova o
+# comando que ela vê, e o dispatcher não precisa fundir dois JSONs.
 for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
-         block-parallel-clone-switch.sh block-delete-branch-with-children.sh; do
+         block-parallel-clone-switch.sh block-delete-branch-with-children.sh rtk-claude.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
   [ "$powershell" = 1 ] && [ "$h" = block-cd-leitura-relativa.sh ] && continue
+  if [ "$h" = rtk-claude.sh ]; then
+    [ "$powershell" = 1 ] || [ -n "$saidas" ] && continue
+    command -v rtk >/dev/null 2>&1 || continue
+  fi
   tem_gatilho "$f" || continue
   kit_ler
   out=$(printf '%s' "$payload" | ( . "$f" ))

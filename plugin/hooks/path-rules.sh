@@ -24,7 +24,7 @@ command -v node >/dev/null 2>&1 || exit 0
 CONF="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}/hooks/path-rules.conf"
 [ -f "$CONF" ] || exit 0
 
-# Um node só para os quatro campos, um por linha. O último sai cru e poderia ter quebra
+# Um node só para os quatro campos, um por linha (e nenhum outro na chamada). O último sai cru e poderia ter quebra
 # de linha, mas caminho de arquivo não tem.
 info="$(node "$H" session_id cwd tool_input.file_path tool_input.notebook_path)"
 { IFS= read -r sessao; IFS= read -r cwd; IFS= read -r caminho; IFS= read -r notebook; } <<<"$info"
@@ -57,30 +57,61 @@ mkdir -p "$ESTADO" 2>/dev/null || exit 0
 find "$ESTADO" -type f -mtime +7 -delete 2>/dev/null   # sessão de uma semana atrás não volta
 marcas="$ESTADO/$sessao"
 
+# As regras vêm do conf do kit e, depois, do path-rules.local.conf da máquina, se existir: é
+# onde mora o que é da casa (o kit do time instala o dele, e quem usa o plugin pode ter o
+# seu). Linha local com o mesmo glob de uma do kit troca o texto dela, e o texto "-" a tira.
+LOCAL="$HOME/.claude/hooks/path-rules.local.conf"
+padroes=(); textos=()
+carrega() { # <arquivo>
+  local linha padrao texto i
+  while IFS= read -r linha || [ -n "$linha" ]; do
+    case "$linha" in ''|'#'*) continue ;; esac
+    case "$linha" in *'|'*) ;; *) continue ;; esac
+    # Apara os espaços sem abrir processo: com o node lendo o payload, dois sed por linha
+    # do conf levavam o hook de ~40 para ~65 ms em todo Read/Edit/Write.
+    padrao="${linha%%|*}"; padrao="${padrao#"${padrao%%[![:space:]]*}"}"; padrao="${padrao%"${padrao##*[![:space:]]}"}"
+    texto="${linha#*|}";   texto="${texto#"${texto%%[![:space:]]*}"}"; texto="${texto%"${texto##*[![:space:]]}"}"
+    [ -n "$padrao" ] && [ -n "$texto" ] || continue
+    i=0
+    while [ "$i" -lt "${#padroes[@]}" ]; do
+      [ "${padroes[$i]}" = "$padrao" ] && break
+      i=$((i+1))
+    done
+    padroes[$i]="$padrao"; textos[$i]="$texto"
+  done < "$1"
+}
+carrega "$CONF"
+[ -f "$LOCAL" ] && carrega "$LOCAL"
+
 regras=""
-while IFS= read -r linha || [ -n "$linha" ]; do
-  case "$linha" in ''|'#'*) continue ;; esac
-  case "$linha" in *'|'*) ;; *) continue ;; esac
-
-  # Apara os espaços sem abrir processo: com o node lendo o payload, dois sed por linha
-  # do conf levavam o hook de ~40 para ~65 ms em todo Read/Edit/Write.
-  padrao="${linha%%|*}"; padrao="${padrao#"${padrao%%[![:space:]]*}"}"; padrao="${padrao%"${padrao##*[![:space:]]}"}"
-  texto="${linha#*|}";   texto="${texto#"${texto%%[![:space:]]*}"}"
-  [ -n "$padrao" ] && [ -n "$texto" ] || continue
-
+i=0
+while [ "$i" -lt "${#padroes[@]}" ]; do
+  padrao="${padroes[$i]}"; texto="${textos[$i]}"; i=$((i+1))
+  [ "$texto" = "-" ] && continue
+  # `~/` no padrão é o home de quem roda, e só ele: `~/.claude/settings.json` não casa o
+  # settings de projeto (B1 da avaliação de 20/10). O pedaço do $HOME casa literal (entre
+  # aspas); o resto é glob.
   # shellcheck disable=SC2254  # o padrão é glob de propósito
-  case "$caminho" in $padrao) ;; *) continue ;; esac
+  case "$padrao" in
+    '~/'*) case "$caminho" in "${HOME%/}"/${padrao#'~/'}) ;; *) continue ;; esac ;;
+    *)     case "$caminho" in $padrao) ;; *) continue ;; esac ;;
+  esac
   grep -qxF -- "$padrao" "$marcas" 2>/dev/null && continue
 
   printf '%s\n' "$padrao" >> "$marcas"
   regras="${regras}- ${texto}"$'\n'
-done < "$CONF"
+done
 
 [ -n "$regras" ] || exit 0
 
-# JSON.stringify escapa as aspas e as quebras de linha do texto das regras.
-printf '%s' "Regra deste caminho ($caminho):"$'\n'"$regras" | node -e '
-  let s = "";
-  process.stdin.on("data", (d) => { s += d; }).on("end", () => process.stdout.write(JSON.stringify(
-    { hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: s } })));'
+# JSON montado em bash, sem um segundo node (invariante 4 do #241): escapa a barra
+# invertida, as aspas e os controles que um texto de regra ou um caminho podem ter.
+json_str() {
+  local s="$1"
+  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"; s="${s//$'\r'/\\r}"; s="${s//$'\t'/\\t}"
+  printf '"%s"' "$s"
+}
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}' \
+  "$(json_str "Regra deste caminho ($caminho):"$'\n'"$regras")"
 exit 0

@@ -106,9 +106,9 @@ igual "pra-pessoa" "$(json systemMessage)" "systemMessage é só a linha @usuari
 igual "$(printf 'primeiro\nterceiro')" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto, na ordem dos hooks"
 
 echo
-echo "== três hooks, na ordem, todos com o payload; os cortados não rodam mais =="
+echo "== quatro hooks, na ordem, todos com o payload; os cortados não rodam mais =="
 TRES="$(árvore "$TMP/tres")"
-for h in warn-sem-node session-size-guard repo-session; do
+for h in warn-sem-node warn-sem-jq session-size-guard repo-session; do
   printf '%s\n' '#!/bin/bash' "case \"\$(cat)\" in *'\"session_id\":\"s4\"'*) echo $h-leu ;; *) echo $h-sem-payload ;; esac" 'exit 0' > "$TRES/$h.sh"
 done
 for h in precompact-devolve branch-guard memoria-worktree-link worktree-seed-env; do
@@ -116,7 +116,9 @@ for h in precompact-devolve branch-guard memoria-worktree-link worktree-seed-env
 done
 rc=$(roda s4 "$REPO" "$TRES")
 espera_rc 0 "$rc" "sai 0"
-igual "$(printf 'warn-sem-node-leu\nsession-size-guard-leu\nrepo-session-leu')" "$(cat "$TMP/out")" "os três leem o payload, nesta ordem, e nenhum hook cortado roda"
+# O warn-sem-jq é do kit do time (os guards de lá que ainda leem por jq): quando ele está na
+# pasta, roda logo depois do warn-sem-node; quem usa o plugin não o tem, e ele é pulado.
+igual "$(printf 'warn-sem-node-leu\nwarn-sem-jq-leu\nsession-size-guard-leu\nrepo-session-leu')" "$(cat "$TMP/out")" "os quatro leem o payload, nesta ordem, e nenhum hook cortado roda"
 
 echo
 echo "== sem linha @usuario, texto puro como antes, na ordem =="
@@ -139,6 +141,13 @@ printf '%s\n' '#!/bin/sh' 'exit 1' > "$QUEBRADO/node"; chmod +x "$QUEBRADO/node"
 rc=$(roda s8 "$REPO" "$PESSOA" "$QUEBRADO")
 espera_rc 0 "$rc" "node que falha: sai 0"
 igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "node que falha: mesmo texto de quem não tem node"
+# Sem node e sem sed: o prefixo sai em bash puro. A máquina sem node é justamente a que pode
+# não ter outras coisas, e o fallback com sed devolvia nada.
+MINIMO="$TMP/minimo"; mkdir -p "$MINIMO"
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v cat)" > "$MINIMO/cat"; chmod +x "$MINIMO/cat"
+rc=$(roda s9 "$REPO" "$PESSOA" "$MINIMO")
+espera_rc 0 "$rc" "PATH só com cat: sai 0"
+igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "PATH só com cat: o mesmo texto, sem o prefixo"
 
 echo
 echo "== hook ausente é pulado; pasta vazia sai 0 calado =="

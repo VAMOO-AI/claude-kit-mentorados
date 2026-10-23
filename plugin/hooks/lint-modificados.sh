@@ -109,6 +109,10 @@ done <<< "$PARES"
 [ -n "$atual" ] && lint_projeto "$atual" "$@"
 
 [ "$PENDENTES" -eq 0 ] && exit 0
-printf 'lint pendente em %d arquivo(s) tocado(s) nesta sessão:\n' "$PENDENTES"
-printf '%s' "$RELATORIO" | tail -n 15
+# O stdout de um Stop vai para o debug log, e ninguém via o aviso (B5 da avaliação de 20/10):
+# ele sai como systemMessage, que a interface mostra. O JSON é montado em bash, sem node.
+aviso="$(printf 'lint pendente em %d arquivo(s) tocado(s) nesta sessão:\n' "$PENDENTES"; printf '%s' "$RELATORIO" | tail -n 15)"
+aviso="${aviso//\\/\\\\}"; aviso="${aviso//\"/\\\"}"
+aviso="${aviso//$'\n'/\\n}"; aviso="${aviso//$'\r'/\\r}"; aviso="${aviso//$'\t'/\\t}"
+printf '{"systemMessage":"%s"}\n' "$aviso"
 exit 0

@@ -278,6 +278,21 @@ Regra do porte: todo hook que fica lê o `.cwd` do payload. Os que decidiam pelo
 
 O `scripts/paridade.sh` perdeu os pares das suítes cortadas (`test-block-monitor-ci`, `test-branch-guard`, `test-notify-stop-cache`, `test-worktree-seed-env`), e o `test-warn-branch-worktree.sh` é par das duas suítes do time (`test-warn-branch-behind.sh`, `test-warn-worktree-stale.sh`).
 
+## Núcleo único, F3 (23/10): o kit do time passa a receber daqui
+
+Desde a 0.72.0 o kit do time recebe os guards e dispatchers pela `nucleo.lista` (#241), e a paridade desses arquivos deixa de ser porte: é um arquivo só. O que o time tinha e entrou aqui:
+
+| Do time | Aqui | Como |
+|---|---|---|
+| Regras da casa no `path-rules.conf` | `path-rules.local.conf` da máquina | o time instala o dele; mesmo glob troca o texto, `-` tira |
+| `~/` ancorado no glob (B1) | `path-rules.sh` | igual |
+| Marcador do aviso de topo do `session-size-guard` | `session-size-guard.sh` | igual |
+| `warn-sem-jq` no `pre-prompt` | `pre-prompt.sh` | roda quando existe, logo depois do `warn-sem-node` |
+| `rtk-claude.sh` | último do `pre-bash.sh` | sem jq; não roda depois de um guard que falou (lá, a fusão por jq juntava o `ask` e a reescrita) |
+| Fallback sem node em bash puro | `pre-prompt.sh` | igual |
+
+O `warn-skills-projeto` e o `skills-projeto-scan.sh` ficam para a F7, junto do par da skill `skills-projeto`: os dois kits divergem no contrato do scan (`--check`, tetos, veredito por skill), que a skill usa.
+
 ## Como usar
 
 ```bash

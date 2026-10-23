@@ -26,6 +26,22 @@ falhas=0
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+# O PATH de sempre, menos o rtk: o rtk-claude roda no fim da cadeia quando o rtk existe, e na
+# máquina de quem tem rtk instalado todo comando sairia reescrito. Cada pasta do PATH com rtk
+# vira uma cópia feita de links, sem ele; os casos do rtk põem um de mentira na frente.
+SEM_RTK=""; n=0; resto="$PATH:"
+while [ -n "$resto" ]; do
+  d="${resto%%:*}"; resto="${resto#*:}"
+  [ -n "$d" ] || continue
+  if [ -e "$d/rtk" ]; then
+    n=$((n+1)); mkdir -p "$TMP/sem-rtk/$n"
+    ln -s "$d"/* "$TMP/sem-rtk/$n/" 2>/dev/null; rm -f "$TMP/sem-rtk/$n/rtk"
+    d="$TMP/sem-rtk/$n"
+  fi
+  SEM_RTK="${SEM_RTK:+$SEM_RTK:}$d"
+done
+export PATH="$SEM_RTK"
+
 MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
 # clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
@@ -331,6 +347,34 @@ TODOS="git stash list && git merge x && cd $FEAT && git checkout -b y && $COMMIT
 r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos dos cinco guards: 1 node (rc ${r% *})" || falha "comando que casa os cinco gatilhos abriu ${r#* } nodes (esperado 1)"
 r=$(conta_nodes "$COMMIT" "$MAIN");  [ "$r" = "2 1" ] && ok "commit na main: bloqueia com 1 node" || falha "commit na main veio '$r' (esperado '2 1')"
 r=$(conta_nodes 'ls -la' "$FEAT");    [ "$r" = "0 1" ] && ok "comando inocente: 1 node (o check-careful roda sempre)" || falha "comando inocente veio '$r' (esperado '0 1')"
+
+echo
+echo "== rtk-claude: último da cadeia, inerte sem rtk, calado quando outro guard falou =="
+# Porte do kit do time (F3 do #241). Um rtk de mentira no PATH reescreve tudo: quem sair sem
+# reescrita saiu por decisão da cadeia.
+RTKBIN="$TMP/rtkbin"; mkdir -p "$RTKBIN"
+cat > "$RTKBIN/rtk" <<'MOCK'
+#!/bin/bash
+if [ "$1" = "hook" ] && [ "$2" = "claude" ]; then cat >/dev/null; echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"rtk <reescrito>"}}}'; fi
+exit 0
+MOCK
+chmod +x "$RTKBIN/rtk"
+com_rtk() { # <comando> <cwd> [modo] → rc; stdout em $TMP/out
+  C="$1" D="$2" MODO="${3:-default}" node -e 'process.stdout.write(JSON.stringify({session_id:"s-rtk",cwd:process.env.D,permission_mode:process.env.MODO,tool_input:{command:process.env.C}}))' \
+    | HOME="$TMP/home-rtk" TMPDIR="$TMP" PATH="$RTKBIN:$PATH" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
+  echo $?
+}
+mkdir -p "$TMP/home-rtk"
+rc=$(com_rtk 'ls -la src' "$FEAT"); espera_rc 0 "$rc" "comando inocente sai 0"
+contem "$TMP/out" 'rtk <reescrito>' "com rtk no PATH, o comando é reescrito"
+rc=$(com_rtk 'rm -rf ~/lixo-inexistente' "$FEAT")
+contem "$TMP/out" '"ask"' "o ask do check-careful chega"
+grep -q 'rtk <reescrito>' "$TMP/out" && falha "com o ask na mesa o rtk não reescreve" || ok "com o ask na mesa o rtk não reescreve"
+rc=$(com_rtk "$COMMIT" "$MAIN"); espera_rc 2 "$rc" "bloqueio continua bloqueio com rtk no PATH"
+grep -q 'rtk <reescrito>' "$TMP/out" && falha "depois do bloqueio o rtk não roda" || ok "depois do bloqueio o rtk não roda"
+rc=$(com_rtk 'git status' "$TMP/x/.claude/worktrees/wt"); [ -s "$TMP/out" ] && falha "git em worktree não pode ganhar o prefixo: $(cat "$TMP/out")" || ok "git em worktree não ganha o prefixo"
+rc=$(com_rtk 'git push -f origin HEAD:main' "$FEAT"); grep -q 'rtk <reescrito>' "$TMP/out" && falha "git push nunca é reescrito" || ok "git push nunca é reescrito"
+r=$(roda 'ls -la src' "$FEAT"); [ -s "$TMP/out" ] && falha "sem rtk no PATH o rtk-claude é inerte: $(cat "$TMP/out")" || ok "sem rtk no PATH o rtk-claude é inerte"
 
 # O kit_campos tem de devolver byte a byte o que o hookjson.js devolveria: um guard de mentira
 # (no lugar do check-careful, que roda sempre) compara os dois para cada combinação de campos

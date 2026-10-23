@@ -2,7 +2,8 @@
 # pre-prompt.sh — dispatcher do UserPromptSubmit: lê o payload UMA vez e o entrega, em
 # ordem, aos hooks que até a 0.25.0 eram entries separados no hooks.json. Hoje são três: o
 # aviso de node ausente (primeiro: sem node os outros guards saem calados), o
-# session-size-guard e o repo-session. Depois da 0.64 saíram o branch-guard, o
+# session-size-guard e o repo-session. No kit do time entra um quarto, logo depois do
+# primeiro: o warn-sem-jq, enquanto guards de lá lerem por jq. Depois da 0.64 saíram o branch-guard, o
 # memoria-worktree-link, o worktree-seed-env e a devolução do compact (que virou o
 # compact-estado.sh, no SessionStart(compact)).
 #
@@ -48,11 +49,16 @@ emite() { # <código com que a cadeia vai sair>
     printf '%s\n' "$json"
     return 0
   fi
-  printf '%s\n' "$saida" | LC_ALL=C sed 's/^@usuario //'
+  # Bash puro: a máquina sem node é justamente a que pode não ter o sed no PATH.
+  local l
+  while IFS= read -r l || [ -n "$l" ]; do printf '%s\n' "${l#@usuario }"; done <<< "$saida"
 }
 
 saida=""
-for h in warn-sem-node.sh session-size-guard.sh repo-session.sh; do
+# O warn-sem-jq é do kit do time, onde guards ainda leem por jq até a F4 do núcleo único
+# (#241): instalado, roda logo depois do warn-sem-node; aqui ele não existe e é pulado como
+# hook ausente. Os dois avisos de binário vêm antes do session-size-guard, que pode bloquear.
+for h in warn-sem-node.sh warn-sem-jq.sh session-size-guard.sh repo-session.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
   case "$h" in

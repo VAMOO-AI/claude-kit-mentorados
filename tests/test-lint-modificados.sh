@@ -109,6 +109,13 @@ if [ -n "$STOP" ] && [ "$(printf '%s' "$STOP" | cut -f3)" = "-" ] && [ "$(printf
 else
   falha "Stop sem o lint-modificados.sh (ou async, ou sem timeout)"
 fi
+# B9 da avaliação de 20/10: o touch do repo-session roda em todo Bash, Edit e Write e não
+# decide nada, então vai em async. O anota fica síncrono (o Stop lê a lista dele).
+if awk -F"$TAB" '$1=="PostToolUse" && $5 ~ /repo-session\.sh" touch$/ && $3=="true"' "$TMP/registro" | grep -q .; then
+  ok "PostToolUse do repo-session (touch) é async"
+else
+  falha "PostToolUse do repo-session (touch) deveria ser async"
+fi
 [ -f "$HOOK" ] && ok "plugin/hooks/lint-modificados.sh existe" || falha "plugin/hooks/lint-modificados.sh não existe"
 
 echo "== o Stop linta só o que a sessão anotou =="
@@ -180,6 +187,13 @@ if [ "$codigo" -eq 0 ] && printf '%s' "$saida" | grep >/dev/null "lint pendente"
 else
   falha "erro de lint vira aviso (codigo=$codigo saida=$saida)"
 fi
+# B5 da avaliação de 20/10: o stdout de um Stop vai para o debug log, e ninguém via o aviso.
+# Ele sai como systemMessage num JSON, que a interface mostra para a pessoa.
+msg=$(printf '%s' "$saida" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(typeof j.systemMessage==="string"?j.systemMessage:"")}catch{}})')
+case "$msg" in
+  *"lint pendente"*"erro de lint inventado"*) ok "o aviso sai como systemMessage, com o erro do eslint" ;;
+  *) falha "o aviso não saiu como systemMessage num JSON (saida=$saida)" ;;
+esac
 
 # 7) teto por Stop: o que passou do teto fica para o próximo
 for i in 1 2 3 4 5; do echo "export const f$i = $i" > "$A/f$i.ts"; anota s6 "$A/f$i.ts"; done

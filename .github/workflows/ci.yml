@@ -219,6 +219,10 @@ jobs:
       - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
+      - name: O rtk-claude não reescreve git em worktree, git push, segredo nem saída consumida
+        # Porte do kit do time (F3 do #241): último da cadeia do pre-bash, inerte sem rtk.
+        run: bash tests/test-rtk-claude.sh
+
       - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
@@ -257,36 +261,6 @@ jobs:
 
       - name: A motion-reel não carrega marca de terceiro e abre/fecha com o marca.png da pessoa
         run: bash tests/test-motion-reel-sem-marca.sh
-
-      - name: ffmpeg para o teste do final.sh da motion-reel
-        # Não interativo e com teto próprio: em 22/10/2026, com o ubuntu-latest migrando para o
-        # Ubuntu 26, o apt ficou parado aqui até o job estourar (CANCELLED aos 10 e depois aos
-        # 20 min). Travar de novo vira falha deste passo em 8 min, com nome, não do job inteiro.
-        # Não interativo não bastou: o apt também para no espelho, de forma intermitente (o mesmo
-        # passo passou num repo e travou no outro no mesmo minuto). Teto por comando e até 3
-        # tentativas; -q (não -qq) para o log dizer onde parou.
-        timeout-minutes: 15
-        env:
-          DEBIAN_FRONTEND: noninteractive
-          NEEDRESTART_MODE: a
-        run: |
-          for i in 1 2 3; do
-            if timeout 150 sudo -E apt-get update -q \
-               && timeout 300 sudo -E apt-get install -y -q --no-install-recommends ffmpeg; then
-              break
-            fi
-            echo "::warning::apt do ffmpeg falhou ou passou do teto (tentativa $i de 3)"
-            sleep 15
-          done
-          ffmpeg -version | head -1
-
-      - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
-        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
-        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
-        run: |
-          set -o pipefail
-          bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
-          ! grep -q '^pulado' /tmp/final-verificar.log
 
       - name: O stills.mjs da motion-reel aceita índices com espaço e vírgula e recusa índice inválido
         # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
@@ -572,7 +546,7 @@ jobs:
           for t in test-hooks-boot test-pre-bash test-block-main-commit \
                    test-check-careful test-block-parallel-clone-switch \
                    test-block-delete-branch test-block-cd-leitura-relativa \
-                   test-pre-prompt test-path-rules \
+                   test-pre-prompt test-path-rules test-rtk-claude \
                    test-merge-settings test-warn-sem-node; do
             echo "::group::$t"
             if bash "tests/$t.sh"; then echo "ok $t"; else falhas="$falhas $t"; fi
@@ -622,3 +596,44 @@ jobs:
           else
             echo "nenhuma divergência de conteúdo fora das exceções."
           fi
+
+  # O ffmpeg vem do apt, que trava de forma intermitente no espelho do runner: em 22 e
+  # 23/10/2026 o passo dele consumiu o teto e derrubou o validate, que é o check obrigatório.
+  # Num job próprio ele roda em paralelo, o teste do final.sh segue exigindo o ffmpeg de
+  # verdade, e quando o apt travar só este job fica vermelho e dá para rodar de novo sozinho.
+  # Espelho de VAMOO-AI/claude-config-team#421.
+  motion-reel-ffmpeg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: ffmpeg para o teste do final.sh da motion-reel
+        # Não interativo e com teto próprio: em 22/10/2026, com o ubuntu-latest migrando para o
+        # Ubuntu 26, o apt ficou parado aqui até o job estourar (CANCELLED aos 10 e depois aos
+        # 20 min). Travar de novo vira falha deste passo em 8 min, com nome, não do job inteiro.
+        # Não interativo não bastou: o apt também para no espelho, de forma intermitente (o mesmo
+        # passo passou num repo e travou no outro no mesmo minuto). Teto por comando e até 3
+        # tentativas; -q (não -qq) para o log dizer onde parou.
+        timeout-minutes: 15
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+        run: |
+          for i in 1 2 3; do
+            if timeout 150 sudo -E apt-get update -q \
+               && timeout 300 sudo -E apt-get install -y -q --no-install-recommends ffmpeg; then
+              break
+            fi
+            echo "::warning::apt do ffmpeg falhou ou passou do teto (tentativa $i de 3)"
+            sleep 15
+          done
+          ffmpeg -version | head -1
+
+      - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
+        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
+        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
+        run: |
+          set -o pipefail
+          bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
+          ! grep -q '^pulado' /tmp/final-verificar.log
