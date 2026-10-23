@@ -10,6 +10,25 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.76.0] — 2026-10-23
+
+### Adicionado
+
+O Codex vira recurso daqui (F5 do núcleo único, #241).
+
+- **`scripts/codex-espelho.sh` no SessionStart.** Quando a versão do plugin muda, ele leva
+  para o `~/.codex/hooks` a versão nova dos guards que a pessoa já pôs lá (nunca cria guard
+  novo) e copia o `hookjson.js` para o `~/.codex/scripts`. Nada aponta para o cache versionado:
+  o guard é cópia, e a cópia envelhecia. A versão espelhada fica em `${CLAUDE_PLUGIN_DATA}`.
+- **`hooks/rtk-codex.sh`** (porte do kit do time, sem jq). Ele reescreve o comando do Codex
+  para o rtk, inerte sem rtk. Nunca reescreve git push, git em worktree nem o que o
+  `check-careful` vigia: no Codex, o `allow` da reescrita passaria por cima do `ask`.
+  - A guarda ganhou as regras que o `check-careful` ganhou na F4: descarte local, listagem do
+    ambiente, segredos além do `.env` e `Remove-Item`. Os 9 casos-espelho falham no hook do
+    time.
+- **`scripts/codex-optimize.sh`** (porte do kit do time). Ele cria os perfis, baixa o
+  esforço, desliga plugins que não são de dev e instala e registra os guards (com o
+  `hookjson.js` junto) antes do `rtk-codex`. Precisa de python3, e sem ele avisa e sai.
 ## [0.75.0] — 2026-10-23
 
 ### Mudado
