@@ -352,6 +352,10 @@ jobs:
         # erro` — plausível o bastante para o agente registrar como evidência.
         run: bash tests/test-hitl-loop.sh
 
+      - name: O medir-sessao compara no mesmo diretório e não lê lista ausente como zero tools
+        # Porte do kit do time (F5 do #241).
+        run: bash tests/test-medir-sessao.sh
+
       - name: O boot-guard da monitoramento-infra reata por tier, respeita ORDEM_TIERS e start-first, e o dry-run não toca em nada
         # Swarm de mentira: docker, nsenter, ss e curl são stubs no PATH. O teste exige que o
         # stub tenha sido chamado, porque o runner tem docker de verdade.

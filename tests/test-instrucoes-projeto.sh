@@ -347,12 +347,12 @@ check "AGENTS.md não importa a si mesmo"             "$(sim nao_tem "$(cat "$SC
 check "CLAUDE.md é exatamente @AGENTS.md"            "$(sim ponte_ok "$SCI/CLAUDE.md")"
 check "depois do --apply é so-import"                "$(sim mesmo "$(classe_de "$(roda "$SCI")")" so-import)"
 
-echo "== --apply: so-claude com import no meio da frase tira o token =="
+echo "== --apply: so-claude com import no meio da frase tira o @ (a frase segue legível) =="
 out="$(roda --apply "$SCM")"
 check "AGENTS.md tem a regra"                        "$(sim grep -q '^- Rode `npm test`' "$SCM/AGENTS.md")"
 check "AGENTS.md sem @AGENTS.md (grep vazio)"        "$(sim mesmo "$(grep '@AGENTS.md' "$SCM/AGENTS.md")" "")"
 check "AGENTS.md sem @./AGENTS.md"                   "$(sim mesmo "$(grep '@\./AGENTS\.md' "$SCM/AGENTS.md")" "")"
-check "a frase fica, sem o token"                    "$(sim grep -q '^Veja para as regras gerais\.$' "$SCM/AGENTS.md")"
+check "a frase continua, sem o @ (como no kit do time)" "$(sim grep -q '^Veja AGENTS.md para as regras gerais\.$' "$SCM/AGENTS.md")"
 check "CLAUDE.md é exatamente @AGENTS.md"            "$(sim ponte_ok "$SCM/CLAUDE.md")"
 check "depois do --apply é so-import"                "$(sim mesmo "$(classe_de "$(roda "$SCM")")" so-import)"
 

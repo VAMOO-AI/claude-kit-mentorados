@@ -10,6 +10,23 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.75.0] — 2026-10-23
+
+### Mudado
+
+Scripts que o kit do time passa a receber daqui (F5 do núcleo único, #241). As suítes do time
+do `hitl-loop` e do `medir-sessao` já passavam inteiras contra os scripts daqui. Nos outros
+três, entra o que só o time tinha:
+
+- **`worktree-gc`:** o `next-env.d.ts` é regenerável, porque o Next o reescreve a cada build.
+  O `supabase/.temp` passa só se for cópia byte a byte do do clone, porque guarda a qual
+  projeto o worktree está ligado. Em 13/10/2026 os dois seguraram 5 worktrees já mergeados no
+  time.
+- **`memoria-link`:** com o `publicar-memoria.sh` instalado (o kit do time), a dica de
+  publicação aponta para ele, que abre o PR e limpa o clone. Sem ele, continua o commit à mão.
+- **`instrucoes-projeto`:** o `@AGENTS.md` no meio da frase perde só o `@`. "Veja @AGENTS.md
+  para..." vira "Veja AGENTS.md para...", e a frase segue legível.
+
 ## [0.74.0] — 2026-10-23
 
 ### Mudado

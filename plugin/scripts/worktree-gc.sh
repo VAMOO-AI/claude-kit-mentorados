@@ -255,12 +255,14 @@ sem_commit_proprio() {
 # grava ali o arquivo final). dist/ e build/ ficam porque são a saída do bundler (vite, tsc,
 # CRA) a partir do código versionado; target/, a do cargo e do maven; e .cache/, cache de
 # ferramenta (parcel, gatsby, babel-loader), que se refaz na próxima execução.
+# next-env.d.ts: o Next o reescreve a cada dev/build, e em monorepo ele mora em app/ (porte do
+# kit do time, 13/10/2026).
 eh_regeneravel() {   # <caminho relativo; diretório termina em />
   case "/$1" in
     */node_modules/*|*/.next/*|*/dist/*|*/build/*|*/.turbo/*|*/.cache/*|*/coverage/*) return 0 ;;
     */__pycache__/*|*.pyc|*/.pytest_cache/*|*/.mypy_cache/*|*/.ruff_cache/*|*/.venv/*) return 0 ;;  # .venv: só diretório
     */.DS_Store|*/.vercel/*|*/target/*|*/.gradle/*) return 0 ;;
-    */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo) return 0 ;;
+    */.parcel-cache/*|*/.svelte-kit/*|*/.nuxt/*|*/.expo/*|*.tsbuildinfo|*/next-env.d.ts) return 0 ;;
   esac
   return 1
 }
@@ -282,6 +284,11 @@ ignorado_de_valor() {   # <worktree> — 0 = achou algum
     [ -L "$wt/${f%/}" ] && continue
     eh_regeneravel "$f" && continue
     case "$f" in
+      # Cache do supabase CLI (project-ref, versões) que o `supabase link` recria — mas guarda
+      # a qual projeto o worktree está ligado. Passa só se for cópia byte a byte do clone; o
+      # `diff -rq` também falha quando o clone não tem a pasta. `cmp` não tem -r no macOS.
+      supabase/.temp/*|*/supabase/.temp/*)
+        diff -rq "$wt/$f" "$PRIMARY/$f" >/dev/null 2>&1 || dif="${dif:+$dif }$f"; continue ;;
       */) r="$(cd "$wt" && find "${f%/}" -name .git -prune 2>/dev/null | sed 's|\.git$||' | tr '\n' ' ')"
           r="${r% }"
           [ -n "$r" ] && { repo="${repo:+$repo }$r"; continue; } ;;
