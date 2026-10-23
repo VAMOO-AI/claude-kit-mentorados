@@ -10,6 +10,45 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.73.0] — 2026-10-23
+
+### Adicionado
+
+- **`rtk-claude.sh` no fim do `pre-bash`, inerte sem rtk** (F3 do núcleo único, #241). É o
+  porte do kit do time, sem jq. O payload vem do `kit_campos`, e o deny é lido por node, com o
+  mesmo cache por mtime.
+  - O hook nunca reescreve:
+    - `git … push`, em nenhum cwd, com a regra do claude-config-team#378, que aceita prefixo
+      de env e wrappers;
+    - `git` dentro de worktree, porque o guard do harness só lê `git` como primeiro token;
+    - comando que toca segredo do `permissions.deny`;
+    - comando cuja saída vai para outro comando.
+  - Ele não roda no PowerShell nem depois de um guard que falou. Com o `ask` do
+    `check-careful` na mesa, a pessoa aprova o comando cru, e o dispatcher não precisa fundir
+    dois JSONs.
+  - A suíte veio do time (`tests/test-rtk-claude.sh`), com o deny do template daqui. Ficou de
+    fora um caso com nome de cliente, que o gate de dado de cliente barra.
+- **`path-rules.local.conf`.** Depois do conf do kit, o `path-rules` lê o
+  `~/.claude/hooks/path-rules.local.conf` da máquina, se ele existir. Uma linha com o mesmo
+  glob troca o texto da regra do kit, e o texto `-` a tira. É onde mora o que é da casa: o kit
+  do time instala o dele, e quem usa o plugin pode ter o seu.
+
+### Mudado
+
+- **`path-rules`:** `~/` no padrão casa só o home, e não o settings de cada projeto (B1 da
+  avaliação de 20/10). O JSON sai montado em bash, sem o segundo node.
+- **`lint-modificados`:** o aviso do Stop sai como `systemMessage` (B5). Antes ele ia para o
+  debug log e ninguém o via.
+- **`hooks.json`:** o `touch` do `repo-session` no PostToolUse vai em `async` (B9). O `anota`
+  do lint fica síncrono, porque o Stop lê a lista dele.
+- **`session-size-guard`:** grava o marcador do primeiro aviso de 300K, que o `usage-weekly`
+  do kit do time lê para medir aviso ignorado.
+- **`pre-prompt`:** roda o `warn-sem-jq.sh` quando ele existe (só no kit do time). O fallback
+  sem node tira o prefixo em bash puro: com `sed`, um PATH mínimo devolvia nada.
+- **Paridade:** as suítes do time do `path-rules`, do `session-size-guard`, do
+  `lint-modificados` e do `pre-prompt` passam inteiras contra os hooks daqui. O `pre-bash` também
+  passa, menos a fusão do rtk com o `ask` (acima).
+
 ## [0.72.2] — 2026-10-23
 
 ### Segurança
