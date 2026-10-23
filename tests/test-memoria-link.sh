@@ -77,6 +77,14 @@ existe existe "$C/.context/memoria/README.md"             "README.md existe em p
 grep -q '^# Memória do projeto' "$C/.context/memoria/README.md" && printf '  ok    README tem o formato do fato\n' || { printf '  FALHA README sem o cabeçalho esperado\n'; falhas=$((falhas+1)); }
 check 'commite: git add .context/memoria'                 "diz como publicar (sem script que o kit não tem)"                   "$OUT"
 existe existe "$C/.context/memoria/c1.md"                 "fato da máquina migrou para o repositório"
+# Com o publicar-memoria.sh instalado (o kit do time), a dica aponta ele: o que está instalado
+# decide o texto, não quem é a pessoa (F5 do núcleo único, #241).
+CT="$HOME/WORKSPACES/proj-ct"; mkdir -p "$CT/.context/memoria"; git -C "$CT" init -q
+mkdir -p "$PROJ/$(slug "$CT")/memory"; fato "$PROJ/$(slug "$CT")/memory" ct1
+mkdir -p "$HOME/.claude/scripts"; printf '#!/bin/sh\n' > "$HOME/.claude/scripts/publicar-memoria.sh"
+OUT="$(run --repo "$CT")"
+check 'publique com: .*publicar-memoria\.sh --repo'        "com o publicar-memoria.sh instalado, a dica é ele"                  "$OUT"
+rm -f "$HOME/.claude/scripts/publicar-memoria.sh"
 
 echo "== --repo liga só o clone: a memória é por repositório, e o README é do clone =="
 OUT="$(run --repo "$G")"

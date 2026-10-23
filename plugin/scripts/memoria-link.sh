@@ -190,6 +190,16 @@ relatar_sem_caminho() {
   AVISOS=$((AVISOS + 1))
 }
 
+# Como publicar: com o publicar-memoria.sh instalado (o kit do time), é ele, que abre o PR e
+# limpa o clone; sem ele, o commit à mão. Decide pelo que está instalado (F5, #241).
+dica_publicar() { # <repo>
+  if [ -f "$HOME/.claude/scripts/publicar-memoria.sh" ]; then
+    diz "   publique com: ~/.claude/scripts/publicar-memoria.sh --repo \"$1\""
+  else
+    diz "   commite: git add .context/memoria && git commit -m 'docs(memoria): memória do projeto'"
+  fi
+}
+
 # Versionar a memória é DISTRIBUIR a memória. Se tiver credencial escrita ali
 # dentro, adotar commita essa credencial no repositório — e daí não tem
 # desfazer: quem clonar depois leva junto, e o histórico guarda mesmo que você
@@ -293,7 +303,7 @@ ligar() {
       # Repo já ligado que acabou de ganhar o README tem arquivo novo no clone: sem
       # esta linha ele fica pendurado como mudança não commitada, calado.
       if [ "$README_NOVO" -eq 1 ]; then
-        diz "   commite: git add .context/memoria && git commit -m 'docs(memoria): memória do projeto'"
+        dica_publicar "$repo"
       fi
       return 0
     fi
@@ -331,13 +341,13 @@ ligar() {
     done
     diz "✓  $repo ligado — $n arquivo(s) da máquina trazidos para o repositório"
     if [ "$n" -gt 0 ] || [ "$README_NOVO" -eq 1 ]; then
-      diz "   commite: git add .context/memoria && git commit -m 'docs(memoria): memória do projeto'"
+      dica_publicar "$repo"
     fi
   else
     ln -s "$mem" "$dir"
     diz "✓  $repo ligado"
     if [ "$README_NOVO" -eq 1 ]; then
-      diz "   commite: git add .context/memoria && git commit -m 'docs(memoria): memória do projeto'"
+      dica_publicar "$repo"
     fi
   fi
   LIGADOS=$((LIGADOS + 1))
