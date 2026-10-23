@@ -10,6 +10,20 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.79.0] — 2026-10-23
+
+### Adicionado
+
+- **`merge-settings.js`: overlay em camadas** (F6 do núcleo único, #241). Com isso o kit do
+  time deixa o `merge-settings.py` e passa a usar este merge. Sem overlay, nada muda para quem
+  instala.
+  - `--overlay` agora repete e é aplicado em ordem: na mesma chave, a última camada vence. O
+    `$merge` das camadas se soma (listas concatenam, mapas se juntam).
+  - `$merge.modoDaPessoa`: o `defaultMode` que a pessoa já tem fica. O do kit só entra onde
+    não há modo.
+  - `$merge.chavesGovernadas` passa a valer também para objeto sem regra própria, como o
+    `statusLine`. As chaves com regra (`env`, `hooks`, `permissions`…) seguem a delas.
+
 ## [0.78.0] — 2026-10-23
 
 ### Adicionado

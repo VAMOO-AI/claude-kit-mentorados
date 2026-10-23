@@ -1081,5 +1081,43 @@ cp "$TMP/mine-t.json" "$TMP/out-est-ok.json"
 rc=0; node "$MERGE" "$TMP/kit-t.json" "$TMP/out-est-ok.json" --estrito >/dev/null 2>&1 || rc=$?
 esperado "com --estrito, settings válido mescla e sai 0" "$rc" "0"
 
+echo "== --overlay repetível: as regras do time e a chave de uma pessoa, em camadas =="
+# O time tem duas camadas: o \$merge da casa (regras) e o settings.<quem>.json (o canal de update
+# do Ruan). Uma camada só obrigaria o time a gerar um arquivo combinado a cada update.
+echo '{"$merge":{"chavesGovernadas":["autoUpdatesChannel"],"allowsRevogados":{"Bash(velho1:*)":null}}}' > "$TMP/ov-regras.json"
+echo '{"autoUpdatesChannel":"latest","$merge":{"allowsRevogados":{"Bash(velho2:*)":null}}}' > "$TMP/ov-pessoa.json"
+jsmod "$TMP/mine-t.json" "$TMP/out-ovr.json" 'd.autoUpdatesChannel = "stable"; d.permissions = d.permissions || {};
+d.permissions.allow = ["Bash(velho1:*)", "Bash(velho2:*)", "Bash(meu:*)"]'
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-ovr.json" --overlay "$TMP/ov-regras.json" --overlay "$TMP/ov-pessoa.json" > "$TMP/out-ovr.txt" 2>&1
+check "duas camadas: a regra da 1ª governa o valor da 2ª (stable da máquina vira latest)" "d.autoUpdatesChannel" '"latest"' "$TMP/out-ovr.json"
+check "as listas do \$merge das duas camadas se somam (velho1 e velho2 saem)" \
+  "d.permissions.allow.filter((p) => p.startsWith('Bash(velho')).length" '0' "$TMP/out-ovr.json"
+check "…e o allow da pessoa fica" "d.permissions.allow.includes('Bash(meu:*)')" 'true' "$TMP/out-ovr.json"
+echo '{"theme":"a"}' > "$TMP/ov-a.json"; echo '{"theme":"b","$merge":{"chavesGovernadas":["theme"]}}' > "$TMP/ov-b.json"
+cp "$TMP/mine-t.json" "$TMP/out-ovab.json"
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-ovab.json" --overlay "$TMP/ov-a.json" --overlay "$TMP/ov-b.json" >/dev/null 2>&1
+check "mesma chave em duas camadas: a última vence" "d.theme" '"b"' "$TMP/out-ovab.json"
+
+echo "== \$merge.modoDaPessoa: o defaultMode que a pessoa escolheu fica (o do time) =="
+echo '{"$merge":{"modoDaPessoa":true}}' > "$TMP/ov-modo.json"
+for m in default acceptEdits; do
+  jsmod "$TMP/mine-t.json" "$TMP/out-modo-$m.json" "d.permissions = d.permissions || {}; d.permissions.defaultMode = '$m'"
+  node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-modo-$m.json" --overlay "$TMP/ov-modo.json" > "$TMP/out-modo-$m.txt" 2>&1
+  check "modoDaPessoa: $m fica" "d.permissions.defaultMode" "\"$m\"" "$TMP/out-modo-$m.json"
+done
+saida_sem "modoDaPessoa: não ensina a voltar ao manual (nada foi trocado)" "$TMP/out-modo-default.txt" "pra voltar ao manual"
+jsmod "$TMP/mine-t.json" "$TMP/out-modo-sem.json" 'd.permissions = d.permissions || {}; delete d.permissions.defaultMode'
+node "$MERGE" "$TMP/kit-canal.json" "$TMP/out-modo-sem.json" --overlay "$TMP/ov-modo.json" >/dev/null 2>&1
+check "modoDaPessoa: sem modo na máquina, vale o do kit" "d.permissions.defaultMode" '"auto"' "$TMP/out-modo-sem.json"
+
+echo "== chavesGovernadas: objeto sem regra própria é governado inteiro; com regra própria, não =="
+jsmod "$TMP/kit-canal.json" "$TMP/kit-obj.json" 'd.statusLine = { type: "command", command: "bash ~/.claude/statusline-command.sh" }; d.env = { DO_KIT: "1" }'
+jsmod "$TMP/mine-t.json" "$TMP/out-obj.json" 'd.statusLine = { type: "command", command: "outra" }; d.env = { MINHA: "1" }'
+echo '{"$merge":{"chavesGovernadas":["statusLine","env"]}}' > "$TMP/ov-obj.json"
+node "$MERGE" "$TMP/kit-obj.json" "$TMP/out-obj.json" --overlay "$TMP/ov-obj.json" >/dev/null 2>&1
+check "statusLine governada: volta ao do kit" "d.statusLine.command" '"bash ~/.claude/statusline-command.sh"' "$TMP/out-obj.json"
+check "env listada em chavesGovernadas segue a regra dela (união: a da pessoa fica)" "d.env.MINHA" '"1"' "$TMP/out-obj.json"
+check "…e a do kit entra" "d.env.DO_KIT" '"1"' "$TMP/out-obj.json"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
