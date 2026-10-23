@@ -16,7 +16,9 @@ H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson
 [ -f "$H" ] || H="$HOME/.claude/scripts/hookjson.js"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
-info="$(cat | node "$H" session_id cwd tool_input.workdir tool_input.command)"
+# Dentro do pre-bash os campos já foram lidos (kit_campos, leitura única); fora dele,
+# o próprio guard abre o node.
+if [ "${KIT_CAMPOS_LIDOS:-}" = 1 ]; then info="$(kit_campos session_id cwd tool_input.workdir tool_input.command)"; else info="$(cat | node "$H" session_id cwd tool_input.workdir tool_input.command)"; fi
 sid="$(printf '%s\n' "$info" | sed -n 1p)"
 cwd="$(printf '%s\n' "$info" | sed -n 2p)"
 wd="$(printf '%s\n' "$info"  | sed -n 3p)"
@@ -164,7 +166,7 @@ checa_clone() { # usa tgt e alvo_incerto do alvo_de
   others=$(find "$d" -type f ! -name .root ! -name "$sid" -mmin -30 2>/dev/null)
   [ -z "$others" ] && return 0
   n=$(printf '%s\n' "$others" | grep -c .)
-  echo "BLOQUEADO pelo hook: $n outra(s) sessão(ões) Claude ativa(s) neste repositório nos últimos 30 min, e '$root' é o CLONE PRINCIPAL compartilhado — checkout/switch/stash/reset aqui troca a branch e sobrescreve o trabalho delas. Trabalhe num worktree próprio (regras na skill worktrees). Se tiver CERTEZA de que nenhuma outra sessão está escrevendo neste clone, prefixe o comando com PARALLEL_OK=1." >&2
+  echo "BLOQUEADO pelo hook: $n outra(s) sessão(ões) Claude ativa(s) neste repositório nos últimos 30 min, e '$root' é o CLONE PRINCIPAL compartilhado — checkout/switch/stash/reset aqui troca a branch e sobrescreve o trabalho delas. Trabalhe num worktree próprio (EnterWorktree; regras na skill worktrees). Se tiver CERTEZA de que nenhuma outra sessão está escrevendo neste clone, prefixe o comando com PARALLEL_OK=1." >&2
   [ -n "$alvo_incerto" ] && echo "O comando aponta para '$alvo_incerto', que NÃO resolvi como repo aqui (variável de \$(…), path inexistente, cd -, ou expansão que só o shell faz), então decidi pelo cwd da sessão. Se o alvo é outro repo, escreva o caminho literal." >&2
   exit 2
 }

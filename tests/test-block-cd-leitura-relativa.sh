@@ -50,6 +50,7 @@ check bloqueia "sed com script entre aspas e arquivo relativo" \
 check bloqueia "cd com variável — a pasta segue indeterminável" \
                                               'cd "$PROJ/app" && cat src/x.ts'
 check bloqueia "jq lendo arquivo relativo"                   "cd $D && jq -r '.version' package.json"
+check bloqueia "launcher na frente (rtk) não esconde a leitura" "cd $D && rtk grep -c foo src/x.ts"
 check bloqueia "leitura no terceiro comando da cadeia"       "cd $D && npm ci && wc -l src/index.ts"
 
 echo

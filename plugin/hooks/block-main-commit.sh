@@ -18,7 +18,9 @@ command -v node >/dev/null 2>&1 || exit 0
 [ -f "$H" ] || exit 0
 # Um node só por payload (invariante 4 do núcleo único): o cwd sai na primeira linha e o
 # comando, que pode ter quebra de linha, no resto.
-r="$(node "$H" cwd tool_input.command)"
+# Dentro do pre-bash os campos já foram lidos (kit_campos, leitura única); fora dele,
+# o próprio guard abre o node.
+if [ "${KIT_CAMPOS_LIDOS:-}" = 1 ]; then r="$(kit_campos cwd tool_input.command)"; else r="$(node "$H" cwd tool_input.command)"; fi
 cwd="${r%%$'\n'*}"
 c="${r#*$'\n'}"
 [ "$c" = "$r" ] && c=""
