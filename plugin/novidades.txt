@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.77.1|o modelo de vídeo da /kit-vamoo:motion-reel instala o fast-uri já corrigido (alertas de segurança de 23/10)
 0.77.0|a barra de status ganha o modo painel, com custo, contexto e os limites de 5h e 7 dias em até 7 linhas; rode o /kit-vamoo:setup e peça o painel, ou fique com a linha de hoje|setup
 0.76.0|quem usa o Codex com os guard-rails do kit passa a receber a versão nova deles sozinho, a cada atualização do kit
 0.75.0|a limpeza de worktree não segura mais o worktree mergeado só por causa do next-env.d.ts ou de um supabase/.temp igual ao do clone
