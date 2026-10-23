@@ -104,8 +104,8 @@ linha_import() {
     END { exit !achou }' "$1"
 }
 
-# O CLAUDE.md sem os `@AGENTS.md`: a linha que é só o import sai, e o token no meio da frase
-# sai da frase, fora de crase e de bloco de código. `conta` só diz se há o que tirar (1 ou 0).
+# O CLAUDE.md sem os `@AGENTS.md`: a linha que é só o import sai, e no meio da frase sai só o
+# `@` do token, fora de crase e de bloco de código. `conta` só diz se há o que tirar (1 ou 0).
 read -r -d '' AWK_SEM_IMPORT <<'AWK'
 function tira(seg,    out, p, antes, nx, nx2) {
   out = ""
@@ -113,9 +113,9 @@ function tira(seg,    out, p, antes, nx, nx2) {
     antes = RSTART > 1 ? substr(seg, RSTART - 1, 1) : ""
     nx = substr(seg, RSTART + RLENGTH, 1); nx2 = substr(seg, RSTART + RLENGTH + 1, 1)
     if ((antes == "" || antes ~ /[ \t(]/) && nx !~ /[A-Za-z0-9_\/-]/ && !(nx == "." && nx2 ~ /[A-Za-z0-9_]/)) {
-      p = substr(seg, 1, RSTART - 1)
-      if (antes ~ /[ \t]/) sub(/[ \t]+$/, "", p)
-      out = out p; n++
+      # Sai só o `@`: "Veja @AGENTS.md para..." vira "Veja AGENTS.md para..." e a frase segue
+      # legível (como no kit do time). Sem o `@` o Claude Code não importa.
+      out = out substr(seg, 1, RSTART - 1) substr(seg, RSTART + 1, RLENGTH - 1); n++
     } else out = out substr(seg, 1, RSTART + RLENGTH - 1)
     seg = substr(seg, RSTART + RLENGTH)
   }
