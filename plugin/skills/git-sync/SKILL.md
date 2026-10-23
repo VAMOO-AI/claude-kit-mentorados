@@ -79,10 +79,10 @@ saem da API REST. Detalhe: [references/flags.md](references/flags.md#gh-e-api-re
 
 `--cleanup-dry-run` lista; `--cleanup-apply` só com o pedido. A prova é PR mergeado com o tip
 igual ao head do PR ou contido nele (os últimos commits do PR feitos noutro clone; o head que
-falta é buscado em `refs/pull/<n>/head` sem gravar ref). Na remoção à mão da skill `worktrees`
-("Limpeza no fim"), o
-`bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>` ainda exige
-head == tip: um worktree só contido no head sai candidato aqui e recusado lá. Sem prova, fica.
+falta é buscado em `refs/pull/<n>/head` sem gravar ref). A remoção à mão segue a skill
+`worktrees` ("Limpeza no fim"), com a mesma prova e
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <worktree>` saindo 0. Sem
+prova, fica.
 
 ## Se o script falhar: só leitura
 

@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.71.2|o aviso de worktree mergeado e o worktree-gc também reconhecem a branch que ficou atrás do PR porque você terminou o PR noutro computador
 0.71.1|a limpeza da /kit-vamoo:git-sync reconhece a branch que ficou atrás do PR porque você terminou o PR noutro computador, e só chama de "avançou" a que tem commit novo de fato
 0.71.0|quem usa worktree passa a ser avisado também na conversa aberta no próprio clone quando ele sai da main; sem worktree, branch no clone continua sem aviso
 0.70.0|preparação interna: o aviso depois do compact e o registro de sessão passam a servir também ao kit do time; no seu Claude Code nada muda

@@ -10,6 +10,26 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.71.2] — 2026-10-23
+
+### Corrigido
+
+- **`worktree-gc.sh` e o aviso de worktree mergeado buscam o head do PR que não está no
+  clone.** Os dois já aceitavam o tip contido no head do PR, mas só com o objeto do head aqui.
+  Com os últimos commits do PR feitos noutro clone, o head só existe em `refs/pull/<n>/head`,
+  que o `fetch --prune` não traz: o `--verificar` dizia "NÃO mergeada" e o aviso do
+  SessionStart nunca acendia. O mesmo defeito que o git-sync corrigiu na 0.71.1.
+  - A consulta ao `gh` e à API passa a trazer o número do PR, e o head ausente é buscado
+    sem gravar ref nem `FETCH_HEAD`, sem prompt de senha nem de passphrase.
+  - Head que nem o origin tem fica `keep`, agora com o motivo "head do PR #n indisponível"
+    em vez de um "NÃO mergeada" seco.
+  - O passo à mão da skill `worktrees` ("Limpeza no fim") troca o `== headRefOid` pelo
+    `merge-base --is-ancestor`, com o `fetch` do head. A ressalva da 0.71.1 no SKILL.md do
+    git-sync sai: a prova dos dois agora é a mesma.
+  - Prova no `tests/test-worktree-gc-head-pr.sh`, pelo `gh` e pela API: o teste falha no
+    script anterior. Os gh falsos do `test-worktree-gc.sh` e do `test-warn-branch-worktree.sh`
+    passam a responder também à forma `number,headRefOid`; as asserções não mudaram.
+
 ## [0.71.1] — 2026-10-23
 
 ### Corrigido
