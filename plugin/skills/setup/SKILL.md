@@ -73,6 +73,12 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
   backups. Um `AGENTS.md` de outra ferramenta ou escrito pela pessoa fica intocado: o
   setup só tira o arquivo gravado como `agents.md`, em minúsculas, e o `AGENTS.md` com
   a linha "Fica em `~/.claude/agents.md`" do modelo antigo do kit.
+- **A barra de status tem dois modos.** O painel tem até 7 linhas: modelo, custo, tokens,
+  contexto, os limites de 5h e de 7 dias e o PR. O curto é a linha única de antes:
+  diretório, branch, PR e contexto. Instalação nova fica no painel. Quem já tinha a barra e
+  nunca escolheu continua no curto. Pergunte qual a pessoa prefere e acrescente
+  `--statusline painel` ou `--statusline curto` aos dois comandos acima. A escolha fica em
+  `~/.claude/statusline-modo` e vale até ela rodar o setup com a outra.
 - **`settings.json` é mesclado, não substituído.** As chaves de quem instala
   ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
   variável de ambiente que já tinha configurado.

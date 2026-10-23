@@ -14,6 +14,7 @@
 #   bash kit-setup.sh              # instala
 #   bash kit-setup.sh --dry-run    # mostra o que faria, não toca em nada
 #   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir e roda até por cima do kit do time
+#   bash kit-setup.sh --statusline curto|painel   # barra de uma linha ou o painel de até 7
 #
 # Tudo que o script toca ganha cópia em ~/.claude/backup-kit-<data>/ antes; ficam
 # os 3 backups mais recentes. O que você tem em ~/.claude e não quer ver removido
@@ -23,7 +24,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.76.0"
+KIT_VERSION="0.77.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -34,16 +35,23 @@ MANIFEST="$CLAUDE_DIR/.kit-manifest"
 KEEP_LOCAL="$CLAUDE_DIR/.keep-local"
 DRY=0
 FORCE=0
+SL_MODO=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
     --force)   FORCE=1 ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    --statusline)   SL_MODO="${2:-}"; [ $# -gt 1 ] && shift ;;
+    --statusline=*) SL_MODO="${1#*=}" ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "opção desconhecida: $1" >&2; exit 2 ;;
   esac
   shift
 done
+case "$SL_MODO" in
+  ""|curto|painel) ;;
+  *) echo "--statusline aceita curto|painel, não '$SL_MODO'" >&2; exit 2 ;;
+esac
 
 say()  { printf '\033[1;36m›\033[0m %s\n' "$1"; }
 ok()   { printf '\033[1;32m✓\033[0m %s\n' "$1"; }
@@ -204,6 +212,14 @@ fi
 # ── Barra de status ─────────────────────────────────────────────────────────
 # Cópia, não link: a barra continua funcionando quando o plugin for atualizado
 # ou movido. Rodar o setup de novo atualiza a cópia.
+# O modo (painel de até 7 linhas ou a linha única) é ~/.claude/statusline-modo. Sem a
+# opção, instalação nova fica no painel sem gravar nada; quem já tinha a barra e nunca
+# escolheu ganha `curto`, a barra de antes. Escolha gravada fica.
+if [ -n "$SL_MODO" ]; then
+  [ "$DRY" -eq 1 ] && echo "  [dry-run] gravaria ~/.claude/statusline-modo = $SL_MODO" || printf '%s\n' "$SL_MODO" > "$CLAUDE_DIR/statusline-modo"
+elif [ ! -e "$CLAUDE_DIR/statusline-modo" ] && [ -f "$CLAUDE_DIR/scripts/statusline.js" ]; then
+  [ "$DRY" -eq 1 ] && echo "  [dry-run] gravaria ~/.claude/statusline-modo = curto (a barra de antes)" || printf 'curto\n' > "$CLAUDE_DIR/statusline-modo"
+fi
 backup "statusline-command.sh"
 run cp "$TPL/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
 run chmod +x "$CLAUDE_DIR/statusline-command.sh"
