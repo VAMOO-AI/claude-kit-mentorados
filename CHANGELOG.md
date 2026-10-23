@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.72.2] — 2026-10-23
+
+### Segurança
+
+- **`zod` 4.6.6 no template da `motion-reel`.** O alerta GHSA-mrhx-c7xc-m3w5 (alta, 8.2) saiu
+  hoje para o `zod` antes da 4.6.6: memória esgotada ao validar coleções grandes demais. O
+  `@remotion/studio` fixa o `zod` 4.3.6, e até o 4.0.538 fixa o 4.5.4, então a correção entra
+  em `overrides`, como a do `nanoid`. O lock foi regenerado com `--package-lock-only
+  --ignore-scripts`, e só a entrada do `zod` mudou. O osv-scanner do CI reprovava todo PR do
+  plugin desde o alerta.
+
 ## [0.72.1] — 2026-10-23
 
 ### Mudado
