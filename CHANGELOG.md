@@ -10,6 +10,30 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.78.0] — 2026-10-23
+
+### Adicionado
+
+- **O `merge-settings.js` absorve o merge do kit do time** (F6 do núcleo único, #241). É o
+  primeiro passo para o `update.sh` do time virar uma casca do `kit-setup.sh`. Quem instala
+  sem overlay recebe o mesmo `settings.json` de antes; a comparação foi feita num HOME vazio e
+  num settings típico.
+  - `env` e `enabledPlugins` viram união, e o valor da pessoa vence o empate. Os `hooks` do
+    kit entram por evento, sem duplicar comando, e nenhum hook da pessoa sai.
+  - **`--overlay <arquivo>`:** a chave de topo do overlay troca a do kit, e os `hooks` se
+    somam. A meta-chave `$merge` nunca é gravada e liga o comportamento do time:
+    - `chavesGovernadas`: a chave escalar volta ao valor do kit.
+    - `removerHooksAlheios`: tira o hook que não é do kit e avisa qual.
+    - `scriptsEntregues`, mais os allows, env e chaves revogados.
+  - **`--estrito`:** com `settings.json` inválido, sai com erro. Sem a flag, sai 0 com aviso
+    e não toca no arquivo, e o setup segue.
+  - **Avisos novos:**
+    - env que desliga o Remote Control (`DISABLE_TELEMETRY` e afins);
+    - `SLASH_COMMAND_TOOL_CHAR_BUDGET`, que anula o `skillListingBudgetFraction`;
+    - JSON inválido, que agora nomeia o arquivo e a linha.
+- `tests/test-merge-settings.sh` passou de 90 para 178 casos: os do merge do time, com
+  fixture neutra, e os das três decisões.
+
 ## [0.77.1] — 2026-10-23
 
 ### Segurança
