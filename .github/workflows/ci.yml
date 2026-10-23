@@ -223,6 +223,9 @@ jobs:
         # Porte do kit do time (F3 do #241): último da cadeia do pre-bash, inerte sem rtk.
         run: bash tests/test-rtk-claude.sh
 
+      - name: O grupo de controle do rtk sorteia só o elegível e o relatório mede por família
+        run: bash tests/test-rtk-holdout.sh
+
       - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
