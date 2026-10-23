@@ -211,7 +211,7 @@ while IFS= read -r seg; do
     case "$dir_c" in *'$'*|*'`'*) dir="" ;; /*) dir="$dir_c" ;; '~'*) dir="$HOME${dir_c#\~}" ;; *) [ -n "$dir" ] && dir="$dir/$dir_c" ;; esac
   fi
   args="${seg#*push}"
-  force=0; apaga=0; tudo=0; pos=(); pula=0; fim=0
+  force=0; apaga=0; tudo=0; pos=(); pula=0; fim=0; del_flag=0
   for w in $args; do
     if [ "$pula" = 1 ]; then pula=0; continue; fi
     if [ "$fim" = 0 ]; then
@@ -219,13 +219,13 @@ while IFS= read -r seg; do
         --) fim=1; continue ;;
         --force-with-lease*|--force-if-includes|--no-force-if-includes) continue ;;
         --force|--force=*) force=1; continue ;;
-        --delete) apaga=1; continue ;;
+        --delete) apaga=1; del_flag=1; continue ;;
         --mirror|--all|--branches) tudo=1; continue ;;
         --push-option|--repo|--receive-pack|--exec) pula=1; continue ;;
         --*) continue ;;
         -[a-zA-Z]*)
           case "$w" in *f*) force=1 ;; esac
-          case "$w" in *d*) apaga=1 ;; esac
+          case "$w" in *d*) apaga=1; del_flag=1 ;; esac
           case "$w" in *o) pula=1 ;; esac
           continue ;;
       esac
@@ -233,10 +233,11 @@ while IFS= read -r seg; do
     pos+=("$(desaspa "$w")")
   done
   refs=(${pos[@]+"${pos[@]:1}"})
-  main=0
+  main=0; apagadas=()
+  [ "$del_flag" = 1 ] && apagadas=(${refs[@]+"${refs[@]}"})
   for r in ${refs[@]+"${refs[@]}"}; do
     case "$r" in +*) force=1; r="${r#+}" ;; esac
-    case "$r" in :*) apaga=1 ;; esac
+    case "$r" in :*) apaga=1; apagadas+=("${r#:}") ;; esac
     dst="${r##*:}"
     alvo_main "$dst" && main=1
     if [ "$dst" = HEAD ] || [ "$r" = HEAD ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
@@ -244,7 +245,22 @@ while IFS= read -r seg; do
   if [ "${#refs[@]}" = 0 ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
   [ "$hotfix" = 1 ] && main=0
   [ "$force" = 1 ] && ask "[cuidado] git push --force (ou -f agrupado, ou refspec com +) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
-  [ "$apaga" = 1 ] && ask "[cuidado] git push apagando branch remota (--delete, -d ou refspec :branch). Confirme."
+  # Apagar branch que já tem PR mergeado é a limpeza depois do merge (o fluxo do git-sync), e
+  # passa (decisão do Ruan na F4). Sem PR mergeado, ou sem como saber (gh ausente, sem rede,
+  # sem branch no comando), pergunta.
+  if [ "$apaga" = 1 ]; then
+    sem_merge=0
+    [ "${#apagadas[@]}" = 0 ] && sem_merge=1
+    command -v gh >/dev/null 2>&1 || sem_merge=1
+    if [ "$sem_merge" = 0 ]; then
+      for b in "${apagadas[@]}"; do
+        b="${b#refs/heads/}"
+        n=$(cd "${dir:-${cwd:-.}}" 2>/dev/null && gh pr list --head "$b" --state merged --json number --jq length 2>/dev/null)
+        case "$n" in ''|*[!0-9]*|0) sem_merge=1; break ;; esac
+      done
+    fi
+    [ "$sem_merge" = 1 ] && ask "[cuidado] git push apagando branch remota (--delete, -d ou refspec :branch) que não tem PR mergeado. Confirme."
+  fi
   [ "$tudo" = 1 ] && ask "[cuidado] git push --mirror/--all empurra todas as branches, main incluída. Confirme."
   [ "$main" = 1 ] && ask "[cuidado] git push direto na main/master. O fluxo do kit é branch + PR. Confirme."
 done <<< "$segs_cmd"
@@ -334,12 +350,20 @@ fi
 # segmento basta. Isentos: .env.example/.sample/.template/.1password (públicos), escrita por
 # redirecionamento (`>> .env.local`) e o que não imprime conteúdo (`grep -c/-q/-l`, test, ls,
 # stat, echo/printf, mensagem de commit/PR — sem substituição de comando).
-SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|\.ssh[/\\]|id_rsa|id_ed25519|id_ecdsa|\.pem($|[^A-Za-z0-9_])|\.aws[/\\]credentials|\.netrc|\.npmrc|\.claude\.json|\.config[/\\]gh[/\\]hosts\.yml|serviceAccountKey\.json'
+SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|[A-Za-z0-9_-]\.env($|[^A-Za-z0-9_.-])|\.ssh[/\\]|id_rsa|id_ed25519|id_ecdsa|\.pem($|[^A-Za-z0-9_])|\.aws[/\\]credentials|\.netrc|\.npmrc|\.claude\.json|\.config[/\\]gh[/\\]hosts\.yml|serviceAccountKey\.json'
 if [[ $c_hd =~ $SEGREDO ]]; then
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
-  limpo=$(printf '%s' "$seg" | sed -E 's/\.env(\.[A-Za-z0-9_-]+)*\.(example|sample|template|1password)//g; s/>>?[[:space:]]*[^[:space:]]+//g')
+  limpo=$(printf '%s' "$seg" | sed -E 's/\.env(\.[A-Za-z0-9_-]+)*\.(example|sample|template|1password)//g; s/(process|import\.meta|Deno)\.env//g; s/>>?[[:space:]]*[^[:space:]]+//g')
   printf '%s' "$limpo" | grep -qE "$SEGREDO" || continue
+  # Meio-termo (decisão do Ruan na F4 do núcleo único): quem só CARREGA o segredo no ambiente,
+  # sem ele chegar ao contexto, passa. `source`/`.`, `--env-file`, a captura numa variável
+  # (`export X=$(grep ^X= .env | cut …)`) e `env $(cat x.env) cmd`. O que imprime ou manda
+  # continua perguntando: `echo $(cat .env)`, `cat`, `grep` sem -c, rede com credencial.
+  [[ $limpo =~ ^[[:space:]]*(source|\.)[[:space:]] ]] && continue
+  [[ $limpo == *--env-file* ]] && continue
+  [[ $limpo =~ ^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=\$\( ]] && continue
+  [[ $limpo =~ ^[[:space:]]*env[[:space:]]+\$\( ]] && continue
   case "$limpo" in *'$('*|*'`'*) ;; *)
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(grep|rg)[[:space:]]+(.*[[:space:]])?-[a-zA-Z]*[cqlL][a-zA-Z]*([[:space:]]|$)' && continue
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(test|\[|\[\[|ls|stat|echo|printf|touch|chmod|git[[:space:]]+(check-ignore|ls-files|commit|rm[[:space:]]+--cached)|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit))([[:space:]]|$)' && continue
