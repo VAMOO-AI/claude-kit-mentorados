@@ -345,6 +345,12 @@ jobs:
       - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 
+      - name: O painel da barra (até 7 linhas), o modo que vale e o 👤 só com identidade
+        run: bash tests/test-statusline-painel.sh
+
+      - name: O kit-setup grava o modo da barra, preserva o curto de quem já tinha e o wrapper não some
+        run: bash tests/test-kit-setup-statusline.sh
+
       - name: Os agentes do plugin têm name, description e effort válido, e revisor e executor rodam em medium
         # Subagente sem effort herda o da sessão: quem trabalha em max pagava max em todo
         # revisor e todo lote despachado.

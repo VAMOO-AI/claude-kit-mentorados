@@ -10,6 +10,28 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.77.0] — 2026-10-23
+
+### Adicionado
+
+- **Barra de status em modo painel** (núcleo único, #241). O `scripts/statusline.js` agora
+  tem dois modos. O painel mostra até 7 linhas: modelo, branch e PR, tokens, sessão e custo,
+  contexto e os limites de 5h e de 7 dias. O curto é a linha única de antes. O kit do time
+  passa a usar este mesmo arquivo.
+  - Quem escolhe é a configuração: `bash kit-setup.sh --statusline curto|painel` grava
+    `~/.claude/statusline-modo`, e `CLAUDE_STATUSLINE_MODO` troca o modo num terminal só.
+  - Instalação nova fica no painel. Quem já tinha a barra e roda o setup sem a opção ganha
+    `curto` e continua vendo a barra de antes.
+  - O 👤 de quem está no teclado e o registro da sessão em `session-owners.jsonl` só
+    aparecem com `CLAUDE_WHO`, `~/.claude/whoami` ou o kit do time instalado.
+- `tests/test-statusline-painel.sh` e `tests/test-kit-setup-statusline.sh`. O
+  `test-statusline-sessao.sh` passa a ser a suíte do modo curto.
+
+### Corrigido
+
+- **A barra não some mais em silêncio.** O `statusline-command.sh` mostra `[statusline]`
+  quando o node quebra, em vez de uma barra vazia.
+
 ## [0.76.0] — 2026-10-23
 
 ### Adicionado

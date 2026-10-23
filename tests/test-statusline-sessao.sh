@@ -17,6 +17,8 @@ set -uo pipefail
 SL="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/scripts/statusline.js}"
 [ -f "$SL" ] || { echo "statusline não encontrado: $SL"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
+# Esta é a suíte do modo curto (a linha única); o painel tem a dele, test-statusline-painel.sh.
+export CLAUDE_STATUSLINE_MODO=curto
 
 falhas=0
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
