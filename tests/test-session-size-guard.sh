@@ -208,6 +208,36 @@ sem_dinheiro 300 "$a300"
 sem_dinheiro 400 "$a400"
 
 echo
+echo "== marcador do primeiro aviso de topo (300K), nunca regravado =="
+# Quem mede aviso ignorado (o usage-weekly do kit do time) lê session-size/<sid> e usa o
+# mtime como o instante do aviso de topo: regravar o arquivo faria a conta começar no
+# último aviso. É só um arquivo de cache; falha ao gravar não cala o aviso.
+M="$CACHE/session-size"
+mtime() { [ "$1" -nt "$TMP/ref" ] && echo novo || echo antigo; }
+turno m1 160000; run m1 >/dev/null
+check "^ausente$"            "aviso de 150K não cria o marcador"                              "$([ -e "$M/m1" ] && echo presente || echo ausente)"
+turno m1 320000; run m1 >/dev/null
+check "^300000$"             "primeiro aviso de 300K cria o marcador"                          "$(cat "$M/m1" 2>/dev/null)"
+touch -t 202601010000 "$M/m1"; touch -t 202601010001 "$TMP/ref"
+turno m1 420000; check "maratona" "420K: avisa de novo"                                        "$(run m1)"
+check "^antigo$"             "…sem regravar o marcador"                                        "$(mtime "$M/m1")"
+linha m1 "$COMPACT"; turno m1 110000; run m1 >/dev/null
+turno m1 330000; check "Rode /compact agora" "depois do compact, volta a 300K: avisa"         "$(run m1)"
+check "^antigo$"             "…e o marcador segue sendo o do primeiro aviso"                   "$(mtime "$M/m1")"
+check "^300000$"             "…com o mesmo conteúdo"                                           "$(cat "$M/m1" 2>/dev/null)"
+# Sessão aberta antes da medida em tokens: o hook em linhas gravou ali a faixa avisada.
+printf 2000 > "$M/m2"; touch -t 202601010000 "$M/m2"
+turno m2 320000; check "Rode /compact agora" "marcador antigo de 2.000 linhas: avisa pela medida nova" "$(run m2)"
+check "^2000$"               "…e mantém o marcador, que já era um aviso de topo"               "$(cat "$M/m2")"
+check "^antigo$"             "…com o mtime de antes"                                          "$(mtime "$M/m2")"
+printf 1200 > "$M/m3"
+turno m3 320000; run m3 >/dev/null
+check "^300000$"             "marcador antigo de 1.200 linhas (não era o de topo): vira o de 300K" "$(cat "$M/m3" 2>/dev/null)"
+mkdir -p "$M/m4"
+turno m4 320000; check "Rode /compact agora" "marcador impossível de gravar: o aviso sai mesmo assim" "$(run m4)"
+check ""                     "…sem erro no stderr"                                            "$(cat "$TMP/err")"
+
+echo
 check ""                     "nenhuma execução escreveu no stderr"                            "$(cat "$TMP/err-todos" 2>/dev/null)"
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

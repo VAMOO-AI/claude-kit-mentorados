@@ -89,6 +89,16 @@ mkdir -p "${s%/*}" 2>/dev/null
 { printf '%s' "$faixa" > "$s"; } 2>/dev/null || exit 0
 [ "$faixa" -lt "$prev" ] && exit 0
 
+# Marcador do primeiro aviso de topo (300K), para quem mede aviso ignorado (o usage-weekly do
+# kit do time): o mtime é o instante dele, e regravar o arquivo faria a conta começar no
+# último aviso. Sessão aberta antes da medida em tokens tem ali a faixa em linhas: 2000 já
+# era o aviso de topo e fica; 600 e 1200 não eram. Falha aqui não cala o aviso: é métrica.
+if [ "$faixa" -ge 300 ]; then
+  m="$HOME/.claude/.cache/session-size/$sid"
+  topo=""; { read -r topo < "$m"; } 2>/dev/null
+  [ "${topo:-0}" -ge 2000 ] 2>/dev/null || { mkdir -p "${m%/*}" && printf 300000 > "$m"; } 2>/dev/null
+fi
+
 k=$(( ctx / 1000 ))
 if   [ "$faixa" -ge 400 ]; then echo "@usuario 🚨 session-size: ~${k}K tokens relidos a cada passo do Claude. É a faixa das sessões-maratona. Abra uma sessão nova no projeto, ou rode /compact."
 elif [ "$faixa" -ge 300 ]; then echo "@usuario ⚠️ session-size: ~${k}K tokens relidos a cada passo do Claude. Rode /compact agora, ou abra uma sessão nova no projeto se o assunto mudou."
