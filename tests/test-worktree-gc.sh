@@ -63,13 +63,14 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf 'settings.local.json\n.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf 'settings.local.json\n.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\nnext-env.d.ts\n*.tsbuildinfo\n**/supabase/.temp/\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 G remote set-head origin main
 BASE="$(G rev-parse HEAD)"
 echo "ENV=clone" > "$CLONE/.env.local"; echo "registry=clone" > "$CLONE/.npmrc"
 echo "exact = true" > "$CLONE/bunfig.toml"; echo "exact = true" > "$CLONE/.bunfig.toml"
+mkdir -p "$CLONE/supabase/.temp"; echo "v2.40.7" > "$CLONE/supabase/.temp/cli-latest"; echo abcd > "$CLONE/supabase/.temp/project-ref"
 mkdir -p "$WTS"
 mkdir -p "$CLONE/.claude"; echo '{"permissions":{"allow":["Bash(ls:*)"]}}' > "$CLONE/.claude/settings.local.json"
 
@@ -132,6 +133,20 @@ novo_wt env-bunfigdot; commit_em env-bunfigdot bd; merge_main env-bunfigdot
 echo "exact = false" > "$WTS/wt-env-bunfigdot/.bunfig.toml"
 mkdir -p "$WTS/wt-env-npmrc-sub/apps/y"; echo "registry=sub" > "$WTS/wt-env-npmrc-sub/apps/y/.npmrc"
 novo_wt env-repo; commit_em env-repo r; merge_main env-repo
+# ger-*: ignorados que o build ou o CLI recriam (porte do kit do time; em 13/10/2026 a
+# limpeza-mac segurou 5 worktrees mergeados por next-env.d.ts e supabase/.temp/).
+# next-env.d.ts e tsbuildinfo são build, na raiz ou em app/; supabase/.temp passa só se for
+# cópia byte a byte do clone (ele guarda a qual projeto o worktree está ligado).
+novo_wt ger-next; commit_em ger-next n; merge_main ger-next
+mkdir -p "$WTS/wt-ger-next/app"
+for a in next-env.d.ts tsconfig.tsbuildinfo app/next-env.d.ts app/tsconfig.tsbuildinfo; do echo x > "$WTS/wt-ger-next/$a"; done
+novo_wt ger-sbt; commit_em ger-sbt s; merge_main ger-sbt
+mkdir -p "$WTS/wt-ger-sbt/supabase"; cp -R "$CLONE/supabase/.temp" "$WTS/wt-ger-sbt/supabase/"
+novo_wt ger-sbt-dif; commit_em ger-sbt-dif sd; merge_main ger-sbt-dif
+mkdir -p "$WTS/wt-ger-sbt-dif/supabase"; cp -R "$CLONE/supabase/.temp" "$WTS/wt-ger-sbt-dif/supabase/"
+echo efgh > "$WTS/wt-ger-sbt-dif/supabase/.temp/project-ref"
+novo_wt ger-sbt-mono; commit_em ger-sbt-mono sm; merge_main ger-sbt-mono
+mkdir -p "$WTS/wt-ger-sbt-mono/apps/api/supabase/.temp"; echo abcd > "$WTS/wt-ger-sbt-mono/apps/api/supabase/.temp/project-ref"
 git init -q "$WTS/wt-env-repo/vendor/lib"
 
 # ign-*: mergeadas e limpas, cada uma com um tipo de ignorado. `outputs/` é trabalho (o
@@ -264,6 +279,10 @@ verif 0 'pode remover: .*wt-ign-cache'       "só cache: exit 0"                
 verif 0 'pode remover: .*wt-ign-venv'        "symlink: exit 0"                          --verificar "$WTS/wt-ign-venv"
 verif 0 'pode remover: .*wt-anc'             "env igual ao do clone: exit 0"            --verificar "$WTS/wt-anc"
 verif 1 'keep: .*wt-env .*\.env\.local difere' "env diferente: exit 1 e o arquivo"      --verificar "$WTS/wt-env"
+verif 0 'pode remover: .*wt-ger-next'        "next-env.d.ts e tsbuildinfo, na raiz e em app/: exit 0" --verificar "$WTS/wt-ger-next"
+verif 0 'pode remover: .*wt-ger-sbt( |$)'    "supabase/.temp igual ao do clone: exit 0" --verificar "$WTS/wt-ger-sbt"
+verif 1 'keep: .*wt-ger-sbt-dif .*supabase/\.temp/ difere' "supabase/.temp diferente do clone: exit 1 e o caminho" --verificar "$WTS/wt-ger-sbt-dif"
+verif 1 'keep: .*wt-ger-sbt-mono .*apps/api/supabase/\.temp/ difere' "supabase/.temp que o clone não tem: exit 1" --verificar "$WTS/wt-ger-sbt-mono"
 verif 0 'pode remover: .*wt-sl-igual'         ".claude/settings.local.json igual ao do clone: exit 0" --verificar "$WTS/wt-sl-igual"
 verif 1 'keep: .*wt-sl-dif .*\.claude/settings\.local\.json difere' "settings.local.json editado: exit 1 e o arquivo" --verificar "$WTS/wt-sl-dif"
 verif 1 'keep: .*wt-sl-outro .*apps/z/\.claude/settings\.local\.json' "settings.local.json fora da raiz não é a cópia do app" --verificar "$WTS/wt-sl-outro"
