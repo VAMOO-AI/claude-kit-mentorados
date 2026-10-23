@@ -152,5 +152,18 @@ else
   printf '%s\n' "$fora_de_ordem" | sed 's/^/        → /'
 fi
 
+# Cabeçalho engolido: ao inserir o bloco novo, o `## [x.y.z]` de baixo sumia e o bloco de
+# cima absorvia o de baixo. A checagem de seção repetida só pega quando os dois blocos têm a
+# mesma seção; esta pega sempre: toda versão do novidades.txt tem o seu bloco no CHANGELOG
+# (aconteceu três vezes em 23/10/2026, F4 e F5 do #241).
+sem_bloco=""
+for v in $(awk -F'|' '/^[[:space:]]*#/ {next} /^[[:space:]]*$/ {next} {gsub(/[[:space:]]/,"",$1); print $1}' "$NOVIDADES" 2>/dev/null); do
+  grep -qF "## [$v]" "$RAIZ/CHANGELOG.md" || sem_bloco="${sem_bloco:+$sem_bloco }$v"
+done
+if [ -z "$sem_bloco" ]; then check "toda versão do novidades.txt tem bloco no CHANGELOG" ok
+else check "toda versão do novidades.txt tem bloco no CHANGELOG (faltam: $sem_bloco)" fail
+  echo "        → cabeçalho ## [x.y.z] engolido ao inserir o bloco de cima?"
+fi
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
