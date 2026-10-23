@@ -226,6 +226,16 @@ jobs:
       - name: O grupo de controle do rtk sorteia só o elegível e o relatório mede por família
         run: bash tests/test-rtk-holdout.sh
 
+      - name: O rtk-codex não reescreve o que o check-careful vigia, git em worktree nem git push
+        # Porte do kit do time (F5 do #241). A guarda é superset dos gatilhos do check-careful.
+        run: bash tests/test-rtk-codex.sh
+
+      - name: O espelho do Codex atualiza só o guard que já está lá, quando a versão muda
+        run: bash tests/test-codex-espelho.sh
+
+      - name: O codex-optimize aponta skill desligada no config do Codex
+        run: bash tests/test-codex-optimize-skills.sh
+
       - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
