@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.77.1] — 2026-10-23
+
+### Segurança
+
+- **`fast-uri` 3.1.9 no template da `motion-reel`.** Saíram hoje quatro alertas para o
+  `fast-uri` antes da 3.1.9 (GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr e
+  GHSA-xhq7-xmqj-769h; dois médios e dois baixos). O piso da dependência direta sobe para
+  `^3.1.9`. O lock foi regenerado com `npm update fast-uri --package-lock-only
+  --ignore-scripts`, e só a entrada do `fast-uri` mudou. Desde os alertas, o osv-scanner do CI
+  reprovava todo PR do plugin.
+
 ## [0.77.0] — 2026-10-23
 
 ### Adicionado
