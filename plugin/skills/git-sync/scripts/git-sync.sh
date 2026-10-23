@@ -36,8 +36,8 @@ Usage: git-sync.sh [options]
                       andamento, worktree locked ou default divergente)
   --cleanup-dry-run   list gone branches / removable worktree candidates /
                       remote-only branches of yours (prints the delete command)
-  --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged e
-                      head == tip, pelo gh ou pela API) + remove worktrees clean,
+  --cleanup-apply     delete gone branches provadas (-d; -D só com PR merged cujo
+                      head é o tip ou o contém, pelo gh ou pela API) + remove worktrees clean,
                       mergeados e sem ignorado de valor (nunca --force; lock de
                       sessão morta é destravado; worktree que é cwd de processo
                       vivo fica). Remoto nunca é apagado.
@@ -621,6 +621,39 @@ pr_mergeado_consulta() {   # <branch>
   esac
 }
 
+# O head do PR contra o tip local — a única decisão de "o PR levou tudo?" do script.
+# Igual não é o único caso seguro: os últimos commits do PR (merge da main, correção de
+# review) feitos noutro clone deixam o tip local ATRÁS do head, e o objeto do head nem
+# existe aqui. Em 23/10/2026, num projeto de cliente, 9 branches [gone] assim saíram "o tip
+# avançou: preservada", e as 9 estavam contidas no head. Avançar é só o head ser ancestral
+# do tip: commit local depois do PR. Head ausente é buscado em refs/pull/<n>/head sem
+# gravar ref nem FETCH_HEAD; não veio, fica "indisponivel", que nunca prova nada.
+# Devolve: igual | contido | avancou | divergiu | indisponivel | semhead.
+relacao_head_pr() {   # <tip> <head-do-PR> <número-do-PR>
+  local tip="$1" oid="$2" pr="$3"
+  # head vazia (gh antigo, API sem o campo) ou que não é sha nunca prova nada
+  [[ "$oid" =~ ^[0-9a-f]{40,64}$ ]] || { printf semhead; return 0; }
+  [[ "$oid" == "$tip" ]] && { printf igual; return 0; }
+  if ! git cat-file -e "$oid^{commit}" 2>/dev/null; then
+    [[ "$pr" =~ ^[0-9]+$ ]] && GIT_TERMINAL_PROMPT=0 git fetch -q --no-tags --no-write-fetch-head \
+      origin "refs/pull/$pr/head" >/dev/null 2>&1 || true
+    git cat-file -e "$oid^{commit}" 2>/dev/null || { printf indisponivel; return 0; }
+  fi
+  if [[ -n "$tip" ]] && git merge-base --is-ancestor "$tip" "$oid" 2>/dev/null; then printf contido
+  elif [[ -n "$tip" ]] && git merge-base --is-ancestor "$oid" "$tip" 2>/dev/null; then printf avancou
+  else printf divergiu; fi
+}
+# Texto da relação: prova (igual|contido) e motivo de preservar (o resto), sem o "!".
+prova_head_pr() { if [[ "$1" == contido ]]; then printf 'tip contido no head do PR'; else printf 'head == tip'; fi; }
+motivo_head_pr() {   # <relação> <número-do-PR>
+  case "$1" in
+    avancou)      printf 'PR #%s merged, mas o tip avançou depois do head do PR' "$2" ;;
+    divergiu)     printf 'PR #%s merged, mas o tip divergiu do head do PR' "$2" ;;
+    indisponivel) printf 'PR #%s merged, mas o head do PR está indisponível (refs/pull/%s/head não veio do origin)' "$2" "$2" ;;
+    *)            printf 'PR #%s merged sem head para conferir' "$2" ;;
+  esac
+}
+
 if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; fi
 
 # Varredura de TODAS as branches locais (inclusive as não checkoutadas em worktree).
@@ -641,9 +674,12 @@ pr_merged_desta_head() {   # <branch> <tip>
   local b="$1" tip="$2" line n oid
   line="$(pr_mergeado_consulta "$b")" || { printf '?'; return; }
   n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
-  # head vazia nunca prova nada (gh antigo, API sem o campo); tip diferente = continuou
-  # commitando depois do merge, e aí o trabalho novo de fato não subiu.
-  if [[ -n "$n" && -n "$oid" && "$oid" == "$tip" ]]; then printf '%s' "$n"; else printf ''; fi
+  # tip à frente ou divergente = continuou commitando depois do merge, e aí o trabalho novo
+  # de fato não subiu
+  if [[ -n "$n" ]]; then
+    case "$(relacao_head_pr "$tip" "$oid" "$n")" in igual|contido) printf '%s' "$n"; return ;; esac
+  fi
+  printf ''
 }
 
 CHECKED_OUT_BR="$(git worktree list --porcelain | awk '/^branch /{sub(/^branch refs\/heads\//,""); print}')"
@@ -1015,17 +1051,15 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         echo "  $b — mergeada (branch -d resolve)"
       else
         # O PR achado pelo nome não prova que levou tudo: commit feito depois do merge,
-        # sem push, só existe nesta branch. Mesma prova do passo (3): head do PR == tip.
+        # sem push, só existe nesta branch. Mesma prova do passo (3): tip igual ao head do
+        # PR ou contido nele (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
         if [[ -n "$_pr" ]]; then
-          _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
-          if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
-            echo "  $b — SQUASH de PR #$_pr merged, head == tip → candidata a -D"
-          elif [[ -n "$_oid" ]]; then
-            echo "  $b — ! PR #$_pr merged, mas o tip avançou depois do head do PR: preservada"
-          else
-            echo "  $b — ! PR #$_pr merged sem head para conferir: preservada"
-          fi
+          _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
+          case "$_rel" in
+            igual|contido) echo "  $b — SQUASH de PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D" ;;
+            *)             echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+          esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
         else
@@ -1039,8 +1073,9 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   # remoto sobreviveu (o `gh pr merge --delete-branch` quebra depois do merge quando roda de
   # dentro de um worktree) ou que nunca teve upstream fica com track vazio e não aparecia
   # aqui — 10 no kit mentorados e 5 num projeto de cliente em 03/09/2026, todas resíduo. A
-  # prova continua sendo o PR; aqui exige-se também head do PR == tip da branch, porque
-  # commit depois do merge é trabalho, não resíduo. Uma chamada ao gh por branch, cacheada.
+  # prova continua sendo o PR; aqui exige-se também o tip igual ao head do PR ou contido
+  # nele, porque commit depois do merge é trabalho, não resíduo. Uma chamada ao gh por
+  # branch, cacheada.
   echo "--- branches com PR mergeado e remoto vivo ou sem upstream ---"
   MERGED_ALIVE=()
   if [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
@@ -1052,18 +1087,16 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       _pr="$(merged_pr_num "$b")"
       [[ -n "$_pr" ]] || continue
       _listadas=1
-      _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
+      _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
       _remoto=""
       git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1 \
         && _remoto=" (remoto ainda existe: git push origin --delete $b)"
-      if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
-        echo "  $b — PR #$_pr merged, head == tip → candidata a -D$_remoto"
-        MERGED_ALIVE+=("$b")
-      elif [[ -n "$_oid" ]]; then
-        echo "  $b — ! PR #$_pr merged, mas o tip avançou depois do head do PR: preservada$_remoto"
-      else
-        echo "  $b — ! PR #$_pr merged sem head para conferir: preservada$_remoto"
-      fi
+      case "$_rel" in
+        igual|contido)
+          echo "  $b — PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D$_remoto"
+          MERGED_ALIVE+=("$b") ;;
+        *) echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada$_remoto" ;;
+      esac
     done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads)
     [[ "$_listadas" -eq 0 ]] && echo "  (none)"
   else
@@ -1092,11 +1125,16 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
     elif [[ "$GH_CLEANUP_OK" -ne 1 ]]; then
       echo "  $b — (sem prova de PR — nem gh nem token da API)"
     else
-      _pr="$(merged_pr_num "$b")"; _oid="$(merged_pr_oid "$b")"
-      if [[ -n "$_pr" && -n "$_oid" && "$_oid" == "$_tip" ]]; then
-        echo "  $b — PR #$_pr merged, head == tip → git push origin --delete $b"
-      elif [[ -n "$_pr" ]]; then
-        echo "  $b — ! PR #$_pr merged, mas a remota avançou depois do head do PR: preservada"
+      _pr="$(merged_pr_num "$b")"
+      if [[ -n "$_pr" ]]; then
+        _rel="$(relacao_head_pr "$_tip" "$(merged_pr_oid "$b")" "$_pr")"
+        case "$_rel" in
+          igual)    echo "  $b — PR #$_pr merged, head == tip → git push origin --delete $b" ;;
+          contido)  echo "  $b — PR #$_pr merged, remota contida no head do PR → git push origin --delete $b" ;;
+          avancou)  echo "  $b — ! PR #$_pr merged, mas a remota avançou depois do head do PR: preservada" ;;
+          divergiu) echo "  $b — ! PR #$_pr merged, mas a remota divergiu do head do PR: preservada" ;;
+          *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+        esac
       else
         echo "  $b — ! sem PR merged (aberto, fechado ou nunca aberto): confira antes de apagar"
       fi
@@ -1137,14 +1175,11 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
         _pr="$(merged_pr_num "$wt_branch")"
         if [[ -n "$_pr" ]]; then
-          _oid="$(merged_pr_oid "$wt_branch")"; _tip="$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)"
-          if [[ -n "$_oid" && "$_oid" == "$_tip" ]]; then
-            nota=" [squash: PR #$_pr merged, head == tip]"
-          elif [[ -n "$_oid" ]]; then
-            reason="PR #$_pr merged, mas o tip avançou depois do head do PR"
-          else
-            reason="PR #$_pr merged sem head para conferir"
-          fi
+          _rel="$(relacao_head_pr "$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)" "$(merged_pr_oid "$wt_branch")" "$_pr")"
+          case "$_rel" in
+            igual|contido) nota=" [squash: PR #$_pr merged, $(prova_head_pr "$_rel")]" ;;
+            *)             reason="$(motivo_head_pr "$_rel" "$_pr")" ;;
+          esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
         else
@@ -1203,19 +1238,21 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           continue
         fi
         # -d recusou: só o PR distingue squash-merge de trabalho de verdade — e só quando o
-        # head dele é o tip, senão o -D leva junto o commit feito depois do merge
+        # tip é o head dele ou está contido nele, senão o -D leva junto o commit feito depois
+        # do merge. A decisão é a mesma do dry-run (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
         if [[ -n "$_pr" ]]; then
-          _oid="$(merged_pr_oid "$b")"; _tip="$(git rev-parse "$b" 2>/dev/null || true)"
-          if [[ -z "$_oid" ]]; then
-            echo "  skip $b (PR #$_pr merged sem head para conferir — não deleto no escuro)"
-          elif [[ "$_oid" != "$_tip" ]]; then
-            echo "  skip $b (PR #$_pr merged, mas o tip avançou depois do head do PR — commit sem cópia no GitHub)"
-          elif git branch -D "$b" >/dev/null 2>&1; then
-            echo "  deleted branch $b (-D — squash de PR #$_pr merged, head == tip)"
-          else
-            echo "  skip $b (-D falhou)"
-          fi
+          _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
+          case "$_rel" in
+            igual|contido)
+              if git branch -D "$b" >/dev/null 2>&1; then
+                echo "  deleted branch $b (-D — squash de PR #$_pr merged, $(prova_head_pr "$_rel"))"
+              else
+                echo "  skip $b (-D falhou)"
+              fi ;;
+            avancou) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — commit sem cópia no GitHub)" ;;
+            *)       echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — não deleto no escuro)" ;;
+          esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
         else
@@ -1224,7 +1261,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       done
     fi
 
-    # 3) branches com PR mergeado e head == tip, sem [gone] (remoto vivo ou sem upstream).
+    # 3) branches com PR mergeado e tip igual ao head ou contido nele, sem [gone] (remoto vivo ou sem upstream).
     #    Só o local: apagar o remoto de outra pessoa não é cleanup, é decisão — fica o comando.
     if [[ ${#MERGED_ALIVE[@]} -gt 0 ]]; then
       for b in "${MERGED_ALIVE[@]}"; do
@@ -1234,8 +1271,13 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           continue
         fi
         _pr="$(merged_pr_num "$b")"
+        _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
+        case "$_rel" in
+          igual|contido) ;;
+          *) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr"))"; continue ;;
+        esac
         if git branch -D "$b" >/dev/null 2>&1; then
-          echo "  deleted branch $b (-D — PR #$_pr merged, head == tip)"
+          echo "  deleted branch $b (-D — PR #$_pr merged, $(prova_head_pr "$_rel"))"
         else
           echo "  skip $b (-D falhou)"
         fi
