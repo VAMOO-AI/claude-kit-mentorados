@@ -12,9 +12,6 @@ Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTIN
 
 ## [0.82.0] — 2026-10-24
 
-Lotes 3, 5 e 6 da F7 e a F8a do núcleo único (#241). O kit do time deixa de ter cópia própria
-dessas skills e desses hooks.
-
 ### Adicionado
 
 - **Hooks novos, vindos do kit do time, lidos por node:**
@@ -25,6 +22,12 @@ dessas skills e desses hooks.
     `.context/docs` está ancorado num SHA 40 ou mais commits atrás do HEAD.
   - **`warn-cli-outdated`** (SessionStart): avisa, no máximo uma vez por dia, quando o Claude
     Code está atrás da versão do seu canal (stable ou latest), com o comando de upgrade.
+- **O espelho do Codex cobre skills** (`codex-espelho.sh`). Quando a versão muda:
+  - o symlink de `~/.codex/skills` ou `~/.agents/skills` que apontava para uma skill que saiu
+    de `~/.claude/skills` vira cópia da skill do plugin, com marcador;
+  - a cópia marcada é atualizada;
+  - a pasta da pessoa fica intacta, só com aviso.
+  O espelho deixa de ceder ao kit do time, que não o registra.
 - **Skills novas:**
   - **`otimizar-app`**: triagem do que não é o app, número antes, fix por camada, a mesma
     medição depois e prova no ar, sem mudar o visual. Traz dois scripts CDP (CPU por fase e
@@ -59,6 +62,8 @@ dessas skills e desses hooks.
 - **Descriptions mais curtas** em 8 skills, sem perder gatilho. A lista de skills ficou em
   7.618 de 8.000 caracteres, para caber na janela de 200K.
 - **`pre-prompt`:** deixa de chamar o `warn-sem-jq` do kit do time.
+- Origem: lotes 3, 5 e 6 da F7 e F8a do núcleo único (#241). O kit do time deixa de ter cópia
+  própria dessas skills e desses hooks.
 
 ## [0.81.0] — 2026-10-24
 
