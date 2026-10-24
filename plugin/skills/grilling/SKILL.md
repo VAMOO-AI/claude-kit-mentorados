@@ -66,8 +66,8 @@ Regras do loop:
 Pare de interrogar quando não restar ramo de decisão que mude o que você vai
 tocar (arquivo, tabela, endpoint, comportamento). Aí feche com o plano em
 passos curtos, cada um com o check que o prova: o comando, o teste que falha
-antes e passa depois, ou o que a pessoa vê na tela. Passo sem check está vago
-demais; quebre até ter um. Peça "go".
+antes e passa depois, ou o comportamento que se observa (na tela, no log, no
+banco). Passo sem check está vago demais; quebre até ter um. Peça "go".
 
 Fechado o entendimento, grave cada decisão no lugar dela: regra dura do projeto →
 `AGENTS.md` da raiz (o `CLAUDE.md` do projeto só importa `@AGENTS.md`); decisão e

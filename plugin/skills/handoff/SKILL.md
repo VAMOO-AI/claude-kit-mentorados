@@ -90,6 +90,11 @@ pode ficar só no handoff — handoff é de uma frente, memória é do projeto. 
 raiz de incidente recorrente, decisão do cliente que parece bug, armadilha que
 custou horas: isso vira arquivo na memória, com link para o handoff.
 
+Se a máquina tiver um script de publicação de memória (o kit de um time pode instalar o
+`publicar-memoria.sh` em `~/.claude/scripts/`), publique por ele, apontando o clone
+principal: ele faz a conferência abaixo e reaproveita o PR de memória aberto. Sem script,
+a conferência é sua.
+
 Na hora de publicar, confira antes se já há PR aberto com memória — publicar em
 paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos. De dentro
 de um worktree, se o guard recusar o `gh` (skill `worktrees`: os dois gatilhos somados, um
