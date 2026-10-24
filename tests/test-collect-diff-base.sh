@@ -199,6 +199,47 @@ roda 14 origin/HEAD
   || falha "arquivo ignorado reprovou o gate: saiu $EXIT (esperado 0)"
 git -C "$REPO" clean -qfdx
 
+echo "== remédio da ship §1b com a main andando: o arquivo do colega fica =="
+# Veio do kit do time na F7 (lote 4), junto com a §1b da ship. A fixture do revisor: a branch nasce, o colega pusha colega.txt na main, a branch traz um
+# .env. O comando que a §1b manda rodar para refazer o range sai da própria skill: com
+# `reset --soft origin/<padrão>` o índice da branch caía em cima da main nova, o commit
+# refeito apagava o colega.txt e o gate saía 0.
+# SHIP_MD troca a skill lida (para rodar o caso contra outra versão dela).
+SHIP="${SHIP_MD:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/ship/SKILL.md}"
+ramo range-remedio
+printf 'trabalho\n' > "$REPO/trabalho.txt"
+printf 'SEGREDO=1\n' > "$REPO/.env"
+git -C "$REPO" add trabalho.txt
+git -C "$REPO" add -f .env
+git -C "$REPO" commit -qm "trabalho, com o env por engano"
+git clone -q "$TMP/origin.git" "$TMP/colega"
+git -C "$TMP/colega" config user.email c@c; git -C "$TMP/colega" config user.name colega
+git -C "$TMP/colega" config commit.gpgsign false
+printf 'do colega\n' > "$TMP/colega/colega.txt"
+git -C "$TMP/colega" add colega.txt
+git -C "$TMP/colega" commit -qm "B do colega"
+git -C "$TMP/colega" push -q origin main
+git -C "$REPO" fetch -q origin
+roda 21 origin/HEAD
+[ "$EXIT" -eq 1 ] && ok "o gate acusa o .env antes do remédio" || falha "o gate saiu $EXIT antes do remédio (esperado 1)"
+REMEDIO="$(grep -o '`git reset --soft [^`]*<branch padrão>[^`]*`' "$SHIP" | head -1 | tr -d '`' | sed 's/<branch padrão>/main/g')"
+if [ -z "$REMEDIO" ]; then
+  falha "não achei na ship §1b o reset --soft que refaz o range"
+else
+  ( cd "$REPO" && eval "$REMEDIO" )
+  git -C "$REPO" rm -q --cached .env
+  git -C "$REPO" commit -qm "trabalho, refeito sem o env"
+  roda 22 origin/HEAD
+  [ "$EXIT" -eq 0 ] && ok "depois do remédio ($REMEDIO): exit 0" || falha "depois do remédio o gate saiu $EXIT (esperado 0)"
+  git -C "$REPO" cat-file -e HEAD:trabalho.txt 2>/dev/null \
+    && ok "o trabalho da branch continua no commit refeito" || falha "o commit refeito perdeu o trabalho.txt"
+  if git -C "$REPO" diff --name-only --diff-filter=D origin/HEAD...HEAD | grep -qx colega.txt; then
+    falha "o remédio da skill ($REMEDIO) apaga o colega.txt do colega no PR"
+  else
+    ok "o remédio da skill não apaga o arquivo do colega"
+  fi
+fi
+
 echo "== clone sem origin/HEAD: o mesmo comando sai 3 e diz como consertar =="
 # o caso real: clone feito com init + remote add nunca ganha origin/HEAD — e o .env
 # commitado em feat/x continua no diff, então exit 0 aqui seria um CRITICAL escondido
