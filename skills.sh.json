@@ -24,11 +24,12 @@
     },
     {
       "title": "Segurança e produção",
-      "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares e guard-rails de agente de IA que fala com pessoa real.",
+      "description": "Revisão de segurança em projeto local, auditoria com entregável para outra pessoa agir, postura de app web em 8 pilares, app pesado medido antes e depois do fix e guard-rails de agente de IA que fala com pessoa real.",
       "skills": [
         "secscan",
         "auditoria-seguranca",
         "baseline",
+        "otimizar-app",
         "guardrails-ia"
       ]
     },
@@ -66,7 +67,8 @@
         "mcp-sistema",
         "diretor-imagem",
         "gerar-imagem",
-        "motion-reel"
+        "motion-reel",
+        "video-watch"
       ]
     }
   ]

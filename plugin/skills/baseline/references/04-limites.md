@@ -85,10 +85,18 @@ if (gasto >= Number(env.AI_MONTHLY_BUDGET_USD)) {
 
 const res = await openai.chat.completions.create({
   model, messages,
-  max_tokens: 1500,          // 1) teto por chamada — impede resposta infinita
+  max_tokens: 1500,          // 1) teto por chamada — impede resposta infinita (modelo sem thinking)
 })
 // 2) teto por usuário/janela via rate_limit_take acima — impede mil chamadas
 ```
+
+O 1500 é teto para modelo sem thinking. No Claude Opus 5.5 o thinking não desliga e conta
+dentro do `max_tokens`, mesmo sem aparecer na resposta: um teto dimensionado para modelo sem
+thinking corta a resposta no meio (`stop_reason: "max_tokens"`). Para turno longo, comece em
+64K, com streaming (acima de ~16K a chamada sem streaming estoura o timeout HTTP do SDK), e
+ajuste pelo `usage.output_tokens` medido. Para gastar menos, baixe o `effort`, não o
+`max_tokens`: o modelo não enxerga o teto, então teto apertado corta a resposta em vez de
+encurtar o raciocínio.
 
 `max_tokens` sozinho não protege: mil chamadas de 1500 tokens custam o mesmo que
 uma de 1.5M. Os três limites são ortogonais e todos são necessários.
@@ -195,6 +203,19 @@ for i in $(seq 1 30); do
     -H "Authorization: Bearer $TOKEN"
 done; echo
 # esperado: uma sequência de 200 e depois 429. Só 200 = não tem limite.
+
+# o login tem limite? (a rota mais atacada é a que mais fica de fora)
+grep -rniE 'signin|sign_in|login|signInWithPassword|authenticate' src/ api/ supabase/functions/ 2>/dev/null \
+  | grep -viE 'test|spec' | head
+# 100 tentativas devem virar 429 antes do fim (só em ambiente autorizado pelo contrato)
+for i in $(seq 1 100); do
+  curl -s -o /dev/null -w '%{http_code} ' -X POST "https://<host>/auth/login" \
+    -H 'content-type: application/json' -d '{"email":"nao-existe@exemplo.com","password":"x"}'
+done; echo
+# só 200/401 nas cem = não há limite. Confira também a paridade da mensagem:
+curl -s -X POST "https://<host>/auth/login" -d '{"email":"existe@exemplo.com","password":"x"}'
+curl -s -X POST "https://<host>/auth/login" -d '{"email":"nao-existe@exemplo.com","password":"x"}'
+# corpos diferentes (ou tempos muito diferentes) = enumeração de usuário
 ```
 
 ## Armadilhas
@@ -206,5 +227,7 @@ done; echo
 | Rate limit conta errado em processamento de lote | `now()` é constante na transação. Use `clock_timestamp()` |
 | Segredo de webhook aceito e mesmo assim invadido | Comparação com `===` vaza tempo; ou o segredo estava na query string e vazou no log do proxy |
 | Job agendado parou de rodar e ninguém viu | Autenticava com anon key e a policy mudou. Cron precisa de segredo próprio e de alerta (pilar 06) |
+| Base de e-mails da empresa apareceu numa lista de phishing | Enumeração no login ou no cadastro. Ninguém precisou de senha nenhuma |
+| Limite por IP configurado e o ataque passou | Botnet: um IP por tentativa. Sem contagem por identidade, o limite nunca estoura |
 | "É interno, não precisa de limite" | Interno é onde estão os tokens válidos. Limite protege de conta comprometida, não de estranho |
 | Limite existe mas ninguém sabe quando bate | `429` sem log. Estourar limite é evento de segurança, não ruído |

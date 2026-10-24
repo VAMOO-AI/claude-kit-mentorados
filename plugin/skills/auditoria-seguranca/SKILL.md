@@ -1,13 +1,10 @@
 ---
 name: auditoria-seguranca
 description: >-
-  Auditoria de segurança em 6 categorias (isolamento de inquilino, permissão
-  decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com
-  ferramentas) com entregável: PDF em pt-BR dentro do repo auditado + issues de
-  GitHub prontas para colar. Detecta a stack e relê a auditoria anterior. Use em
-  "auditoria de segurança", "relatório de segurança", "auditoria em PDF", "achou
-  IDOR?". NÃO é o secscan (Markdown fora do git): este é o pacote para outra
-  pessoa ler e agir.
+  Auditoria de segurança em 6 categorias (inquilino, permissão no navegador, IDOR,
+  chaves expostas, XSS, agente de IA) que entrega PDF em pt-BR no repo e issues prontas.
+  Use em "auditoria de segurança", "relatório de segurança", "achou IDOR?". O secscan é
+  a varredura rápida; esta é o pacote para outra pessoa agir.
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'
@@ -104,7 +101,7 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   confere. Sem severidade, seção própria no PDF, e uma crítica pendente nunca
   deixa o veredito sair `LIBERADO`.
 - **Quem verifica não é quem achou.** Todo achado `alta` ou `critica` passa por
-  um revisor **fresco** (subagent `revisor`, read-only) com a instrução de
+  um revisor **fresco** (subagent `kit-vamoo:revisor`, read-only) com a instrução de
   refutá-lo: reler cada `arquivo:linha`, procurar o controle que você não viu
   (middleware, trigger, policy) e devolver `mantido` ou `refutado` com motivo.
   Só o que sobrevive fica `lido`; o que cai vira `falso_positivo` **com
@@ -560,7 +557,7 @@ que não são a severidade:
    fato que o repositório não mostra: `status: a_validar`, com `bloqueio` e
    `plano_validacao`.
 3. **Alguém tentou derrubar?** → o juiz. Para cada `alta` e `critica`, um
-   subagent `revisor` fresco recebe **só** o achado (id, título, arquivo:linha,
+   subagent `kit-vamoo:revisor` fresco recebe **só** o achado (id, título, arquivo:linha,
    caminho, trecho, por_que) e a ordem de refutar: reler cada linha citada,
    procurar o controle que o autor não viu (middleware, trigger, policy, gate
    no caller), conferir que a entrada é alcançável pelo ator dito, e devolver
@@ -568,7 +565,7 @@ que não são a severidade:
    `falso_positivo` com o `motivo` do juiz; mantido segue. O juiz não recebe
    sua opinião, sua confiança nem os outros achados — isso é o que faz dele
    uma segunda leitura. Com mais de cinco achados graves, lance os juízes em
-   paralelo, um `revisor` por achado, numa mensagem só.
+   paralelo, um `kit-vamoo:revisor` por achado, numa mensagem só.
 4. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
    do cálculo do veredito, mas continuam no relatório com selo e `motivo`:
    sumir com eles é como a mesma discussão volta na auditoria seguinte.

@@ -9,7 +9,7 @@ design. RLS não é uma camada extra: é a única camada.
 - [ ] **Nenhuma materialized view do schema exposto é legível por `anon` ou
       `authenticated`.** Materialized view **não tem RLS** — não existe policy
       que a proteja. O Supabase concede `ALL ON ALL TABLES IN SCHEMA public` por
-      padrão, o que está certo para tabela (a RLS decide a linha) e, para MV,
+      padrão (e o restore depois de um squash de migrations aplica de novo), o que está certo para tabela (a RLS decide a linha) e, para MV,
       **é** o acesso. Quem cria a primeira MV para um dashboard não tem como
       saber que acabou de publicar a tabela inteira.
 - [ ] **100% das tabelas em schema exposto têm RLS habilitado.** Sem exceção
