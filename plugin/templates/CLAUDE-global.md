@@ -20,6 +20,7 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 | Feature nova / corrigir bug | TDD: escreva o teste que FALHA primeiro (regra abaixo) |
 | Bug / comportamento estranho | investigue a causa raiz e reproduza o bug antes de corrigir |
 | Antes de dizer "pronto" em fix com ramos, mudança de tela, erro de produção, mais de um runner de teste ou disparo que chega numa pessoa | `verificacao` |
+| "tá pesado/lento/travando", otimizar app ou landing | `otimizar-app` |
 | "deploy" / "manda pra prod" | `ship` |
 | Dúvida de doc / API / versão de lib | `find-docs` |
 | Mexer em vários arquivos independentes ao mesmo tempo | `orquestracao` |
