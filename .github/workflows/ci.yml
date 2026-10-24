@@ -66,26 +66,6 @@ jobs:
           echo "plugin=$v_plugin kit-setup=$v_setup install=$v_inst"
           [ "$v_plugin" = "$v_setup" ] && [ "$v_plugin" = "$v_inst" ]
 
-      - name: Mexeu no plugin? A versão tem que subir
-        # O Claude Code decide se baixa a atualização pela `version` do plugin.json.
-        # Publicar mudança sem bumpar deixa quem já instalou com a cópia antiga em
-        # cache — sem erro, sem aviso, e a gente só descobre quando alguém reclama
-        # de um problema que já foi corrigido.
-        if: github.event_name == 'pull_request'
-        run: |
-          base="origin/${{ github.base_ref }}"
-          if [ -z "$(git diff --name-only "$base"...HEAD -- plugin/)" ]; then
-            echo "plugin/ intocado — nada a checar"; exit 0
-          fi
-          ver() { python3 -c "import json,sys;print(json.load(sys.stdin)['version'])"; }
-          v_base="$(git show "$base:plugin/.claude-plugin/plugin.json" | ver)"
-          v_head="$(ver < plugin/.claude-plugin/plugin.json)"
-          echo "plugin/ mudou · versão $v_base → $v_head"
-          if [ "$v_base" = "$v_head" ]; then
-            echo "::error::plugin/ mudou e a versão continua $v_head. Quem já instalou fica com a cópia em cache e não recebe esta mudança. Suba a versão nos três lugares (plugin.json, install.sh, kit-setup.sh) e acrescente a entrada no CHANGELOG."
-            exit 1
-          fi
-
       - name: O merge do settings entrega o deny e preserva o que é seu
         run: bash tests/test-merge-settings.sh
 
@@ -407,6 +387,13 @@ jobs:
         # stub tenha sido chamado, porque o runner tem docker de verdade.
         run: bash tests/test-boot-guard.sh
 
+      - name: Todo teste roda em algum shard do macOS, e em um só
+        run: bash tests/test-ci-shard.sh
+
+      - name: O release-trem junta os PRs, sobe a versão nos cinco lugares e monta CHANGELOG e novidades sem push
+        # Repo git de mentira e gh de stub: não usa rede.
+        run: bash tests/test-release-trem.sh
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.
@@ -439,7 +426,7 @@ jobs:
 
       - name: Setup roda limpo em HOME temporário (com --dry-run antes)
         run: |
-          export HOME="$(mktemp -d)"
+          HOME="$(mktemp -d)"; export HOME
           bash plugin/scripts/kit-setup.sh --dry-run
           bash plugin/scripts/kit-setup.sh
           test -f "$HOME/.claude/CLAUDE.md"
@@ -449,7 +436,7 @@ jobs:
 
       - name: Setup não destrói configuração que já existia
         run: |
-          export HOME="$(mktemp -d)"
+          HOME="$(mktemp -d)"; export HOME
           mkdir -p "$HOME/.claude"
           echo "minhas regras" > "$HOME/.claude/CLAUDE.md"
           echo '{"env":{"MEU":"valor"},"permissions":{"allow":["Bash(pytest:*)"]}}' > "$HOME/.claude/settings.json"
@@ -543,24 +530,60 @@ jobs:
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
 
+      # Último passo do validate, e com !cancelled(): roda mesmo quando uma suíte acima falhou,
+      # e nenhuma suíte deixa de rodar por causa dele. Até a 0.82 ele ficava no meio do job, e
+      # no PR de feature sem bump as suítes de baixo nem rodavam: o erro delas só aparecia no
+      # release. Fica dentro do validate porque o validate é o check obrigatório pelo nome.
+      - name: Mexeu no plugin? A versão tem que subir
+        # O Claude Code decide se baixa a atualização pela `version` do plugin.json.
+        # Publicar mudança sem bumpar deixa quem já instalou com a cópia antiga em
+        # cache — sem erro, sem aviso, e a gente só descobre quando alguém reclama
+        # de um problema que já foi corrigido.
+        # PR de feature não sobe versão (CONTRIBUTING.md): ele fica vermelho só aqui, com as
+        # suítes verdes acima, e entra na main pelo release que o scripts/release-trem.sh monta.
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: |
+          base="origin/${{ github.base_ref }}"
+          if [ -z "$(git diff --name-only "$base"...HEAD -- plugin/)" ]; then
+            echo "plugin/ intocado — nada a checar"; exit 0
+          fi
+          ver() { python3 -c "import json,sys;print(json.load(sys.stdin)['version'])"; }
+          v_base="$(git show "$base:plugin/.claude-plugin/plugin.json" | ver)"
+          v_head="$(ver < plugin/.claude-plugin/plugin.json)"
+          echo "plugin/ mudou · versão $v_base → $v_head"
+          if [ "$v_base" = "$v_head" ]; then
+            echo "::error::plugin/ mudou e a versão continua $v_head. Num PR de feature isso é o esperado: ele não entra sozinho. Deixe \"## Para o CHANGELOG\" e \"## Para o novidades\" no corpo e junte no release: bash scripts/release-trem.sh <versão> <pr>... (CONTRIBUTING.md). O release sobe a versão nos cinco lugares e só ele passa por aqui."
+            exit 1
+          fi
+
   # Mentorado e mantenedor usam Mac, e a diferença que pega é a do bash 3.2, do BSD sed/date
   # e do mktemp. Até a 0.66 a suíte só rodava no Mac de quem mantém. Fase F0 do núcleo único
   # (#241). Job separado, não matriz no validate: o `validate` é check obrigatório pelo nome.
   macos:
     runs-on: macos-latest
-    timeout-minutes: 25
+    # Em série a suíte levava de 7 a 12 min e era o job mais lento do PR. Em 3 shards
+    # (.github/scripts/ci-shard.sh: ordem de bytes e índice módulo 3), cada um leva um terço.
+    # fail-fast desligado: um shard vermelho não cancela os outros, e o log mostra tudo o
+    # que falhou de uma vez. O tests/test-ci-shard.sh prova que a união dos shards é a lista
+    # inteira e confere que o total abaixo bate com a matriz.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: A suíte inteira roda no macOS
+      - name: A suíte roda no macOS (shard ${{ matrix.shard }} de 3)
         run: |
           fail=0
-          for t in tests/test-*.sh; do
+          for t in $(bash .github/scripts/ci-shard.sh "${{ matrix.shard }}" 3); do
             if bash "$t" > "/tmp/$(basename "$t").log" 2>&1; then echo "ok   $t"
             else echo "::error file=$t::reprovou no macOS"; tail -20 "/tmp/$(basename "$t").log"; fail=1; fi
-            # Suíte de guard com modo --codex (F1 do #241) roda também no payload do Codex.
+            # Suíte de guard com modo --codex (F1 do #241) roda também no payload do Codex,
+            # no mesmo shard da suíte.
             grep -q -- '"--codex"' "$t" || continue
             if bash "$t" --codex > "/tmp/$(basename "$t").codex.log" 2>&1; then echo "ok   $t --codex"
             else echo "::error file=$t::reprovou no macOS (--codex)"; tail -20 "/tmp/$(basename "$t").codex.log"; fail=1; fi
@@ -672,38 +695,48 @@ jobs:
             echo "nenhuma divergência de conteúdo fora das exceções."
           fi
 
-  # O ffmpeg vem do apt, que trava de forma intermitente no espelho do runner: em 22 e
-  # 23/10/2026 o passo dele consumiu o teto e derrubou o validate, que é o check obrigatório.
-  # Num job próprio ele roda em paralelo, o teste do final.sh segue exigindo o ffmpeg de
-  # verdade, e quando o apt travar só este job fica vermelho e dá para rodar de novo sozinho.
-  # Espelho de VAMOO-AI/claude-config-team#421.
+  # O ffmpeg vinha do apt, que trava de forma intermitente no espelho do runner: em 22 e
+  # 23/10/2026 o passo consumiu o teto (até 10 min com retry) e às vezes estourou o job.
+  # Agora é o binário estático do BtbN/FFmpeg-Builds, build de release n8.1 (traz ffmpeg e
+  # ffprobe, que o teste usa), pinado por tag e por sha256 e guardado no actions/cache.
+  # O hash abaixo foi conferido contra o checksums.sha256 publicado no próprio release.
+  # Retenção: o BtbN guarda o build do último dia de cada mês por uns 2 anos (a lista de
+  # 10/2026 vai até 11/2024). Quando este tag sumir, o curl falha com 404 aqui, alto: troque
+  # FFMPEG_TAG, FFMPEG_ARQ e FFMPEG_SHA256 por um build de fim de mês mais novo.
+  # Num job próprio, o teste do final.sh segue exigindo ffmpeg de verdade sem prender o validate.
   motion-reel-ffmpeg:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    env:
+      FFMPEG_TAG: autobuild-2026-09-30-13-08
+      FFMPEG_ARQ: ffmpeg-n8.1.3-9-g29e619e767-linux64-gpl-8.1
+      FFMPEG_SHA256: 97ce978979194b5cf7e06a5e68020dbdaa7a4f3294c5452b6a1bc347100dbb79
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: ffmpeg para o teste do final.sh da motion-reel
-        # Não interativo e com teto próprio: em 22/10/2026, com o ubuntu-latest migrando para o
-        # Ubuntu 26, o apt ficou parado aqui até o job estourar (CANCELLED aos 10 e depois aos
-        # 20 min). Travar de novo vira falha deste passo em 8 min, com nome, não do job inteiro.
-        # Não interativo não bastou: o apt também para no espelho, de forma intermitente (o mesmo
-        # passo passou num repo e travou no outro no mesmo minuto). Teto por comando e até 3
-        # tentativas; -q (não -qq) para o log dizer onde parou.
-        timeout-minutes: 15
-        env:
-          DEBIAN_FRONTEND: noninteractive
-          NEEDRESTART_MODE: a
+      - name: Cache do ffmpeg estático (chave é o sha256)
+        id: cache-ffmpeg
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/ffmpeg-estatico
+          key: ffmpeg-${{ env.FFMPEG_SHA256 }}
+
+      - name: ffmpeg estático, conferido pelo sha256
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        timeout-minutes: 5
         run: |
-          for i in 1 2 3; do
-            if timeout 150 sudo -E apt-get update -q \
-               && timeout 300 sudo -E apt-get install -y -q --no-install-recommends ffmpeg; then
-              break
-            fi
-            echo "::warning::apt do ffmpeg falhou ou passou do teto (tentativa $i de 3)"
-            sleep 15
-          done
-          ffmpeg -version | head -1
+          curl -sSfL --retry 3 --max-time 180 -o /tmp/ffmpeg.tar.xz \
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/$FFMPEG_TAG/$FFMPEG_ARQ.tar.xz"
+          echo "$FFMPEG_SHA256  /tmp/ffmpeg.tar.xz" | sha256sum -c -
+          mkdir -p ~/ffmpeg-estatico
+          tar -xJf /tmp/ffmpeg.tar.xz -C ~/ffmpeg-estatico --strip-components=2 \
+            "$FFMPEG_ARQ/bin/ffmpeg" "$FFMPEG_ARQ/bin/ffprobe"
+
+      - name: ffmpeg no PATH
+        run: |
+          echo "$HOME/ffmpeg-estatico" >> "$GITHUB_PATH"
+          "$HOME/ffmpeg-estatico/ffmpeg" -version | head -1
+          "$HOME/ffmpeg-estatico/ffprobe" -version | head -1
 
       - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
         # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
