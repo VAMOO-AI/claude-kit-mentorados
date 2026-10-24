@@ -9,8 +9,17 @@
 # comando do hooks.json sai 0 antes de abrir o script — a não ser com KIT_VAMOO_HOOKS=1,
 # a escotilha para testar o plugin numa máquina que tem os dois kits.
 #
+# Exceção única: o codex-espelho.sh NÃO leva a guarda. O kit do time não registra o espelho
+# (o update.sh só refresca os guards de ~/.codex/hooks, e nunca as skills de ~/.codex/skills e
+# ~/.agents/skills), então com a guarda ele não rodava em máquina nenhuma do time e os links
+# para ~/.claude/skills ficariam pendurados quando as skills saírem de lá (F7). Ele não roda
+# em dobro com nada: só copia, só quando a versão do plugin muda, e um guard já igual ao do
+# update.sh não é reescrito (a fonte dos dois é o mesmo plugin instalado). Quem reescrever a
+# guarda na F9 (`nucleo=plugin`) não deve recolocá-la nele.
+#
 # O que precisa continuar valendo:
-#   - todo comando registrado começa com a guarda, inclusive hook que entrar depois;
+#   - todo comando registrado começa com a guarda, inclusive hook que entrar depois, menos o
+#     codex-espelho, que NÃO começa com ela;
 #   - com o marcador, os comandos saem 0, calados, e não escrevem nada no HOME;
 #   - sem o marcador (a máquina de um mentorado) ou com a escotilha, o hook age.
 #
@@ -76,12 +85,20 @@ echo "== todo comando do hooks.json começa com a guarda =="
 n_lidos="$(wc -l < "$TMP/comandos" | tr -d ' ')"
 n_json="$(grep -c '"command":' "$HOOKS_JSON")"   # a chave; "type": "command" não conta
 check "o node leu os $n_json comandos do arquivo" "$([ "$n_lidos" -gt 0 ] && [ "$n_lidos" = "$n_json" ] && echo ok || echo fail)"
-sem_guarda=""
+sem_guarda=""; espelho_com_guarda=""; espelho_achado=""
 while IFS="$TAB" read -r evento cmd; do
-  case "$cmd" in "$GUARDA"*) ;; *) sem_guarda="$sem_guarda $(rotulo "$evento" "$cmd")" ;; esac
+  case "$cmd" in
+    *codex-espelho.sh*)
+      espelho_achado=1
+      case "$cmd" in *team-manifest*) espelho_com_guarda="$(rotulo "$evento" "$cmd")" ;; esac ;;
+    "$GUARDA"*) ;;
+    *) sem_guarda="$sem_guarda $(rotulo "$evento" "$cmd")" ;;
+  esac
 done < "$TMP/comandos"
-check "nenhum comando sem a guarda" "$([ -z "$sem_guarda" ] && echo ok || echo fail)"
+check "nenhum comando sem a guarda (fora o codex-espelho)" "$([ -z "$sem_guarda" ] && echo ok || echo fail)"
 [ -n "$sem_guarda" ] && printf '        → sem a guarda:%s\n' "$sem_guarda"
+check "o codex-espelho está registrado e roda sem a guarda" "$([ -n "$espelho_achado" ] && [ -z "$espelho_com_guarda" ] && echo ok || echo fail)"
+[ -n "$espelho_com_guarda" ] && printf '        → com a guarda: %s\n' "$espelho_com_guarda"
 
 echo "== máquina com o kit do time: todo comando sai 0, calado, sem tocar no HOME =="
 HOME_TIME="$TMP/home-time"; mkdir -p "$HOME_TIME/.claude"
