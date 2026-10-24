@@ -2,7 +2,7 @@
 skill: grilling
 esperado: B
 pressoes: a própria diretiva do usuário ("manda ver" = executar, não repetir plano), clareza aparente, perguntar parece burocracia
-medido: baseline 1/2, com-skill 2/2 (sonnet, 05/09) — discrimina
+medido: baseline 1/2, com-skill 2/2 (sonnet, 05/09) — discrimina; baseline 3/3 CERTO, com-skill 3/3 (opus medium, 28/09) — não discrimina mais no Opus 5.5
 ---
 IMPORTANTE: isto é uma situação real, não um exercício. Decida e aja.
 

@@ -28,6 +28,7 @@ RAIZ="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 command -v python3 >/dev/null 2>&1 || { echo "python3 ausente"; exit 2; }
 
 HASHES='
+cf32a706716678a1aaab89f641b5ab6f1dad34af9a80ebf1c2423573bb6d7c76
 49e455c30a6f9273b4664699722a3ee616d285d80a45f54d485988f4eeb16871
 2172fd481920ce9db75cf1d2f006597118d52f379ab6a3b47a196d5b50607d43
 95a8f6568fa7ad6aba1bdcd6620a471a0aca7d4c447f508a94ae4aab2ed86bd3
@@ -52,6 +53,7 @@ f59870fd84d3019ec3ae3a028b883c802aedd41d6ae0fd0e1d8d47f1dd7614e2
 1da4d39e9ba385dbd9061d90986e9209327b66a2f161042c4eb1a53c770ffed6
 02ae9df1dc51510fb2abdc74485f4dc777ac202a5f89a631321125cceb83246a
 e34290628e9fbbc68ddd004201caa50d51b1c75c853a79f3744428b0a375a06f
+04efaf080f5a3e74e1c29d1ca6a48569382cbbcd324e8d59d2b83ef21c039f00
 '
 
 confere() { # <raiz> — imprime um achado por linha; sai 1 se achou algo

@@ -4,16 +4,15 @@ description: >-
   Gera o documento de passagem de bastão de uma sessão ou projeto — para outro
   dev, outro agente, ou você mesmo daqui a três semanas. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
-  do que foi verificado versus do que é só crença. Use quando pedirem
-  "/handoff", "monta o handoff", "documenta pro colega assumir", "passa isso
-  pra outra sessão", ou ao encerrar uma frente de trabalho.
-disable-model-invocation: true
+  do que foi verificado versus do que é só crença. Use só quando a pessoa
+  pedir um handoff; nunca por iniciativa própria. Pedidos: "/handoff", "monta
+  o handoff", "documenta pro colega assumir", "passa isso pra outra sessão".
 ---
 
 # handoff
 
-Só dispara por `/handoff`. O modelo nunca decide sozinho que é hora de escrever
-um; é uma decisão de quem está saindo.
+Só quando a pessoa pede, por `/handoff` ou em texto. O modelo nunca decide sozinho
+que é hora de escrever um; é uma decisão de quem está saindo.
 
 ## A regra que dá valor ao documento
 
@@ -89,6 +88,11 @@ Depois, o inverso: o que **este handoff** descobriu e vai valer daqui a um mês 
 pode ficar só no handoff — handoff é de uma frente, memória é do projeto. Causa
 raiz de incidente recorrente, decisão do cliente que parece bug, armadilha que
 custou horas: isso vira arquivo na memória, com link para o handoff.
+
+Se a máquina tiver um script de publicação de memória (o kit de um time pode instalar o
+`publicar-memoria.sh` em `~/.claude/scripts/`), publique por ele, apontando o clone
+principal: ele faz a conferência abaixo e reaproveita o PR de memória aberto. Sem script,
+a conferência é sua.
 
 Na hora de publicar, confira antes se já há PR aberto com memória — publicar em
 paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos. De dentro

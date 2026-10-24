@@ -10,6 +10,24 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.80.0] — 2026-10-24
+
+### Mudado
+
+Lote 1 da F7 do núcleo único (#241): as skills levam o método do kit do time, que deixa de
+ter cópia própria.
+
+- **`find-docs`**: diz como escolher entre os resultados do `ctx7 library` e usa o ID com
+  versão quando a pessoa diz a versão.
+- **`grilling`**: o check de cada passo do plano pode ser o que se observa no log ou no banco,
+  não só na tela.
+- **`handoff`**:
+  - se a máquina tiver um script de publicação de memória, a skill publica por ele;
+  - também responde a pedido em texto ("monta o handoff"), além do `/handoff`, mas nunca age
+    por iniciativa própria.
+- **Gate de dado de cliente**: ganha dois nomes, e um cenário de teste que trazia um deles foi
+  corrigido.
+
 ## [0.79.0] — 2026-10-23
 
 ### Adicionado

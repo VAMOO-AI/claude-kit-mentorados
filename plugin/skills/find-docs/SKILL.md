@@ -22,6 +22,11 @@ O `docs` falha sem ID com `/` na frente: o `library` vem antes, salvo se a pesso
 (`/org/project` ou `/org/project/versão`). A query é a pergunta inteira ("hooks" devolve
 resultado genérico) e nunca leva chave, senha, dado pessoal nem código proprietário.
 
+Escolha o resultado pelo nome (exato primeiro), depois por `Code Snippets`, `Source
+Reputation` e `Benchmark Score`, e diga qual ID usou. Nenhum serve: refaça a query. Só
+pergunte à pessoa quando as leituras possíveis apontam para libs diferentes de verdade.
+Versão dita pela pessoa: use o ID com versão da linha `Versions` (`/org/project/versão`).
+
 ## Projeto com `package.json`: a versão instalada escolhe o ID
 
 Sem versão dita pela pessoa, a doc certa é a da versão que o projeto roda, não a última
