@@ -10,6 +10,13 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.84.0] — 2026-10-24
+
+### Removido
+
+- **Guarda de convidado** do `hooks.json`: desde a F10 o kit do time não registra hook do núcleo, então quem registra é só o plugin, em toda máquina. Sai junto a escotilha `KIT_VAMOO_HOOKS` dos hooks (o `warn-kit-updated` ainda a lê).
+- **Paridade com o kit do time**: saem o `scripts/paridade.sh`, o `scripts/paridade.ignore`, o `tests/test-paridade-arquivos.sh` e o job `paridade-conteudo`. O `docs/paridade.md` foi para `docs/historico/`.
+
 ## [0.83.0] — 2026-10-23
 
 ### Mudado

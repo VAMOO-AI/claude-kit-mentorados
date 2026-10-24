@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-dev-server.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-dev-server.sh\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\" anota"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\" anota"
           }
         ]
       },
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch",
             "async": true
           }
         ]
@@ -55,27 +55,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
           },
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-worktree.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-worktree.sh\""
           },
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-kit-updated.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-kit-updated.sh\""
           },
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
           },
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-doc-ancorado.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-doc-ancorado.sh\""
           },
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-cli-outdated.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-cli-outdated.sh\""
           },
           {
             "type": "command",
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/compact-estado.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/compact-estado.sh\"",
             "timeout": 10
           }
         ]
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\""
           }
         ]
       }
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" end"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" end"
           }
         ]
       }
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && ! grep -qx 'nucleo=plugin' \"$HOME/.claude/.team-manifest\" 2>/dev/null && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\"",
             "timeout": 60
           }
         ]
