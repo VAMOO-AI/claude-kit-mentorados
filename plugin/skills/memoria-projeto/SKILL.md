@@ -1,12 +1,10 @@
 ---
 name: memoria-projeto
 description: >-
-  Põe a memória do projeto dentro do repositório em vez de deixar presa na sua
-  máquina — cria .context/memoria/, liga o diretório do Claude Code lá, e recusa
-  a adoção se achar credencial escrita na memória. Use ao começar a trabalhar
-  num projeto e em "/memoria-projeto", "liga a memória deste projeto", "o Claude
-  esquece o que aprendeu", "troquei de computador e perdi o contexto", "essa
-  memória está no repo?", "publica a memória".
+  Põe a memória do projeto no repositório (.context/memoria/, com o diretório do Claude
+  Code ligado lá) e recusa adotar se achar credencial. Use ao começar num projeto e em
+  "liga a memória deste projeto", "o Claude esquece o que aprendeu", "troquei de
+  computador", "essa memória está no repo?", "publica a memória".
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh *)'

@@ -1,8 +1,8 @@
 ---
 name: handoff
 description: >-
-  Gera o documento de passagem de bastão de uma sessão ou projeto — para outro
-  dev, outro agente, ou você mesmo daqui a três semanas. Template fixo, destino
+  Gera o documento de passagem de bastão de uma sessão ou projeto, para outro
+  dev, agente ou você mesmo depois. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
   do que foi verificado versus do que é só crença. Use só quando a pessoa
   pedir um handoff; nunca por iniciativa própria. Pedidos: "/handoff", "monta

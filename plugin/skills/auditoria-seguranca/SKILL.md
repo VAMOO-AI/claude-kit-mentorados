@@ -1,13 +1,10 @@
 ---
 name: auditoria-seguranca
 description: >-
-  Auditoria de segurança em 6 categorias (isolamento de inquilino, permissão
-  decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com
-  ferramentas) com entregável: PDF em pt-BR dentro do repo auditado + issues de
-  GitHub prontas para colar. Detecta a stack e relê a auditoria anterior. Use em
-  "auditoria de segurança", "relatório de segurança", "auditoria em PDF", "achou
-  IDOR?". NÃO é o secscan (Markdown fora do git): este é o pacote para outra
-  pessoa ler e agir.
+  Auditoria de segurança em 6 categorias (inquilino, permissão no navegador, IDOR,
+  chaves expostas, XSS, agente de IA) que entrega PDF em pt-BR no repo e issues prontas.
+  Use em "auditoria de segurança", "relatório de segurança", "achou IDOR?". O secscan é
+  a varredura rápida; esta é o pacote para outra pessoa agir.
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'

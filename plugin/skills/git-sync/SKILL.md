@@ -1,12 +1,10 @@
 ---
 name: git-sync
 description: >-
-  Sincroniza o clone local e todos os worktrees com o GitHub de forma segura
-  (fetch --prune + fast-forward only) e reporta o estado vs GitHub (worktrees,
-  ahead/behind, PRs abertos). Use quando pedirem "/git-sync", "atualiza com o
-  github", "sync github", "puxa o remote", "source control desatualizado", ou no
-  INÍCIO/FIM de sessão num repo compartilhado ("vou mexer no projeto", "meu
-  colega mexeu?", "tem PR aberto?"). Complementa a skill worktrees (isolamento).
+  Sincroniza clone e worktrees com o GitHub sem risco (fetch --prune, só fast-forward) e
+  mostra o estado: ahead/behind, worktrees, PRs abertos. Use em "/git-sync", "atualiza
+  com o github", "puxa o remote", "source control desatualizado", e no início ou fim de
+  sessão em repo compartilhado ("meu colega mexeu?", "tem PR aberto?").
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh")'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/git-sync/scripts/git-sync.sh)'

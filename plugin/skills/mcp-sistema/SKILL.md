@@ -1,12 +1,10 @@
 ---
 name: mcp-sistema
 description: >-
-  Cria o MCP remoto de um sistema Supabase para o usuário ligar Claude, ChatGPT
-  ou outro cliente com a própria conta: Next.js com OAuth do Supabase, recorte
-  por papel, escrita com prévia + confirmação + log e página de instalação; app
-  não-Next (SPA Vite) com OAuth próprio numa edge function. Entrevista → spec →
-  PRs → prod. Use em "cria um MCP pro sistema", "MCP com login", "ligar no
-  ChatGPT", "o MCP dá timeout". Não é para MCP local/stdio (mcp-builder).
+  Cria o MCP remoto de um sistema Supabase para ligar Claude, ChatGPT ou outro cliente
+  com a própria conta: OAuth, recorte por papel, escrita com prévia e log, página de
+  instalação (Next.js ou SPA com edge function). Use em "cria um MCP pro sistema", "MCP
+  com login", "ligar no ChatGPT", "o MCP dá timeout".
 ---
 
 # MCP remoto de um sistema (Supabase)
