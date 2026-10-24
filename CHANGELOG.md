@@ -10,6 +10,13 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.83.0] — 2026-10-23
+
+### Mudado
+
+- **Corte da F9: a guarda de convidado cede só sem `nucleo=plugin`** (#241). Todo hook do `hooks.json`, menos o `codex-espelho`, sai cedo quando o `~/.claude/.team-manifest` existe e não tem a linha exata `nucleo=plugin`. O `update.sh` do time grava essa linha quando tira do `settings.json` dele os hooks que o plugin registra, e a partir daí quem roda é o plugin. Na máquina do mentorado, sem manifesto, nada muda.
+- **`warn-kit-updated.sh` cala com qualquer `.team-manifest`.** O setup recusa no time, e quem atualiza lá é o `update.sh`. `KIT_VAMOO_HOOKS=1` religa.
+
 ## [0.82.0] — 2026-10-24
 
 ### Adicionado
