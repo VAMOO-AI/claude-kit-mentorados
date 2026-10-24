@@ -10,6 +10,8 @@
 #   - palavra cujo sha256 (minúsculas) está na lista abaixo. A lista é de HASHES de
 #     propósito: em texto puro, o próprio teste publicaria a carteira de clientes. Para
 #     incluir um nome: printf '%s' nome | shasum -a 256;
+#     Exceção única: o site público vamooai.com.br (com ou sem https:// e www., com caminho).
+#     Subdomínio (n8n.vamooai.com.br) e e-mail (@vamooai.com.br) continuam reprovando;
 #   - telefone brasileiro com DDD real (55 + DDD 11–99 + 8 ou 9 dígitos, com ou sem
 #     máscara). Exemplo usa DDD 00, que não chega em ninguém;
 #   - host <algo>.uazapi.com que não seja placeholder (<...>), docs.uazapi.com ou
@@ -75,6 +77,7 @@ proibidos = {h.strip() for h in os.environ["HASHES"].split() if h.strip()}
 eu = "tests/test-sem-dado-de-cliente.sh"
 BIN = (".zip", ".png", ".jpg", ".jpeg", ".gif", ".wav", ".mp3", ".mp4", ".ttf", ".woff", ".woff2", ".ico", ".pdf")
 PALAVRA = re.compile(r"[a-z0-9]+")
+SITE_PUBLICO = re.compile(r"(?<![a-z0-9@.-])(?:https?://)?(?:www\.)?vamooai\.com\.br(?![a-z0-9-]|\.[a-z0-9])")
 TEL = re.compile(r"(?<![0-9])\+?55[ -]?\(?(?:1[1-9]|[2-9][0-9])\)?[ -]?9?[0-9]{4}[ -]?[0-9]{4}(?![0-9])")
 HOST = re.compile(r"(?<![<\w-])([a-z0-9-]+)\.uazapi\.com", re.I)
 CAP = re.compile(r"ntfy\.sh/[A-Za-z0-9_-]{12,}|discord(?:app)?\.com/api/webhooks/[0-9]{6,}/[A-Za-z0-9_-]{20,}|hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]{10,}|[?&](?:token|key|apikey|api_key|secret)=[A-Za-z0-9_-]{16,}", re.I)
@@ -92,7 +95,7 @@ for rel in sys.stdin.buffer.read().decode().split("\0"):
         continue
     for n, linha in enumerate(texto.split("\n"), 1):
         baixa = linha.lower()
-        for w in set(PALAVRA.findall(baixa)):
+        for w in set(PALAVRA.findall(SITE_PUBLICO.sub(" ", baixa))):
             if hashlib.sha256(w.encode()).hexdigest() in proibidos:
                 achados.append(f"{rel}:{n}: nome de cliente (palavra #{hashlib.sha256(w.encode()).hexdigest()[:8]})")
         for m in TEL.finditer(linha):
@@ -124,6 +127,11 @@ Exemplo que passa: https://<ref>.supabase.co, /v1/projects/$SUPABASE_REF/databas
 Exemplos que passam: 5500999990001, 550099990001, <sua-instancia>.uazapi.com, docs.uazapi.com
 Passam: ntfy.sh/<topico>, ntfy.sh/alertas-, /webhook/agente?token={{env:TOKEN_WEBHOOK}}, ?token=$TOKEN
 MD
+cat >> "$FIX/a.md" <<'MD'
+Passa (site público): https://vamooai.com.br/mentoria, www.vamooai.com.br e vamooai.com.br.
+Reprova (subdomínio interno): https://n8n.vamooai.com.br/webhook
+Reprova (e-mail): contato@vamooai.com.br
+MD
 # As URLs de capacidade falsas são montadas aqui, em pedaços: escritas inteiras neste
 # arquivo, o gitleaks do CI as acusaria como segredo de verdade.
 x="xxxxxxxx"
@@ -149,9 +157,15 @@ espera 'ntfy.sh/meutopicoxxx' "tópico ntfy de verdade"
 espera 'discord.com/api/webhook' "webhook do Discord com token"
 espera 'hooks.slack.com/services' "webhook do Slack com token"
 espera '?token=xxxxxxxx' "token literal na query"
+linha_site=$(grep -n 'Passa (site público)' "$FIX/a.md" | cut -d: -f1)
+if printf '%s' "$saida" | grep -qF "a.md:$linha_site:"; then printf '  FALHA o site público vamooai.com.br foi barrado\n'; falhas=$((falhas+1)); else printf '  ok    o site público vamooai.com.br passa\n'; fi
+for alvo in 'subdomínio interno' 'e-mail'; do
+  l=$(grep -n "Reprova ($alvo)" "$FIX/a.md" | cut -d: -f1)
+  if printf '%s' "$saida" | grep -qF "a.md:$l:"; then printf '  ok    %s do domínio continua reprovando\n' "$alvo"; else printf '  FALHA %s do domínio passou\n' "$alvo"; falhas=$((falhas+1)); fi
+done
 n=$(printf '%s\n' "$saida" | grep -c 'FALHA')
-[ "$n" = 10 ] && printf '  ok    exatamente 10 achados (DDD 00, placeholders, docs e env passam)\n' \
-  || { printf '  FALHA %s achados, esperava 10:\n%s\n' "$n" "$saida"; falhas=$((falhas+1)); }
+[ "$n" = 12 ] && printf '  ok    exatamente 12 achados (DDD 00, placeholders, docs, env e o site público passam)\n' \
+  || { printf '  FALHA %s achados, esperava 12:\n%s\n' "$n" "$saida"; falhas=$((falhas+1)); }
 [ "$falhas" -eq 0 ] || { echo; echo "$falhas falha(s) no autoteste"; exit 1; }
 
 echo
