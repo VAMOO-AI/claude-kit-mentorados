@@ -18,6 +18,15 @@
             "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__claude-in-chrome__navigate|mcp__Claude_Browser__navigate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-dev-server.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -59,6 +68,14 @@
           {
             "type": "command",
             "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-doc-ancorado.sh\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"$HOME/.claude/.team-manifest\" ] && [ \"${KIT_VAMOO_HOOKS:-}\" != 1 ] && exit 0; bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-cli-outdated.sh\""
           },
           {
             "type": "command",

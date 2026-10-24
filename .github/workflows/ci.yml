@@ -245,6 +245,15 @@ jobs:
       - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
         run: bash tests/test-warn-sem-node.sh
 
+      - name: O check-dev-server barra navegar para localhost fora do ar, mesmo sem jq
+        run: bash tests/test-check-dev-server.sh
+
+      - name: O aviso de doc ancorado em SHA distante lê o repo do cwd do payload
+        run: bash tests/test-warn-doc-ancorado.sh
+
+      - name: O aviso de Claude Code desatualizado respeita o canal stable, mesmo sem jq
+        run: bash tests/test-warn-cli-outdated.sh
+
       - name: Os zips de downloads/ batem com a skill do plugin
         # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
         # entregaria a versão antiga calado; o teste regera e compara byte a byte.
@@ -578,7 +587,7 @@ jobs:
                  test-check-careful test-block-parallel-clone-switch
                  test-block-delete-branch test-block-cd-leitura-relativa
                  test-pre-prompt test-path-rules test-rtk-claude
-                 test-merge-settings test-warn-sem-node"
+                 test-merge-settings test-warn-sem-node test-check-dev-server"
           sel="$lista"
           if [ "$EVENTO" = pull_request ]; then
             mudou="$(git diff --name-only "origin/$BASE...HEAD")"
