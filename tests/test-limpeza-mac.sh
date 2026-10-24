@@ -216,6 +216,12 @@ check "inventário não chama de merged a branch atrás do head do PR" \
   "$(awk -F'\t' '$2=="feat-atras-do-pr"{print $4}' "$TMP/plano/branches.tsv" | grep -q '^merged' && echo fail || echo ok)"
 check "inventário dá mais de 7 dias ao .next do repo parado" \
   "$(awk -F'\t' -v d="$P/.next" '$3==d && $1>=7' "$TMP/plano/builds.tsv" | grep -q . && echo ok || echo fail)"
+# raiz que é symlink, com worktrees registrados: o repo vai pelo caminho físico, senão todo
+# worktree registrado pareceria órfã (o `worktree list` devolve o caminho físico)
+ln -s "$TMP/ws" "$TMP/ws-link"
+bash "$SCR/inventario.sh" "$TMP/plano-wslink" "$TMP/ws-link" 2>/dev/null
+check "raiz symlink: worktree registrado não vira órfã" \
+  "$([ -s "$TMP/plano-wslink/worktrees.tsv" ] && ! grep -q 'tem-\.git' "$TMP/plano-wslink/orfas.tsv" && echo ok || echo fail)"
 cp "$TMP/plano/branches.tsv" "$TMP/branches-antes.tsv"
 DRY=1 bash "$SCR/aplicar.sh" "$TMP/plano" "$TMP/ledger-dry" > "$TMP/dry.out" 2>&1
 check "DRY=1 não apaga nada"                   "$(existe "$WT/velha")"
@@ -274,6 +280,13 @@ check "node_modules de .tools do projeto fica"                "$(existe "$P/.too
 check "node_modules de clone ignorado fica"                   "$(existe "$CLONE/node_modules/w")"
 check "node_modules de repo aninhado parado sai"              "$(sumiu "$SUB/node_modules")"
 check "ledger guarda o SHA para restaurar"     "$(git -C "$R" cat-file -e "$sha" 2>/dev/null && echo ok || echo fail)"
+# a mergeada está na main, então o check acima passa com qualquer ledger. A feat-squash tem
+# commit que a main não contém: só o SHA do ledger a traz de volta
+sha=$(awk -F'\t' '$2=="feat-squash"{print $3}' "$TMP/ledger/branches.tsv")
+check "ledger restaura a branch apagada pelo SHA" \
+  "$([ -n "$sha" ] && git -C "$R" branch restaurada "$sha" 2>/dev/null \
+     && [ "$(git -C "$R" rev-parse restaurada)" = "$sha" ] \
+     && ! git -C "$R" merge-base --is-ancestor "$sha" main && echo ok || echo fail)"
 
 echo "== worktree-gc sem o --verificar: nada sai =="
 git -C "$R" worktree add -q -b wt-gc-antigo "$WT/gcantigo" main; velho "$WT/gcantigo"
