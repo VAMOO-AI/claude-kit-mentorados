@@ -4,9 +4,8 @@ description: >-
   Mede para onde vão os seus tokens: o que a sessão carrega antes do 1º prompt
   (CLAUDE.md, skills, MCPs) e o gasto no uso, com rótulo MEDIDO vs ESTIMADO, e o
   que dá pra cortar sem perder nada. Use quando o limite ou a conta surpreender,
-  a sessão nascer cara, houver dúvida se um MCP ou o CLAUDE.md pesa, ou pedirem
-  "quais MCPs estão caros" e "limpar ~/.claude". Não é o secscan (segurança) nem
-  o baseline (produção).
+  a sessão nascer cara, houver dúvida se um MCP ou o CLAUDE.md pesa, "MCPs caros"
+  ou "limpar ~/.claude". Não é o secscan nem o baseline.
 allowed-tools:
   - 'Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" *)'
   - 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py *)'
