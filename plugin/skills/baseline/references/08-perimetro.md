@@ -51,6 +51,31 @@ configuração da Vercel não alcança esse host. E o painel de infraestrutura n
 deveria estar na internet aberta: allowlist de IP ou uma rede privada (Tailscale,
 Cloudflare Zero Trust) é o que tranca. Senha é o segundo fator, não o primeiro.
 
+No Traefik, um middleware de headers aplicado por router:
+
+```yaml
+# dynamic/headers.yml
+http:
+  middlewares:
+    seguranca:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        frameDeny: true
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customResponseHeaders:
+          Permissions-Policy: "camera=(), microphone=(), geolocation=()"
+          X-Powered-By: ""        # string vazia REMOVE o header
+          Server: ""
+    somente-time:
+      ipAllowList:          # no Traefik v2 a chave é ipWhiteList
+        sourceRange: ["203.0.113.10/32", "100.64.0.0/10"]   # IP fixo + faixa da VPN
+```
+
+Middleware definido e não referenciado no router não faz nada, e é o erro que mais aparece
+aqui. Confira no host (`curl -sSI`), não no arquivo.
+
 ## Como provar
 
 ```bash

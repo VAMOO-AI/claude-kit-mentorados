@@ -44,7 +44,8 @@ mkdir -p secscan-reports
 if ! command -v semgrep >/dev/null; then echo "semgrep AUSENTE → confiança menor. Instalar: pipx install semgrep==1.181.0"
 else
   out=$(semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output secscan-reports/secscan.sarif . 2>&1); rc=$?
-  if [ "$rc" -eq 0 ]; then echo "semgrep OK → achados em secscan-reports/secscan.sarif"
+  # No sucesso o resumo (regras, arquivos, achados) está no fim do $out: vai junto do OK.
+  if [ "$rc" -eq 0 ]; then echo "semgrep OK → achados em secscan-reports/secscan.sarif"; printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -15
   else echo "semgrep FALHOU (exit $rc) → não medido; última linha: $(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"; fi
 fi
 # gitleaks em dois modos, sempre --redact (valor de segredo não chega à conversa): o
@@ -67,10 +68,15 @@ else
 fi
 if ! command -v osv-scanner >/dev/null; then echo "osv-scanner AUSENTE (opcional)"
 else osv-scanner scan --format json .; echo "osv-scanner exit $? (0 limpo · 1 achou vulnerabilidade · 128 sem lockfile = não medido · outro falhou)"; fi
+if ! command -v trivy >/dev/null; then echo "trivy AUSENTE (opcional: IaC/Docker/misconfig)"
+else trivy fs --scanners misconfig,vuln --quiet .; echo "trivy exit $? (0 rodou, achados na saída acima · outro falhou)"; fi
 ```
-Anote quais rodaram, quais faltaram e quais falharam no disclaimer do relatório. Semgrep
-que falhou não é semgrep ausente: instalar de novo não resolve, e a causa (rede, ruleset,
-a última linha do erro) vai para o relatório. Semgrep é o que mais agrega —
+Anote quais rodaram, quais faltaram e quais falharam no disclaimer do relatório. Scanner
+que falhou não é scanner ausente: instalar de novo não resolve, e a causa (rede, ruleset,
+a última linha do erro) vai para o relatório.
+
+Ruleset **fixo**, nunca `--config auto`: o `auto` faz login no registry da Semgrep e manda a
+URL do projeto junto, o que não se faz em repositório de cliente. Semgrep é o que mais agrega —
 mas saiba o que ele corrobora de fato. **Medido em 31/08/2026** num app React + Supabase:
 o ruleset OWASP rodou 255 regras sobre 2.198 arquivos e devolveu 27 findings, **100% em
 `.github/` e `.npmrc`**, zero em `src/`, zero em `supabase/functions/`. Num diretório com
@@ -83,18 +89,50 @@ leitor supor que o silêncio do semgrep é ausência de problema.
 
 ```bash
 git check-ignore .env .env.local 2>/dev/null   # devem aparecer = estão ignorados
-grep -rnE "NEXT_PUBLIC_[A-Z_]*(KEY|SECRET|TOKEN|SERVICE)" --include="*.ts" --include="*.tsx" --include="*.js" . | head
+grep -rnE "(NEXT_PUBLIC|VITE)_[A-Z_]*(KEY|SECRET|TOKEN|SERVICE)" --include="*.ts" --include="*.tsx" --include="*.js" . | head
 ```
-Sinalize: `.env`/`.env.local` versionados no git; qualquer coisa sensível atrás de `NEXT_PUBLIC_` (isso vai pro navegador!); `.env.example` faltando.
+Sinalize: `.env`/`.env.local` versionados no git; qualquer coisa sensível atrás de `NEXT_PUBLIC_` ou `VITE_` (os dois vão pro navegador!); `.env.example` faltando.
+
+**Triagem obrigatória antes de reportar número do gitleaks.** Os dois modos da Fase 0.5
+somam: o `detect` lê só o histórico commitado e o `dir` lê a árvore de trabalho, inclusive o
+que o git ignora. A contagem crua é quase toda ruído: numa auditoria real, "67 leaks" viraram
+**zero** achado. Separe em três baldes e reporte só o terceiro como finding, com a contagem
+de cada um à vista:
+
+1. **Arquivo não rastreado** (`git check-ignore` / `git ls-files --error-unmatch`): cache de
+   ferramenta, `dist/` e o próprio `.env.local`, que é ignorado de propósito. Não vazou para
+   lugar nenhum: é higiene local, não incidente.
+2. **Rastreado mas público por desenho**: decodifique antes de gritar. JWT com `role=anon`
+   do Supabase é chave pública, vai no navegador por contrato:
+   `printf %s "<jwt>" | cut -d. -f2 | base64 -d 2>/dev/null` resolve em um comando.
+3. **Rastreado e secreto**: `role=service_role`, `sbp_`, `sk-ant-`, senha de Postgres.
+   **Este é o finding**, e é CRITICAL. Zero aqui com 60 no balde 1 é um repo saudável.
+
+Achado só do `dir` em arquivo rastreado é segredo prestes a ser commitado (balde 3); em
+arquivo ignorado, balde 1.
 
 ## Fase 2 — Supabase (o coração)
 
-Olhe o estado real. Com acesso ao banco (psql), consulte as policies; senão leia os SQL/migrations estaticamente:
+Olhe o estado real, não chute. Com acesso ao banco (psql, ou o script de SQL que o projeto
+já tem; se existir `.context/docs/deploy.md`, ele diz qual), consulte as policies vivas,
+**uma query por chamada**:
+
+```sql
+select schemaname, tablename from pg_tables where schemaname='public' and rowsecurity is false;
+select tablename, policyname, roles, cmd, qual from pg_policies where schemaname='public' order by tablename;
+```
+
+Sem acesso ao banco, leia os SQL/migrations estaticamente:
 
 ```bash
 grep -rniE "enable row level security|create policy|using *\(true\)|security definer|service_role" \
   supabase/migrations src/sql 2>/dev/null | head
 ```
+
+A migration diz o que alguém quis; o banco diz o que vale. Os dois divergem com frequência
+(um `GRANT` posterior desfaz um `REVOKE` antigo, uma função recriada à mão perde o
+`search_path`): quando der para consultar o banco, ele é a autoridade e o grep é só o
+localizador.
 Caça:
 - **RLS desligada** numa tabela, ou tabela pública **sem policy** pra `anon`/`authenticated` → qualquer um com a chave `anon` lê/escreve tudo.
 - **Materialized view legível por `anon`/`authenticated`** → vazamento que a RLS não cobre, porque **MV não tem RLS**. É o achado que passa despercebido justamente em projeto com RLS impecável: quem confere RLS e vê tudo verde para de olhar.
@@ -115,36 +153,102 @@ Caça:
   `SECURITY DEFINER` sem uma falha — e 904 linhas de 16 clientes saindo por uma
   MV, sem nenhum login. Confira o **estado vivo**, não a migration: naquele repo
   o `REVOKE` certo estava versionado havia meses e um `GRANT ALL` posterior o
-  desfez em silêncio.
-- **`service_role` no código client** ou atrás de `NEXT_PUBLIC_` → bypass total do banco no navegador. **CRÍTICO**.
-- Policy com `using (true)` / `with check (true)` → RLS efetivamente desligada.
-- Função `security definer` sem `set search_path` fixo → escalada de privilégio.
+  desfez em silêncio. View com `security_invoker` que lê de uma MV entrega o dado do
+  mesmo jeito: o invoker respeita a permissão, e a permissão é que está aberta.
+- **`service_role` no código client** ou atrás de `NEXT_PUBLIC_`/`VITE_` → bypass total do banco no navegador. **CRÍTICO**.
+- **Cliente admin (`service_role`) numa rota pública** (ex.: página sem login como
+  `/r/[token]`) fazendo `select *` ou joins com `(*)`: passa por cima da RLS e traz coluna
+  sensível de brinde (dado pessoal do dono, campo interno). Sinalize sempre; a
+  **severidade depende da exposição**: o dado sensível aparece no JSX ou vai para um Client
+  Component → HIGH; é buscado e nunca renderizado → LOW (latente: o próximo render vaza o
+  dado, porque ele já está no objeto). O fix é o mesmo: colunas explícitas, nunca `*`.
+- Policy com `using (true)` / `with check (true)` → RLS efetivamente desligada. A
+  contrapartida (constraint de domínio compensando) é da Fase 2.5.
+- Função `security definer` sem `set search_path` fixo → escalada de privilégio. O
+  `pg_proc` é a autoridade (`select proname, proconfig from pg_proc where prosecdef`); o grep
+  nas migrations só localiza.
 - Bucket de Storage público guardando dado de usuário.
+
+## Fase 2.5 — Validação de entrada (C4)
+
+Ausência de schema **é** o achado; não precisa de um sink depois dela. As ferramentas que
+olham só o diff costumam recusar esta classe ("missing input validation" sem impacto
+provado), por isso ela tem fase própria.
+
+**Passo 0: descubra o validador antes de exigir um.** Não cobre zod de um repo Python:
+
+```bash
+grep -hoiE '(zod|valibot|yup|ajv|joi|superstruct|class-validator|pydantic|marshmallow|jsonschema|cerberus|go-playground/validator)' \
+  package.json pyproject.toml requirements.txt go.mod composer.json Gemfile 2>/dev/null | sort -u
+```
+
+Zero hits **não é o finding**: só muda a comparação para guarda escrita à mão (`typeof`,
+`if (!body.x)`, `isinstance`). O finding é o boundary sem nenhum dos dois. Ausência de
+validação é `heuristic` por construção (você detecta uma chamada que *não existe*); vira
+`CONFIRMED` pelo critério único das regras de ferro, e aqui um teste do projeto que
+exercita o boundary conta.
+
+Os boundaries a caçar (server action e form, fila, webhook de automação, valor que decide
+dinheiro/permissão/identidade, policy permissiva sem constraint, identidade sem
+normalização, limite de entrada, mass assignment, confusão de tipo) estão em
+[references/c4-validacao.md](references/c4-validacao.md), com o veredito de cada um: leia
+ao avaliar C4.
+
+Levantamento: estes três imprimem o **gap**, não o inventário.
+
+```bash
+# 1. GAP: function que lê entrada crua MENOS a que tem schema. O receptor do body muda de
+# nome (`req`, `request`, `_req`): fixar em `req.json()` subconta. E `.json()` solto casa
+# `response.json()`, que é leitura de RESPOSTA. Varra a pasta inteira, não só `*/index.ts`.
+comm -23 \
+  <(grep -rlnE "\b(req|request|_req|rq)\.(json|formData|text|arrayBuffer)\(|new URL\((req|request|_req|rq)\.url\)" supabase/functions --include="*.ts" 2>/dev/null | grep -v '/_shared/' | sort) \
+  <(grep -rlnE "zod|valibot|safeParse|z\.object" supabase/functions --include="*.ts" 2>/dev/null | grep -v '/_shared/' | sort)
+
+# 2. teto de tamanho na entrada + mass assignment + coerção sem guarda
+grep -rlnE "content-length|MAX_BYTES|file\.size|\.length *> *[0-9]{3}" supabase/functions/*/index.ts 2>/dev/null
+grep -rnE "\.(insert|update|upsert)\((body|payload|data|input|params)\b|\.(insert|update|upsert)\(\{ *\.\.\.|Number\((body|payload|params|url\.searchParams)" \
+  src supabase/functions --include="*.ts" --include="*.tsx" 2>/dev/null
+```
+
+```sql
+-- 3. função que o papel anônimo executa com parâmetro que decide dinheiro/permissão/identidade
+select p.oid::regprocedure, pg_get_function_arguments(p.oid)
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'EXECUTE')
+   and pg_get_function_arguments(p.oid) ~* '(total|price|amount|valor|desconto|status|role|user_id|owner|content)';
+```
+
+Sem acesso ao banco, o item 3 vira estático: o `GRANT EXECUTE ... TO anon` nas migrations e a
+leitura da assinatura de cada função.
 
 ## Fase 3 — Next.js / React
 
 - Rota de API / server action **sem checagem de auth** (`getUser`/sessão) antes de mutar/retornar dado.
 - `service_role` ou secret importado num Client Component (vaza pro navegador).
-- `dangerouslySetInnerHTML` / `innerHTML` com input do usuário → XSS.
 - Endpoint retornando a linha inteira (hash de senha, campos internos) — falta filtrar colunas.
-- Query de lista sem limite/paginação → DoS.
+- Query de lista sem limite/paginação → DoS (e o teto de 1.000 linhas do Supabase cortando calado).
+- CORS `Access-Control-Allow-Origin: *` em endpoint autenticado.
 
-**Validação de entrada** (a categoria C4 do checklist sai daqui):
+A validação de entrada (C4) tem fase própria, a 2.5.
 
-```bash
-grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
-  src app api supabase/functions 2>/dev/null | head
-```
+### C1 — Injeção
 
-- Handler que lê `body`/`query` tem que validar contra um **schema antes de usar**
-  o valor. Detecte o validador que o projeto já tem (`zod`, `valibot`, `yup`,
-  `pydantic`, JSON Schema) — não assuma que existe um; a ausência é o achado.
-- Valor que decide **dinheiro, permissão ou identidade** vindo do cliente nunca é
-  autoridade: o servidor recalcula ou busca no banco. Preço, `role` e `user_id`
-  chegando pelo corpo da requisição são o caso clássico.
-- Espalhar o objeto do cliente direto no update (`{ ...body }`) é **mass
-  assignment** — o usuário manda `role: "admin"` de brinde. E corpo sem teto de
-  tamanho é DoS barato.
+Varredura do **repositório inteiro** em sete grupos: SQL dinâmico, command injection, XSS
+(inclusive o HTML montado fora do framework: e-mail, PDF, bot), caminho e chave de Storage,
+template e expressão (Code Node e `{{ }}` do n8n), SSRF, e injeção em log e em filtro
+(`.or()` do supabase-js). Os comandos e o veredito de cada grupo estão em
+[references/c1-injecao.md](references/c1-injecao.md): leia ao avaliar C1. O semgrep não
+corrobora código de app neste stack, então **todo achado de C1 é `heuristic`**, e a linha C1
+do checklist diz isso.
+
+### Webhooks e n8n
+
+- Nó Webhook **sem validação de header de auth ou segredo** na chamada que chega.
+- Credencial escrita dentro de um Code Node em vez de ficar nas credenciais do n8n.
+- Payload que chega usado sem validação (injeção em nó seguinte, SQL, shell). O schema é
+  da Fase 2.5; aqui é a guarda de quem pode chamar.
+- Tópico de push (ntfy) ou URL de webhook de chat com o token no caminho, em texto no git:
+  a própria URL é a senha.
 
 ## Fase 4 — Dependências (SCA)
 
@@ -152,6 +256,7 @@ grep -rn "await req.json()\|request.json()\|req.body\|useSearchParams" \
 f=$(ls package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb 2>/dev/null | head -1)
 [ -n "$f" ] && echo "lockfile: $f" \
   || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
+test -f bun.lock && bun audit || true
 test -f package-lock.json && npm audit || true
 test -f pnpm-lock.yaml && pnpm audit || true
 ```
@@ -169,7 +274,9 @@ Pra achar o alucinado, `npm install --package-lock-only --ignore-scripts` falha 
 nomeando o fantasma — rode numa **cópia** do `package.json` fora do repo (o comando escreve
 lockfile, e você é read-only aqui). Efeito colateral que vai no relatório: essa mesma falha
 impede gerar o lockfile, então um repo com dependência inventada deixa C5 cega também para
-as CVEs reais. Reporte os dois fatos juntos.
+as CVEs reais. Reporte os dois fatos juntos. Complemento: liste os imports sem entrada no
+lockfile e triague à mão (alias de caminho, módulo nativo e módulo virtual do bundler são
+ruído).
 
 ### C5.2 — Subir versão é mudança de código (o PR de bump)
 
@@ -218,11 +325,20 @@ está em [`docs/seguranca.md`](https://github.com/VAMOO-AI/claude-kit-mentorados
 
 Padrões que IA costuma gerar. Grep no projeto:
 - Auth de mentira: `if (true)`, `next()` sem guard, `SKIP_AUTH`, `DEBUG` bypass.
-- JWT com `algorithm: 'none'` ou verificação desligada.
-- Senha com crypto fraca: `md5`/`sha1` em vez de bcrypt/argon2.
-- `eval` / `new Function` / `child_process.exec` com input do usuário.
-- TLS desligado: `NODE_TLS_REJECT_UNAUTHORIZED=0`, `rejectUnauthorized:false`.
+- `eval` / `new Function` com input do usuário (`child_process.exec` é a C1.2).
 - Comentário dizendo "seguro/production-ready" sem nenhum controle real atrás.
+
+### C7 — Criptografia e armazenamento
+
+Hash de senha sem KDF (sha256 puro é o que passa batido), gerador comum criando token ou
+slug, comparação de segredo sem tempo constante, cripto simétrica com ECB ou IV fixo, TLS
+desligado, JWT sem verificação, segredo e dado pessoal em repouso (coluna em claro, cron,
+localStorage, arquivo em base64 numa coluna) e gestão de chave. Os comandos (`git grep`, só
+arquivo rastreado) e os hits que não são finding estão em
+[references/c7-cripto-armazenamento.md](references/c7-cripto-armazenamento.md): leia ao
+avaliar C7. O discriminante é o **destino** do valor, nunca a primitiva. C7 só sai como
+"nenhum problema identificado" se as varreduras de hash, aleatoriedade e armazenamento
+rodaram de fato.
 
 ## Falso positivo — o que a calibração ensinou
 
@@ -252,6 +368,17 @@ saíram dessa rodada:
   consulte: achado já julgado não volta como novo. O veredito vence quando o código ao
   redor muda — por isso o "por quê" é obrigatório.
 
+**Precedentes.** [references/checklist-incidentes.md](references/checklist-incidentes.md)
+traz 27 checks de C2, C3, C5 e C6 que nasceram de incidente real, cada um com como achar a
+ferramenta equivalente no repo auditado: consulte durante as Fases 2 a 5, ou quando um
+finding precisar de precedente.
+
+**Calibração da casa.** Se existir `~/.claude/docs/secscan-casa.md` (ou
+`.context/docs/security/calibracao.md` no projeto), leia durante as Fases 2 a 5: ele traz
+os incidentes datados e as contagens medidas num repo de verdade, com o comando de cada
+check naquele stack. É calibração de um repo, não resposta: rode o comando no repo auditado
+e cole a saída de agora.
+
 ## Fase 6 — Relatório
 
 Escreva em `secscan-reports/<YYYY-MM-DD>-secscan.md`. Peça pro usuário adicionar `secscan-reports/`
@@ -268,13 +395,30 @@ nenhuma categoria tem sonda própria fora das fases acima.
 
 | Categoria | Prova mínima (o que precisa ter rodado pra linha sair limpa) | Vem de |
 |---|---|---|
-| **C1** injeção de código | SAST com ruleset de injeção (`semgrep`) + grep de sink recebendo valor de request: `eval`, `exec`, SQL montado por concatenação, HTML por template. O semgrep não corrobora código de app neste stack (Fase 0.5): todo achado sai `heuristic`, e a linha diz isso | F0.5 + F3 + F5 |
-| **C2** autenticação e controle de acesso | Toda rota/handler público checa identidade antes de ler ou mutar; tabela sem RLS ou com policy `using (true)` | F2 + F3 + F5 |
-| **C3** exposição de dados sensíveis | Segredo no versionamento **e** no bundle publicado; `service_role`/secret atrás de prefixo público; endpoint devolvendo a linha inteira | F1 + F2 + F3 |
-| **C4** validação de entrada | Handler que lê `body`/`query` valida contra schema antes de usar; valor de dinheiro/permissão/identidade vindo do cliente | F3 (bloco de validação) |
-| **C5** bibliotecas externas | Audit nativo do lockfile do projeto (`npm`/`pnpm`/`bun`/`poetry`…), ou `osv-scanner`; pacote alucinado | F4 |
-| **C6** configurações inseguras | Default inseguro versionado: debug ligado, TLS desligado, CORS `*`, endpoint/credencial hardcoded | F1 + F5 |
-| **C7** criptografia e armazenamento | Hash de senha fraco, aleatoriedade não-criptográfica gerando token/reset, JWT sem verificação, segredo legível em repouso | F5 |
+| **C1** injeção de código | SAST com ruleset de injeção (`semgrep`) + os sete grupos do bloco C1 (SQL, shell, HTML fora do framework, caminho, template, SSRF, log e filtro). O semgrep não corrobora código de app neste stack (Fase 0.5): todo achado sai `heuristic`, e a linha diz isso | F0.5 + F3 |
+| **C2** autenticação e controle de acesso | Toda rota/handler público checa identidade antes de ler ou mutar; tabela sem RLS ou com policy `using (true)`; toda function que dispensa o gateway valida o chamador (bloco abaixo) | F2 + F3 |
+| **C3** exposição de dados sensíveis | Segredo no versionamento **e** no bundle publicado (`grep` de `sbp_`/`eyJhbGciOi`/`sk-ant-` no `dist/` depois do build); `service_role`/secret atrás de prefixo público; endpoint devolvendo a linha inteira; view sem `security_invoker` lendo tabela protegida; duas policies PERMISSIVE do mesmo comando para o mesmo papel (somam com OR) | F1 + F2 + F3 |
+| **C4** validação de entrada | Fase 2.5 inteira: o gap de boundary sem schema impresso, valor de dinheiro/permissão/identidade, limite de entrada, mass assignment | F2.5 |
+| **C5** bibliotecas externas | Audit nativo do lockfile do projeto (`npm`/`pnpm`/`bun`/`poetry`…), ou `osv-scanner`; pacote alucinado; o CI roda algum audit? (`grep -rn audit .github/workflows/ package.json`: vazio é finding de processo) | F4 |
+| **C6** configurações inseguras | Default inseguro versionado: debug ligado, TLS desligado, CORS `*`, URL de auth com curinga (`site_url` em `http://` no `supabase/config.toml`), endpoint/credencial hardcoded, URL de webhook ou tópico de push com o token no caminho | F1 + F3 + F5 |
+| **C7** criptografia e armazenamento | Bloco C7 inteiro: hash, aleatoriedade, slug, comparação, cripto simétrica, TLS, JWT, armazenamento, gestão de chave | F5 |
+
+Uma sonda de C2 que vale para todo projeto Supabase com functions: function fora do
+`supabase/config.toml` herda o padrão (`verify_jwt = true`) no próximo deploy, e quem a
+chamava sem JWT passa a tomar 401 no gateway, sem erro em lugar nenhum. E toda function com
+`verify_jwt = false` precisa provar o chamador no próprio código (segredo em header, HMAC do
+payload ou validação de token).
+
+```bash
+# O `test -f` não é decoração: sem ele, num repo sem config.toml o comm lista TODAS as
+# functions e sai 0, e a skill reporta "N desprotegidas" num repo que só não tem o arquivo.
+if [ -f supabase/config.toml ]; then
+  comm -23 <(ls supabase/functions | grep -v '^_shared' | sort) \
+           <(grep -o '^\[functions\.[^]]*\]' supabase/config.toml | sed 's/\[functions\.//;s/\]//' | sort)
+else
+  echo "sem supabase/config.toml → esta sonda de C2 é 'não aplicável (sem config.toml)', NUNCA 'todas desprotegidas'"
+fi
+```
 
 ### 1. CHECKLIST (obrigatório, sempre impresso)
 
@@ -302,6 +446,12 @@ Regras duras:
 - Prova parcial (a heurística rodou, o scanner não) continua `nenhum problema
   identificado`, mas a coluna **Base** carrega o qualificador
   *(parcial: semgrep ausente)*. O qualificador mora na Base, nunca vira um quinto estado.
+- **Prova parcial COM achado é `N achado(s)`, e o qualificador continua obrigatório.** Parte
+  das sondas da linha não rodou (sem `config.toml`, sem acesso ao banco) e as que rodaram
+  acharam coisa. `não medido` apagaria achado real; `N achados` sozinho esconde que metade
+  da prova não rodou. Escreva `2 achados` no Estado e `(parcial: sem acesso ao banco — a
+  consulta de policies não rodou)` na Base. Nunca escolha entre o achado e o buraco:
+  reporte os dois.
 - **Base** lista o que de fato rodou naquela linha — o comando. Base vazia obriga
   `não medido`.
 
@@ -345,12 +495,12 @@ aplica é o dono do projeto, e é aplicando que se aprende.
   (um step do CI), sem criá-lo — a skill é read-only.
 
 Em volta dos três blocos: **Resumo** com as contagens `CRITICAL N · HIGH N ·
-MEDIUM N · LOW N` · **Disclaimer** "Zero findings ≠ seguro" (só significa que este
+MEDIUM N · LOW N · INFO N` · **Disclaimer** "Zero findings ≠ seguro" (só significa que este
 scan, com estas ferramentas, neste escopo, não achou nada) · **Ferramentas
-executadas** — semgrep/gitleaks/npm audit/osv: rodou ou não rodou e por quê. As
+executadas** — semgrep/gitleaks/audit/osv/trivy/consulta ao banco: rodou ou não rodou e por quê. As
 linhas `não medido` do checklist têm que bater com essa lista.
 
-Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de autorização, injeção) · `MEDIUM` (falta hardening) · `LOW` (boa prática).
+Severidade: `CRITICAL` (secret vazado, RLS bypass, RCE) · `HIGH` (falha de autorização, injeção) · `MEDIUM` (falta hardening) · `LOW` (boa prática) · `INFO` (registro, sem risco hoje).
 
 **Handoff:** imprima o caminho do relatório. Diga que é esse arquivo que um agente deve ler antes de planejar qualquer fix — não infira o fix só pelo resumo do chat.
 
@@ -403,6 +553,10 @@ passo a passo numerado e o link da doc real, pra ele aprender a ler a fonte.
 Mantenha as contagens de severidade e o disclaimer — iniciante é justamente quem
 mais lê relatório limpo como "está seguro". Um relatório só, com enquadramento
 pedagógico; não escreva um segundo arquivo.
+
+**Modo direto.** Se a pessoa pedir ("modo direto", "sem explicação") ou o guia da casa
+disser que o padrão dela é o direto, os blocos 2 e 3 saem sem "O conceito" e "Por que
+aconteceu". O checklist de 7 linhas, as contagens e o disclaimer não mudam em modo nenhum.
 
 ## Quer ir mais fundo?
 

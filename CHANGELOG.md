@@ -10,6 +10,73 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.82.0] — 2026-10-24
+
+### Adicionado
+
+- **Hooks novos, vindos do kit do time, lidos por node:**
+  - **`check-dev-server`** (PreToolUse no navigate do Chrome, do navegador do app e do
+    navegador remoto): barra a navegação para um localhost fora do ar antes do screenshot de
+    página de erro.
+  - **`warn-doc-ancorado`** (SessionStart): avisa quando um handoff ou baseline em
+    `.context/docs` está ancorado num SHA 40 ou mais commits atrás do HEAD.
+  - **`warn-cli-outdated`** (SessionStart): avisa, no máximo uma vez por dia, quando o Claude
+    Code está atrás da versão do seu canal (stable ou latest), com o comando de upgrade.
+- **O espelho do Codex cobre skills** (`codex-espelho.sh`). Quando a versão muda:
+  - o symlink de `~/.codex/skills` ou `~/.agents/skills` que apontava para uma skill que saiu
+    de `~/.claude/skills` vira cópia da skill do plugin, com marcador;
+  - a cópia marcada é atualizada;
+  - a pasta da pessoa fica intacta, só com aviso.
+  O espelho deixa de ceder ao kit do time, que não o registra.
+- **Skills novas:**
+  - **`otimizar-app`**: triagem do que não é o app, número antes, fix por camada, a mesma
+    medição depois e prova no ar, sem mudar o visual. Traz dois scripts CDP (CPU por fase e
+    estrutura da página) sem `npm install`.
+  - **`video-watch`** (`/kit-vamoo:video-watch`, só manual): frames-chave e transcrição offline
+    com whisper.cpp de uma gravação local, do CleanShot ou do Loom. Testada só no macOS.
+- **`secscan`:**
+  - Fase 2.5 (validação de entrada), injeção em sete grupos (inclusive HTML montado fora do
+    framework e o `.or()` do supabase-js) e o bloco C7 (hash de senha, aleatoriedade, JWT,
+    TLS, segredo em repouso).
+  - Triagem do gitleaks em três baldes.
+  - Trivy opcional e "ruleset fixo, nunca `--config auto`".
+  - Novo `references/checklist-incidentes.md`, com 27 checks nascidos de incidente real.
+
+### Mudado
+
+- **`git-sync`:**
+  - Conta o autor por nome: a mesma pessoa com dois e-mails não liga o modo time.
+  - `--since` inválido sai com 2, e os PRs mergeados são filtrados por data no servidor.
+  - Quando o `gh` não enxerga o repo, usa o PAT do `.env.tokens`, `.env.local` ou `.env`, sem
+    imprimir.
+  - Diz "nada a sincronizar" quando a base já é o tip da default.
+- **`ship`:** adota o método do kit do time.
+  - §1 em paralelo, e §1b com o `collect.sh --diff` da `baseline`.
+  - Passos 2-base, 2a, 2b e 2c.
+  - Deploy guiado pelo `.context/docs/deploy.md` (`references/supabase-n8n.md` e
+    `references/vercel.md`).
+  - Merge e limpeza do worktree só com pedido da pessoa ou com regra escrita no projeto.
+- **`orquestracao`:** o schema de `agent()` sem retry, o workflow multi-round, o doctor antes
+  do fan-out, o revisor e a memória de veredito.
+- **`worktrees`:** o prefixo do worktree em todo write, o diagnóstico de drift no banco
+  compartilhado e a exceção do symlink na limpeza.
+- **`verificacao`:** ganha `references/refactor-por-costura.md` e
+  `references/rsc-client-boundary.md`.
+- **`baseline`:** `max_tokens` com thinking, limite no login, pilar 08 no contrato e
+  middleware do Traefik.
+- **Agentes:** o `executor` abre em rascunho o PR que ainda vai receber push. A
+  `auditoria-seguranca` e o `subagentes.md` chamam os agentes com namespace
+  (`kit-vamoo:revisor`, `kit-vamoo:executor`).
+- **`skills-projeto`:** a ordem fixa para enxugar o catálogo (deletar → mover → instalar →
+  gerar), a tabela de racionalizações e `references/criterios.md`.
+- **`n8n-workflow-agent`:** lê o `.context/docs/n8n.md` do projeto antes de tocar o workflow.
+- **`motion-reel`:** segue o guia de vídeo da casa quando ele existe.
+- **Descriptions mais curtas** em 8 skills, sem perder gatilho. A lista de skills ficou em
+  7.618 de 8.000 caracteres, para caber na janela de 200K.
+- **`pre-prompt`:** deixa de chamar o `warn-sem-jq` do kit do time.
+- Origem: lotes 3, 5 e 6 da F7 e F8a do núcleo único (#241). O kit do time deixa de ter cópia
+  própria dessas skills e desses hooks.
+
 ## [0.81.0] — 2026-10-24
 
 ### Mudado

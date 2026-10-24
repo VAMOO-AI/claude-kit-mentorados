@@ -20,7 +20,12 @@ allowed-tools:
   próprio com o `EnterWorktree` (cria em `<repo>/.claude/worktrees/`). O clone principal fica
   na `main`, só leitura.
 - Arquivo **versionado** se restaura de `origin` (`git restore --source=origin/<branch> <arq>`),
-  nunca copiado do clone principal: ele pode estar commits atrás.
+  nunca copiado do clone principal: ele pode estar commits atrás. O SessionStart do kit
+  (`warn-branch-worktree`) avisa quando a branch está atrás do upstream: `git pull --ff-only`
+  antes de copiar arquivo ou criar worktree.
+- **Em worktree, todo caminho de Read/Edit/Write leva o prefixo
+  `<repo>/.claude/worktrees/<nome>/`**, nunca o do clone principal. Confira o prefixo antes do
+  primeiro write: escrever no clone por engano suja o repo compartilhado e mistura versões.
 - **Env:** com um `.worktreeinclude` na raiz do projeto, o próprio Claude Code copia do clone
   os arquivos que casam com o padrão e que o git ignora, em todo worktree que ele cria
   (`--worktree`, subagent com `isolation: worktree`, sessão paralela do desktop;
@@ -29,7 +34,11 @@ allowed-tools:
   `instrucoes-projeto.sh --apply` o copia quando falta; commite. `.npmrc`/`bunfig.toml` ficam de fora (token de registry). A doc não diz se o
   `EnterWorktree` aplica o arquivo, e worktree criado fora do Claude Code não recebe nada:
   confira e copie à mão. Sintoma da falta: login com **"Failed to fetch"**.
-- **`node_modules`** não vem: `npm install` no worktree. Symlink quebra os binários do `.bin`.
+- **`node_modules`** não vem: `npm install` no worktree. Symlink quebra os binários do `.bin` e
+  faz dois worktrees disputarem o mesmo lock do Playwright. Enquanto ele não existe, `npx`/`bunx`
+  resolve uma versão **de fora do projeto**, sem aviso.
+- **`e2e/.runtime-env.json`** (e todo arquivo gerado que guarda porta de dev server) não se
+  copia: ressuscita a porta de outro worktree.
 
 ## Quando o guard recusa o comando
 
@@ -38,6 +47,12 @@ allowed-tools:
 `gh` com `VAR="$(…)"` somado a `-q`/`--jq` entre aspas, launcher antes do `git` (o `git` tem
 de ser o primeiro token) e heredoc seguido de `&&`. Contorno: `Write` o comando num `.sh` no
 scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de ferramenta.
+
+Da pasta onde a sessão abriu, `EnterWorktree path:` entra em qualquer worktree de
+`git worktree list` (fora de `<repo>/.claude/worktrees/`, pedindo permissão). De dentro de um
+worktree, só troca para outro do mesmo repo sob `.claude/worktrees/`. Precisa de outra branch
+e o trabalho anterior já está pusheado ou mergeado: `git checkout -b <nova> origin/main` no
+worktree que você já tem.
 
 ## Base velha
 
@@ -52,7 +67,11 @@ scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de
 
 ## Commit seguro em clone compartilhado
 
-- Branch conferida no mesmo comando do commit; `git add <arquivos>`, nunca `-A`/`.`.
+- Branch conferida no mesmo comando do commit
+  (`[ "$(git branch --show-current)" = "feat/x" ] && git commit …`); `git add <arquivos>`,
+  nunca `-A`/`-u`/`.`: o index é compartilhado, e o staged de outra sessão entra de carona.
+- Depois de todo commit, `git log --oneline -1 --decorate` e confira a branch antes do push.
+  Caiu errado → reporte antes de corrigir.
 - O kit bloqueia `git commit` na `main` (`HOTFIX_MAIN=1` de propósito) e checa a branch
   **antes** do comando: crie a branch num comando, commite em outro.
 - O kit bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone principal com outra
@@ -62,7 +81,12 @@ scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de
 
 O `supabase start` (ou o Postgres em Docker) é um só na máquina: a migration de um worktree
 aparece no banco do outro. O sintoma é um **`git push` recusado** por gate de schema que acha
-tabela fora das suas migrations.
+tabela fora das suas migrations. A pergunta é "de quem são essas tabelas?":
+
+```bash
+git diff -- <caminho>/database.types.ts | grep -c '^-'   # 0 = drift só ADITIVO, nada seu mudou
+grep -rln "<tabela-estranha>" <repo>/.claude/worktrees/*/supabase/migrations/
+```
 
 1. `git fetch && git log HEAD..origin/main`: quase sempre o outro já mergeou; traga a `main`.
 2. Não mergeado: `--no-verify` é decisão da pessoa, com o motivo dito no PR.
@@ -93,11 +117,22 @@ enxergue o repo.
 
 - Faltou um item (exit 1): o worktree fica (`ExitWorktree` com `action: "keep"`) e você diz à
   pessoa o que faltou, com a linha `keep:`.
+- A única linha `keep:` que não segura o worktree é a de um symlink para fora dele (`.venv` ou
+  `models` ligado ao clone principal), porque remover apaga o link, não o alvo. Só vale quando
+  o motivo é "não commitado" e o `git status --porcelain` mostra apenas o link. Ignorado de
+  valor (`outputs/…`), env e repo aninhado nunca entram nela, por mais fácil que seja refazer.
+  Confira o alvo com `readlink <wt>/<link>` e desfaça com `unlink <wt>/<link>`, nunca
+  `rm -r <link>/`: com a barra o `rm` segue o link e apaga o alvo.
 - Prova completa: `git worktree remove <wt>` (nunca `--force`), `git branch -D`, `git worktree
   prune`. Worktree do `EnterWorktree`: `ExitWorktree` `action: "remove"`; `discard_changes:
   true` só com a prova completa e o `--verificar` rodado de novo **logo antes** (ele apaga
   ignorado sem listar).
 - Vários: `git-sync --cleanup-dry-run`; `--cleanup-apply` só com o pedido.
+- A pessoa mandou descartar **sem** a prova (limpeza em lote, worktree de outra sessão com algo
+  não commitado que talvez valha): no macOS, `mv <wt> ~/.Trash/wt-<repo>-<nome>-<AAAAMMDD>` em
+  vez de `worktree remove`, que apaga de vez, e depois `git worktree prune`. Confira pelo sumiço
+  da origem (`[ -e <wt> ]`): sem Full Disk Access, `ls ~/.Trash` dá "Operation not permitted".
+  A Lixeira não libera disco até ser esvaziada.
 
 Depois, `git fetch --prune`; o clone principal se atualiza com `git pull --ff-only`, sem trocar
 de branch.

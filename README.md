@@ -32,7 +32,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **25 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **27 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -43,7 +43,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | `plugin/agents/revisor.md` | plugin | **Revisor read-only**: subagente que o Claude chama para revisar trabalho já feito — bate com a spec?, roda os checks de novo por conta própria e devolve veredito, findings com `arquivo:linha` e o output real, sem editar nada. |
 | `plugin/agents/executor.md` | plugin | **Executor**: subagente que implementa um lote que a conversa principal despacha, com escopo fechado (arquivos permitidos, teste falhando antes do fix, report com o output real). Roda em `effort: medium`, como o revisor. |
 | `docs/como-trabalhar-com-claude.md` | — | **Guia de leitura** — como pedir bem, verificar e não se queimar. Comece por aqui. |
-| `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto` e `orquestracao`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
+| `plugin/scripts/skill-pressure-test.sh` + `tests/skills/` | — | **Teste de skill sob pressão**: prova se uma skill de disciplina segura o Claude quando ele tem motivo pra furar a regra. Cenários prontos pra `verificacao`, `worktrees`, `ship`, `grilling`, `memoria-projeto`, `orquestracao` e `otimizar-app`; método em [`docs/testar-skills-sob-pressao.md`](docs/testar-skills-sob-pressao.md). |
 | `plugin/scripts/instrucoes-projeto.sh` | — | **Migra um projeto que já existia** para o `AGENTS.md` como fonte e o `CLAUDE.md` como a ponte `@AGENTS.md`. Peça ao Claude: "roda o instrucoes-projeto do kit com `--check` neste repo". Ele mostra a classe do par (só import, cópia duplicada, symlink, divergentes…), o tamanho frente ao limite de 32 KiB do Codex e a proposta, sem gravar; depois, com `--apply`, grava só nas classes que não pedem julgamento e mostra o diff antes. |
 | `plugin/templates/` | — | Modelos pra copiar em projetos novos: `AGENTS.md` de projeto (com o `CLAUDE.md` de uma linha que o importa), `.env.example`, `.gitignore`, `.worktreeinclude` (o Claude Code copia o `.env` ignorado para cada worktree novo), CI e **`playwright/`** (testes e2e). |
 | `install.sh` | — | Instalação pelo terminal, pra quem prefere — ou pra instalar de um clone local, sem rede. |
@@ -60,7 +60,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 25. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 27. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -75,6 +75,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **auditoria-seguranca** | Auditoria em 6 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com ferramentas) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
 | **secscan** | Varredura de segurança read-only do repositório inteiro: RLS, secrets, deps vulneráveis. "roda um secscan". Revisão só do que mudou no diff é o `/security-review` do Claude Code. Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 8 pilares: bundle, RLS, login e permissão, limites de uso, carga e cache, observabilidade, segredos e perímetro (o que fica exposto na internet). Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
+| **otimizar-app** | *"Está pesado, lento, travando."* — triagem do que não é o app (`next dev`, região da função longe do banco, dado velho, a própria máquina), número antes de mexer, o fix mais barato na camada certa (front, bytes ou dados), a mesma medição depois e a prova de que chegou ao ar, **sem mudar o visual**. Traz dois scripts sem `npm install`: CPU da página por fase (parada, rolando, celular com CPU 4× mais lenta) e uma foto da estrutura da página para comparar antes e depois. "Sem ganho medido" é resultado, não vira commit de `perf:`. | Node 22+ e Chrome (para os scripts) |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. Quando o índice passa de 8 KB, `memoria-indice.sh` o divide em dois níveis para não pesar toda request. | projeto em git |
@@ -125,6 +126,7 @@ cliente. Slash-only: o Claude não aciona sozinho.
 |---|---|---|
 | **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~12k tokens quando dispara, e o pedido de vídeo lê mais ~15k da referência de vídeo; desligue em `/plugin` se não for usar. | conta no gerador |
 | **gerar-imagem** | `/kit-vamoo:gerar-imagem`, só manual: gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
+| **video-watch** | `/kit-vamoo:video-watch`, só manual: "assiste" uma gravação de tela (arquivo local, CleanShot, Loom ou `.mp4` direto). Extrai os frames que importam como imagem e transcreve o áudio offline com whisper.cpp; o vídeo não sai da sua máquina. Serve para bug demonstrado em vídeo e para resumir uma gravação. | macOS com `ffmpeg` 5.1+ e `whisper-cpp` (`brew`), `python3`; modelo do whisper (~1,5 GB, uma vez) |
 | **motion-reel** | Faz vídeo de motion design em Remotion a partir de um template pronto: Reel 9:16, vinheta ou anúncio guiado pela música, ou filme 16:9 com corte 9:16 em que a narração manda no tempo (voz do ElevenLabs cortada por fala, telas do Claude Code Desktop, trilha de cinema). Tipografia cinética, câmera 3D, 10 transições na batida, efeitos sonoros e revisão por folhas de quadros. Você entra com o texto e o seu logo (sem logo sai um placeholder "SUA MARCA"); sai o MP4 pronto pra rede social, com o áudio no volume certo. O áudio é gerado, nunca ouvido pelo Claude: escute antes de postar. | Node.js 18+, `ffmpeg` e `python3` com `numpy`; voz: ElevenLabs (chave ou conector) |
 
 ---
@@ -238,7 +240,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 25 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 27 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
