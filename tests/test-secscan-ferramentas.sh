@@ -53,11 +53,12 @@ roda() { # roda <caso> → saída do bloco, rodado dentro de um projeto vazio
   (cd "$TMP/$1/proj" && PATH="$TMP/$1/bin:/usr/bin:/bin" bash "$TMP/fase05.sh" 2>&1)
 }
 
-echo "== nenhum scanner instalado: os três AUSENTE =="
+echo "== nenhum scanner instalado: os quatro AUSENTE =="
 out=$(roda nada)
 tem "semgrep AUSENTE"     "$out" "semgrep ausente"
 tem "gitleaks AUSENTE"    "$out" "gitleaks ausente"
 tem "osv-scanner AUSENTE" "$out" "osv-scanner ausente"
+tem "trivy AUSENTE"       "$out" "trivy ausente (opcional, mas dito)"
 
 echo "== semgrep instalado que falha (sem rede para baixar o ruleset) =="
 falso semfalha semgrep 2 "Failed to download configuration p/owasp-top-ten"
@@ -69,9 +70,10 @@ tem "exit 2"               "$out" "…com o código de saída"
 tem "última linha: Failed to download configuration p/owasp-top-ten" "$out" "…e a última linha do erro"
 
 echo "== semgrep que roda bem, com o SARIF em secscan-reports/ =="
-falso semok semgrep 0
+falso semok semgrep 0 "Ran 255 rules on 2198 files: 27 findings."
 out=$(roda semok)
 nao_tem "semgrep AUSENTE"  "$out" "semgrep ok não sai como ausente"
+tem "Ran 255 rules on 2198 files: 27 findings." "$out" "…e o resumo de regras, arquivos e achados chega à saída"
 nao_tem "semgrep FALHOU"   "$out" "…nem como falhou"
 args=$(cat "$TMP/semok/args.log" 2>/dev/null)
 tem "--output secscan-reports/secscan.sarif" "$args" "o SARIF vai para secscan-reports/, pelos argumentos do semgrep"
@@ -142,6 +144,12 @@ out=$(roda osv1)
 nao_tem "osv-scanner AUSENTE" "$out" "vulnerabilidade encontrada não vira osv-scanner ausente"
 tem "osv-scanner exit 1"      "$out" "…a saída diz o código"
 tem "128 sem lockfile"        "$out" "…e a legenda conhece o 128"
+
+echo "== trivy que falha não vira ausente =="
+falso trivy2 trivy 2
+out=$(roda trivy2)
+nao_tem "trivy AUSENTE" "$out" "trivy que falhou não vira ausente"
+tem "trivy exit 2"      "$out" "…a saída diz o código"
 
 echo "== gitleaks de verdade: segredo não commitado aparece, e o valor não =="
 if command -v gitleaks >/dev/null; then
