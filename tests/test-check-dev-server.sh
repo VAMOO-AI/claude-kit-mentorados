@@ -88,7 +88,7 @@ if [ -z "$matcher" ]; then
 else
   printf '  ok    o hooks.json registra o check-dev-server no PreToolUse\n'
   casa() { node -e 'process.exit(new RegExp("^(?:" + process.argv[1] + ")$").test(process.argv[2]) ? 0 : 1)' "$matcher" "$1"; }
-  for t in mcp__claude-in-chrome__navigate mcp__Claude_Browser__navigate; do
+  for t in mcp__claude-in-chrome__navigate mcp__Claude_Browser__navigate mcp__remote-devices__Claude_Browser__navigate; do
     casa "$t" && printf '  ok    matcher casa %s\n' "$t" || { printf '  FALHA matcher "%s" não casa %s\n' "$matcher" "$t"; falhas=$((falhas+1)); }
   done
   for t in mcp__Claude_Browser__computer mcp__claude-in-chrome__read_page Bash; do
