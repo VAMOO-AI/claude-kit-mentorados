@@ -39,10 +39,11 @@ operação*. Isso muda como tudo é feito e o próximo dev precisa saber.
 | 01 | Frontend | sourcemap não servido, sem segredo em prefixo público, CSP sem `unsafe-inline` | | `curl -sSI <dominio>` | |
 | 02 | Banco | RLS em 100%, `SECURITY DEFINER` com `search_path` | | `splinter.sh 0013 0011 0010` | |
 | 03 | Auth | fail-closed, todo gate com contrapartida declarada | | curl com token do papel restrito | |
-| 04 | Limites | rate limit por identidade, `max_tokens` em LLM | | `collect.sh` + teste de 429 | |
+| 04 | Limites | rate limit por identidade, limite no login, `max_tokens` em LLM | | `collect.sh` + teste de 429 (inclusive no login) | |
 | 05 | Carga | sem query sem teto, agregação no banco acima de 10k | | `pg_stat_user_tables` | |
 | 06 | Observabilidade | error tracking ativo, alerta com destino externo | | erro provocado → tracker | |
 | 07 | Segredos | inventário completo, scan de HEAD + histórico | | `gitleaks detect` | |
+| 08 | Perímetro | hosts públicos inventariados, headers em toda borda, painel fora do domínio principal e trancado | | `curl -sSI` por host + `gh repo list` | |
 
 Valores de `Estado`: `conforme` · `nao_conforme` · `parcial` · `nao_medido`.
 

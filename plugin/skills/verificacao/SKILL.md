@@ -37,7 +37,9 @@ REAL primeiro — logs/Observability do Vercel pelo digest, Sentry, ou peça pro
 usuário colar — ANTES de montar repro local. Repro que não exercita o caminho
 real engana: passa verde e some o bug (ex: render em vitest/jsdom NÃO tem
 fronteira RSC, então erro server→client de Next "passa"). O erro real aponta
-arquivo:linha na hora; horas de eliminação não.
+arquivo:linha na hora; horas de eliminação não. No caso RSC ("Functions cannot be passed
+directly to Client Components", digest constante), leia
+[`references/rsc-client-boundary.md`](references/rsc-client-boundary.md).
 
 ## Mudança que toca UI → inspeção visual
 
@@ -46,7 +48,8 @@ exercite a mudança antes de "pronto", incluindo estados interativos (clique,
 hover, loading, empty) — static check não pega blur, layout quebrado nem botão
 morto. Se você tiver o MCP do navegador, estado, texto e erro se conferem lendo
 a página como texto (`read_page`, `get_page_text`); screenshot só onde o pixel é
-a evidência (blur, layout, cor). Sem ele, peça à pessoa que abra a página e diga
+a evidência (blur, layout, cor), e QA visual com mais de 2 screenshots vai para um
+subagente, que devolve o veredito em texto. Sem ele, peça à pessoa que abra a página e diga
 (ou mande o print de) o que viu. Isso é bug de entrega, não polimento.
 
 QA em subagent devolve o veredito no formato de `references/qa-taxonomia.md`:
@@ -95,6 +98,13 @@ o rerun fecha verde. O caso que ensinou isso, os comandos completos e as duas
 causas que mais voltam (`sleep` no lugar de condição; o teste que suja o estado,
 achado com `scripts/find-polluter.sh`) estão em `references/testes-flaky.md`.
 
+## Refactor de arquivo grande → tsc do projeto inteiro
+
+Extrair código muda o tipo inferido em call sites que você não abriu, e pode empurrar o
+arquivo de destino acima do teto. O check de "pronto" de um refactor é o `tsc` do projeto
+inteiro e o lint de novo, nunca só o arquivo mexido. Onde cortar e as duas pegadinhas com
+exemplo: [`references/refactor-por-costura.md`](references/refactor-por-costura.md).
+
 ## Efeito colateral externo → simulado, dry-run, e só então o real
 
 Vale para tudo que sai da sua máquina e chega numa pessoa: mensagem de
@@ -124,6 +134,7 @@ não dispare; um filtro está errado.
 
 ## Fechamento
 
-Converta o teste descartável em ao menos UM teste que fica no repo. Antes de
+Converta o teste descartável em ao menos UM teste que fica no repo. Depois do fix: causa
+raiz e como prevenir a categoria do bug. Antes de
 reportar, leia o `git diff`, que mostra inclusive o que entrou sem querer; reabrir
 cada arquivo editado não acrescenta nada.
