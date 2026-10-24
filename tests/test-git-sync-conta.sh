@@ -52,7 +52,9 @@ mkdir -p "$TMP/bin"
 cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 tok="${GH_TOKEN:-${FAKE_GH_ACTIVE:-tok-pessoal}}"
-sees() { [ -z "${FAKE_GH_NONE:-}" ] && [ "$tok" = "tok-cliente" ]; }
+# tok-repo: o PAT que só existe no .env do repo (repo de outra org, que nenhuma conta do
+# keyring enxerga).
+sees() { [ "$tok" = "tok-repo" ] || { [ -z "${FAKE_GH_NONE:-}" ] && [ "$tok" = "tok-cliente" ]; }; }
 # FAKE_GH_FALHA_1A=<arquivo>: a 1ª consulta do processo falha como instabilidade (a
 # conta enxerga, a rede não respondeu); as seguintes seguem a regra normal.
 if [ -n "${FAKE_GH_FALHA_1A:-}" ] && [ ! -e "$FAKE_GH_FALHA_1A" ] && [[ "$*" == "repo view"* ]]; then
@@ -130,6 +132,23 @@ echo "== --no-pr --cleanup-dry-run ainda avisa a conta =="
 OUT="$(FAKE_GH_ACTIVE=tok-pessoal run --no-pr --cleanup-dry-run)"
 check '### cleanup candidates'                                    "seção de cleanup presente"       "$OUT"
 check 'conta gh: cliente'                                         "nota aparece no cleanup"         "$OUT"
+
+echo "== PAT no .env do repo: usado só quando o gh não enxerga, e sem vazar =="
+# Repo de outra org: o git autentica por outro credential store, o keyring do gh não
+# enxerga, e o PAT do repo mora num .env da raiz. O script lê só a linha do token (nunca
+# `source`), usa neste processo e diz de onde veio. Não vai para o keyring.
+printf '# comentário\nOUTRA=1\nexport GH_TOKEN="tok-repo" # do repo\n' > "$CLONE/.env.local"
+OUT="$(FAKE_GH_NONE=1 run)"
+check  'autenticado pelo \.env\.local do repo'                    "diz de onde veio o token"        "$OUT"
+check  '#?7  feat: coisa'                                         "lista o PR com o PAT do repo"    "$OUT"
+refute 'nenhuma conta do gh enxerga'                              "não cai no 'nenhuma conta'"      "$OUT"
+refute 'tok-'                                                     "token não vaza na saída"         "$OUT"
+OUT="$(FAKE_GH_ACTIVE=tok-cliente run)"
+refute 'autenticado pelo'                                         "gh que enxerga não usa o PAT"    "$OUT"
+check  '#?7  feat: coisa'                                         "lista o PR pela conta ativa"     "$OUT"
+OUT="$(FAKE_GH_NONE=1 run_com_token tok-cliente)"
+refute 'autenticado pelo'                                         "GH_TOKEN da pessoa vence o PAT"  "$OUT"
+rm -f "$CLONE/.env.local"
 
 echo "== avisos: branch gone e dirty na default =="
 echo sujo >> "$CLONE/base.txt"

@@ -125,6 +125,12 @@ jobs:
       - name: O gh do git-sync consulta o repo do origin, não o upstream que ele preferiria
         run: bash tests/test-git-sync-gh-repo-origin.sh
 
+      - name: O risco de conflito do git-sync não acusa sobreposição em branch cuja base é o tip da default
+        run: bash tests/test-git-sync-risco-conflito.sh
+
+      - name: O modo time do git-sync conta autor por nome, valida o --since e filtra os mergeados no servidor
+        run: bash tests/test-git-sync-modo-time.sh
+
       - name: O worktree-gc só apaga worktree cuja branch está mesmo mergeada
         run: bash tests/test-worktree-gc.sh
 
