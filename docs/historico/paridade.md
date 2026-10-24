@@ -1,5 +1,11 @@
 # Paridade com o kit do time (`claude-config-team`)
 
+> **Arquivado na F10 do núcleo único (#241).** Hook e script do núcleo moram só neste plugin; o
+> kit do time os recebe pela `nucleo.lista` e não distribui hook do núcleo, e o gate de lá
+> (`tests/test-nucleo-lista.sh`) reprova a cópia. O `scripts/paridade.sh`, o
+> `scripts/paridade.ignore`, o `tests/test-paridade-arquivos.sh` e o job `paridade-conteudo` do
+> CI saíram. O texto abaixo fica como registro de como as divergências eram tratadas.
+
 Este kit e o `claude-config-team` compartilham hooks, scripts, skills e testes — e **todos
 divergem no arquivo**. Em 04/09/2026 a medição foi: 13 de 13 hooks, 16 de 16 skills, 3 de 7
 scripts e 13 de 13 testes diferentes entre os dois repositórios. Parte é desenho; parte era
