@@ -17,6 +17,11 @@ que não existe. O kit instala as regras e skills que corrigem esses
 comportamentos — as mesmas que eu uso com clientes em produção, sanitizadas.
 E cada regra aqui existe porque preveniu ou corrigiu um bug real.
 
+**É o método da VAMOO AI.** O kit é mantido por Ruan Miranda, fundador da VAMOO AI, e é a
+mesma configuração com que a VAMOO AI trabalha na mentoria de IA para empresários e no
+treinamento de IA in company. Ele é aberto (MIT): o que se paga na VAMOO AI é a curadoria e o
+construir junto, não o acesso ao kit.
+
 > **Pré-requisito:** ter o [Claude Code](https://claude.com/claude-code) instalado e
 > logado. Teste no terminal: `claude --version`. Se aparecer um número, você está pronto.
 
