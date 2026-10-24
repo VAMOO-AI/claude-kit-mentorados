@@ -32,6 +32,9 @@ command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 
 # Rodado de uma sessão com a escotilha aberta, o teste herdaria o KIT_VAMOO_HOOKS=1 e
 # reprovaria uma guarda que está certa.
 unset KIT_VAMOO_HOOKS
+# O codex-espelho roda sem a guarda e lê CODEX_HOME e CLAUDE_PLUGIN_DATA do ambiente: herdados,
+# o teste escreveria no Codex de quem o rodou (o HOME é trocado, esses dois não).
+unset CODEX_HOME CLAUDE_PLUGIN_DATA
 
 GUARDA='[ -f "$HOME/.claude/.team-manifest" ] && [ "${KIT_VAMOO_HOOKS:-}" != 1 ] && exit 0; '
 TAB="$(printf '\t')"
