@@ -10,6 +10,8 @@
 #
 # Uso: bash tests/test-warn-kit-updated.sh [raiz-do-repo]
 set -uo pipefail
+# Herdado de uma sessão com a escotilha aberta, o KIT_VAMOO_HOOKS=1 reprovaria o caso do time.
+unset KIT_VAMOO_HOOKS
 RAIZ="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 SCRIPT="$RAIZ/plugin/scripts/warn-kit-updated.sh"
 HOOKS_JSON="$RAIZ/plugin/hooks/hooks.json"
@@ -218,6 +220,21 @@ saida="$(roda "" "$VAZIO")"; codigo=$?
 check "exit 0 sem novidades.txt"        "$([ $codigo -eq 0 ] && echo ok || echo fail)"
 check "silêncio sem novidades.txt"      "$([ -z "$saida" ] && echo ok || echo fail)"
 check "marcador intocado sem novidades.txt" "$([ "$(marca)" = 1.2.0 ] && echo ok || echo fail)"
+
+echo "== máquina do time (.team-manifest): cala, com ou sem o corte =="
+# O setup recusa na máquina do time e quem atualiza o time é o update.sh, então o "rode
+# /kit-vamoo:setup" daqui seria instrução errada. É o único hook do plugin que o time nunca
+# teve: depois do corte da F9 (nucleo=plugin) a guarda de convidado deixa de calar os hooks
+# daqui, e este passaria a falar. KIT_VAMOO_HOOKS=1 (dogfooding) religa, como nos outros.
+for manifesto in 'skill/vamoo-verificacao' 'nucleo=plugin'; do
+  reset; semeia 1.1.0; printf '%s\n' "$manifesto" > "$FAKE_HOME/.claude/.team-manifest"
+  saida="$(roda)"; codigo=$?
+  check "manifesto '$manifesto': exit 0 e nada impresso" "$([ $codigo -eq 0 ] && [ -z "$saida" ] && echo ok || echo fail)"
+  check "manifesto '$manifesto': marcador intocado" "$([ "$(marca)" = 1.1.0 ] && echo ok || echo fail)"
+done
+reset; semeia 1.1.0; echo 'nucleo=plugin' > "$FAKE_HOME/.claude/.team-manifest"
+saida="$(KIT_VAMOO_HOOKS=1 roda)"
+check "KIT_VAMOO_HOOKS=1 religa o aviso na máquina do time" "$(printf '%s' "$saida" | grep -q '1.1.0 → 1.4.0' && echo ok || echo fail)"
 
 echo "== o hook está mesmo pendurado no SessionStart =="
 # Caminho errado no hooks.json é no-op silencioso: o Claude Code não reclama, e o

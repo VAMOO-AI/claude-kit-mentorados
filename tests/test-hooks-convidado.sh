@@ -17,11 +17,19 @@
 # update.sh não é reescrito (a fonte dos dois é o mesmo plugin instalado). Quem reescrever a
 # guarda na F9 (`nucleo=plugin`) não deve recolocá-la nele.
 #
+# Corte da F9 (docs/plano-nucleo-plugin.md do kit do time): quando o update.sh do time tira
+# os hooks do núcleo do settings.json dele, grava a linha `nucleo=plugin` no .team-manifest, e
+# a partir daí quem roda é este plugin. Por isso a guarda cede só com o manifesto SEM essa
+# linha. Nunca pode haver zero guards nem guard em dobro: guard que falha deixa o comando
+# passar sem aviso.
+#
 # O que precisa continuar valendo:
 #   - todo comando registrado começa com a guarda, inclusive hook que entrar depois, menos o
 #     codex-espelho, que NÃO começa com ela;
-#   - com o marcador, os comandos saem 0, calados, e não escrevem nada no HOME;
-#   - sem o marcador (a máquina de um mentorado) ou com a escotilha, o hook age.
+#   - com o manifesto sem `nucleo=plugin`, os comandos saem 0, calados, e não escrevem nada
+#     no HOME;
+#   - com `nucleo=plugin` no manifesto, sem manifesto (a máquina de um mentorado) ou com a
+#     escotilha, o hook age.
 #
 # Uso: bash tests/test-hooks-convidado.sh [raiz-do-repo]
 set -uo pipefail
@@ -36,7 +44,11 @@ unset KIT_VAMOO_HOOKS
 # o teste escreveria no Codex de quem o rodou (o HOME é trocado, esses dois não).
 unset CODEX_HOME CLAUDE_PLUGIN_DATA
 
-GUARDA='[ -f "$HOME/.claude/.team-manifest" ] && [ "${KIT_VAMOO_HOOKS:-}" != 1 ] && exit 0; '
+# Desde a F9 a guarda cede só quando o manifesto existe E não tem a linha exata `nucleo=plugin`,
+# que o update.sh do time grava no corte. O trecho `! grep -qx 'nucleo=plugin'` é o que o
+# update.sh do time procura no hooks.json instalado antes de cortar: pelo conteúdo, não só pelo
+# número da versão.
+GUARDA='[ -f "$HOME/.claude/.team-manifest" ] && [ "${KIT_VAMOO_HOOKS:-}" != 1 ] && ! grep -qx '"'"'nucleo=plugin'"'"' "$HOME/.claude/.team-manifest" 2>/dev/null && exit 0; '
 TAB="$(printf '\t')"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/hooks-convidado.XXXXXX")"
@@ -141,13 +153,50 @@ done
 rc="$(roda bash "$pre_bash" "$PAYLOAD_BASH" "$HOME_ESC" 0)"
 check "KIT_VAMOO_HOOKS=0 não abre a escotilha, só o 1" "$([ "$rc" = 0 ] && [ ! -s "$TMP/err" ] && echo ok || echo fail)"
 
-echo "== sem o marcador (máquina de mentorado), o hook age como sempre =="
+echo "== sem manifesto (máquina de mentorado), o hook age como sempre =="
 HOME_MENTORADO="$TMP/home-mentorado"; mkdir -p "$HOME_MENTORADO/.claude"
 for sh_ in sh bash; do
   rc="$(roda "$sh_" "$pre_bash" "$PAYLOAD_BASH" "$HOME_MENTORADO")"
   check "$sh_: commit na main sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
   check "$sh_: a mensagem de bloqueio chega no stderr" "$(grep -q "cairia na branch 'main'" "$TMP/err" && echo ok || echo fail)"
 done
+
+echo "== corte da F9: com nucleo=plugin no manifesto, o hook age =="
+HOME_CORTE="$TMP/home-corte"; mkdir -p "$HOME_CORTE/.claude"
+printf 'team 0.0.0 x\nskill/vamoo-verificacao\nnucleo=plugin\n' > "$HOME_CORTE/.claude/.team-manifest"
+for sh_ in sh bash; do
+  rc="$(roda "$sh_" "$pre_bash" "$PAYLOAD_BASH" "$HOME_CORTE")"
+  check "$sh_: commit na main sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
+  check "$sh_: a mensagem de bloqueio chega no stderr" "$(grep -q "cairia na branch 'main'" "$TMP/err" && echo ok || echo fail)"
+done
+# Linha exata: um texto que só contém o marcador (comentário, outro valor) não é o corte.
+HOME_QUASE="$TMP/home-quase"; mkdir -p "$HOME_QUASE/.claude"
+printf 'team 0.0.0 x\n# nucleo=plugin\nnucleo=plugin-nao\n' > "$HOME_QUASE/.claude/.team-manifest"
+rc="$(roda bash "$pre_bash" "$PAYLOAD_BASH" "$HOME_QUASE")"
+check "marcador que não é a linha exata não corta: o hook cede" "$([ "$rc" = 0 ] && [ ! -s "$TMP/err" ] && echo ok || echo fail)"
+
+echo "== a guarda de cada comando, isolada: quem cede e quem passa =="
+# Troca o script de cada comando por um eco: prova a guarda de TODO hook registrado, não só a
+# do pre-bash, sem depender do que cada script faz com o payload.
+cortados_cederam=""; time_passou=""; mentorado_cedeu=""
+while IFS="$TAB" read -r evento cmd; do
+  case "$cmd" in *codex-espelho.sh*) continue ;; esac
+  so_guarda="${cmd%%; *}; echo PASSOU"
+  for sh_ in sh bash; do
+    roda "$sh_" "$so_guarda" "$PAYLOAD_BASH" "$HOME_CORTE" >/dev/null
+    grep -qx PASSOU "$TMP/out" || cortados_cederam="$cortados_cederam $sh_:$(rotulo "$evento" "$cmd")"
+    roda "$sh_" "$so_guarda" "$PAYLOAD_BASH" "$HOME_MENTORADO" >/dev/null
+    grep -qx PASSOU "$TMP/out" || mentorado_cedeu="$mentorado_cedeu $sh_:$(rotulo "$evento" "$cmd")"
+    roda "$sh_" "$so_guarda" "$PAYLOAD_BASH" "$HOME_TIME" >/dev/null
+    [ -s "$TMP/out" ] && time_passou="$time_passou $sh_:$(rotulo "$evento" "$cmd")"
+  done
+done < "$TMP/comandos"
+check "com nucleo=plugin, todo comando passa da guarda" "$([ -z "$cortados_cederam" ] && echo ok || echo fail)"
+[ -n "$cortados_cederam" ] && printf '        → cederam:%s\n' "$cortados_cederam"
+check "sem manifesto, todo comando passa da guarda" "$([ -z "$mentorado_cedeu" ] && echo ok || echo fail)"
+[ -n "$mentorado_cedeu" ] && printf '        → cederam:%s\n' "$mentorado_cedeu"
+check "com manifesto sem nucleo=plugin, todo comando sai na guarda" "$([ -z "$time_passou" ] && echo ok || echo fail)"
+[ -n "$time_passou" ] && printf '        → passaram:%s\n' "$time_passou"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

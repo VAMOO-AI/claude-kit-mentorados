@@ -30,6 +30,13 @@
 # Testável: CLAUDE_PLUGIN_ROOT (raiz do plugin) e HOME (marcador).
 set -uo pipefail
 
+# Máquina com o kit do time (.team-manifest), com ou sem o corte da F9 (nucleo=plugin): cala.
+# O setup recusa lá e quem atualiza o time é o update.sh, então o "rode /kit-vamoo:setup" daqui
+# seria instrução errada. Antes do corte a guarda de convidado do hooks.json já calava este
+# hook; depois dele a guarda deixa os hooks daqui rodarem, e este é o único que o time nunca
+# teve. KIT_VAMOO_HOOKS=1 religa, como a escotilha da guarda.
+[ -f "$HOME/.claude/.team-manifest" ] && [ "${KIT_VAMOO_HOOKS:-}" != 1 ] && exit 0
+
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)}"
 [ -n "${PLUGIN_ROOT:-}" ] || exit 0
 

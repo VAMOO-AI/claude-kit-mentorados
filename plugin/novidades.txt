@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.83.0|Preparação para o kit do time usar os hooks do plugin: nada muda na máquina do mentorado
 0.82.0|o kit avisa quando o Claude Code está desatualizado, barra o navegador de abrir localhost fora do ar, o secscan procura mais tipos de falha e chegam a /kit-vamoo:otimizar-app e a /kit-vamoo:video-watch
 0.81.0|quando a limpeza do Mac deixa um worktree para trás, agora fica anotado no backup o motivo, e ela também procura em ~/WORKSPACES
 0.80.0|a find-docs agora diz qual lib escolheu e por quê e pega a versão que você pediu, e o /kit-vamoo:handoff também atende quando você pede em texto
