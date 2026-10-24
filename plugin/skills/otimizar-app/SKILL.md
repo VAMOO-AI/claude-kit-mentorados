@@ -1,11 +1,9 @@
 ---
 name: otimizar-app
 description: >-
-  App ou landing pesado, lento ou travando: triagem do que não é o app, número
-  antes, fix mais barato na camada certa, a mesma medição depois e prova no ar,
-  sem mudar o visual. Gatilhos: "tá pesado", "lento", "travando", "otimiza",
-  "demora pra carregar", egress ou Disk IO alto. Postura de prod é da baseline;
-  VPS/Docker é da /kit-vamoo:monitoramento-infra.
+  App ou landing "pesado", "lento", "travando", "demora pra carregar", egress
+  alto: mede antes, corrige na camada certa, mede depois e prova no ar, sem
+  mudar o visual.
 allowed-tools:
   - 'Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/runtime-bench.mjs" *)'
   - 'Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/runtime-bench.mjs *)'
