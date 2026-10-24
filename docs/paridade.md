@@ -41,7 +41,6 @@ sai é o regex — o viés é o mesmo dos dois lados, então a comparação cont
 | `hooks/rtk-claude.sh`, `rtk-codex.sh`, `scripts/rtk-holdout.sh`, `docs/rtk-holdout.md` + suítes | sim | O RTK é uma ferramenta que o time usa; mentorado não instala. O holdout (grupo de controle da economia declarada pelo `rtk gain`) nasceu em 0.32.0 do time e não tem o que fazer aqui — sem o rtk instalado não há nem braço tratado nem ledger. |
 | Guards no Codex: leitura do comando em array (`["/bin/zsh","-lc","<cmd>"]`) e da pasta em `tool_input.workdir`, modo `--codex` nas suítes, `scripts/codex-optimize.sh` e o registro no `~/.codex/hooks.json` (time #345, que fechou a #315) | sim | Os hooks do plugin só rodam no Claude Code (`plugin/hooks/hooks.json`) e o kit não instala nada no `~/.codex`. Se o kit um dia levar guard para o Codex, o helper em node (`plugin/scripts/hookjson.js`) precisa tirar o script do `-lc` quando `tool_input.command` vier em array e ler o `tool_input.workdir`, e as suítes ganham um modo `--codex` como o do time. Issue #226. |
 | `check-careful`: `db-query.sh`, `.env.1password`, cofre de tokens | sim | Regras de um fluxo que só existe no time — 25 dos 66 casos da suíte de lá. |
-| `hooks/check-dev-server.sh` | sim | Depende do fluxo de dev server + `claude-in-chrome` do time. |
 | `scripts/publicar-memoria.sh`, `memoria-link.sh` completo | parcial | Aqui a memória é ensinada pela skill `memoria-projeto`; lá há automação de publicação. |
 | `update.sh` e suítes `test-update-*` | sim | Aqui quem instala é o plugin; o equivalente é `kit-setup.sh` (`test-kit-setup-keep-local.sh`). |
 | Skills de domínio (`vamoo-infra`, `ambientes-clientes`, `vps-hardening-clientes`, `graphify`, `video-watch`, `pulso-mentorado`) | sim | Conhecimento de cliente e de infra da casa. O kit público leva o método, não o cliente. |
@@ -231,7 +230,7 @@ sessão.
 | Origem no time | Aqui | Diverge, e por quê |
 |---|---|---|
 | VAMOO-AI/claude-config-team#309 (hook com bug não desliga a cadeia) | `pre-bash.sh` e `pre-prompt.sh` | lá o aviso entra na fusão por jq; aqui o pre-bash não funde JSON (só o check-careful fala), então o `systemMessage` é escrito à mão no mesmo objeto do `ask`, sem node. O texto do aviso é só nome de hook e número, sem nada a escapar |
-| #312 (`warn-sem-jq.sh`) | `warn-sem-node.sh` | o binário de que os guards daqui dependem é o node; o texto de instalação cobre Mac, Windows (Git Bash) e Linux. Par na paridade: `test-warn-sem-node.sh` ↔ `test-warn-sem-jq.sh` |
+| #312 (`warn-sem-jq.sh`) | `warn-sem-node.sh` | o binário de que os guards daqui dependem é o node; o texto de instalação cobre Mac, Windows (Git Bash) e Linux. O `warn-sem-jq` saiu dos dois kits na F8a do núcleo único, quando o `check-dev-server` passou a vir daqui lendo por node |
 | #308 (ship: merge pela metadata) | `plugin/skills/ship/SKILL.md`, §4 | texto na voz de quem aprende, sem o `--jq` do time; o caso real vai sem o nome do cliente |
 
 ## 0.53.7 (15/10): Windows
@@ -287,13 +286,22 @@ Desde a 0.72.0 o kit do time recebe os guards e dispatchers pela `nucleo.lista` 
 | Regras da casa no `path-rules.conf` | `path-rules.local.conf` da máquina | o time instala o dele; mesmo glob troca o texto, `-` tira |
 | `~/` ancorado no glob (B1) | `path-rules.sh` | igual |
 | Marcador do aviso de topo do `session-size-guard` | `session-size-guard.sh` | igual |
-| `warn-sem-jq` no `pre-prompt` | `pre-prompt.sh` | roda quando existe, logo depois do `warn-sem-node` |
+| `warn-sem-jq` no `pre-prompt` | `pre-prompt.sh` | rodava quando existia, logo depois do `warn-sem-node`; saiu da cadeia na F8a |
 | `rtk-claude.sh` | último do `pre-bash.sh` | sem jq; não roda depois de um guard que falou (lá, a fusão por jq juntava o `ask` e a reescrita) |
 | Fallback sem node em bash puro | `pre-prompt.sh` | igual |
 
 O `check-careful` (F4, 0.74.0) é a união das duas suítes: a lógica de push do time (posição de comando, `cd`, `HOTFIX_MAIN=1`), o DDL e as regras da casa entram aqui, e os três conflitos (segredo citado, rm -rf relativo em repo, push apagando branch) seguem a decisão do Ruan, registrada no CHANGELOG.
 
 O `warn-skills-projeto` e o `skills-projeto-scan.sh` ficam para a F7, junto do par da skill `skills-projeto`: os dois kits divergem no contrato do scan (`--check`, tetos, veredito por skill), que a skill usa.
+
+## Núcleo único, F8a (23/10): hooks que eram só do time
+
+| Do time | Aqui | Como |
+|---|---|---|
+| `hooks/check-dev-server.sh` (PreToolUse em navigate) | `plugin/hooks/check-dev-server.sh` | lê a URL por node; lá, sem jq, saía 0 sem checar. O servidor de teste da suíte é node, não python, por causa do runner do Windows |
+| `hooks/warn-doc-ancorado.sh` (SessionStart) | `plugin/hooks/warn-doc-ancorado.sh` | o repo vem do `.cwd` do payload, com o env e o `$PWD` de reserva (caso desktop na suíte) |
+| `scripts/warn-cli-outdated.sh` (SessionStart) | `plugin/scripts/warn-cli-outdated.sh` | lê o `autoUpdatesChannel` por node; sem jq, lá, quem estava em stable recebia o aviso da latest |
+| `hooks/warn-sem-jq.sh` | — | sai dos dois: o último guard do time que lia por jq era o `check-dev-server` |
 
 ## Como usar
 
