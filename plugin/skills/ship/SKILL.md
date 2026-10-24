@@ -214,8 +214,9 @@ verdes, abre o PR pronto, sem `--draft`.
 **Merge é o fim do §2**, e só depois do 2b (checks), do 2c (verde deste SHA) e do 2a (PR
 encadeado). Se a migration muda contrato de coluna que o front usa, a detecção e o 3b do §3 vêm
 antes do merge. **Quem decide se a ship mergeia é a pessoa:** com o pedido dela ("ship e
-mergeia") ou com a regra do projeto escrita no `deploy.md` ou no `AGENTS.md` ("self-merge com CI
-verde"), mergeie; sem nenhum dos dois, entregue o PR verde e pergunte.
+mergeia"), uma instrução permanente dela no `CLAUDE.md` ou a regra do projeto no `deploy.md` ou
+no `AGENTS.md` ("self-merge com CI verde"), mergeie; sem nenhum dos três, entregue o PR verde e
+pergunte.
 
 ### 2-base. A `main` andou desde que você branchou?
 
@@ -474,8 +475,9 @@ Não troque a guarda do `headRefOid` por `git diff origin/main`: é a armadilha 
 - **Alguma guarda falhou** → não remova. Relatório: `worktree: mantido (motivo)`.
 - **Todas verdes, sem pedido de limpeza** → relatório: `worktree: removível (prova verde)`, e
   pergunte. Quem está aprendendo não sabe o que some junto com um worktree.
-- **Todas verdes, com o pedido** (a pessoa disse "ship e limpa", ou o `AGENTS.md`/`deploy.md` do
-  projeto diz que a ship fecha o worktree) → remova via `ExitWorktree` com `action: "remove"`.
+- **Todas verdes, com o pedido** (a pessoa disse "ship e limpa", ou o `CLAUDE.md` dela ou o
+  `AGENTS.md`/`deploy.md` do projeto diz que a ship fecha o worktree) → remova via `ExitWorktree`
+  com `action: "remove"`.
   - **Squash-merge:** o `ExitWorktree` recusa dizendo "N commits serão descartados", porque o squash
     criou um commit novo na `main`. Isso é esperado e seguro quando o `HEAD` é o `headRefOid` do PR
     mergeado. Rode o `--verificar` de novo e re-invoque com `discard_changes: true`: a recusa lista
