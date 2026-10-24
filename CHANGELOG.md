@@ -10,6 +10,23 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.81.0] — 2026-10-24
+
+### Mudado
+
+Lote 2 da F7 do núcleo único (#241): as skills levam o método do kit do time, que deixa de
+ter cópia própria.
+
+- **`limpeza-mac`:**
+  - O worktree que a trava do `worktree-gc` segura fica registrado em `mantidas.tsv`, no
+    ledger, com o motivo.
+  - A busca padrão inclui `~/WORKSPACES`.
+- **`harness-check`:** mede as skills do projeto aberto e explica o `deniedMcpServers`. Em
+  máquina com identidade, diz de quem era cada sessão.
+- **`memoria-projeto`:** cita de onde veio cada fato e trata a memória antiga congelada como
+  histórico, sem gravar nela. Também atende "publica a memória".
+- **`mcp-sistema`:** segue o `deploy.md` e o design system do projeto quando eles existem.
+
 ## [0.80.0] — 2026-10-24
 
 ### Mudado

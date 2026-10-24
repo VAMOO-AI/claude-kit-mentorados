@@ -3,7 +3,8 @@
 #   worktree  merged, limpa (dirty=0, conta ignorado fora de build), HEAD igual ao do
 #             inventário, sem lock de processo vivo e com `worktree-gc.sh --verificar`
 #             dizendo "pode remover" — `worktree remove` sem --force. O fetch --prune roda
-#             uma vez por repo aqui, e o do --verificar é pulado (WORKTREE_GC_SKIP_FETCH=1)
+#             uma vez por repo aqui, e o do --verificar é pulado (WORKTREE_GC_SKIP_FETCH=1).
+#             Saída ≠ 0 do --verificar é keep, com o motivo em mantidas.tsv no ledger
 #   branch    merged(ancestral) ou merged(PR#N) com SHA conferido no inventário; nunca
 #             main, master, develop, dev, staging ou production
 #   órfã      pasta sem .git e sem nenhum arquivo fora de node_modules/.next
@@ -54,7 +55,13 @@ while IFS=$'\t' read -r r b p sha dirty est lock; do
   # a trava do gc (sujo, ignorado de valor, branch não mergeada) decide por último; qualquer
   # saída diferente de 0, inclusive o 2 de um worktree-gc.sh sem o --verificar, mantém
   veredito=$(cd "$p" && WORKTREE_GC_SKIP_FETCH=1 bash "$GC" --verificar "$p" 2>&1); vrc=$?
-  [ "$vrc" = 0 ] || { echo "mantida (worktree-gc --verificar saiu $vrc): $p — $(printf '%s' "$veredito" | tail -1)"; continue; }
+  if [ "$vrc" != 0 ]; then
+    motivo=$(printf '%s' "$veredito" | tail -n 1)
+    echo "mantida (worktree-gc --verificar saiu $vrc): $p — $motivo"
+    # o motivo sobrevive à sessão: quem volta ao ledger sabe por que o worktree ficou
+    anota mantidas.tsv "$(printf '%s\t%s\t%s\t%s' "$r" "$b" "$p" "$motivo")"
+    continue
+  fi
   [ "$lock" != "-" ] && run git -C "$r" worktree unlock "$p" 2>/dev/null
   anota worktrees.tsv "$(printf '%s\t%s\t%s\t%s' "$r" "$b" "$p" "$sha")"
   if run git -C "$r" worktree remove "$p"; then

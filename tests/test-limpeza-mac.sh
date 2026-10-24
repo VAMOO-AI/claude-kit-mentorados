@@ -216,6 +216,12 @@ check "inventário não chama de merged a branch atrás do head do PR" \
   "$(awk -F'\t' '$2=="feat-atras-do-pr"{print $4}' "$TMP/plano/branches.tsv" | grep -q '^merged' && echo fail || echo ok)"
 check "inventário dá mais de 7 dias ao .next do repo parado" \
   "$(awk -F'\t' -v d="$P/.next" '$3==d && $1>=7' "$TMP/plano/builds.tsv" | grep -q . && echo ok || echo fail)"
+# raiz que é symlink, com worktrees registrados: o repo vai pelo caminho físico, senão todo
+# worktree registrado pareceria órfã (o `worktree list` devolve o caminho físico)
+ln -s "$TMP/ws" "$TMP/ws-link"
+bash "$SCR/inventario.sh" "$TMP/plano-wslink" "$TMP/ws-link" 2>/dev/null
+check "raiz symlink: worktree registrado não vira órfã" \
+  "$([ -s "$TMP/plano-wslink/worktrees.tsv" ] && ! grep -q 'tem-\.git' "$TMP/plano-wslink/orfas.tsv" && echo ok || echo fail)"
 cp "$TMP/plano/branches.tsv" "$TMP/branches-antes.tsv"
 DRY=1 bash "$SCR/aplicar.sh" "$TMP/plano" "$TMP/ledger-dry" > "$TMP/dry.out" 2>&1
 check "DRY=1 não apaga nada"                   "$(existe "$WT/velha")"
@@ -247,6 +253,9 @@ check "worktree que o --verificar manda manter fica" "$(existe "$WT/gckeep")"
 check "a branch dela também fica"              "$(tem_branch wt-gc-keep)"
 check "a saída mostra o keep do gc"            "$(grep -q "keep: $WT/gckeep" "$TMP/aplicar.out" && echo ok || echo fail)"
 check "keep do gc não destrava o lock"         "$(git -C "$R" worktree list --porcelain | grep -A4 -F "worktree $WT/gckeeplock" | grep -q '^locked' && echo ok || echo fail)"
+# o keep sobrevive à sessão: repo, branch, caminho e o motivo do gc vão para o ledger
+check "o motivo do keep vai para mantidas.tsv" \
+  "$(awk -F'\t' -v p="$WT/gckeep" '$3==p && $2=="wt-gc-keep" && $4 ~ /keep:/' "$TMP/ledger/mantidas.tsv" 2>/dev/null | grep -q . && echo ok || echo fail)"
 check "branch mergeada sai"                    "$(sem_branch mergeada)"
 check "branch com commit local fica"           "$(tem_branch local-com-commit)"
 check "branch só ancestral do head do PR fica" "$(tem_branch feat-atras-do-pr)"
@@ -271,6 +280,13 @@ check "node_modules de .tools do projeto fica"                "$(existe "$P/.too
 check "node_modules de clone ignorado fica"                   "$(existe "$CLONE/node_modules/w")"
 check "node_modules de repo aninhado parado sai"              "$(sumiu "$SUB/node_modules")"
 check "ledger guarda o SHA para restaurar"     "$(git -C "$R" cat-file -e "$sha" 2>/dev/null && echo ok || echo fail)"
+# a mergeada está na main, então o check acima passa com qualquer ledger. A feat-squash tem
+# commit que a main não contém: só o SHA do ledger a traz de volta
+sha=$(awk -F'\t' '$2=="feat-squash"{print $3}' "$TMP/ledger/branches.tsv")
+check "ledger restaura a branch apagada pelo SHA" \
+  "$([ -n "$sha" ] && git -C "$R" branch restaurada "$sha" 2>/dev/null \
+     && [ "$(git -C "$R" rev-parse restaurada)" = "$sha" ] \
+     && ! git -C "$R" merge-base --is-ancestor "$sha" main && echo ok || echo fail)"
 
 echo "== worktree-gc sem o --verificar: nada sai =="
 git -C "$R" worktree add -q -b wt-gc-antigo "$WT/gcantigo" main; velho "$WT/gcantigo"
@@ -279,6 +295,9 @@ LIMPEZA_WORKTREE_GC="$TMP/gc-antigo" bash "$SCR/aplicar.sh" "$TMP/plano2" "$TMP/
 check "gc que recusa --verificar (exit 2) mantém o worktree" "$(existe "$WT/gcantigo")"
 check "e a branch"                             "$(tem_branch wt-gc-antigo)"
 check "e diz por quê"                          "$(grep -q 'mantida (worktree-gc --verificar' "$TMP/antigo.out" && echo ok || echo fail)"
+check "e anota em mantidas.tsv"                "$(grep -qF "$WT/gcantigo" "$TMP/ledger2/mantidas.tsv" 2>/dev/null && echo ok || echo fail)"
+DRY=1 LIMPEZA_WORKTREE_GC="$TMP/gc-antigo" bash "$SCR/aplicar.sh" "$TMP/plano2" "$TMP/ledger2-dry" >/dev/null 2>&1
+check "DRY=1 não escreve mantidas.tsv"         "$(sumiu "$TMP/ledger2-dry")"
 
 echo "== sem LIMPEZA_WORKTREE_GC: usa o worktree-gc.sh vizinho, do plugin =="
 # Cópia do aplicar.sh numa árvore de plugin falsa, com um gc vizinho que só diz keep: se o

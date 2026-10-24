@@ -1,7 +1,8 @@
 # Página MCP, guia de instalação e chave por usuário (PR 4)
 
 Visual: o design system do PROJETO ALVO (tokens, fontes, claro/escuro, componentes
-de card/badge que o app já tem). Não copie classes do exemplo.
+de card/badge que o app já tem; se o projeto documenta o dele em `.context/docs/`, siga).
+Não copie classes do exemplo.
 
 ## Quem vê
 

@@ -69,7 +69,8 @@ despersonalizado: adapte nomes de tabela, papéis e tools ao projeto alvo.
 
 Commit, PR e deploy de cada um seguem a skill `ship`. SQL avulso e config do
 Auth rodam por script do projeto com token em variável de ambiente, nunca por
-login interativo da CLI.
+login interativo da CLI. Se existir `.context/docs/deploy.md`, ele diz qual script; se o kit
+do seu time tem uma skill de infra (SQL, secrets, deploy de function), siga ela.
 
 ## Rollout em produção (ordem importa)
 

@@ -21,7 +21,7 @@ if [ $# -eq 0 ]; then
   if [ -n "${LIMPEZA_RAIZES:-}" ]; then
     IFS=: read -r -a RAIZES <<< "$LIMPEZA_RAIZES"; set -- "${RAIZES[@]}"
   else
-    set -- "$HOME/Developer" "$HOME/Projects" "$HOME/code" "$HOME/Documents"
+    set -- "$HOME/Developer" "$HOME/Projects" "$HOME/code" "$HOME/WORKSPACES" "$HOME/Documents"
   fi
 fi
 mkdir -p "$OUT"
