@@ -4,16 +4,15 @@ description: >-
   Gera o documento de passagem de bastão de uma sessão ou projeto — para outro
   dev, outro agente, ou você mesmo daqui a três semanas. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
-  do que foi verificado versus do que é só crença. Use quando pedirem
-  "/handoff", "monta o handoff", "documenta pro colega assumir", "passa isso
-  pra outra sessão", ou ao encerrar uma frente de trabalho.
-disable-model-invocation: true
+  do que foi verificado versus do que é só crença. Use só quando a pessoa
+  pedir um handoff; nunca por iniciativa própria. Pedidos: "/handoff", "monta
+  o handoff", "documenta pro colega assumir", "passa isso pra outra sessão".
 ---
 
 # handoff
 
-Só dispara por `/handoff`. O modelo nunca decide sozinho que é hora de escrever
-um; é uma decisão de quem está saindo.
+Só quando a pessoa pede, por `/handoff` ou em texto. O modelo nunca decide sozinho
+que é hora de escrever um; é uma decisão de quem está saindo.
 
 ## A regra que dá valor ao documento
 

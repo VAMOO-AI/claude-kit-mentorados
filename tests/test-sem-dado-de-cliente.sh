@@ -28,6 +28,7 @@ RAIZ="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 command -v python3 >/dev/null 2>&1 || { echo "python3 ausente"; exit 2; }
 
 HASHES='
+cf32a706716678a1aaab89f641b5ab6f1dad34af9a80ebf1c2423573bb6d7c76
 49e455c30a6f9273b4664699722a3ee616d285d80a45f54d485988f4eeb16871
 2172fd481920ce9db75cf1d2f006597118d52f379ab6a3b47a196d5b50607d43
 95a8f6568fa7ad6aba1bdcd6620a471a0aca7d4c447f508a94ae4aab2ed86bd3
