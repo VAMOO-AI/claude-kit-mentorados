@@ -44,16 +44,20 @@ O modo time liga sozinho com ≥2 autores na default em 30 dias (`--team` força
 desliga). Leia nesta ordem e não comece a codar antes de zerar:
 
 1. `### mural da equipe`: o trecho sob `## Ativos` de `.context/docs/avisos-da-equipe.md`
-   (ou `.context/avisos-da-equipe.md`, ou `AVISOS.md`). Quem resolve, apaga no mesmo PR.
+   (ou `.context/avisos-da-equipe.md`, ou `AVISOS.md`; sem `## Ativos`, o arquivo inteiro).
+   É o que o git não sabe: "não mexa nesse arquivo ainda", "mudei o formato, seu merge vai
+   doer". Aviso sem data e sem dono não conta. Quem resolve, apaga no mesmo PR.
 2. `### avisos (ação sua)`: cada `!` bloqueia até a pessoa decidir.
 3. `--- risco de conflito ---`: arquivo listado → sincronize com a default antes de tocar nele.
    Para outro worktree, `--cwd <worktree> --team`.
-4. `### PRs abertos` e `--- branches remotas ativas ---`: PR na sua área, fale antes; `feat/x`
-   que já existe no remoto, não crie outra.
+4. `--- novidades em origin/<default> ---`, `### PRs abertos` e `--- branches remotas ativas ---`:
+   o que entrou desde a sua base; PR na sua área, fale antes; `feat/x` que já existe no remoto,
+   não crie outra.
 
 Ao fechar, rode de novo: *"commit(s) sem push"* / *"NUNCA foi ao GitHub"* vai para o
 `PENDENTE:`. Exceção: o aviso diz que um PR mergeado tem head igual ao tip → os commits já
-estão na default (sobra do squash), **não pushe de volta**.
+estão na default (sobra do squash), **não pushe de volta**. O git-sync não sobe nada: o push é
+do fluxo da tarefa (a `ship`, por exemplo).
 
 ## Regras duras
 
@@ -71,7 +75,11 @@ estão na default (sobra do squash), **não pushe de volta**.
 
 Sem `gh`, o relatório sai cego para PR, mas segue. Com duas contas no keyring, o script testa
 as outras, usa a que enxerga o repo (sem trocar a ativa) e diz qual; nenhuma enxerga →
-`nenhuma conta do gh enxerga <owner/repo>`. Repo onde o `gh` não pode rodar:
+`nenhuma conta do gh enxerga <owner/repo>`. Repo de outra org com o PAT num `.env` da raiz
+(`.env.tokens`, `.env.local` ou `.env`): o script usa o `GH_TOKEN`/`GITHUB_TOKEN` de lá só nesta
+execução, e só quando o `gh` não enxerga o repo, e diz de qual arquivo veio. Não leve esse token
+para o keyring (`gh auth login --with-token`): ele passaria a valer nos outros repos da máquina.
+Repo onde o `gh` não pode rodar:
 `git config git-sync.noGh true` + `git config git-sync.tokenVar <VAR>`, e PRs e prova do cleanup
 saem da API REST. Detalhe: [references/flags.md](references/flags.md#gh-e-api-rest).
 

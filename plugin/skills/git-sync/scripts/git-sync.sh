@@ -65,6 +65,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+case "$TEAM_SINCE_DAYS" in
+  ''|*[!0-9]*) echo "ERROR: --since espera um número de dias (recebi '$TEAM_SINCE_DAYS')" >&2; exit 2 ;;
+esac
+
 if [[ -n "$CWD" ]]; then
   cd "$CWD"
 fi
@@ -140,8 +144,10 @@ DEFAULT_SHA="$(git rev-parse --short "$ORIGIN_DEFAULT")"
 echo "default:  $DEFAULT_BRANCH ($DEFAULT_SHA = $ORIGIN_DEFAULT)"
 
 # Team auto-detect: >=2 autores distintos em origin/<default> nos últimos 30 dias.
+# Conta por NOME, não por e-mail: uma pessoa só que commita ora do e-mail pessoal, ora do
+# noreply do GitHub, não é um time. A lista impressa no modo time continua com o e-mail.
 TEAM_AUTHORS="$(git log "$ORIGIN_DEFAULT" --since='30 days ago' --format='%an <%ae>' 2>/dev/null | sort -u || true)"
-TEAM_AUTHOR_N="$(printf '%s\n' "$TEAM_AUTHORS" | grep -c . || true)"
+TEAM_AUTHOR_N="$(git log "$ORIGIN_DEFAULT" --since='30 days ago' --format='%an' 2>/dev/null | sort -u | grep -c . || true)"
 TEAM_AUTHOR_N="${TEAM_AUTHOR_N:-0}"
 if [[ "$TEAM" -eq -1 ]]; then
   if [[ "$TEAM_AUTHOR_N" -ge 2 ]]; then TEAM=1; else TEAM=0; fi
@@ -495,12 +501,36 @@ hr
 # mergeado, e pela conta cega cairia no "sem gh" num repo onde a prova estava a um token
 # de distância. A nota só é impressa lá embaixo, na seção de PRs. Com --no-pr a
 # resolução fica para o aviso, que a chama só quando precisa da prova (é idempotente).
+#
+# Antes das contas, o PAT do próprio repo. Em repositório de outra org o git autentica por
+# outro credential store, nenhuma conta do keyring enxerga o repo, e o token de acesso mora
+# num .env da raiz (.env.tokens, .env.local ou .env). Só entra quando há token lá E o gh de
+# fato não enxerga o repo: onde o keyring resolve, nada muda. Lê só a linha do GH_TOKEN ou
+# GITHUB_TOKEN (`source` executaria o arquivo inteiro), vale só para este processo e nunca
+# é impresso; a saída diz de qual arquivo veio. Não vai para o keyring: `gh auth login
+# --with-token` com esse token passaria a valer nos outros repositórios da máquina.
+GH_TOKEN_ORIGEM=""
 GH_CONTA_NOTA=""
 GH_CONTA_RESOLVIDA=0
 resolver_conta_gh() {
   [[ "$GH_CONTA_RESOLVIDA" -eq 1 ]] && return 0
   GH_CONTA_RESOLVIDA=1
   [[ "$NO_GH" -eq 1 ]] && return 0
+  if command -v gh >/dev/null 2>&1 && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
+    _tok=""; _src=""
+    for _envf in "$ROOT/.env.tokens" "$ROOT/.env.local" "$ROOT/.env"; do
+      [[ -r "$_envf" ]] || continue
+      _tok="$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?(GH_TOKEN|GITHUB_TOKEN)=["'"'"']?([^"'"'"'[:space:]#]+).*/\3/p' "$_envf" | head -1)"
+      [[ -n "$_tok" ]] && { _src="${_envf#"$ROOT"/}"; break; }
+    done
+    if [[ -n "$_tok" ]] && ! gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1; then
+      if GH_TOKEN="$_tok" gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1; then
+        export GH_TOKEN="$_tok"
+        GH_TOKEN_ORIGEM="$_src"
+      fi
+    fi
+    unset _tok _src _envf
+  fi
   if command -v gh >/dev/null 2>&1 \
      && [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && ! gh repo view ${GH_REPO:+"$GH_REPO"} --json name >/dev/null 2>&1; then
     _status="$(gh auth status 2>&1 || true)"
@@ -895,6 +925,7 @@ if [[ "$NO_PR" -eq 0 ]] && { [[ "$NO_GH" -eq 1 ]] || ! command -v gh >/dev/null 
 elif [[ "$NO_PR" -eq 0 ]]; then
   echo "### PRs abertos (gh)"
   [[ -n "$GH_CONTA_NOTA" ]] && echo "$GH_CONTA_NOTA"
+  [[ -n "$GH_TOKEN_ORIGEM" ]] && echo "(autenticado pelo $GH_TOKEN_ORIGEM do repo: nenhuma conta do keyring do gh enxerga este repositório)"
   if command -v gh >/dev/null 2>&1; then
     if [[ "$TEAM" -eq 1 ]]; then
       PR_FIELDS='number,title,author,headRefName,baseRefName,isDraft,mergeable,reviewDecision,updatedAt'
@@ -965,7 +996,10 @@ if [[ "$TEAM" -eq 1 ]]; then
   if [[ "$NO_PR" -eq 0 && "$NO_GH" -eq 0 ]] && command -v gh >/dev/null 2>&1; then
     echo "--- PRs mergeados nos últimos ${TEAM_SINCE_DAYS}d (explicam por que a $DEFAULT_BRANCH mudou) ---"
     MERGED_JQ=".[] | select((.mergedAt // \"\") != \"\") | select((.mergedAt|fromdateiso8601) >= ${CUTOFF:-0}) | \"  #\(.number) \(.title) — \(.author.login) | \(.headRefName) | merged \(.mergedAt[0:10])\""
-    if MERGED_OUT="$(gh pr list --state merged --limit 30 \
+    # --search filtra no servidor: sem ele o --limit devolve os 30 mais recentes de qualquer
+    # época, e num repo movimentado o filtro de data do jq perde o que passou dos 30.
+    MERGED_SINCE="$(date -u -v-"${TEAM_SINCE_DAYS}"d +%Y-%m-%d 2>/dev/null || date -u -d "${TEAM_SINCE_DAYS} days ago" +%Y-%m-%d 2>/dev/null || true)"
+    if MERGED_OUT="$(gh pr list --state merged --limit 30 ${MERGED_SINCE:+--search "merged:>=$MERGED_SINCE"} \
         --json number,title,author,headRefName,mergedAt \
         --jq "$MERGED_JQ" 2>&1)"; then
       if [[ -n "$MERGED_OUT" ]]; then printf '%s\n' "$MERGED_OUT"; else echo "  (nenhum)"; fi
@@ -978,6 +1012,12 @@ if [[ "$TEAM" -eq 1 ]]; then
   echo "--- risco de conflito: arquivos tocados dos DOIS lados ---"
   if [[ -z "$BASE" ]]; then
     echo "  (sem base comum — não avaliado)"
+  elif [[ "$BASE" == "$(git rev-parse "$ORIGIN_DEFAULT" 2>/dev/null)" ]]; then
+    # Base no tip: o que a default tem já está nos seus arquivos, e nenhum conflito é
+    # possível. Dizer "nada" com todas as letras evita o conselho de sincronizar o que já
+    # está sincronizado (falso positivo medido em 17/09/2026 num script que caía na janela
+    # de atividade quando o lado deles vinha vazio).
+    echo "  (em dia com $ORIGIN_DEFAULT — nada a sincronizar)"
   else
     THEIRS_F="$(git diff --name-only "$BASE" "$ORIGIN_DEFAULT" 2>/dev/null | sort -u || true)"
     MINE_F="$( { git diff --name-only "$BASE" HEAD 2>/dev/null || true
@@ -1037,6 +1077,7 @@ fi
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   echo "### cleanup candidates"
   [[ "$NO_PR" -eq 1 && -n "$GH_CONTA_NOTA" ]] && echo "$GH_CONTA_NOTA"
+  [[ "$NO_PR" -eq 1 && -n "$GH_TOKEN_ORIGEM" ]] && echo "(autenticado pelo $GH_TOKEN_ORIGEM do repo: nenhuma conta do keyring do gh enxerga este repositório)"
 
   echo "--- branches com upstream gone ---"
   GONE_BRANCHES=()
