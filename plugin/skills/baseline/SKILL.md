@@ -39,7 +39,9 @@ modelo que o `/ship` já usa ao ler `.context/docs/deploy.md`.
 
 
 No pilar de código, **chame `secscan`** — não refaça SAST aqui.
-Auditoria com fan-out por área e juiz adversarial: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
+Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. Ele recebe só o finding (pilar, título, `arquivo:linha`, detalhe) com a ordem de refutá-lo e devolve `mantido` ou `refutado` com o motivo; o refutado vira veredito (fase 2, passo 2).
+
+Auditoria com fan-out por área: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
 
 ---
 
@@ -70,7 +72,7 @@ App novo, feature nova, ou primeira ida ao ar. Pode escrever código.
    (retenção, quem é dono da rotação) fica marcado `PENDENTE:` — não invente.
 2. **Leia só o pilar que a tarefa toca.** Tocou build/CSP → `01`. Tocou migration
    → `02`. Tocou rota/papel → `03`. Tocou edge/webhook ou login → `04`. Tocou
-   query/lista → `05`. Tocou tratamento de erro → `06`. Tocou env/chave → `07`.
+   query/lista → `05`. Tocou tratamento de erro ou log → `06`. Tocou env/chave → `07`.
    Subiu host, painel ou domínio novo → `08`.
    Carregar os oito de uma vez é desperdício de contexto.
 3. **Aplique o Contrato do pilar** usando o bloco "Como implementar" como ponto

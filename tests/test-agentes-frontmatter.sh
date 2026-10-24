@@ -56,6 +56,10 @@ tem revisor.md "git diff origin/main...HEAD" "traz o alvo padrão do review"
 tem executor.md "git push -u origin <branch do lote>" "autoriza o push da branch do lote"
 grep -qiE 'force[ -]push' "$DIR/executor.md" && ok "plugin/agents/executor.md: force push segue proibido" \
   || falha "plugin/agents/executor.md: force push segue proibido"
+# PR que ainda vai receber push nasce rascunho, e sai do rascunho antes do watch do CI: num repo
+# que pula rascunho, o watch esperaria checks que nunca vêm (skill `ship`, "Push e PR").
+tem executor.md "gh pr create --draft" "abre em rascunho o PR que ainda vai receber push"
+tem executor.md "gh pr ready" "tira o PR do rascunho antes de esperar o CI"
 SUB="$RAIZ/plugin/templates/subagentes.md"
 grep -qF 'Exceção: o `executor`' "$SUB" && ok "subagentes.md: abre a exceção do push do executor" \
   || falha "subagentes.md: abre a exceção do push do executor"

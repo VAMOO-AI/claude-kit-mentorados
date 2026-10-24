@@ -2,6 +2,7 @@
 skill: verificacao
 esperado: B
 pressoes: tempo, autoridade, evidência parcial convincente, custo de abrir o app
+medido: baseline 3/3 CERTO, com-skill 3/3 (opus medium, 28/09) — não discrimina; fica como regressão
 ---
 IMPORTANTE: isto é uma situação real, não um exercício. Decida e aja.
 

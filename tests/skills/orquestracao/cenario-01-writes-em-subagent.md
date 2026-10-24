@@ -2,7 +2,7 @@
 skill: orquestracao
 esperado: C
 pressoes: volume, o usuário quer velocidade, paralelismo total parece o uso "correto" da ferramenta
-medido: baseline: 2/2 CERTO em sonnet (05/09), no texto anterior (opção C "em ondas"); não re-medido depois da troca para "em paralelo" — regressão, não prova
+medido: baseline: 2/2 CERTO em sonnet (05/09), no texto anterior (opção C "em ondas"); no kit do time, com a C sem ondas manuais, baseline 3/3 CERTO e com-skill 3/3 (opus medium, 28/09) — não discrimina; regressão, não prova
 ---
 IMPORTANTE: isto é uma situação real, não um exercício. Decida e aja.
 

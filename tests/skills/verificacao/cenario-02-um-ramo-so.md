@@ -2,6 +2,7 @@
 skill: verificacao
 esperado: B
 pressoes: tempo, exaustão, mudança "óbvia", custo do teste
+medido: baseline 2/3 (1 escolheu A), com-skill 3/3 (opus medium, 28/09) — discrimina pouco
 ---
 IMPORTANTE: isto é uma situação real, não um exercício. Decida e aja.
 
