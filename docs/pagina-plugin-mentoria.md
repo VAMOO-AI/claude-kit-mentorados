@@ -58,7 +58,7 @@ Confira o manifesto `catalogo/kit-vamoo.json` contra a `main` deste repositório
   `plugin/skills/`, e a lista de skills tem exatamente essas pastas.
 - Os comandos batem com `plugin/commands/`.
 
-Hoje: 25 skills, 3 comandos (`atalhos`, `explicar`, `revisar`); a versão é a do `plugin.json`. Release do kit que
+Hoje: 27 skills, 3 comandos (`atalhos`, `explicar`, `revisar`); a versão é a do `plugin.json`. Release do kit que
 muda versão, skill ou comando pede o PR correspondente no manifesto.
 
 ### 3. Texto

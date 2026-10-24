@@ -250,6 +250,15 @@ jobs:
         # entregaria a versão antiga calado; o teste regera e compara byte a byte.
         run: bash tests/test-downloads-zip.sh
 
+      - name: Os scripts da otimizar-app passam no node --check e o --compare do layout-snapshot acusa caixa que mudou
+        # O runtime-bench e o layout-snapshot abrem Chrome headless, que este runner não tem: aqui
+        # roda o que não precisa dele (sintaxe, uso e o --compare, que é a prova de "visual igual").
+        run: bash tests/test-otimizar-app-scripts.sh
+
+      - name: A video-watch passa sem rede no resolve-url e o watch.sh reprova sem argumento
+        # Sem ffmpeg, a parte de vídeo sai "pulado"; ela roda de verdade no job motion-reel-ffmpeg.
+        run: bash tests/test-video-watch.sh
+
       - name: Nenhuma description passa de 500 chars e o name bate com a pasta
         run: bash tests/test-skill-descriptions.sh
 
@@ -685,3 +694,10 @@ jobs:
           set -o pipefail
           bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
           ! grep -q '^pulado' /tmp/final-verificar.log
+
+      - name: O watch.sh da video-watch cai para intervalo em vídeo parado, avisa do modelo ausente e não aborta
+        # Mesmo ffmpeg do passo acima; aqui a parte de vídeo não pode sair "pulado".
+        run: |
+          set -o pipefail
+          bash tests/test-video-watch.sh | tee /tmp/video-watch.log
+          ! grep -q '^pulado' /tmp/video-watch.log
