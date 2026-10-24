@@ -1,11 +1,13 @@
 ---
 name: n8n-workflow-agent
 description: >-
-  Construir, editar, depurar ou publicar workflow n8n, com ou sem agente de
-  WhatsApp: layout sem cruzamento, baseline + diff antes de PUT, Code Node, e
-  referências de UAZAPI, NotificaMe, Chatwoot, Pipedrive, Postgres, disparo,
-  pausa Redis e QA simulada de agente (lead falso + juiz). A ponta do inbox
-  no app é da whatsapp-inbox-stack.
+  Use ao construir, editar, depurar ou publicar qualquer workflow n8n, com ou
+  sem agente de WhatsApp. Traz as regras que valem para todo workflow (layout
+  sem cruzamento, baseline + diff antes de PUT, Code Node) e referências por
+  tema: UAZAPI, NotificaMe, Chatwoot, Pipedrive, Postgres, disparo e pipeline
+  de cliente, TTS, pausa Redis, QA simulada de agente (lead falso + juiz).
+  A ponta do inbox no app (mídia, storage, CSP, render) é da
+  whatsapp-inbox-stack.
 ---
 
 # n8n Workflow Agent
@@ -16,6 +18,11 @@ Nasceu de produção — cada regra preveniu ou corrigiu um bug real.
 Este arquivo é o **roteador**: traz a regra dura de layout, a arquitetura típica
 e a ordem de decisão. O conhecimento por domínio está em `references/` — **leia
 só a referência do tema da tarefa**, não todas.
+
+Se o projeto tem `.context/docs/n8n.md` (host, versão, modo de deploy, nomes das
+credenciais e o que já foi medido naquela instância), leia antes de tocar o workflow: o
+comportamento de PUT, ativação e webhook varia por versão e deploy, e o que vale para a
+instância do projeto está lá.
 
 ## Qual referência ler (ordem de decisão)
 

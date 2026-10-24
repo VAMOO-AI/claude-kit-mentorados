@@ -52,7 +52,9 @@ criar um venv se faltar). O primeiro render baixa o Chrome headless do Remotion 
    - Nome de produto, modelo ou versão que você não reconhece: sinalize em 1 frase e siga como pedido.
    - Vídeo de referência: baixe com `yt-dlp -o <arquivo> <url>` e extraia quadros com `ffmpeg` (2 fps só na região que interessa, montados numa folha com `tile`). Música e SFX não se deduzem de imagem.
    - Escolha a base pela tabela acima. Com narração ou com 16:9, é o Film.
-2. **Marca.** Pergunte uma vez se há logo e paleta. Com os PNGs (fundo transparente), crie o
+2. **Marca.** Se existir um guia de vídeo da casa (`.context/docs/motion.md` no projeto ou
+   `~/.claude/docs/motion-reel-casa.md`), siga-o antes de perguntar: ele diz de onde vêm logos,
+   fonte, SFX e voz, e os padrões de cada tipo de peça. Sem guia, pergunte uma vez se há logo e paleta. Com os PNGs (fundo transparente), crie o
    projeto com `--logo-light` (logo para fundo claro), `--logo-dark` (para fundo escuro) e `--mark`
    (símbolo) no `new.sh`. Sem eles, os placeholders "SUA MARCA" ficam e isso vai no `PENDENTE:`.
    - Troque `BRAND` e a paleta `C` no `src/lib.tsx`. Outra fonte: `MOTION_FONT` + o nome em `FONT` e `useFont`. Sem a fonte principal em `public/`, o render (e a galeria) para com o nome do arquivo, em vez de sair em system-ui.
