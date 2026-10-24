@@ -44,6 +44,18 @@ Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTIN
 
 ### Mudado
 
+- **`git-sync`:**
+  - Conta o autor por nome: a mesma pessoa com dois e-mails não liga o modo time.
+  - `--since` inválido sai com 2, e os PRs mergeados são filtrados por data no servidor.
+  - Quando o `gh` não enxerga o repo, usa o PAT do `.env.tokens`, `.env.local` ou `.env`, sem
+    imprimir.
+  - Diz "nada a sincronizar" quando a base já é o tip da default.
+- **`ship`:** adota o método do kit do time.
+  - §1 em paralelo, e §1b com o `collect.sh --diff` da `baseline`.
+  - Passos 2-base, 2a, 2b e 2c.
+  - Deploy guiado pelo `.context/docs/deploy.md` (`references/supabase-n8n.md` e
+    `references/vercel.md`).
+  - Merge e limpeza do worktree só com pedido da pessoa ou com regra escrita no projeto.
 - **`orquestracao`:** o schema de `agent()` sem retry, o workflow multi-round, o doctor antes
   do fan-out, o revisor e a memória de veredito.
 - **`worktrees`:** o prefixo do worktree em todo write, o diagnóstico de drift no banco
