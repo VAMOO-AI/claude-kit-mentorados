@@ -39,7 +39,7 @@ some, e o SHA iria junto.
 
 Pergunte à pessoa onde ficam os repos dela. Sem raiz na linha de comando, o inventário usa
 `LIMPEZA_RAIZES` (pastas separadas por `:`), e sem ela procura em `~/Developer`,
-`~/Projects`, `~/code` e `~/Documents`. Pasta que não existe é ignorada.
+`~/Projects`, `~/code`, `~/WORKSPACES` e `~/Documents`. Pasta que não existe é ignorada.
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/limpeza-mac/scripts/inventario.sh" <ledger>/plano ~/pasta-dos-repos ~/outra-pasta

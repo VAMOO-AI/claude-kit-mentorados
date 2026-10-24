@@ -6,7 +6,7 @@ description: >-
   a adoção se achar credencial escrita na memória. Use ao começar a trabalhar
   num projeto e em "/memoria-projeto", "liga a memória deste projeto", "o Claude
   esquece o que aprendeu", "troquei de computador e perdi o contexto", "essa
-  memória está no repo?".
+  memória está no repo?", "publica a memória".
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/memoria-link.sh *)'
