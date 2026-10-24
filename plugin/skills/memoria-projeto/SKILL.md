@@ -21,6 +21,13 @@ vai junto para outro computador, e quem clona o repo (pessoa, Codex, Grok) não 
 passa a ser versionada em `.context/memoria/`. O formato de um fato está no
 `.context/memoria/README.md` que a adoção escreve.
 
+**Ao usar um fato da memória, cite a origem:** `<fato> [memória: <arquivo.md>]`. Projeto com
+memória antiga congelada em outra pasta (um arquivo histórico, como `.context/docs/memoria/`)
+a cita com a data à vista e o `confidence` do frontmatter (`hypothesis` se apresenta como não
+confirmado), mas não grava fato novo lá. Mesmo assunto nas duas pastas: a viva ganha.
+Conflito com o código ou o `.context` atual: o estado atual ganha. Antes de dizer que não há
+memória, `grep -ril "<termo>" .context/memoria/` (e na pasta histórica, se houver).
+
 ## 1. Onde estamos
 
 ```bash
@@ -69,6 +76,10 @@ gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[
 
 Linha `memoria`: não abra outro, commite na branch dele (dois PRs da mesma memória
 conflitam). Linha `misto` é PR de feature: **não commite nele**; publique a sua e cite o PR.
+
+Se o kit do seu time instalou um `publicar-memoria.sh`, publique por ele: confere
+os PRs abertos, abre e mergeia o PR e deixa o clone limpo depois do merge, que é o passo que
+à mão tropeça no `git pull` recusando sobrescrever as mesmas linhas.
 
 `MEMORY.md` acima de 8 KB: `references/indice.md`. Worktree que não grava e outros
 sintomas: `references/armadilhas.md`.

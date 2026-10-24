@@ -82,8 +82,10 @@ O que o script respeita, e por quê:
   velho quando o default muda no GitHub.
 - **Todo worktree passa pelo `worktree-gc.sh --verificar <caminho>` do plugin.** São as
   mesmas travas do gc: sujo, arquivo ignorado de valor, branch não mergeada na branch
-  padrão do origin (sem padrão descoberta, é keep com o motivo). Qualquer saída
-  diferente de 0 mantém o worktree. O `--verificar` não remove nada, mas atualiza as refs
+  padrão do origin (sem padrão descoberta, é keep com o motivo). A trava do inventário
+  vale para a hora em que ele rodou; um `outputs/video.mp4` que aparece depois só a de
+  agora pega. Qualquer saída diferente de 0 mantém o worktree, e o motivo vai para
+  `<ledger>/mantidas.tsv`. O `--verificar` não remove nada, mas atualiza as refs
   remotas com `git fetch --prune`; o `aplicar.sh` faz esse fetch uma vez por repo e chama o
   `--verificar` sem o dele.
 - **A branch de um worktree removido sai com ele**, menos `main`, `master`, `develop`,

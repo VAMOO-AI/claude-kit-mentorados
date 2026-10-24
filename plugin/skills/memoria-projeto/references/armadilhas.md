@@ -9,3 +9,6 @@
 | `--adotar` recusou e o projeto é meu mesmo | O gate não pergunta de quem é o repo. Limpar o arquivo é mais barato que trocar credencial depois |
 | Memória sumiu depois de dar `git pull` | Não estava commitada. Commite antes de sincronizar, sempre |
 | Dois ou três PRs abertos com a mesma memória | Cada sessão publicou sem olhar se já havia PR de memória aberto. Confira com o `gh pr list` da §4 antes de abrir outro |
+| `memoria-link.sh` disse "1 já em dia" e nada mais | Repo já ligado. Com `--repo` ele diz para onde e quantos fatos; sem `--repo` o silêncio é proposital |
+| Agente grava o fato e ele não aparece em lugar nenhum | `memory` é symlink para uma pasta apagada (o worktree foi removido). Rode `memoria-link.sh` sem `--repo`: ele remove o link quebrado |
+| "Não tem memória disso", e tinha | Olhou só o `MEMORY.md`. O índice curto tem teto; a cauda está em `MEMORY-completo.md`, e é lá que se faz `grep` antes de responder que não existe (`indice.md`) |

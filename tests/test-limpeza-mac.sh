@@ -247,6 +247,9 @@ check "worktree que o --verificar manda manter fica" "$(existe "$WT/gckeep")"
 check "a branch dela também fica"              "$(tem_branch wt-gc-keep)"
 check "a saída mostra o keep do gc"            "$(grep -q "keep: $WT/gckeep" "$TMP/aplicar.out" && echo ok || echo fail)"
 check "keep do gc não destrava o lock"         "$(git -C "$R" worktree list --porcelain | grep -A4 -F "worktree $WT/gckeeplock" | grep -q '^locked' && echo ok || echo fail)"
+# o keep sobrevive à sessão: repo, branch, caminho e o motivo do gc vão para o ledger
+check "o motivo do keep vai para mantidas.tsv" \
+  "$(awk -F'\t' -v p="$WT/gckeep" '$3==p && $2=="wt-gc-keep" && $4 ~ /keep:/' "$TMP/ledger/mantidas.tsv" 2>/dev/null | grep -q . && echo ok || echo fail)"
 check "branch mergeada sai"                    "$(sem_branch mergeada)"
 check "branch com commit local fica"           "$(tem_branch local-com-commit)"
 check "branch só ancestral do head do PR fica" "$(tem_branch feat-atras-do-pr)"
@@ -279,6 +282,9 @@ LIMPEZA_WORKTREE_GC="$TMP/gc-antigo" bash "$SCR/aplicar.sh" "$TMP/plano2" "$TMP/
 check "gc que recusa --verificar (exit 2) mantém o worktree" "$(existe "$WT/gcantigo")"
 check "e a branch"                             "$(tem_branch wt-gc-antigo)"
 check "e diz por quê"                          "$(grep -q 'mantida (worktree-gc --verificar' "$TMP/antigo.out" && echo ok || echo fail)"
+check "e anota em mantidas.tsv"                "$(grep -qF "$WT/gcantigo" "$TMP/ledger2/mantidas.tsv" 2>/dev/null && echo ok || echo fail)"
+DRY=1 LIMPEZA_WORKTREE_GC="$TMP/gc-antigo" bash "$SCR/aplicar.sh" "$TMP/plano2" "$TMP/ledger2-dry" >/dev/null 2>&1
+check "DRY=1 não escreve mantidas.tsv"         "$(sumiu "$TMP/ledger2-dry")"
 
 echo "== sem LIMPEZA_WORKTREE_GC: usa o worktree-gc.sh vizinho, do plugin =="
 # Cópia do aplicar.sh numa árvore de plugin falsa, com um gc vizinho que só diz keep: se o

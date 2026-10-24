@@ -9,6 +9,8 @@ description: >-
 allowed-tools:
   - 'Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" *)'
   - 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh *)'
 ---
 
 # Harness Check — para onde vai o seu token
@@ -49,6 +51,17 @@ MCP por servidor (MEDIDO quando o transcript registra; `?` quando não, e aí s�
 responde). Em 23/09/2026 (conta do autor, mesmo diretório) o app nascia com ~74K tokens e
 340 tools de 26 servidores, e o terminal com ~41K.
 
+As skills em `.claude/skills` do repo aberto entram no mesmo catálogo, relido em toda
+request, e só este comando as mede (skill com `name:` diferente da pasta paga a description
+e nunca dispara):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh" "$PWD"
+```
+
+Some esse número ao das suas skills globais antes de dizer quanto "os seus arquivos" pesam.
+Passou do teto: a skill `skills-projeto` decide os cortes, não esta.
+
 **Custo por skill e auditoria do prompt** não se reimplementam aqui: peça ao usuário rodar
 e colar o `/skill-doctor` (CLI 2.1.261 ou mais novo) e o `/doctor prompt-audit` (2.1.283
 ou mais novo), built-in como o `/context`. CLI mais velho: INDISPONÍVEL, não estimado.
@@ -80,6 +93,13 @@ claude.ai não sai por `claude mcp remove`**: no CLI, `"disableClaudeAiConnector
 mostra o app muito acima do terminal, o corte é desconectar em Conectores, na conta do
 claude.ai, ou trabalhar pelo terminal.
 
+Para bloquear um servidor por vez, `deniedMcpServers` no `settings.json` é uma lista de
+**objetos** (`{"serverName": "x"}`, `{"serverUrl": "https://*.exemplo.com/*"}`), não de
+strings; a lista soma todas as fontes de configuração.
+
+MCP ou ferramenta com muito erro: olhe **a data** dos erros antes de culpar o conector.
+Erros concentrados num dia só são incidente passageiro (o serviço caiu), não defeito.
+
 Skill que você só chama na mão sai da listagem com `"skillOverrides": {"minha-skill":
 "user-invocable-only"}` no `settings.json`, e o `/minha-skill` continua funcionando.
 
@@ -96,6 +116,24 @@ Em ordem de impacto medido:
 4. **Esforço alto fixo** no `settings.json`: no Opus 5.5 pensa mais que no Opus 5 no mesmo
    nível. Trocar `/effort` no meio da sessão faz a próxima mensagem reler tudo sem cache.
 
+## Quem era cada sessão
+
+Só existe em máquina com identidade: `$CLAUDE_WHO` (por terminal, para duas pessoas na
+mesma máquina), `~/.claude/whoami` (por máquina) ou o kit de um time (`.team-manifest`,
+e aí o hostname vale como último recurso). Com ela, a barra de status do kit carimba
+`sessão → pessoa` em `~/.claude/session-owners.jsonl` no primeiro render, e a sessão cara
+do `ccusage session` ganha dono:
+
+```bash
+grep <session-id> ~/.claude/session-owners.jsonl   # campos who, host e cwd
+```
+
+Sem identidade o arquivo não existe, e a máquina é de uma pessoa só. Ele é local: sessão
+de outra máquina está no arquivo daquela máquina.
+
+**Kit de time.** Se existir `~/.claude/docs/harness-check-time.md`, rode também os passos
+de lá (scripts de custo e de entulho do time) e junte os achados nesta mesma tabela.
+
 ## Fechamento
 
 Entregue uma tabela `PROBLEMA | SINAL | GANHO ESTIMADO POR SESSÃO | RISCO`, ordenada por
@@ -110,7 +148,8 @@ está no passo 4.
 - **A coluna SINAL diz de onde saiu a recomendação**: "`foo`: 38 tools no `medir-sessao.py`
   (MEDIDO), escopo user no `claude mcp get foo`, e você disse que não usou este mês". Só
   valem as fontes desta skill (`/context`, `/skill-doctor`, `/doctor prompt-audit`,
-  `medir-sessao.py`, `ccusage`, `claude mcp list/get` e o arquivo que você abriu); "você
+  `medir-sessao.py`, `skills-projeto-scan.sh`, `ccusage`, `claude mcp list/get`, os passos
+  do kit de time, se existirem, e o arquivo que você abriu); "você
   não usa" é o usuário quem responde.
 - **Feche dizendo o que ficou de fora**, numa linha: *"deixei de fora N achados menores
   (MCP e skills) — peça se quiser a lista"*.
