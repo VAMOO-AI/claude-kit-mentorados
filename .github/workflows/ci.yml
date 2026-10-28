@@ -260,6 +260,9 @@ jobs:
       - name: Nenhum SKILL.md passa do que a compactação reanexa (legado só encolhe)
         run: bash tests/test-skill-tamanho.sh
 
+      - name: O check de upstreams separa nada novo de não medido e não duplica issue
+        run: bash tests/test-upstreams-check.sh
+
       - name: O scan de skills do projeto reprova casca e o hook fala uma vez por mudança
         run: bash tests/test-skills-projeto.sh
 
