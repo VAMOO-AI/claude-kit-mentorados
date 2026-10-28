@@ -26,13 +26,18 @@ SKILL="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/secscan/SKILL.md}"
 
 falhas=0
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/secscan-ferr.XXXXXX"); trap 'rm -rf "$TMP"' EXIT
+# Os blocos das fases moram em references/ desde que a skill foi fatiada para caber no
+# reanexo da compactação (tests/test-skill-tamanho.sh). FONTE é a skill inteira, na ordem
+# SKILL.md → references/*.md; os títulos "## Fase 0.5" e "## Fase 4" só existem uma vez nela.
+FONTE="$TMP/secscan-inteira.md"
+cat "$SKILL" "$(dirname "$SKILL")"/references/*.md > "$FONTE"
 ok()    { printf '  ok    %s\n' "$1"; }
 falha() { printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); }
 tem()     { case "$2" in *"$1"*) ok "$3" ;; *) falha "$3 (não achei '$1' em: $2)" ;; esac; }
 nao_tem() { case "$2" in *"$1"*) falha "$3 (achei '$1' em: $2)" ;; *) ok "$3" ;; esac; }
 
 bloco() { # bloco <regex-do-título> → o primeiro ```bash depois do título
-  awk -v t="$1" '$0 ~ t {a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$SKILL"
+  awk -v t="$1" '$0 ~ t {a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$FONTE"
 }
 bloco '^## Fase 0\.5' > "$TMP/fase05.sh"
 [ -s "$TMP/fase05.sh" ] || { echo "bloco bash da Fase 0.5 não encontrado em $SKILL"; exit 2; }
@@ -181,8 +186,8 @@ for lf in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.loc
   nao_tem "SEM LOCKFILE"     "$out" "…e não diz SEM LOCKFILE"
 done
 
-echo "== nenhum scanner sobrou com '&& … || echo AUSENTE' no SKILL.md =="
-restos=$(grep -nE 'command -v [a-z-]+ *&&.*\|\| *echo .*AUSENTE' "$SKILL")
+echo "== nenhum scanner sobrou com '&& … || echo AUSENTE' na skill =="
+restos=$(grep -nE 'command -v [a-z-]+ *&&.*\|\| *echo .*AUSENTE' "$FONTE")
 [ -z "$restos" ] && ok "nenhuma cópia do padrão" || falha "padrão antigo ainda presente: $restos"
 
 echo "== a regra de estado da tabela conhece o scanner que falhou =="
