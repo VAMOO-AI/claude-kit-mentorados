@@ -466,11 +466,16 @@ else
   echo "  pulado PDF real dos casos 12i e 12j: sem Chrome ou pdftotext nesta máquina"
 fi
 
-# 12d. paridade com a Fase 6: todo formato que a lista `pads` do SKILL.md reconhece sai
+# 12d. paridade com a Fase 6: todo formato que a lista `pads` da Fase 6 reconhece sai
 #      redigido do gerador. As amostras saem da própria lista, no comprimento mínimo de cada
 #      alternativa, soltas e coladas em "Bearer%20" e "x_" (menos o sk- genérico, que mantém a
 #      fronteira). Padrão novo na Fase 6 sem par no gerador, ou sem caso aqui, reprova.
-paridade="$(python3 - "$SKILL/SKILL.md" "$SKILL/references/exemplo-findings.json" \
+#      A Fase 6 mora em references/fase-6-7-relatorio-issues.md, e o SKILL.md aponta para ela.
+F6MD="$SKILL/references/fase-6-7-relatorio-issues.md"
+grep -qF "](references/fase-6-7-relatorio-issues.md)" "$SKILL/SKILL.md" \
+  && ok "SKILL.md aponta para a Fase 6 em references/fase-6-7-relatorio-issues.md" \
+  || falha "SKILL.md sem ponteiro para references/fase-6-7-relatorio-issues.md"
+paridade="$(python3 - "$F6MD" "$SKILL/references/exemplo-findings.json" \
   "$SKILL/scripts/gerar-relatorio.py" "$TMP" <<'PY'
 import ast, json, re, subprocess, sys
 try:
@@ -481,7 +486,7 @@ except ImportError:
 skill_md, exemplo, gerador, tmp = sys.argv[1:5]
 m = re.search(r"^pads = (\[.*?\])\n", open(skill_md, encoding="utf-8").read(), re.S | re.M)
 if not m:
-    print("  FALHA lista pads da Fase 6 não encontrada no SKILL.md"); sys.exit(1)
+    print("  FALHA lista pads da Fase 6 não encontrada em", skill_md); sys.exit(1)
 pads = ast.literal_eval(m.group(1))
 
 def classe(itens):
