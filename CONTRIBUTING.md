@@ -79,3 +79,15 @@ bash tests/test-pin-versao.sh
 No CI, o job `macos` roda a suíte inteira em 3 shards (`.github/scripts/ci-shard.sh`). Teste
 novo em `tests/test-*.sh` entra num shard sozinho, mas precisa de um passo próprio no
 `validate`, porque o check "Nenhum teste ficou de fora" faz grep do nome no `ci.yml`.
+
+## Upstreams: de onde o kit tira ideia
+
+`scripts/upstreams.json` lista os repos que inspiram o kit (superpowers, rtk, gstack…), com a
+data e a versão da última leitura e o que veio de cada um. O workflow `upstreams` roda nos
+dias 1 e 15 e, quando sai coisa depois da leitura, abre ou atualiza a issue
+`upstreams: novidade para ler`. Para conferir na hora: `bash scripts/upstreams-check.sh`.
+
+Quem lê cruza cada novidade com o kit (já temos, não serve, trazer) e, no PR que traz a
+ideia (ou num PR só do manifesto, se nada entrou), atualiza `lido_em`, `lido_versao` e
+`que_trouxemos` da entrada. Depois fecha a issue. Sem esse passo, o próximo run aponta de
+novo as mesmas releases.
