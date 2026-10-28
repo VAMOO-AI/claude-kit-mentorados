@@ -22,6 +22,9 @@ o `settings.json` de um plugin só aceita as chaves `agent` e
 `subagentStatusLine`. **CLAUDE.md global, barra de status, idioma e lista de
 permissões não podem vir num plugin.** É isto que esta skill instala.
 
+Depois de uma compactação só o começo desta skill volta ao contexto: leia o arquivo de
+`references/` no passo que o cita, mesmo que já tenha lido antes.
+
 ## 1. Rode o setup
 
 **No Windows, confira antes se existe `bash`.** Os guard-rails do kit (commit na main,
@@ -79,36 +82,14 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
   nunca escolheu continua no curto. Pergunte qual a pessoa prefere e acrescente
   `--statusline painel` ou `--statusline curto` aos dois comandos acima. A escolha fica em
   `~/.claude/statusline-modo` e vale até ela rodar o setup com a outra.
-- **`settings.json` é mesclado, não substituído.** As chaves de quem instala
-  ganham; a lista `allow` vira a união das duas. Ninguém perde permissão ou
-  variável de ambiente que já tinha configurado.
-- **O modo de permissão vira Auto (`auto`).** Quem estava no Manual (`default`), no
-  Accept edits (`acceptEdits`) ou sem modo passa para `auto`, o padrão do próprio Claude Code desde a v2.1.283, e a
-  saída diz isso numa linha. No Auto, um segundo modelo (o classificador) revisa cada
-  comando antes de rodar no lugar do "Permitir" manual. Se o Auto não estiver
-  disponível para a conta ou o modelo, o Claude Code abre a sessão em Manual: não é o
-  setup que falhou. Quem quer ficar no Accept edits cria
-  `~/.claude/kit-vamoo/manter-accept-edits`, e a saída ensina isso quando troca.
-  `bypassPermissions`, `plan` e `dontAsk` ficam como estão. Junto vêm allow de git local, `git push` e `gh pr create`, e `ask` para o que
-  não tem volta (force push, push na main, descartar alteração local, `rm -r` fora das
-  pastas descartáveis, listar variáveis de ambiente, ler arquivo de segredo), com espelho
-  em `PowerShell(...)`. Runner de script (`node scripts/*`, `npx tsx`, `npm run`, `awk`)
-  e `ffmpeg` não entram no allow global, e o setup tira de quem já tinha os
-  `Bash(awk:*)`, `Bash(npx tsx:*)` e `Bash(npm run:*)` que versões anteriores do kit
-  gravaram: o projeto libera o comando exato no próprio `.claude/settings.json`. Quem
-  quer o manual de vez cria `~/.claude/kit-vamoo/manter-modo-manual` e o setup não
-  troca mais.
+- **Leia [references/decisoes-do-setup.md](references/decisoes-do-setup.md)** e diga à pessoa
+  também o que está lá: o `settings.json` é mesclado, o modo de permissão vira Auto (e como
+  ficar no Accept edits ou no Manual), o que entra e sai do `allow`/`ask` e o auto-update do
+  kit ligado.
 - **No app de desktop, o seletor vence o arquivo.** O modo escolhido no seletor ao
   lado do botão de enviar é lembrado por pasta e ganha do `defaultMode`. Se ele
   mostrar **Manual** (ou **Ask permissions**, em versão antiga), diga à pessoa para
   trocar uma vez para **Auto** em cada pasta onde escolheu Manual.
-- **O setup liga o auto-update do kit** (`extraKnownMarketplaces.vamoo-ai.autoUpdate`).
-  É o que faz o kit parar de envelhecer na máquina de quem instalou: o Claude
-  Code desliga a atualização automática de marketplace de terceiro por padrão, e
-  o botão que liga isso vive no `/plugin`, um painel que **não existe no
-  aplicativo de desktop**. Declarado no `settings.json`, vale nos dois — e a
-  fonte do marketplace que a pessoa já tinha não é trocada. Quem desligou de
-  propósito (`autoUpdate: false`) continua desligado, com aviso na saída.
 
 ## 2. Preencha o CLAUDE.md com os dados da pessoa
 
