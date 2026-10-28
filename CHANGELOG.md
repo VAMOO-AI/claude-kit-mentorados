@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.85.0] — 2026-10-28
+
+### Corrigido
+
+- `instrucoes-projeto.sh` instalado em `~/.claude/scripts` (kit do time) acha o modelo do `.worktreeinclude` na instalação do kit-vamoo, em vez de falhar ao gravar.
+
 ## [0.84.0] — 2026-10-24
 
 ### Removido

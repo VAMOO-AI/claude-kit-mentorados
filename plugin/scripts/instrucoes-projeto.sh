@@ -38,8 +38,20 @@
 set -uo pipefail
 
 LIMITE_CODEX=32768
-MODELO="$(cd "$(dirname "$0")/.." && pwd)/templates/AGENTS-projeto.md.exemplo"
-MODELO_WI="$(cd "$(dirname "$0")/.." && pwd)/templates/worktreeinclude.exemplo"
+# modelo_do_plugin <nome>: o modelo em templates/ do plugin. Rodando de dentro do plugin, é
+# o ../templates. Copiado pela nucleo.lista do time para ~/.claude/scripts, não há templates/
+# ao lado, e o modelo vem da instalação do kit-vamoo, a versão mais nova. Sem nenhum dos
+# dois, devolve o caminho do plugin mesmo, para a mensagem dizer o que faltou.
+modelo_do_plugin() {
+  local local_ achado
+  local_="$(cd "$(dirname "$0")/.." && pwd)/templates/$1"
+  [ -f "$local_" ] && { printf '%s\n' "$local_"; return; }
+  achado="$(ls -d "$HOME"/.claude/plugins/cache/*/kit-vamoo/*/templates/"$1" 2>/dev/null \
+    | awk -F/ '{ print $(NF-2) "\t" $0 }' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1 | cut -f2)"
+  printf '%s\n' "${achado:-$local_}"
+}
+MODELO="$(modelo_do_plugin AGENTS-projeto.md.exemplo)"
+MODELO_WI="$(modelo_do_plugin worktreeinclude.exemplo)"
 CAB_FICA="proposta: fica no CLAUDE.md, abaixo do @AGENTS.md (parece exclusivo do Claude Code)"
 
 uso() {
@@ -406,7 +418,9 @@ esac
 # quem copia é o próprio Claude Code, mas só com um .worktreeinclude na raiz, e nada o
 # instalava. Fora de repositório git não há worktree, e o arquivo seria lixo.
 if [ ! -e "$REPO/.worktreeinclude" ] && git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
-  if [ "$MODO" = apply ]; then
+  if [ "$MODO" = apply ] && [ ! -f "$MODELO_WI" ]; then
+    echo "modelo do .worktreeinclude não encontrado ($MODELO_WI): atualize o kit-vamoo (claude plugin update kit-vamoo@vamoo-ai); nada gravado" >&2
+  elif [ "$MODO" = apply ]; then
     if cp "$MODELO_WI" "$REPO/.worktreeinclude"; then
       echo "gravado: .worktreeinclude, do modelo do plugin (o worktree novo recebe o .env ignorado); commite junto"
     else

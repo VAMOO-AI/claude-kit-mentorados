@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.85.0|O `instrucoes-projeto.sh --apply` volta a criar o `.worktreeinclude` também na máquina do time
 0.84.0|Os hooks do kit rodam do mesmo jeito em toda máquina, sem exceção para o kit do time
 0.83.0|Preparação para o kit do time usar os hooks do plugin: nada muda na máquina do mentorado
 0.82.0|o kit avisa quando o Claude Code está desatualizado, barra o navegador de abrir localhost fora do ar, o secscan procura mais tipos de falha e chegam a /kit-vamoo:otimizar-app e a /kit-vamoo:video-watch
