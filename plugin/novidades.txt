@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.86.0|As skills grandes (ship, secscan, auditoria e mais oito) não perdem mais as regras do fim quando a conversa compacta: o essencial ficou no topo e o detalhe é lido no passo certo; O revisor procura o mesmo erro nos outros lugares do código, e o plano do grilling já sai com as premissas conferidas e os casos que ninguém testou
 0.85.0|O `instrucoes-projeto.sh --apply` volta a criar o `.worktreeinclude` também na máquina do time
 0.84.0|Os hooks do kit rodam do mesmo jeito em toda máquina, sem exceção para o kit do time
 0.83.0|Preparação para o kit do time usar os hooks do plugin: nada muda na máquina do mentorado

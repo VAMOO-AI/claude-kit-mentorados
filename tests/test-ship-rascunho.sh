@@ -11,13 +11,17 @@
 set -uo pipefail
 SHIP="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/ship/SKILL.md}"
 [ -f "$SHIP" ] || { echo "ship/SKILL.md não encontrado: $SHIP"; exit 2; }
+# O detalhe do §2b mora em references/pr-ci-merge.md desde que a skill foi fatiada para caber
+# no reanexo da compactação (tests/test-skill-tamanho.sh); a regra curta fica no SKILL.md.
+REF="$(dirname "$SHIP")/references/pr-ci-merge.md"
+[ -f "$REF" ] || { echo "references/pr-ci-merge.md não encontrado: $REF"; exit 2; }
 
 falhas=0
 ok()    { printf '  ok    %s\n' "$1"; }
 falha() { printf '  FALHA %s\n' "$1"; falhas=$((falhas+1)); }
 
 # secao <prefixo do título>: do "### <prefixo>" até o próximo "## " ou "### "
-secao() { awk -v t="$1" 'index($0, t) == 1 { dentro = 1; next } dentro && /^##/ { exit } dentro' "$SHIP"; }
+secao() { awk -v t="$1" 'index($0, t) == 1 { dentro = 1; next } dentro && /^##/ { exit } dentro' "$REF"; }
 
 S2=$(awk '/^## 2\. / { dentro = 1; next } dentro && /^##/ { exit } dentro' "$SHIP")
 S2B=$(secao "### 2b.")
@@ -36,6 +40,14 @@ grep -qF "SKIPPED" <<<"$S2B" && ok "§2b diz que SKIPPED do rascunho não é ver
   || falha "§2b diz que SKIPPED do rascunho não é verde"
 grep -qF "run novo" <<<"$S2B" && ok "§2b confirma que o run novo apareceu antes do watch" \
   || falha "§2b confirma que o run novo apareceu antes do watch"
+
+echo "== SKILL.md: a regra curta sobrevive à compactação =="
+grep -qF "SKIPPED" "$SHIP" && ok "SKILL.md diz que SKIPPED de rascunho não é verde" \
+  || falha "SKILL.md diz que SKIPPED de rascunho não é verde"
+grep -qF "gh pr ready" <<<"$S2" && ok "§2 do SKILL.md manda o gh pr ready antes do watch" \
+  || falha "§2 do SKILL.md manda o gh pr ready antes do watch"
+grep -qF "references/pr-ci-merge.md" <<<"$S2" && ok "§2 aponta references/pr-ci-merge.md" \
+  || falha "§2 aponta references/pr-ci-merge.md"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; exit 0; fi

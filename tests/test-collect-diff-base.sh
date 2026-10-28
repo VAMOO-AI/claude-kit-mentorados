@@ -222,7 +222,8 @@ git -C "$TMP/colega" push -q origin main
 git -C "$REPO" fetch -q origin
 roda 21 origin/HEAD
 [ "$EXIT" -eq 1 ] && ok "o gate acusa o .env antes do remédio" || falha "o gate saiu $EXIT antes do remédio (esperado 1)"
-REMEDIO="$(grep -o '`git reset --soft [^`]*<branch padrão>[^`]*`' "$SHIP" | head -1 | tr -d '`' | sed 's/<branch padrão>/main/g')"
+# O §1b detalhado mora em references/baseline-gate.md (skill fatiada, test-skill-tamanho.sh).
+REMEDIO="$(cat "$SHIP" "$(dirname "$SHIP")"/references/*.md | grep -o '`git reset --soft [^`]*<branch padrão>[^`]*`' | head -1 | tr -d '`' | sed 's/<branch padrão>/main/g')"
 if [ -z "$REMEDIO" ]; then
   falha "não achei na ship §1b o reset --soft que refaz o range"
 else

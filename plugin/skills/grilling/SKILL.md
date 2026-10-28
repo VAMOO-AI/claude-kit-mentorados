@@ -67,6 +67,21 @@ passos curtos, cada um com o check que o prova: o comando, o teste que falha
 antes e passa depois, ou o comportamento que se observa (na tela, no log, no
 banco). Passo sem check está vago demais; quebre até ter um. Peça "go".
 
+O plano fechado leva três coisas além dos passos:
+
+- **Premissas com recibo.** Todo fato em que o plano se apoia (a função existe,
+  a coluna tem esse tipo, a rota já checa sessão, o número de linhas) vem com o
+  `arquivo:linha` ou o comando que o mostrou agora. Premissa sem recibo volta a
+  ser busca; se a busca não resolve, vira pergunta.
+- **Foco do review: até 5 entradas ou modos de falha** que as decisões implicam
+  e nenhum passo testa (lista vazia, valor duplicado, usuário sem permissão,
+  chamada repetida, campo nulo). Cada um vira um teste no passo que toca aquele
+  código. É o input que ninguém nomeou que passa por todos os gates.
+- **Decisão, não código.** Cada passo diz o arquivo, a assinatura, os valores
+  combinados, as asserções do teste e o comando com a saída esperada. Corpo de
+  código só entra para um algoritmo que isso não determina. Plano várias vezes
+  maior que o pedido virou transcrição: troque os corpos por assinatura e teste.
+
 Fechado o entendimento, grave cada decisão no lugar dela: regra dura do projeto →
 `AGENTS.md` da raiz (o `CLAUDE.md` do projeto só importa `@AGENTS.md`); decisão e
 conhecimento do projeto → `.context/docs/`; fato durável → memória. O histórico da

@@ -29,6 +29,10 @@
 set -uo pipefail
 SKILL="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/skills/auditoria-seguranca/SKILL.md}"
 [ -f "$SKILL" ] || { echo "SKILL.md não encontrado: $SKILL"; exit 2; }
+# Os blocos moraram no SKILL.md até ele passar do teto do reanexo da compactação; hoje cada
+# fase mora numa reference, e o SKILL.md aponta para ela.
+REF="$(dirname "$SKILL")/references"
+A4MD="$REF/a4-chaves-expostas.md"; F0MD="$REF/fase-0-stack.md"; F6MD="$REF/fase-6-7-relatorio-issues.md"
 
 falhas=0
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/a4-mascara.XXXXXX")"
@@ -40,8 +44,14 @@ tem()     { case "$2" in *"$1"*) ok "$3" ;; *) falha "$3 (não achei '$1' em: $2
 nao_tem() { case "$2" in *"$1"*) falha "$3 (achei '$1')" ;; *) ok "$3" ;; esac; }
 
 # O primeiro bloco ```bash depois do título da A4.
-awk '/^## A4 /{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$SKILL" > "$TMP/a4.sh"
-[ -s "$TMP/a4.sh" ] || { echo "bloco bash da A4 não encontrado em $SKILL"; exit 2; }
+awk '/^## A4 /{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$A4MD" > "$TMP/a4.sh"
+[ -s "$TMP/a4.sh" ] || { echo "bloco bash da A4 não encontrado em $A4MD"; exit 2; }
+
+echo "== o SKILL.md aponta para as references que guardam os blocos =="
+for r in a4-chaves-expostas.md fase-0-stack.md fase-6-7-relatorio-issues.md; do
+  grep -qF "](references/$r)" "$SKILL" && ok "SKILL.md aponta para references/$r" \
+    || falha "SKILL.md sem ponteiro para references/$r"
+done
 
 # Segredos falsos montados aqui: literal de segredo no fonte faz scanner reprovar o próprio teste.
 b64url() { printf '%s' "$1" | base64 | tr '+/' '-_' | tr -d '=\n'; }
@@ -248,7 +258,7 @@ nao_tem "tokenDepoisDoByte99"         "$sl" "byte fora de UTF-8: a config contin
 nao_tem "$SK"                         "$sl" "byte fora de UTF-8: a chave do bundle continua mascarada"
 
 echo "== Fase 0: o ls de infra lista os nomes do Compose v2 =="
-awk '/^## Fase 0 /{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$SKILL" > "$TMP/fase0.sh"
+awk '/^## Fase 0 /{a=1} a && /^```bash/{b=1; next} b && /^```/{exit} b' "$F0MD" > "$TMP/fase0.sh"
 f0=$(cd "$R" && PATH=/usr/bin:/bin bash "$TMP/fase0.sh" 2>&1)
 tem "compose.yaml"                    "$f0" "Fase 0 lista compose.yaml"
 tem "docker-compose.override.yaml"    "$f0" "Fase 0 lista docker-compose*.yaml"
@@ -256,7 +266,7 @@ tem "docker-compose.override.yaml"    "$f0" "Fase 0 lista docker-compose*.yaml"
 echo "== Fase 6: o trecho de achado de segredo sai cortado no valor e passa no --verificar =="
 # O bloco da Fase 6 marcado "# trecho de achado de segredo", com <linha> e <arquivo> trocados.
 awk '/^## Fase 6 /{a=1} a && /^```bash/{b=1; buf=""; next} b && /^```/{if (buf ~ /# trecho de achado de segredo/) {printf "%s", buf; exit} b=0; next} b {buf = buf $0 "\n"}' \
-  "$SKILL" > "$TMP/fase6.sh"
+  "$F6MD" > "$TMP/fase6.sh"
 trecho() { # trecho <arquivo> <linha> — roda o bloco da Fase 6; deixa a saída em $T6 e o exit em $X6
   sed -e "s|<arquivo>|$1|g" -e "s|<linha>|$2|g" "$TMP/fase6.sh" > "$TMP/fase6-run.sh"
   T6=$(cd "$R" && PYTHONIOENCODING=utf-8:strict PATH=/usr/bin:/bin bash "$TMP/fase6-run.sh" 2>/dev/null); X6=$?
@@ -549,7 +559,7 @@ PY
   case "$rev" in *"ok    paridade reversa"*) ;; *) falhas=$((falhas + 1)) ;; esac
 fi
 # Nenhum `sed -n` da skill copia linha para a conversa sem passar pela máscara.
-sem=$(grep -n 'sed -n' "$SKILL" | grep -v '| python3' | grep -vi 'segredo')
+sem=$(grep -n 'sed -n' "$SKILL" "$REF"/*.md | grep -v '| python3' | grep -vi 'segredo')
 [ -z "$sem" ] && ok "todo sed -n da skill passa pela máscara ou exclui segredo" \
   || falha "sed -n que copia linha sem máscara: $sem"
 
@@ -563,7 +573,7 @@ printf '#!/bin/sh\ntouch "$PWD/NPM_RODOU"\n' > "$TMP/bin/npm"; chmod +x "$TMP/bi
   || falha "o bloco chamou npm no repo auditado (build executa script dele e grava fora de docs/security-audit/)"
 
 echo "== sem build, a A4 pergunta com o comando pronto e declara a cobertura =="
-secao=$(awk '/^## A4 /{a=1; next} a && /^## /{exit} a' "$SKILL")
+secao=$(awk '/^## A4 /{a=1; next} a && /^## /{exit} a' "$A4MD")
 tem 'Posso rodar `npm run build`'   "$secao" "o build é pergunta, com o comando pronto"
 tem 'grava `dist/`'                  "$secao" "a pergunta diz o que o build grava"
 tem '`npm ci`'                       "$secao" "sem node_modules, a pergunta cita o npm ci e o que ele roda"

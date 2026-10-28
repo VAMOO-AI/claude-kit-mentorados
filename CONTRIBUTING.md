@@ -72,9 +72,18 @@ São rápidos e pegam o que mais volta do CI:
 bash tests/test-docs-consistencia.sh
 bash tests/test-lint-instrucoes.sh
 bash tests/test-skill-descriptions.sh
+bash tests/test-skill-tamanho.sh
+bash tests/test-skill-argumentos.sh
 bash tests/test-sem-dado-de-cliente.sh
 bash tests/test-pin-versao.sh
 ```
+
+O `test-skill-tamanho` segura cada `SKILL.md` em 10.000 caracteres (~4.500 tokens): depois de
+uma compactação, o Claude Code só reanexa os primeiros 5.000 tokens de cada skill. Passo longo,
+tabela e script vão para `references/`, e o `SKILL.md` diz em que passo ler cada arquivo.
+O `test-skill-argumentos` reprova `$0`…`$9` no `SKILL.md` e nos commands: quando a skill
+recebe argumentos, o Claude Code troca esses placeholders por eles. Comando com `$N` mora em
+`references/` ou `scripts/`; preço em dólar é `US$ 20`.
 
 No CI, o job `macos` roda a suíte inteira em 3 shards (`.github/scripts/ci-shard.sh`). Teste
 novo em `tests/test-*.sh` entra num shard sozinho, mas precisa de um passo próprio no
