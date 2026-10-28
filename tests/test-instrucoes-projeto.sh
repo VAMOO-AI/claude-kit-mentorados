@@ -399,5 +399,29 @@ WN="$(novo wi-solto)"; printf '%s' "$AG" > "$WN/AGENTS.md"; printf '@AGENTS.md\n
 roda --apply "$WN" >/dev/null
 check "fora de repo git não cria (worktree é coisa de git)" "$(sim test ! -e "$WN/.worktreeinclude")"
 
+# O time recebe o script pela nucleo.lista em ~/.claude/scripts, sem a pasta templates/ do
+# plugin ao lado: o `../templates` virava ~/.claude/templates, que não existe, e o --apply
+# acabava em "falhou ao gravar .worktreeinclude" (TREINAMENTONOVO, 28/10/2026). O modelo
+# vem então da instalação do kit-vamoo, a versão mais nova (0.10.0 ganha da 0.9.0).
+echo "== script instalado em ~/.claude/scripts acha o modelo na instalação do plugin =="
+FH="$TMP/home"; mkdir -p "$FH/.claude/scripts"
+cp "$SCRIPT" "$FH/.claude/scripts/instrucoes-projeto.sh"
+for v in 0.9.0 0.10.0; do
+  mkdir -p "$FH/.claude/plugins/cache/vamoo-ai/kit-vamoo/$v/templates"
+  cp "$MODELO" "$FH/.claude/plugins/cache/vamoo-ai/kit-vamoo/$v/templates/"
+done
+cp "$WI_MODELO" "$FH/.claude/plugins/cache/vamoo-ai/kit-vamoo/0.10.0/templates/"
+printf 'velho\n' > "$FH/.claude/plugins/cache/vamoo-ai/kit-vamoo/0.9.0/templates/worktreeinclude.exemplo"
+WT="$(novo wi-time)"; printf '%s' "$AG" > "$WT/AGENTS.md"; printf '@AGENTS.md\n' > "$WT/CLAUDE.md"
+git -C "$WT" init -q
+err="$(HOME="$FH" bash "$FH/.claude/scripts/instrucoes-projeto.sh" --apply "$WT" 2>&1 >/dev/null)"
+check "instalado: stderr vazio no --apply (veio: ${err:-nada})" "$(sim mesmo "$err" "")"
+check "instalado: .worktreeinclude igual ao modelo da versão mais nova" "$(sim cmp -s "$WI_MODELO" "$WT/.worktreeinclude")"
+WT2="$(novo wi-time-sem-plugin)"; printf '%s' "$AG" > "$WT2/AGENTS.md"; printf '@AGENTS.md\n' > "$WT2/CLAUDE.md"
+git -C "$WT2" init -q
+err="$(HOME="$TMP/home-vazio" bash "$FH/.claude/scripts/instrucoes-projeto.sh" --apply "$WT2" 2>&1 >/dev/null)"
+check "sem plugin instalado: diz que não achou o modelo" "$(sim tem "$err" 'modelo do .worktreeinclude não encontrado')"
+check "sem plugin instalado: não cria arquivo vazio" "$(sim test ! -e "$WT2/.worktreeinclude")"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
