@@ -15,6 +15,9 @@ A mecânica do Workflow (teto de concorrência do runner, `.filter(Boolean)`, `p
 `parallel()`, `resumeFromRunId`, effort por estágio) está na skill built-in
 `workflow-authoring`. Aqui fica o que ela não cobre.
 
+Depois de uma compactação só o começo desta skill volta ao contexto: leia o arquivo de
+`references/` no passo que o cita, mesmo que já tenha lido antes.
+
 ## Quando fan-out (e quando NÃO)
 
 - Subagents paralelos pra **>5 arquivos independentes**. Não delegue o que resolve em poucos
@@ -30,41 +33,15 @@ A mecânica do Workflow (teto de concorrência do runner, `.filter(Boolean)`, `p
   (`{alvo, contexto, regras, areas: [{key, files, foco}], maxFindings}`). Sem ele, faça o
   fan-out com `Agent` e ofereça o workflow em uma linha.
 
-## Schema de `agent()`: o que evita o retry do StructuredOutput
+## Script de Workflow: schema de `agent()` e loop de review/fix
 
-Schema que o subagente erra custa um turno por tentativa. Ao escrever o `schema`:
+**Leia [references/workflow-script.md](references/workflow-script.md)** antes de escrever o
+`schema` de um `agent()` (`required` mínimo, raso, chaves exatas no prompt) ou um workflow
+com loop de review/fix (controle × dados, ledger de descartados, cegueira por posição,
+agente solo crítico morto → `throw`, estados terminais distintos, estacione em vez de descartar).
 
-- **`required` mínimo**: só o que o passo seguinte consome. Campo nice-to-have fica fora.
-- **Raso**: objeto na raiz e no máximo um array de objetos com poucos campos. Lista longa de
-  obrigatórios faz o agente esquecer uma propriedade, e o output inteiro é rejeitado.
-- `enum` em campo categórico e `maxItems` em todo array.
-- Prosa longa vai num campo string só (`notes`), não espalhada em N campos obrigatórios.
-- **Repita as chaves exatas no prompt** ("responda `{findings: [{file, issue, proposal}]}`"):
-  os dois erros que mais voltam são chave extra na raiz ("must NOT have additional
-  properties") e `required` faltando.
 - Os parâmetros do tool `Workflow` são `script` ou `scriptPath`, `args` e `resumeFromRunId`.
   Não existe `run_in_background` (é do Bash): o tool rejeita a chamada.
-
-## Workflow multi-round (loop de review e fix)
-
-Vale ao autorar workflow com loop de review/fix, não para fan-out simples. Não há engine
-pronto para esse ciclo: o script é seu. Antes de prometer um comando a alguém, confira que
-ele existe; instrução que manda usar o que não existe custa a sessão inteira de quem acredita.
-
-- **Controle × dados**: o schema de retorno leva só decisões (`pass?`, `clean?`); conteúdo
-  rico viaja por ARQUIVO, sem paráfrase do harness no meio.
-- **Ledger de descartados**: o revisor cego lê só o ledger dos findings dispensados, nunca as
-  reviews anteriores. Não re-litiga, mas re-verifica o diff fresco. Contestou o descarte →
-  quem corrige corrige ou escala; nunca re-dispensa em silêncio.
-- **Cegueira por posição**: agente que não pode ver um documento nunca recebe o caminho, e o
-  documento não fica em pasta que ele lê. "Não leia X" não é cegueira.
-- **Agente solo crítico morto → `throw`**: o `.filter(Boolean)` é para fan-out. Em papel único
-  (crítico do plano, varredura final), agente morto que volta vazio é indistinguível de
-  veredito limpo, e tem de falhar alto.
-- **Estados terminais distintos**: esgotou rounds, esgotou tokens e provou que nada qualifica
-  são três saídas. Juntar duas deixa cansaço passar por prova.
-- **Estacione, não descarte**: trabalho que não passa vira `parked-<id>.patch` com o comando
-  de restauração em `NEEDS-USER.md`; árvore limpa em todo estado terminal.
 
 ## Ambiente sem a dependência → implemente, simule, documente o real
 
@@ -159,22 +136,9 @@ protocolo, as cinco categorias e a varredura de SKILL.md vêm no próprio agente
 
 ## Memória de veredito (falso-positivo não se resolve no código)
 
-Silenciar o achado onde ele aparece (`nosemgrep`, `eslint-disable`, exceção no scanner)
-espalha a decisão pelo código, some no diff e não diz quem decidiu nem quando. O veredito vai
-num arquivo, no formato do `secscan`:
-
-```markdown
-<!-- .context/docs/security/vereditos.md -->
-| Fingerprint | Veredito | Por quê | Quem | Quando |
-|---|---|---|---|---|
-| `src/import.ts:88 sql-injection` | falso-positivo | parâmetro vem de enum fechado, não de input | dev responsável | 2026-08-22 |
-| `scripts/build-*.cjs service_role` | risco aceito | ver EX-01 em `.context/docs/baseline.md` | dev responsável | 2026-08-22 |
-```
-
-Antes de reabrir um finding, consulte a tabela; depois de julgar um novo, escreva nela. Vale
-para auditoria, revisor de PR e todo fan-out que produz achado: sem isso, cada rodada paga o
-mesmo julgamento e chega a conclusões diferentes conforme o agente. Código ao redor mudou →
-o fingerprint deixa de valer e o achado volta. Registre o motivo, não só o "não é problema".
+**Leia [references/memoria-de-veredito.md](references/memoria-de-veredito.md)** antes de
+silenciar um achado ou reabrir um finding: o veredito vai em `.context/docs/security/vereditos.md`,
+no formato do `secscan`, nunca em `nosemgrep`/`eslint-disable` no código.
 
 ## Cleanup (parte da tarefa, não follow-up)
 
