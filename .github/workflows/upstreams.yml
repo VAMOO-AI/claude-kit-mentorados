@@ -1,0 +1,31 @@
+# Leitura dos upstreams com data marcada. Duas vezes por mês o scripts/upstreams-check.sh
+# compara cada repo do scripts/upstreams.json com a última leitura e, se saiu coisa, abre
+# (ou atualiza) a issue "upstreams: novidade para ler". Ler, cruzar com o kit e decidir o
+# que entra continua sendo trabalho de gente (ou de uma sessão): o workflow só não deixa
+# esquecer. Repo que a API não respondeu deixa o run vermelho em vez de virar "nada novo".
+name: upstreams
+
+on:
+  schedule:
+    - cron: "0 12 1,15 * *"
+  workflow_dispatch:
+
+# Lê repos públicos e escreve só issue.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstreams
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Novidade nos upstreams vira issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/upstreams-check.sh --issue

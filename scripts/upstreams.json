@@ -1,0 +1,61 @@
+{
+  "_como_usar": "Repos de onde o kit tira ideia. O workflow upstreams.yml compara cada um com lido_em e abre (ou atualiza) a issue 'upstreams: novidade para ler'. Depois de ler e decidir o que entra, atualize lido_em, lido_versao e o que_trouxemos da entrada no mesmo PR que traz a ideia (ou num PR só do manifesto, se nada entrou).",
+  "upstreams": [
+    {
+      "repo": "obra/superpowers",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v7.0.1",
+      "tag": "^v",
+      "commits_minimo": 0,
+      "que_trouxemos": "skill-pressure-test (writing-skills); gate de tamanho do SKILL.md (7.0.1, corte da compactação). Plugin e persona descartados."
+    },
+    {
+      "repo": "rtk-ai/rtk",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v1.1.0",
+      "tag": "^v",
+      "commits_minimo": 0,
+      "que_trouxemos": "Binário via brew, chamado pelo rtk-claude.sh. Nunca rtk init. Cada versão nova: conferir hooks/permissions no changelog contra o rtk-claude.sh."
+    },
+    {
+      "repo": "garrytan/gstack",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v1.91.242.0",
+      "tag": "",
+      "commits_minimo": 40,
+      "que_trouxemos": "Checklist de migration (data-migration). O CHANGELOG anda sem tag: a contagem de commits é o sinal."
+    },
+    {
+      "repo": "DietrichGebert/ponytail",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v5.3.2",
+      "tag": "^v",
+      "commits_minimo": 0,
+      "que_trouxemos": "Convenção // atalho: <teto>; <quando revisitar> (ponytail-debt). Persona always-on descartada."
+    },
+    {
+      "repo": "JuliusBrussee/caveman",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v4.0.1",
+      "tag": "^v",
+      "commits_minimo": 0,
+      "que_trouxemos": "Nada. Descartado (CLI que mexe no settings, roteamento pela Cloud, telemetria ligada). Só reabrir se mudar isso."
+    },
+    {
+      "repo": "safishamsi/graphify",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "v0.9.97",
+      "tag": "^v",
+      "commits_minimo": 0,
+      "que_trouxemos": "CLI fixado em graphifyy==0.8.36, recorte affected/explain; skill fora (traz 'MANDATORY'). Reavaliar o pin por segurança e pelo affected ambíguo."
+    },
+    {
+      "repo": "anthropics/skills",
+      "lido_em": "2026-10-28T15:00:00Z",
+      "lido_versao": "-",
+      "tag": "^v",
+      "commits_minimo": 1,
+      "que_trouxemos": "Nada vendorizado: o host entrega skill-creator, mcp-builder, claude-api e frontend-design; Office é source-available."
+    }
+  ]
+}
