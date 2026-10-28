@@ -13,6 +13,8 @@ allowed-tools:
 
 # Skills do projeto — o que elas cobram, e de quem
 
+Depois de uma compactação só o começo desta skill volta ao contexto: leia o arquivo de `references/` no passo que o cita, mesmo que já tenha lido antes.
+
 Skill de projeto vive em `.claude/skills/<nome>/SKILL.md` e vale só naquele
 repositório. O ponto que quase ninguém vê: **a `description` de toda skill
 visível entra no contexto antes do seu primeiro prompt e é relida a cada
@@ -99,57 +101,19 @@ request pelo resto do projeto. Antes de instalar qualquer coisa de terceiro:
 Depois de instalar, rode o scan. Se o total pulou, desinstale o que você não
 consegue explicar em uma frase.
 
-O `npx skills@1.7.4 add` costuma pôr a skill em `.agents/skills/<nome>` e só um link em
-`.claude/skills/<nome>`. O Claude Code carrega pelo link: ele não lê
-`.agents/skills` direto, então o que só existe lá não pesa aqui (pesa no Codex,
-que lê). O scan e o aviso da abertura contam as skills que chegam pelo link.
-A skill nova entra na sessão aberta sozinha; se não aparecer no menu, rode
-`/reload-skills` em vez de reiniciar.
-
 ## Procurar skill pronta (e só instalar quando pedirem)
 
 **Busque e apresente; `add` só com pedido explícito da pessoa.** Instalar muda o
 projeto dela e passa a cobrar em toda request: em modo `auto`, isso continua sendo
 decisão de quem pediu, nunca sua.
 
-`npx skills@1.7.4` é o gerenciador do ecossistema aberto; o catálogo fica em
-https://skills.sh/. A versão fica fixa: a 1.7.4 foi conferida em 20/10/2026 (`find`,
-`add`, `update` e `init` no `--help`; o `check` roda, mas não aparece lá). Sem versão,
-o `npx` baixaria a do dia sem perguntar.
-
-```bash
-npx skills@1.7.4 find <termo>          # procura (aceita --owner <dono>)
-npx skills@1.7.4 add <pacote>          # instala: só quando a pessoa pediu
-npx skills@1.7.4 check                 # vê o que tem atualização
-npx skills@1.7.4 update                # atualiza tudo
-```
-
-Ranking do skills.sh primeiro, depois `find <domínio + tarefa>`. Resultado de busca
-não é aval: 1.000+ instalações é sinal razoável e abaixo de 100 pede mais cuidado;
-`anthropics`, `vercel-labs`, `microsoft` e afins são outra categoria de risco que um
-autor desconhecido; repositório sem histórico é código de estranho. Nenhum número
-dispensa ler o SKILL.md (item 2 acima).
-
-Para cada candidata, uma frase: o que faz, quantas instalações, de quem, o comando e
-o link. Sem `-g` a skill entra só neste projeto, que costuma ser o certo para skill de
-stack; global (`-g`) só se a pessoa pedir. Não achou nada: diga isso e resolva direto,
-sem oferecer gerar skill (ver "Não gere skill — ainda").
+**Leia [references/procurar-e-instalar.md](references/procurar-e-instalar.md)** antes de
+rodar `npx skills@1.7.4 find` ou `add` (versão, comandos, como pesar e apresentar).
 
 ## O que faz uma skill rotear de verdade
 
-O Claude Code escolhe a skill pelo `name` do frontmatter e decide pela
-`description`. Três coisas, e todas já falharam em projeto real:
-
-- **`name` igual ao nome da pasta**, minúsculo e com hífen. Pasta
-  `refactoring` com `name: Refactoring` **não dispara nunca** — e continua
-  cobrando a description em toda request. Em 04/09/2026 um projeto tinha dez
-  assim, todas saídas do mesmo scaffold.
-- **`description` que diz QUANDO usar**, com as palavras que você realmente
-  digita. "Ajuda com testes" não roteia; "use ao escrever teste novo, ao
-  investigar teste instável, ou quando o CI fica vermelho só no CI" roteia.
-- **Corpo com conteúdo.** Os mesmos dez SKILL.md tinham 99–135 bytes e o corpo
-  vazio: cobravam a description e não ensinavam nada. Skill sem corpo é uma
-  linha do AGENTS.md do projeto que se disfarçou de skill.
+**Leia [references/rotear.md](references/rotear.md)** antes de criar, consertar ou julgar
+se uma skill roteia.
 
 ## Não gere skill — ainda
 
@@ -183,16 +147,8 @@ Formato que basta:
 
 ## Opcional: teste a skill sob pressão
 
-Skill de disciplina ("sempre rode o teste antes de dizer pronto") costuma ser
-ignorada justamente quando dá trabalho obedecer. O `skill-pressure-test.sh` do
-plugin mede isso só nas skills do próprio kit: ele procura a skill em
-`${CLAUDE_PLUGIN_ROOT}/skills` e recusa (exit 2) a que não está lá. Para uma
-skill do seu projeto, faça o mesmo à mão: um cenário com escolha forçada
-(A/B/C), rodado com `claude -p` sem a skill e depois com a SKILL.md em
-`--append-system-prompt-file`; se a escolha certa só aparece com a skill, ela
-segura alguma coisa. O método completo está no repositório do kit, fora do
-plugin instalado:
-https://github.com/VAMOO-AI/claude-kit-mentorados/blob/main/docs/testar-skills-sob-pressao.md
+**Leia [references/teste-sob-pressao.md](references/teste-sob-pressao.md)** antes de montar
+o cenário: a skill do projeto se testa à mão.
 
 É nota, não gate: uma skill sua não precisa passar por isso para existir.
 
