@@ -44,6 +44,11 @@ for par in "número:numbers" "lista ou passos:rows" "frase:statement" "uso do pr
 done
 check "intensidade em número (px, %, ms)" "$(/usr/bin/grep -E '^\| moderada' "$B" 2>/dev/null | /usr/bin/grep -q 'px.*%.*ms' && echo ok || echo fail)"
 check "SKILL.md manda começar pelo briefing" "$(tem "$SK/SKILL.md" "references/briefing-motion.md")"
+# Depois de uma compactação só o começo do SKILL.md volta (tests/test-skill-tamanho.sh): o
+# passo que precisa do detalhe tem de apontar a reference em que ele mora.
+for r in briefing-e-projeto roteiro-e-cenas qa-e-entrega template linguagem-visual; do
+  check "SKILL.md aponta references/$r.md" "$(tem "$SK/SKILL.md" "references/$r.md")"
+done
 
 echo "2. leitura curta no build-timeline.py"
 Z="$TMP/leitura"; mkdir -p "$Z/src" "$Z/scripts"
