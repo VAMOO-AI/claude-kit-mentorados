@@ -13,11 +13,10 @@
 # 10.000 chars ≈ 4.500 tokens: cabe nos 5.000 com margem. O que é passo a passo longo, tabela
 # de referência ou script vai para references/, que a skill lê do disco no passo que precisa.
 #
-# LEGADO é a catraca: as skills que já passavam do teto quando o teste nasceu, com o tamanho
-# daquele dia. Skill da lista só pode encolher (crescer reprova); a que desce do teto tem de
-# sair da lista (senão a lista mente); skill fora da lista acima do teto reprova. Em
-# 28/10/2026: 11 acima do teto; ship e secscan foram fatiadas no mesmo PR → 9. A setup
-# (10.447 chars ≈ 4.750 tokens) está abaixo do corte real e acima da margem.
+# LEGADO é a catraca: skill da lista só pode encolher (crescer reprova); a que desce do teto
+# tem de sair da lista (senão a lista mente); skill fora da lista acima do teto reprova. Em
+# 28/10/2026 eram 11 acima do teto, e as 11 foram fatiadas no mesmo PR: a lista ficou vazia e
+# o teto vale para todas. Uma entrada nova aqui é exceção consciente, com o tamanho do dia.
 #
 # Uso: bash tests/test-skill-tamanho.sh [pasta-de-skills] [teto-em-chars]
 set -uo pipefail
@@ -32,9 +31,6 @@ TETO="${2:-10000}"
 
 # nome chars-em-28/10/2026
 LEGADO="
-orquestracao 11180
-limpeza-mac 11066
-setup 10447
 "
 
 falhas=0
