@@ -45,9 +45,7 @@ arquivo de `references/` no passo que o cita, mesmo que já tenha lido antes.
 
 ## Onde está cada parte
 
-`references/video-kling.md` diz que os princípios 1 a 8, 15 e a parte de
-imagem do 11 e a anatomia de imagem ficam "no `SKILL.md`": agora estão nestes
-arquivos, com a mesma numeração.
+A numeração dos princípios é a mesma em todos os arquivos.
 
 | Parte | Arquivo |
 |---|---|

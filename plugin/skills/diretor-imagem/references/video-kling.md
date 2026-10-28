@@ -1,9 +1,9 @@
 # Diretor de imagem — vídeo (Kling e afins)
 
 Parte de vídeo da skill `diretor-imagem`, lida quando o pedido é vídeo. A
-numeração dos princípios é a mesma do `SKILL.md`: os que não estão aqui (1 a 8,
-15 e a parte de imagem do 11, com a regra prática) ficam lá e valem igual para
-vídeo.
+numeração dos princípios é a mesma da skill: os que não estão aqui (1 a 8,
+15 e a parte de imagem do 11, com a regra prática) ficam em
+[principios-imagem.md](principios-imagem.md) e valem igual para vídeo.
 
 ## Movimentos de câmera (vídeo)
 
@@ -186,7 +186,7 @@ comande explicitamente como exceção. Mas isso é exceção, não regra.
 
 ### 11. Tamanho de prompt — parte de vídeo
 
-A parte de imagem e a regra prática ao gerar ficam no `SKILL.md`.
+A parte de imagem e a regra prática ao gerar ficam em [principios-imagem.md](principios-imagem.md).
 
 #### Geradores de VÍDEO (Kling, Runway Gen-3, Sora, Pika):
 
@@ -564,7 +564,7 @@ NEGATIVE INSTRUCTIONS: [tailored video-specific list].
 
 ### Text-to-video
 
-Use a anatomia de imagem do `SKILL.md` (blocos 1-2, 4-7) **+** os blocos de
+Use a anatomia de imagem de [anatomia-imagem.md](anatomia-imagem.md) (blocos 1-2, 4-7) **+** os blocos de
 movimento (camera, subject motion, environmental motion) **+** quality/duration
 de vídeo. Omita o bloco de preservation — não há referência.
 
