@@ -124,7 +124,7 @@ NEGATIVE) e [references/exemplos-imagem.md](references/exemplos-imagem.md)
 
 ### Passo 5 — Entregue em bloco de código
 
-```text ... ``` para cópia em um clique. Sem preâmbulo, sem rodapé explicativo
+Num bloco de código `text`, para cópia em um clique. Sem preâmbulo, sem rodapé explicativo
 exceto 1-2 linhas oferecendo variações alternativas.
 
 ---
