@@ -19,6 +19,8 @@ allowed-tools:
 
 # baseline — Ambiente e Segurança
 
+Depois de uma compactação só o começo desta skill volta ao contexto: leia o arquivo de `references/` no passo que o cita, mesmo que já tenha lido antes.
+
 > Origem: escrito a partir da auditoria de um app real em produção (React + Vite
 > + Supabase + Vercel). Quatro dos oito pilares aqui — sourcemap, rate limit de
 > endpoint próprio, cache headers e error tracking — costumam só ser lembrados
@@ -28,20 +30,6 @@ Um padrão, dois modos. **A skill é o método; o contrato é o dado.** O métod
 genérico e mora aqui. O contrato mora no repo auditado, em
 `.context/docs/baseline.md`, e é ele que diz o que vale *neste* projeto — mesmo
 modelo que o `/ship` já usa ao ler `.context/docs/deploy.md`.
-
-## Fronteira — o que esta skill NÃO é
-
-| Skill | Responde | Não confunda |
-|---|---|---|
-| **`baseline`** (esta) | "A plataforma está apta a produção? O inventário bate com o contrato?" | postura de ambiente |
-| `secscan` | "Existe `service_role` em `src/`? Esse `eval` é explorável?" | scanner de código (SAST/SCA/CWE) |
-| `verificacao` | "Já posso dizer que está pronto?" | prova de que funciona |
-
-
-No pilar de código, **chame `secscan`** — não refaça SAST aqui.
-Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. Ele recebe só o finding (pilar, título, `arquivo:linha`, detalhe) com a ordem de refutá-lo e devolve `mantido` ou `refutado` com o motivo; o refutado vira veredito (fase 2, passo 2).
-
-Auditoria com fan-out por área: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
 
 ---
 
@@ -59,6 +47,30 @@ Auditoria com fan-out por área: o workflow `audit-multidim` (o `/kit-vamoo:setu
    *comportamento* exige prova de execução. (15/08/2026: três itens foram
    fechados como "auditado e PRONTO" por grep; a gravação do cliente mostrou os
    três quebrados.)
+
+## Regras duras
+
+As invariantes e a regra READ-ONLY do Modo AUDITAR valem inteiras; aqui fica o que elas
+não dizem.
+
+- **Semgrep sempre com `--metrics=off` e ruleset fixo.** `--config auto` faz login
+  no registry e envia a URL do projeto. **Proibido em repo de cliente.**
+- **Nunca traga o valor de um segredo pro contexto.** Para provar que existe:
+  `bash "${CLAUDE_PLUGIN_ROOT}/scripts/env-tem-chave.sh" .env.local KEY` (diz `presente`,
+  `vazia` ou `ausente`; o deny nega `grep -c` no `.env`). Fingerprint no report, nunca o valor.
+- **Ferramenta que o `doctor.sh` disse faltar deixa o pilar `nao_medido`.** Não
+  preencha com heurística e chame de cobertura.
+
+---
+
+## Fronteira — o que esta skill NÃO é
+
+A tabela baseline × `secscan` × `verificacao` está em [references/fronteira.md](references/fronteira.md).
+
+No pilar de código, **chame `secscan`** — não refaça SAST aqui.
+Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. Ele recebe só o finding (pilar, título, `arquivo:linha`, detalhe) com a ordem de refutá-lo e devolve `mantido` ou `refutado` com o motivo; o refutado vira veredito (fase 2, passo 2).
+
+Auditoria com fan-out por área: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
 
 ---
 
@@ -128,41 +140,10 @@ e render usam `/tmp/baseline-<nome do repo>`, o `--out` padrão do doctor e do c
 `doctor.sh` sempre roda primeiro. Descobrir que falta `jq` no meio do collect é
 caro; descobrir antes custa 200 ms.
 
-### Fase 2 — julgar
+### Fase 2 — julgar e formato de finding
 
-O collect emite fatos, não vereditos. Você aplica, nesta ordem:
-
-1. **Exceção aceita** no contrato e ainda dentro da validade → o finding sai do
-   report principal e vai pra seção "Exceções aplicadas". Fora da validade → volta
-   como finding, severidade original, com a nota de que a exceção venceu.
-2. **Veredito anterior** em `.context/docs/security/vereditos.md` → falso-positivo
-   já julgado não reabre enquanto o trecho julgado for o mesmo (abra o
-   `arquivo:linha`); mudou o código, julgue de novo. Registre novos ali no formato
-   do `secscan` (fingerprint · veredito · por quê · quem · quando), nunca com
-   `nosemgrep` espalhado pelo código.
-3. **Confiança**: `CONFIRMED` quando ferramenta real e heurística concordam;
-   `heuristic` quando só o grep viu. (Modelo herdado do `secscan`.)
-4. **Severidade**: `CRITICAL` (segredo vivo exposto, bypass de RLS, RCE) ·
-   `HIGH` (falha de autorização, injeção, custo ilimitado) · `MEDIUM` (hardening
-   ausente) · `LOW` (boa prática) · `INFO`.
-
-Severidade responde à **exposição real**, não ao padrão. `service_role` num
-script local de build ≠ `service_role` no bundle servido ao browser. Se a
-diferença não estiver medida, o finding é `nao_medido`, não HIGH por precaução.
-
-### Formato de finding
-
-```
-[SEVERIDADE] [CONFIANÇA] [pilar] caminho/arquivo.ts:123
-O quê          — uma linha, factual
-Por que dói    — o dano concreto, não a categoria abstrata
-Como corrigir  — a mudança mínima que resolve
-Reconferir     — $ comando que retorna vazio/0 quando estiver corrigido
-Referência     — OWASP/CWE/doc do fornecedor
-```
-
-**Sem comando de reconferência o finding está incompleto.** "Corrigido" sem
-comando é alegação, e alegação é exatamente o que a invariante 4 proíbe.
+**Leia [references/fase2-julgar.md](references/fase2-julgar.md)** antes de julgar ou
+escrever qualquer finding. Sem comando de reconferência o finding está incompleto.
 
 ---
 
@@ -188,54 +169,5 @@ O contrato por projeto: `references/contrato-template.md`.
 
 ## Adotar num repo pela primeira vez
 
-Uma sessão por repo. O primeiro custa mais porque você calibra o julgamento; os
-seguintes são rápidos porque o método já está no lugar.
-
-**1–3. Meça** com o bloco do Modo AUDITAR, da raiz do repo.
-
-**4. Escreva o contrato** em `.context/docs/baseline.md`, de
-`references/contrato-template.md`. É aqui que está o trabalho de verdade — os
-scripts só medem. Preencha nesta ordem:
-
-1. **Superfícies e ambientes.** Se não há staging, escreva isso: muda como tudo
-   no repo é feito, e quem chega depois precisa saber.
-2. **Estado por pilar**, com a prova ao lado. O que não mediu fica `nao_medido`.
-3. **Inventário de segredos** — a coluna que decide prioridade é *raio de dano*.
-4. **Gates de UI e contrapartidas.** Para cada gate, meça se o banco também nega
-   (ver `03-auth.md`); marque `real` ou `cosmético`. Cosmético não é acusação, é
-   informação — o risco é não saber qual dos seus gates é.
-5. **Exceções aceitas**, com motivo, dono e data de revisão (o passo 5 do Modo CONSTRUIR).
-6. **Backlog por custo × risco**, não por pilar.
-
-**5. Julgue o report contra o contrato** (fase 2) e **6. reconfira** rodando os
-comandos de reconferência dos itens que fechou.
-
-### O que esperar do primeiro run
-
-- **Falso positivo é normal e é informação.** Detector que acusa depois do bug
-  corrigido treina a ignorar o gate — corrija o detector, não o sintoma. Se for
-  específico do projeto, registre em `.context/docs/security/vereditos.md`.
-- **Achado que some quando você corrige** é o único que prova que o gate funciona.
-  Por isso a fase 4 existe.
-- **O que o script mede vence o que o repo sugere.** Grep em migration responde
-  "o que foi escrito"; o banco responde "o que está valendo". Já divergiu por
-  mais do dobro num projeto real.
-
-### Ordem sugerida de adoção
-
-Por exposição, não por afinidade: cliente em produção primeiro, protótipo por
-último. Um repo por sessão — o contrato do primeiro serve de modelo para os
-outros, e emendar dois na mesma sessão só encarece o contexto.
-
-## Regras duras
-
-As invariantes e a regra READ-ONLY do Modo AUDITAR valem inteiras; aqui fica o que elas
-não dizem.
-
-- **Semgrep sempre com `--metrics=off` e ruleset fixo.** `--config auto` faz login
-  no registry e envia a URL do projeto. **Proibido em repo de cliente.**
-- **Nunca traga o valor de um segredo pro contexto.** Para provar que existe:
-  `bash "${CLAUDE_PLUGIN_ROOT}/scripts/env-tem-chave.sh" .env.local KEY` (diz `presente`,
-  `vazia` ou `ausente`; o deny nega `grep -c` no `.env`). Fingerprint no report, nunca o valor.
-- **Ferramenta que o `doctor.sh` disse faltar deixa o pilar `nao_medido`.** Não
-  preencha com heurística e chame de cobertura.
+**Leia [references/adotar.md](references/adotar.md)** antes de adotar num repo que ainda
+não tem `.context/docs/baseline.md` (ordem do contrato, primeiro run, ordem entre repos).
