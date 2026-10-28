@@ -32,12 +32,6 @@ TETO="${2:-10000}"
 
 # nome chars-em-28/10/2026
 LEGADO="
-auditoria-seguranca 44495
-diretor-imagem 28478
-whatsapp-inbox-stack 27598
-motion-reel 20624
-baseline 12826
-skills-projeto 12073
 orquestracao 11180
 limpeza-mac 11066
 setup 10447

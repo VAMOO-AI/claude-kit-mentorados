@@ -260,6 +260,9 @@ jobs:
       - name: Nenhum SKILL.md passa do que a compactação reanexa (legado só encolhe)
         run: bash tests/test-skill-tamanho.sh
 
+      - name: Nenhum SKILL.md nem command tem $0…$9, que o Claude Code troca pelos argumentos
+        run: bash tests/test-skill-argumentos.sh
+
       - name: O check de upstreams separa nada novo de não medido e não duplica issue
         run: bash tests/test-upstreams-check.sh
 
