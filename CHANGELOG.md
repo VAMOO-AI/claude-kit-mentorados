@@ -10,6 +10,25 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.86.0] — 2026-10-28
+
+### Adicionado
+
+- **`tests/test-skill-tamanho.sh`**: nenhum `SKILL.md` passa de 10.000 chars (~4.500 tokens), que é o que a compactação reanexa.
+- **`tests/test-skill-argumentos.sh`**: nenhum `SKILL.md` nem command tem `$0`…`$9`, que o Claude Code troca pelos argumentos da skill.
+
+### Mudado
+
+- **11 skills cabem no reanexo da compactação**: `auditoria-seguranca`, `secscan`, `ship`, `diretor-imagem`, `whatsapp-inbox-stack`, `motion-reel`, `baseline`, `skills-projeto`, `orquestracao`, `limpeza-mac` e `setup`. As regras duras ficam no topo, o detalhe foi para `references/`, e cada passo diz qual arquivo ler.
+- **`revisor`**:
+  - procura o irmão de cada achado fora do diff;
+  - julga o que a spec não nomeia pelo que um usuário razoável esperaria;
+  - lista o que não julgou;
+  - só dá "aprovado" com o diff lido e os checks rodados;
+  - não reporta `// atalho:` com teto como achado.
+- **`grilling`**: o plano fechado traz premissas com recibo, até 5 inputs que nenhum passo testa e decisões no lugar de código.
+- **`executor`**: o verde é a suíte do projeto, com cada falha pelo nome e a separação base × nova.
+
 ## [0.85.0] — 2026-10-28
 
 ### Corrigido
