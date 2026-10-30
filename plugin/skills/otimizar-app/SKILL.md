@@ -38,6 +38,7 @@ Antes de abrir código, descarte o que já enganou em casos reais:
 | Queixa | Causa real que já apareceu | Como descartar |
 |---|---|---|
 | "demora absurda pra trocar de página" | app rodando em `next dev`, que compila cada rota na primeira visita | Está em `dev`? Meça em `build` + `start`. |
+| "trocar de aba trava", com servidor rápido | tempo morto: rota dinâmica (sessão no cookie) não é pré-carregada e nada muda na tela até o servidor responder | clique → 1ª mudança na tela vs clique → pronto, medidos separados |
 | "travando", número parado ou errado | dado velho: memo congelou o intervalo de datas e não havia polling | É lentidão, ou é valor que não muda? |
 | tudo lento, em toda rota | função Vercel em `iad1` com banco em `sa-east-1`, ~110 ms por ida e volta | header `x-vercel-id`: `gru1::iad1` quer dizer que atravessa o oceano |
 | login preso em "Entrando..." | request pendurada: fetch sem timeout e sem `maxDuration` | requests concorrentes mais uma sonda direta no Supabase |
@@ -57,6 +58,7 @@ Impressão de lentidão sem medição não entra no relatório. Escolha a medida
 | demora para aparecer | LCP/TBT/CLS e bytes por asset | `npx lighthouse@12.8.2` headless, `curl -w` |
 | digitação ou filtro travando | ms por interação com CPU 4× | trace do DevTools, Playwright cronometrado |
 | troca de página ou API lenta | TTFB com n ≥ 30, mediana e p95 | `curl -w` em laço |
+| troca de aba "travando" no navegador | clique → 1ª mudança na tela **e** clique → pronto (sem skeleton, rede quieta), por aba | Playwright com clique no menu, receita em `medir-e-provar.md` |
 | egress, Disk IO ou conta subindo | requests por minuto, top queries | delta de `pg_stat_statements` |
 | bundle grande | o que carrega **no boot**, não o total do `dist` | build real + o que o `index.html` baixa |
 
@@ -67,7 +69,7 @@ Salve o número de partida num arquivo: o "antes" some quando o código muda.
 
 Carregue só a da camada que o número apontou:
 
-- CPU contínua, animação, scroll, input travando, re-render → `references/front-runtime.md`
+- CPU contínua, animação, scroll, input travando, re-render, tempo morto no clique da aba → `references/front-runtime.md`
 - bytes (bundle, imagens, fontes, cache HTTP) → `references/assets-bundle.md`
 - lista inteira no cliente, N+1, realtime, egress, índice, região → `references/dados-rede.md`
 
@@ -100,6 +102,14 @@ alvo (prod com prod, build local com build local). Se o resultado ficou dentro d
   desvio, com n=30. Foi reportado como "indistinguível do ruído", não como "−1 s".
 
 Código mais limpo pode entrar, com o nome certo: `refactor:`, não `perf:`.
+
+**Retorno visual não é carregamento.** Esqueleto ou link marcado no clique muda o "1ª
+mudança" e pode piorar o "pronto": o `loading.tsx` do Next (Suspense) deu 267 → 24 ms de
+resposta com o pronto "igual" na mediana (n=3), e o A/B intercalado mostrou +150 ms no
+pronto, porque o React segura o conteúdo ~300 ms depois do esqueleto. Mediana empatada com
+n pequeno não descarta piora: antes de subir, A/B intercalado. Em navegação abaixo de
+~300 ms, `useLinkStatus` no link dá a resposta sem Suspense. Reporte como "retorno visual",
+nunca como "N× mais rápido". Detalhe em `references/front-runtime.md`.
 
 ## 5. Provar no ar, e sem mudança visual
 
@@ -141,3 +151,5 @@ Código mais limpo pode entrar, com o nome certo: `refactor:`, não `perf:`.
    prove pelo build remoto e por um render headless, e diga que foi assim.
 6. Otimização só existe quando está nos bytes que o domínio serve.
 7. Escala vertical (compute, plano) não é otimização. Avise o custo e diga que só compra tempo.
+8. Fix que pode ter piorado outra métrica não sobe "honesto com os dois números": sobe
+   quando o A/B intercalado mostra que não piorou. Prazo e "a doc recomenda" não são prova.

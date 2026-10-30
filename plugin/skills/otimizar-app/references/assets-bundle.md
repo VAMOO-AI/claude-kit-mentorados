@@ -39,6 +39,21 @@ bytes: Lighthouse, `curl -w`, tamanho do boot.
   hash. Sobrescreva no mesmo caminho.
 - **Upload:** comprima no navegador antes de subir. Nunca guarde base64 em coluna; use o
   Storage. Num mapa de fotos, o GET caiu de mais de 100 KB para poucos KB só por isso.
+- **Miniatura que baixa a foto original do Storage.** Uma lista de 52 entradas mostrava
+  quadrados de 64 px com as fotos originais de ~1 MB (até 6 MB): ~54 MB a cada abertura
+  da aba, no celular inclusive. E cada miniatura assinava a própria URL num `useEffect`
+  (duas vezes por item): 161 requests ao Storage. O conserto, sem mudar o visual:
+  - **assinar em lote** na página: um `createSignedUrls(paths)` em vez de um
+    `createSignedUrl` por item, repassado às miniaturas por contexto (161 → 58 requests;
+    o tempo não mexeu, porque o peso eram os bytes);
+  - **`loading="lazy"` + `decoding="async"`** no `<img>`: desktop 53,9 → 0,4 MB e
+    4,4 → 1,7 s até o último dado; celular 53,6 → 0,1 MB, porque a lista fica abaixo da
+    dobra.
+
+  Meça bytes somando o `responseBodySize` dos requests ao Storage, com contexto limpo
+  (sem cache), e conte as miniaturas que carregaram, para provar que nada sumiu. O próximo
+  passo seria gerar a miniatura no upload; a transformação de imagem do Supabase é de
+  plano pago.
 - `deviceSizes` sem 2k/4k, mais um teto de largura, evita o upscale do hero.
 - Não troque a arte sem aprovação. Um SVG "recriado" no lugar do PNG muda a marca.
 

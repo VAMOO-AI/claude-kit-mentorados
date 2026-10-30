@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.87.0] — 2026-10-30
+
+### Mudado
+
+- **`otimizar-app`**: "trocar de aba trava" com servidor rápido vira triagem e medida próprias (clique → 1ª mudança × clique → pronto). Retorno visual não é carregamento: `loading.tsx` atrasa o pronto ~150 ms em navegação rápida, `useLinkStatus` não; regra dura 8 contra subir fix "honesto com os dois números" sem A/B intercalado. Referências ganham a receita de navegação percebida, A/B intercalado, Postgres sem Docker, armadilhas do instrumento (prefetch no "último request", `next-server` preso na porta) e o caso da miniatura que baixava a foto original.
+
 ## [0.86.0] — 2026-10-28
 
 ### Adicionado

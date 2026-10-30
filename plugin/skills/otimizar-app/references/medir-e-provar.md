@@ -66,6 +66,18 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/layout-snapshot.mjs" --c
 - **Interação (digitação, filtro):** Playwright ou trace do DevTools com
   `Emulation.setCPUThrottlingRate` em 4, medindo ms por tecla com volumes diferentes de
   dado. Rode o Playwright com `npx`, sem instalar no projeto.
+- **Navegação percebida (troca de aba):** Playwright com a sessão em cookie, clicando no
+  link do **menu** (`aside a[href=…]`, `nav a[href=…]`). Um `<a>` comum do conteúdo faz
+  navegação dura e destrói o contexto do script. Item escondido em grupo recolhido não tem
+  link no DOM: use `window.next.router.push(href)`, que é a mesma navegação do `<Link>`.
+  Por aba, dentro do `page.evaluate` do clique:
+  - **1ª mudança:** `MutationObserver` no `body` desde o clique até a URL mudar ou aparecer
+    skeleton (`.animate-pulse`), `[aria-busy=true]` ou o marcador do pendente;
+  - **pronto:** URL nova, nenhum skeleton e 300 ms sem request ao banco pendente.
+
+  Conte os requests `_rsc=` à parte (são prefetch e navegação). Perfis desktop 1440×900 e
+  celular 390×844 com CPU 4×, mediana das abas. Sem browser do Playwright baixado, use o
+  Chrome do sistema: `chromium.launch({ channel: "chrome" })`.
 - **Banco:** delta de `pg_stat_statements` e `explain (analyze, buffers)`, no pilar 05 da
   `baseline` (`${CLAUDE_PLUGIN_ROOT}/skills/baseline/references/05-carga.md`).
 - **Banco em escala sem encostar em prod.** Quando Preview e Production dividem o mesmo
@@ -78,6 +90,13 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/layout-snapshot.mjs" --c
     dentro do ruído. O plano (`Bitmap Index Scan … Index Cond: (empresa_id = f())`) mostrou
     por quê.
   - Versione a massa junto com o harness, senão o número não se reproduz.
+  - **Sem Docker:** o `postgresql@16` do Homebrew serve (`initdb` numa pasta descartável).
+    O shim precisa de `auth.users`, `auth.uid()`/`auth.role()` lendo
+    `request.jwt.claim.sub`/`.role`, os roles `anon`/`authenticated`/`service_role`,
+    `storage.objects`/`buckets`, `storage.foldername`/`filename` e
+    `create publication supabase_realtime`. Antes, liste do que as migrations dependem:
+    `grep -oE "(storage|auth|extensions|cron|net)\.[a-z_]+"`. Valide o teste de RLS
+    subindo **sem** a migration nova: ele tem de reprovar.
 
 ## Estatística que não mente
 
@@ -86,6 +105,11 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/layout-snapshot.mjs" --c
 - **Não some ramos paralelos** como se fossem sequenciais. Uma estimativa de ganho de
   "−600 a −1.500 ms" caiu por isso.
 - Declare o que não foi medido.
+- **A/B intercalado quando o alvo é ruidoso** (build local, servidor variando 100+ ms entre
+  rodadas): guarde os dois builds (`cp -R .next next-antes`, `next-depois`) e alterne
+  antes, depois, antes, depois, 3 rodadas ou mais, trocando a pasta `.next` entre elas.
+  Medido em bloco (todo o antes, depois todo o depois), o `loading.tsx` parecia empate; o
+  A/B intercalado mostrou +150 ms no pronto em todas as rodadas.
 
 ## Armadilhas do próprio instrumento
 
@@ -103,6 +127,21 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/otimizar-app/scripts/layout-snapshot.mjs" --c
   como o teste vai conectar.
 - **Teste SQL que procura só a própria string de falha** deixa um `ERROR` do Postgres
   passar como verde, e o teste para de valer sem avisar. Procure pelas duas.
+- **"Tempo até o último request" conta o prefetch.** Depois que a tela abre, o Next
+  pré-carrega cada `<Link>` visível: numa lista de funcionários foram ~30 requests RSC até
+  1,7 s, e o bench deu "1,4 s" para uma tela cuja consulta terminava em 0,9 s. Meça pronto
+  por skeleton fora + rede do banco quieta, não pelo último request.
+- **`pkill -f "next start"` não mata o servidor:** o processo vivo se chama `next-server`
+  e segura a porta. O `next start` seguinte morre com a porta ocupada e o A/B mede o mesmo
+  build duas vezes. Derrube pela porta (`lsof -ti tcp:3100 | xargs kill`) e tenha um
+  sentinela: o "antes" respondendo em 6 ms (impossível sem o fix) foi o que denunciou.
+- **Socket do Postgres em caminho longo** (scratchpad, `/private/tmp/...`) passa de 103
+  bytes e o servidor não sobe. Use `-k ''` e conecte por `127.0.0.1`.
+- **Login de verdade por script, com a chave legada desligada:** `anon`/`service_role`
+  em JWT (`eyJ…`) dão 401 `Legacy API keys are disabled` em projeto novo. Use a
+  `sb_publishable_…` e a `sb_secret_…`. A secret sai da Management API
+  (`/v1/projects/<ref>/api-keys?reveal=true`, item `type == "secret"`), lida dentro do
+  script, nunca impressa.
 
 ## Provar que chegou ao ar
 
