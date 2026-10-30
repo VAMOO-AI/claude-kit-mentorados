@@ -1,6 +1,7 @@
 # Front em execução: CPU, animação, render
 
-Carregue quando o número de partida for CPU (`runtime-bench`), long task ou ms por interação.
+Carregue quando o número de partida for CPU (`runtime-bench`), long task, ms por interação
+ou o tempo morto entre o clique numa aba e a tela nova.
 
 ## Lendo o `runtime-bench`
 
@@ -73,6 +74,34 @@ fica por cima. O kill-switch não pode depender só de `prefers-reduced-motion`.
   busca no servidor com teto e debounce. Mais em `dados-rede.md`.
 - Um **teste que conta renders** segura o ganho: um `ConversationList.memo.test.tsx` que
   conta 1 linha reconciliada em vez de 20.
+
+## Navegação no Next (App Router): o "trava ao trocar de aba"
+
+Tela com sessão no cookie é **rota dinâmica**, e o Next não a pré-carrega (só parcialmente,
+se houver `loading.tsx`). Entre o clique e a tela nova nada muda até o servidor responder:
+150–300 ms com função e banco na mesma região, mais no 4G. Com o servidor já rápido, é isso
+que a pessoa chama de "travando". Meça clique → 1ª mudança e clique → pronto separados
+(receita em `medir-e-provar.md`).
+
+| Técnica | 1ª mudança | Pronto | Quando |
+|---|---|---|---|
+| `useLinkStatus` num componente dentro do `<Link>` do menu: o item clicado ganha o visual de "ativo" na hora | 133–223 → 1–5 ms | igual (A/B intercalado) | navegação rápida (até ~300 ms) |
+| `loading.tsx` no grupo de rotas (esqueleto) | 267 → 6–24 ms | **+150 ms** | navegação que já passa de ~500 ms |
+
+- **Por que o `loading.tsx` piora o pronto:** o React segura o conteúdo de um Suspense
+  ~300 ms depois de mostrar o fallback (para não piscar). Se a navegação levava 150 ms, a
+  pessoa passa a ver esqueleto por 300 ms. A doc do Next recomenda `loading.js`, e mesmo
+  assim é a escolha errada para navegação rápida. Com n=3 a mediana do pronto pareceu
+  empatada (430 → 433 ms); o A/B intercalado mostrou 180–220 → 320–391 ms.
+- **O visual do pendente imita o de ativo** (mesmo fundo, mesma borda): quando a página
+  chega, o ativo de verdade toma o lugar sem piscar. Na barra inferior do celular, uma linha
+  de 2 px no topo do item basta. O componente é pequeno:
+  `const { pending } = useLinkStatus(); return pending ? <span aria-hidden data-link-pendente className="absolute inset-0 …" /> : null` (o `<Link>` precisa de `relative`).
+- **Prefetch também custa:** cada `<Link>` visível de rota dinâmica dispara um request RSC
+  que renderiza no servidor (proxy + layout + sessão no banco). Uma lista com um link por
+  linha disparou ~30 requests ao abrir a tela, cada item duas vezes. Em plano free de
+  banco, isso é quota. `prefetch={false}` nas linhas de lista longa, se o número de
+  requests importar.
 
 ## Como provar
 
