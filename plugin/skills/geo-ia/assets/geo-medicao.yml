@@ -1,0 +1,56 @@
+name: Medição GEO semanal
+
+# Segunda às 10h em Brasília (13h UTC). Roda no GitHub, não depende do computador ligado.
+# Troque GEO_PROJETO e GEO_DOMINIO. Precisa dos Secrets OPENAI_API_KEY e PERPLEXITY_API_KEY
+# e do rótulo geo-medicao (gh label create geo-medicao).
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: geo-medicao
+  cancel-in-progress: false
+
+jobs:
+  medir:
+    name: Medir no ChatGPT e no Perplexity
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar o Canonry
+        run: npm install -g @canonry/canonry@7.55.1
+
+      - name: Medir
+        env:
+          GEO_PROJETO: meu-site
+          GEO_DOMINIO: exemplo.com.br
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        run: bash scripts/geo-medicao.sh > relatorio.md
+
+      - name: Resumo da execução
+        run: cat relatorio.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comentar na issue da medição
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh issue list --label geo-medicao --state open --json number --jq '.[0].number // empty')
+          if [ -z "$n" ]; then
+            url=$(gh issue create --label geo-medicao --title "Medição GEO semanal" \
+              --body "Toda segunda às 10h a Action \`geo-medicao.yml\` mede as perguntas de \`scripts/geo-perguntas.txt\` no ChatGPT e no Perplexity e comenta o resultado aqui.")
+            n="${url##*/}"
+          fi
+          gh issue comment "$n" --body-file relatorio.md

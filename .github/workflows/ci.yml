@@ -122,6 +122,9 @@ jobs:
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
         run: bash tests/test-limpeza-mac.sh
 
+      - name: A medição da geo-ia avisa no relatório e no log quando uma IA falta na rodada
+        run: bash tests/test-geo-ia.sh
+
       - name: O aviso de git da sessão lê o cwd do payload, não acusa branch sem commit e faz fetch 1x a cada 10 min
         run: bash tests/test-warn-branch-worktree.sh
 
