@@ -12,7 +12,7 @@
 #   OPENAI_API_KEY e PERPLEXITY_API_KEY
 set -euo pipefail
 
-export CANONRY_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1
+export CANONRY_TELEMETRY_DISABLED=1 CANONRY_DISABLE_UPDATE_CHECK=1 DO_NOT_TRACK=1
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJETO="${GEO_PROJETO:?defina GEO_PROJETO}"
 DOMINIO="${GEO_DOMINIO:?defina GEO_DOMINIO}"
@@ -30,6 +30,8 @@ cnry query add "$PROJETO" "${PERGUNTAS[@]}" >/dev/null
 cnry run "$PROJETO" --wait > "$SAIDA" 2>&1
 cat "$SAIDA" >&2
 FALTANDO=$(bash "$DIR/geo-provedores.sh" "$SAIDA" "${#PERGUNTAS[@]}")
+# Runner self-hosted ou máquina local guardam o ~/.canonry entre rodadas: placar e fontes presos a esta.
+RUN_ID=$(cnry runs "$PROJETO" --limit 1 --format json | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>console.log(JSON.parse(s)[0].id))')
 
 echo "## Medição GEO de $(TZ=America/Sao_Paulo date +%d/%m/%Y)"
 echo
@@ -45,7 +47,7 @@ if [ -n "$FALTANDO" ]; then
   echo
 fi
 echo '```'
-cnry visibility-stats "$PROJETO" --by-provider 2>&1
+cnry visibility-stats "$PROJETO" --by-provider --last-runs 1 2>&1
 echo '```'
 echo
 echo '<details><summary>Resposta por pergunta e por IA (C = citada, M = mencionada; minúscula = não)</summary>'
@@ -58,7 +60,7 @@ echo
 echo '<details><summary>Fontes que as IAs mais citaram</summary>'
 echo
 echo '```'
-cnry sources "$PROJETO" --rank --limit 20 2>&1
+cnry sources "$PROJETO" --rank --limit 20 --run-id "$RUN_ID" 2>&1
 echo '```'
 echo '</details>'
 rm -f "$SAIDA"

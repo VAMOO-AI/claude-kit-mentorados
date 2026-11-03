@@ -106,6 +106,7 @@ Matriz por pergunta, frentes e quando página nova vale a pena:
 |---|---|---|
 | Medição verde, mas só um provedor no resultado | a API do provedor falhou e a saída ficava fora do log | `geo-provedores.sh` no script; ler o log do passo "Medir" |
 | Perplexity 403 "requires paid credits" com saldo na conta | o saldo é crédito gratuito (assinatura); a Agent API só aceita crédito comprado | comprar crédito; o nível de uso -1 e o histórico de faturas vazio confirmam |
+| Placar com "Window: 2 run(s)" e números que não batem com a lista | runner self-hosted (ou o Mac) guarda o `~/.canonry` entre rodadas | `visibility-stats --last-runs 1` e `sources --run-id`, como no script |
 | Título novo no ar, resposta da IA com o antigo | Google rastreou antes do deploy | inspeção de URL e "Solicitar indexação" |
 | Bing não lista o site para importar do Search Console | a importação não mostra propriedade de domínio | adicionar manual e verificar pela meta `msvalidate.01` |
 | 404, robots ou Content-Type "errados" no preview | preview com login (SSO) | testar só em produção, com `curl` |

@@ -4,7 +4,7 @@
 # Em 02/11/2026 o Perplexity sumiu de uma medição real sem nenhum aviso: a Agent API devolveu
 # 403 e a saída do `cnry run` ficava só num arquivo temporário. A Action terminou verde e o
 # comentário saiu com metade das respostas. Os casos: rodada completa não avisa, IA ausente e
-# IA com resposta faltando avisam, e o geo-medicao.sh (com um `cnry` de mentira) põe o aviso no
+# IA com resposta faltando avisam, placar e fontes só da rodada atual, e o geo-medicao.sh (com um `cnry` de mentira) põe o aviso no
 # relatório, a saída bruta no stderr e o ::warning da Action.
 #
 # Uso: bash tests/test-geo-ia.sh
@@ -40,7 +40,9 @@ echo "geo-medicao.sh com cnry de mentira"
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/cnry" <<'STUB'
 #!/usr/bin/env bash
+echo "$*" >> "$(dirname "$0")/../chamadas.txt"
 case "$1" in
+  runs) echo '[{"id":"rodada-de-hoje"}]' ;;
   run) printf 'perplexity: 403 requires paid credits\n    [cm]  openai (gpt-5.4)  p1\n    [CM]  openai (gpt-5.4)  p2\n' ;;
   visibility-stats) echo 'TOTAL 1/2' ;;
   sources) echo 'exemplo.com.br 1' ;;
@@ -57,6 +59,9 @@ check "relatório nomeia a IA que faltou" "$(contem "$rel" 'perplexity: 0 de 2 r
 check "log da Action tem o erro bruto do provedor" "$(contem "$log" '403 requires paid credits')"
 check "log da Action tem o ::warning" "$(contem "$log" '::warning title=Medição GEO incompleta::perplexity')"
 check "relatório traz as respostas por pergunta" "$(contem "$rel" '[CM]  openai (gpt-5.4)  p2')"
+cham="$(cat "$TMP/chamadas.txt")"
+check "placar só da última rodada (--last-runs 1)" "$(contem "$cham" 'visibility-stats teste --by-provider --last-runs 1')"
+check "fontes só da rodada de hoje (--run-id)" "$(contem "$cham" '--run-id rodada-de-hoje')"
 
 GEO_DOMINIO=exemplo.com.br bash "$SCR/geo-medicao.sh" >/dev/null 2>"$TMP/erro.txt"
 check "sem GEO_PROJETO o script recusa" "$([ $? -ne 0 ] && echo ok || echo fail)"
