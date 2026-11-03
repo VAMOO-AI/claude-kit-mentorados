@@ -38,7 +38,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **27 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **28 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -66,7 +66,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 27. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 28. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -82,6 +82,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **secscan** | Varredura de segurança read-only do repositório inteiro: RLS, secrets, deps vulneráveis. "roda um secscan". Revisão só do que mudou no diff é o `/security-review` do Claude Code. Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 8 pilares: bundle, RLS, login e permissão, limites de uso, carga e cache, observabilidade, segredos e perímetro (o que fica exposto na internet). Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **otimizar-app** | *"Está pesado, lento, travando."* — triagem do que não é o app (`next dev`, região da função longe do banco, dado velho, a própria máquina), número antes de mexer, o fix mais barato na camada certa (front, bytes ou dados), a mesma medição depois e a prova de que chegou ao ar, **sem mudar o visual**. Traz dois scripts sem `npm install`: CPU da página por fase (parada, rolando, celular com CPU 4× mais lenta) e uma foto da estrutura da página para comparar antes e depois. "Sem ganho medido" é resultado, não vira commit de `perf:`. | Node 22+ e Chrome (para os scripts) |
+| **geo-ia** | *"Meu site não aparece quando perguntam pro ChatGPT."* Ordem fixa: linha de base com 9 perguntas, base técnica (robots, sitemap, `llms.txt`, JSON-LD, 404 real, IndexNow), indexação conferida página por página no Google **e** no Bing, remedição e só então conteúdo, com matriz por pergunta. Traz a medição semanal pronta (Action do GitHub + Canonry) que comenta numa issue e avisa quando uma IA falta na rodada. | chaves da OpenAI e da Perplexity (crédito comprado) |
 | **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. Quando o índice passa de 8 KB, `memoria-indice.sh` o divide em dois níveis para não pesar toda request. | projeto em git |
@@ -246,7 +247,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 27 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 28 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash

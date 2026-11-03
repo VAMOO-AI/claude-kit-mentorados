@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.88.0] — 2026-11-03
+
+### Adicionado
+
+- **`geo-ia`**: o site aparecer no ChatGPT e no Perplexity, com indexação conferida no Google e no Bing antes de qualquer conteúdo novo, e medição semanal pronta (Action + Canonry) que avisa quando uma IA falta na rodada.
+
 ## [0.87.0] — 2026-10-30
 
 ### Mudado
