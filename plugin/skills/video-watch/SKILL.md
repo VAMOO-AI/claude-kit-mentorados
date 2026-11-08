@@ -1,6 +1,6 @@
 ---
 name: video-watch
-description: Assistir/analisar um vídeo local ou de link compartilhado (CleanShot, Loom, mp4 direto) — extrai frames-chave como imagens e transcreve o áudio offline com whisper.cpp. Use quando mandarem uma gravação de tela para assistir, resumir ou transcrever, ou quando um bug for demonstrado em vídeo. Gatilhos - "cleanshot.com/share", "loom.com/share", ".mp4".
+description: Assistir/analisar um vídeo local ou de link compartilhado (CleanShot, Loom, mp4 direto) — extrai frames-chave como imagens e transcreve o áudio offline com whisper.cpp. Use quando mandarem uma gravação de tela para assistir, resumir ou transcrever, ou quando um bug for demonstrado em vídeo. YouTube público vai pelo conector Watch Any Video. Gatilhos - "cleanshot.com/share", "loom.com/share", ".mp4".
 disable-model-invocation: true
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/video-watch/scripts/watch.sh" *)'
@@ -12,6 +12,25 @@ allowed-tools:
 Você não processa vídeo nem áudio nativamente. Esta skill converte o vídeo em duas
 coisas que você **consegue** ler: frames JPEG (via `Read`, que exibe imagens) e um
 transcript de texto.
+
+## Esta skill ou o conector Watch Any Video?
+
+O conector da comunidade [Watch Any Video](https://claude.ai/directory/watch-any-video)
+(`watchanyvideo.com/api/mcp`, da Wikivec) cobre o que esta skill não cobre. Ele manda o vídeo
+para o Gemini do Google, que analisa e devolve a resposta com timestamps.
+
+| Situação | Use |
+|---|---|
+| YouTube público (aula, palestra, Shorts, live passada) | conector |
+| Fora do Claude Code (claude.ai na web, celular) ou máquina sem ffmpeg/whisper | conector |
+| Precisa de timestamp por fala ou de várias perguntas sobre o mesmo vídeo | conector (`ask_video` não gasta minutos) |
+| Gravação de tela de bug, CleanShot, Loom | **esta skill** (o conector não resolve página de share) |
+| Reunião de cliente, dado sensível, vídeo privado ou não listado | **esta skill**: o vídeo não sai da máquina |
+| Instagram, TikTok, Facebook, X | nenhum dos dois: baixe o arquivo e passe local para esta skill |
+
+Antes de mandar um vídeo para o conector, confira se ele pode sair da máquina: ele não é
+verificado pela Anthropic e guarda perguntas e respostas por 7 dias. Na dúvida, esta skill.
+O plano grátis dá 60 min de vídeo por mês (`my_usage` mostra o saldo).
 
 ## Uso
 
