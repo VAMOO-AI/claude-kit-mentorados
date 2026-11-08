@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.89.0] — 2026-11-08
+
+### Skills
+
+- `video-watch`: tabela de roteamento com o conector Watch Any Video (YouTube público e uso fora do Claude Code vão pelo conector; gravação privada, CleanShot/Loom e dado de cliente ficam na skill, offline).
+
 ## [0.88.0] — 2026-11-03
 
 ### Adicionado
