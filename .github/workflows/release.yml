@@ -90,3 +90,41 @@ jobs:
           fi
           gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notas.md"
           echo "release $TAG publicada"
+
+  # O squash do release não fecha os PRs que ele juntou, e o auto-delete de branch do GitHub só
+  # age em PR mergeado. Até a 0.89 o fechamento era à mão (os `gh pr close` no corpo do release)
+  # e esquecia: o #311 e o #315 ficaram abertos depois do 0.83.0 e do 0.84.0, e 14 branches de
+  # PRs fechados se acumularam. Aqui, todo merge de `release: x.y.z` fecha os PRs listados no
+  # corpo e apaga o branch deles. Idempotente: PR já fechado é pulado.
+  fecha-prs:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write        # apagar o branch do PR
+      pull-requests: write   # fechar e comentar
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Acha o PR de release deste commit
+        id: pr
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          linha="$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0] | "\(.number) \(.title)"' 2>/dev/null || true)"
+          n="${linha%% *}"; titulo="${linha#* }"
+          case "$n" in ''|*[!0-9]*) echo "nenhum PR mergeado aponta para $SHA — nada a fechar"; exit 0 ;; esac
+          case "$titulo" in
+            "release: "*) echo "n=$n" >> "$GITHUB_OUTPUT"; echo "PR de release: #$n ($titulo)" ;;
+            *) echo "#$n ($titulo) não é um release — nada a fechar" ;;
+          esac
+
+      - name: Fecha os PRs incluídos e apaga o branch deles
+        if: steps.pr.outputs.n != ''
+        env:
+          N: ${{ steps.pr.outputs.n }}
+          RELEASE_TREM_SLEEP: "5"
+        run: bash scripts/release-trem.sh --fechar "$N"
