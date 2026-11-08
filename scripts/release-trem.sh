@@ -14,13 +14,65 @@
 #   5. roda tests/test-versao-changelog.sh e tests/test-changelog-bloco.sh e faz o commit.
 # Não faz push nem abre PR: imprime os comandos, e o corpo do PR fica num arquivo.
 #
+# Depois do merge do release, `--fechar <pr-do-release>` fecha os PRs incluídos e apaga o branch
+# deles (o squash do release não os fecha, e o auto-delete do GitHub só age em PR mergeado). O
+# workflow release faz isso sozinho no push da main; rodar à mão é seguro (PR já fechado é pulado).
+#
 # Uso: bash scripts/release-trem.sh <x.y.z> <pr> [<pr>...] [--dir <pasta do worktree>]
+#      bash scripts/release-trem.sh --fechar <pr-do-release>
 # Ambiente: RELEASE_TREM_REPO (dono/repo para o gh; sem ele, o gh usa o do origin),
 #           RELEASE_TREM_DATA (data do cabeçalho, AAAA-MM-DD), RELEASE_TREM_SLEEP (retry do gh).
 set -uo pipefail
 
 erro() { echo "release-trem: $*" >&2; exit 1; }
-uso() { echo "uso: release-trem.sh <x.y.z> <pr> [<pr>...] [--dir <pasta>]" >&2; exit 2; }
+uso() { echo "uso: release-trem.sh <x.y.z> <pr> [<pr>...] [--dir <pasta>] | --fechar <pr-do-release>" >&2; exit 2; }
+
+gh_r() { # gh com retry: a API às vezes devolve 502 no meio do trem
+  local _
+  for _ in 1 2 3; do
+    if [ -n "${RELEASE_TREM_REPO:-}" ]; then gh "$@" --repo "$RELEASE_TREM_REPO" && return 0
+    else gh "$@" && return 0; fi
+    sleep "${RELEASE_TREM_SLEEP:-5}"
+  done
+  return 1
+}
+
+if [ "${1:-}" = --fechar ]; then
+  R="${2:-}"; case "$R" in ''|*[!0-9]*) uso ;; esac
+  [ $# -eq 2 ] || uso
+  command -v gh >/dev/null 2>&1 || erro "precisa do gh"
+  command -v python3 >/dev/null 2>&1 || erro "precisa do python3"
+  TMP="$(mktemp -d "${TMPDIR:-/tmp}/release-trem.XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
+  gh_r pr view "$R" --json number,title,state,body > "$TMP/release.json" 2>"$TMP/gh.err" \
+    || erro "gh não leu o PR #$R: $(tail -1 "$TMP/gh.err")"
+  # O corpo é dado: só o python lê, e só números saem dele.
+  lido="$(python3 - "$TMP/release.json" "$R" <<'PY'
+import json, re, sys
+d = json.load(open(sys.argv[1])); r = sys.argv[2]
+m = re.fullmatch(r"release: (\d+\.\d+\.\d+)", (d.get("title") or "").strip())
+if not m:
+    sys.exit(f"release-trem: o PR #{r} não é um release (título '{d.get('title')}')")
+if d.get("state") != "MERGED":
+    sys.exit(f"release-trem: o PR #{r} está {d.get('state')}, não MERGED")
+prs = re.findall(r"(?m)^- #(\d+) \(", d.get("body") or "")
+print(m.group(1), *dict.fromkeys(n for n in prs if n != r))
+PY
+)" || exit 1
+  set -- $lido; V="$1"; shift
+  [ $# -gt 0 ] || { echo "release-trem: o #$R ($V) não lista PR incluído; nada a fechar"; exit 0; }
+  falhou=""
+  for n in "$@"; do
+    estado="$(gh_r pr view "$n" --json state --jq .state 2>/dev/null)" || { falhou="$falhou #$n"; continue; }
+    if [ "$estado" != OPEN ]; then echo "  #$n já está $estado"; continue; fi
+    if gh_r pr close "$n" --delete-branch --comment "Entrou no release $V (#$R)." >/dev/null 2>"$TMP/gh.err"; then
+      echo "  #$n fechado, branch apagado"
+    else
+      falhou="$falhou #$n"; echo "  #$n: $(tail -1 "$TMP/gh.err")" >&2
+    fi
+  done
+  [ -z "$falhou" ] || erro "não fechei:$falhou"
+  exit 0
+fi
 
 V="${1:-}"; [ -n "$V" ] || uso; shift
 case "$V" in *[!0-9.]*|.*|*.|*..*) uso ;; esac
@@ -45,16 +97,6 @@ BR="release/$V"
 git -C "$TOP" show-ref --verify -q "refs/heads/$BR" && erro "o branch $BR já existe"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/release-trem.XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
-
-gh_r() { # gh com retry: a API às vezes devolve 502 no meio do trem
-  local _
-  for _ in 1 2 3; do
-    if [ -n "${RELEASE_TREM_REPO:-}" ]; then gh "$@" --repo "$RELEASE_TREM_REPO" && return 0
-    else gh "$@" && return 0; fi
-    sleep "${RELEASE_TREM_SLEEP:-5}"
-  done
-  return 1
-}
 
 echo "== corpos dos PRs =="
 for n in $PRS; do
@@ -207,9 +249,9 @@ for n in prs:
     d = json.load(open(os.path.join(tmp, f"pr-{n}.json")))
     l.append(f"- #{n} ({d['title']})")
 l += ["", f"Versão {v} nos 5 lugares, com o CHANGELOG e o novidades montados do corpo de cada PR.", "",
-      "Depois do merge, feche os PRs incluídos (o squash do release não os fecha):", "```"]
-l += [f"gh pr close {n} --comment 'Entrou no release {v}.'" for n in prs]
-l += ["```", ""]
+      "Depois do merge, o workflow release fecha os PRs incluídos e apaga o branch deles",
+      "(o squash do release não os fecha). Se ele falhar, rode à mão:", "```",
+      "bash scripts/release-trem.sh --fechar <número deste PR>", "```", ""]
 open(saida, "w", encoding="utf-8").write("\n".join(l))
 PY
 

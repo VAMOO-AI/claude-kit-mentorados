@@ -24,15 +24,25 @@ export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_NOSYSTEM=1
 git config --file "$T/gitconfig" init.defaultBranch main
 export RELEASE_TREM_SLEEP=0 RELEASE_TREM_DATA=2026-10-24
 
-# gh de mentira: `gh pr view <n> --json ...` imprime $FIX/pr-<n>.json. Com $FIX/falha-<n>,
-# a primeira chamada sai 1 (prova o retry) e apaga o marcador.
+# gh de mentira: `gh pr view <n> --json ...` imprime $FIX/pr-<n>.json (com `--jq .state`, só
+# o estado). Com $FIX/falha-<n>, a primeira chamada sai 1 (prova o retry) e apaga o marcador.
+# `gh pr close <n> ...` marca o PR como CLOSED; com $FIX/nao-fecha-<n>, sai 1 sempre.
 FIX="$T/fix"; mkdir -p "$T/bin" "$FIX"; export FIX
 cat > "$T/bin/gh" <<'GH'
 #!/usr/bin/env bash
 echo "gh $*" >> "$FIX/gh.log"
-[ "$1 $2" = "pr view" ] || { echo "stub: só pr view" >&2; exit 9; }
-[ -f "$FIX/falha-$3" ] && { rm -f "$FIX/falha-$3"; echo "HTTP 502" >&2; exit 1; }
-cat "$FIX/pr-$3.json"
+case "$1 $2" in
+  "pr view")
+    [ -f "$FIX/falha-$3" ] && { rm -f "$FIX/falha-$3"; echo "HTTP 502" >&2; exit 1; }
+    case " $* " in
+      *" --jq "*) python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["state"])' "$FIX/pr-$3.json" ;;
+      *) cat "$FIX/pr-$3.json" ;;
+    esac ;;
+  "pr close")
+    [ -f "$FIX/nao-fecha-$3" ] && { echo "HTTP 403" >&2; exit 1; }
+    python3 -c 'import json,sys;p=sys.argv[1];d=json.load(open(p));d["state"]="CLOSED";json.dump(d,open(p,"w"))' "$FIX/pr-$3.json" ;;
+  *) echo "stub: só pr view e pr close" >&2; exit 9 ;;
+esac
 GH
 chmod +x "$T/bin/gh"; export PATH="$T/bin:$PATH"
 
@@ -89,7 +99,7 @@ check "novidades: 0.3.0 no topo, PRs juntos, '|' do texto trocado e setup no 3º
 check "nada foi enviado ao origin (main igual e sem branch release)" "$([ "$(git -C "$R/origin.git" rev-parse main)" = "$main_antes" ] && ! git -C "$R/origin.git" show-ref -q --verify refs/heads/release/0.3.0 && echo ok || echo fail)"
 check "o worktree ficou limpo, com o bump commitado" "$([ -z "$(git -C "$W" status --porcelain)" ] && git -C "$W" log -1 --format=%s | grep -q '^chore(release): 0.3.0 (#11 #12 #13)' && echo ok || echo fail)"
 corpo="$(git -C "$W" rev-parse --git-dir)/release-trem-0.3.0.md"
-check "o corpo do PR lista os PRs e os 'gh pr close'" "$(grep -q '#12 (feat: doze)' "$corpo" && grep -q 'gh pr close 13' "$corpo" && echo ok || echo fail)"
+check "o corpo do PR lista os PRs e o --fechar de reserva" "$(grep -q '^- #12 (feat: doze)' "$corpo" && grep -q 'release-trem.sh --fechar' "$corpo" && echo ok || echo fail)"
 check "a saída diz que nada foi enviado e mostra o push" "$(printf '%s\n' "$out" | grep -q 'Nada foi enviado' && printf '%s\n' "$out" | grep -q 'push -u origin release/0.3.0' && echo ok || echo fail)"
 
 echo "== conflito no segundo PR =="
@@ -118,6 +128,31 @@ out="$(cd "$R/clone" && bash "$S" 0.2.0 31 2>&1)"; rc=$?
 check "versão que não passa da main (0.2.0) é recusada" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'maior que a da main (0.2.0)' && echo ok || echo fail)"
 out="$(cd "$R/clone" && bash "$S" 0.3 31 2>&1)"; rc=$?
 check "versão fora de x.y.z sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
+
+echo "== --fechar: depois do merge, fecha os PRs do release e apaga o branch =="
+: > "$FIX/gh.log"
+pr 40 MERGED "release: 0.3.0" "$(printf 'Release.\n\n**PRs incluídos:**\n- #41 (feat: a)\n- #42 (feat: b)\n- #43 (feat: c)\n\n- #99 citado fora da lista não tem parêntese\n')"
+pr 41 OPEN "feat: a" "x"; pr 42 CLOSED "feat: b" "x"; pr 43 OPEN "feat: c" "x"
+: > "$FIX/falha-41"
+out="$(cd "$R/clone" && bash "$S" --fechar 40 2>&1)"; rc=$?
+check "sai 0 (rc=$rc)" "$([ "$rc" = 0 ] && echo ok || { printf '%s\n' "$out" | tail -5 >&2; echo fail; })"
+check "fecha o #41 com --delete-branch e o comentário do release" "$(grep -qF "gh pr close 41 --delete-branch --comment Entrou no release 0.3.0 (#40)." "$FIX/gh.log" && echo ok || echo fail)"
+check "fecha o #43 também" "$(grep -q '^gh pr close 43 --delete-branch' "$FIX/gh.log" && echo ok || echo fail)"
+check "pula o #42, que já estava fechado" "$(grep -q 'pr close 42' "$FIX/gh.log" && echo fail || printf '%s\n' "$out" | grep -q '#42 já está CLOSED' && echo ok || echo fail)"
+check "não toca em #n fora do formato '- #n ('" "$(grep -q ' 99' "$FIX/gh.log" && echo fail || echo ok)"
+out="$(cd "$R/clone" && bash "$S" --fechar 40 2>&1)"; rc=$?
+check "rodar de novo é seguro: sai 0 sem fechar nada" "$([ "$rc" = 0 ] && [ "$(grep -c 'pr close' "$FIX/gh.log")" = 2 ] && echo ok || echo fail)"
+pr 50 OPEN "release: 0.4.0" "$(printf -- '- #51 (feat: d)\n')"; pr 51 OPEN "feat: d" "x"
+out="$(cd "$R/clone" && bash "$S" --fechar 50 2>&1)"; rc=$?
+check "release ainda não mergeado: sai 1 e não fecha nada" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não MERGED' && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
+pr 60 MERGED "feat: não é release" "$(printf -- '- #51 (feat: d)\n')"
+out="$(cd "$R/clone" && bash "$S" --fechar 60 2>&1)"; rc=$?
+check "PR que não é 'release: x.y.z' é recusado" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não é um release' && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
+pr 70 MERGED "release: 0.5.0" "$(printf -- '- #71 (feat: e)\n')"; pr 71 OPEN "feat: e" "x"; : > "$FIX/nao-fecha-71"
+out="$(cd "$R/clone" && bash "$S" --fechar 70 2>&1)"; rc=$?
+check "close que falha: sai 1 e diz qual" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não fechei: #71' && echo ok || echo fail)"
+out="$(cd "$R/clone" && bash "$S" --fechar abc 2>&1)"; rc=$?
+check "--fechar sem número sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

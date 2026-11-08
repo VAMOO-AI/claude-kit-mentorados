@@ -38,8 +38,9 @@ fazer rebase e a rodar o CI de novo, e dois PRs chegaram a disputar o mesmo núm
    - A linha `setup` só entra quando a versão mexe no que o `/kit-vamoo:setup` instala.
    - Cada seção termina no próximo `#` ou `##`, no `---` ou no rodapé `🤖`.
 
-   No CI desse PR, as suítes rodam inteiras e o último passo do `validate` ("Mexeu no plugin?
-   A versão tem que subir") fica vermelho. É o esperado: o PR não entra sozinho.
+   No CI desse PR, as suítes rodam inteiras no `validate`, que fica verde, e o check `versao`
+   ("Mexeu no plugin? A versão tem que subir") fica vermelho. É o esperado: o PR não entra
+   sozinho. Vermelho no `validate` quer dizer que algo quebrou de verdade.
 2. **O release junta os PRs prontos** num branch `release/<versão>`, com um bump e um CI só:
 
    ```bash
@@ -55,8 +56,10 @@ fazer rebase e a rodar o CI de novo, e dois PRs chegaram a disputar o mesmo núm
    - **Não faz push.** Revise o bloco e a linha, e então rode o `git push` e o
      `gh pr create --draft --body-file`, que o script imprime.
    - O número é **a versão da main + 1**, decidido na hora do release.
-3. Depois do merge do release, **feche os PRs incluídos**: o squash do release não os fecha.
-   Os comandos `gh pr close` estão no corpo que o script gerou.
+3. Depois do merge do release, o job `fecha-prs` do workflow `release` **fecha os PRs incluídos
+   e apaga o branch deles** (o squash do release não os fecha, e o auto-delete do GitHub só age
+   em PR mergeado). Ele lê a lista `- #n (` do corpo do release. Se o job falhar, rode à mão
+   `bash scripts/release-trem.sh --fechar <número do release>`; PR já fechado é pulado.
 
 **Exceção:** PR que não toca `plugin/` (só CI, `scripts/`, `tests/` ou docs da raiz) não
 precisa de versão, porque o gate só olha `plugin/`. Ele entra sozinho, sem esperar release.
@@ -88,6 +91,21 @@ recebe argumentos, o Claude Code troca esses placeholders por eles. Comando com 
 No CI, o job `macos` roda a suíte inteira em 3 shards (`.github/scripts/ci-shard.sh`). Teste
 novo em `tests/test-*.sh` entra num shard sozinho, mas precisa de um passo próprio no
 `validate`, porque o check "Nenhum teste ficou de fora" faz grep do nome no `ci.yml`.
+
+## PR que mexe em hook: o replay do corpus
+
+Uma regressão de guard pega todo mentorado de uma vez. Por isso, PR que toca `plugin/hooks/` ou
+o `hookjson.js` passa, no `validate`, o corpus sintético `tests/corpus/comandos.jsonl` pelo
+`pre-bash.sh` do base e do head e reprova se alguma decisão mudar (passa, ask, bloqueia,
+reescreve). A frase da mensagem não conta.
+
+- **Mudança de decisão de propósito:** explique no corpo do PR numa seção
+  `## Divergências do replay` e rode o job de novo (editar o corpo não dispara o CI).
+- **Corpus real, só na sua máquina:** `bash scripts/replay-corpus.sh --base origin/main` lê os
+  seus transcripts de `~/.claude/projects` (30 dias), que podem ter segredo. Ele nasce em
+  `mktemp` e nunca vai para o repo nem para o CI. No PR, cole só as contagens.
+- **Forma nova que escapou:** acrescente uma linha sintética ao corpus, sem caminho real nem
+  nome de cliente.
 
 ## Upstreams: de onde o kit tira ideia
 

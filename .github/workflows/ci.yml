@@ -16,6 +16,13 @@ on:
 permissions:
   contents: read
 
+# Push novo num PR cancela o run anterior do mesmo PR: sem isto, três pushes seguidos rodavam três
+# suítes inteiras (a geo-ia teve três runs de 15 a 18 min). Na main nada é cancelado: cada merge
+# precisa do run dele, porque é lá que o Windows roda a lista inteira.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -406,6 +413,27 @@ jobs:
         # Repo git de mentira e gh de stub: não usa rede.
         run: bash tests/test-release-trem.sh
 
+      - name: O replay compara a decisão do pre-bash do base com a do head e só passa divergência declarada
+        # Base e head são cópias de plugin/; a divergência é plantada. Não usa rede nem corpus real.
+        run: bash tests/test-replay-corpus.sh
+
+      - name: PR que toca hook passa o corpus pelo pre-bash do base e do head
+        # Plano do núcleo único (#241): uma regressão de guard pega todo mentorado de uma vez. O
+        # corpus aqui é o sintético de tests/corpus/; o real (seus transcripts) só roda na sua
+        # máquina, com `bash scripts/replay-corpus.sh --base origin/main`, e no PR vão as
+        # contagens. Mudança de decisão de propósito: seção "## Divergências do replay" no corpo
+        # do PR. Editar o corpo não dispara o CI: depois de editar, rode o job de novo.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          if [ -z "$(git diff --name-only "origin/$BASE...HEAD" -- plugin/hooks/ plugin/scripts/hookjson.js)" ]; then
+            echo "o PR não toca hook nem o hookjson.js — replay pulado"; exit 0
+          fi
+          # O corpo é dado: o python só o grava num arquivo, e o script só procura o cabeçalho.
+          python3 -c 'import json,os;print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["pull_request"].get("body") or "")' > "$RUNNER_TEMP/corpo-pr.md"
+          bash scripts/replay-corpus.sh --base "origin/$BASE" --corpus tests/corpus/comandos.jsonl --corpo-pr "$RUNNER_TEMP/corpo-pr.md"
+
       - name: Nenhum teste ficou de fora deste workflow
         # Sem isto, um tests/test-*.sh novo entra no repo e nunca roda — foi o que
         # aconteceu com o test-block-main-commit.sh, parado desde que foi escrito.
@@ -531,18 +559,28 @@ jobs:
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
 
-      # Último passo do validate, e com !cancelled(): roda mesmo quando uma suíte acima falhou,
-      # e nenhuma suíte deixa de rodar por causa dele. Até a 0.82 ele ficava no meio do job, e
-      # no PR de feature sem bump as suítes de baixo nem rodavam: o erro delas só aparecia no
-      # release. Fica dentro do validate porque o validate é o check obrigatório pelo nome.
+  # O gate de versão num job próprio, também check obrigatório. Até a 0.89 ele era o último passo
+  # do validate, e todo PR de feature que mexia em plugin/ ficava com o validate vermelho de
+  # propósito: 17 das 40 últimas falhas do CI eram só ele, e o vermelho deixou de dizer "quebrou".
+  # Agora o validate verde quer dizer suítes verdes, e o `versao` vermelho quer dizer "entra pelo
+  # release". Sem filtro de paths no workflow: check obrigatório que não reporta trava o PR, então
+  # o job sempre roda e sai 0 quando plugin/ não mudou (e no push da main).
+  versao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
       - name: Mexeu no plugin? A versão tem que subir
         # O Claude Code decide se baixa a atualização pela `version` do plugin.json.
         # Publicar mudança sem bumpar deixa quem já instalou com a cópia antiga em
         # cache — sem erro, sem aviso, e a gente só descobre quando alguém reclama
         # de um problema que já foi corrigido.
-        # PR de feature não sobe versão (CONTRIBUTING.md): ele fica vermelho só aqui, com as
-        # suítes verdes acima, e entra na main pelo release que o scripts/release-trem.sh monta.
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        # PR de feature não sobe versão (CONTRIBUTING.md): ele fica vermelho só aqui, com o
+        # validate verde, e entra na main pelo release que o scripts/release-trem.sh monta.
+        if: github.event_name == 'pull_request'
         run: |
           base="origin/${{ github.base_ref }}"
           if [ -z "$(git diff --name-only "$base"...HEAD -- plugin/)" ]; then
