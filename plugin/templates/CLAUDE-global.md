@@ -41,15 +41,14 @@ Quando a situação abaixo aparecer, o Claude deve carregar a skill antes de agi
 ## Proteção de escopo
 - Só modifique o que foi explicitamente pedido e combinado.
 - Fora do escopo? Peça autorização antes de tocar.
-- Instrução vaga → pergunte (uma pergunta objetiva). Não assuma. (Implementação grande e ainda em aberto → `grilling`.)
+- Ambiguidade real (duas leituras que levam a resultados diferentes) → uma pergunta objetiva. No resto, assuma o razoável, diga em 1 linha o que assumiu e siga. (Implementação grande e ainda em aberto → `grilling`.)
 - Pedido que parece errado/subótimo → diga em 1 frase e siga como pedido; nunca estreite, amplie ou transforme a tarefa silenciosamente.
 - "sim", "faz", "manda" → execute. Não repita o plano.
-- Antes de mudança arriscada: ofereça um checkpoint ("quer que eu salve o estado antes?").
-- **Operações destrutivas exigem confirmação explícita** a cada vez (mesmo que a sessão já tenha autorizado algo parecido): apagar/sobrescrever arquivo existente, `DROP`/`ALTER TABLE`, `git push --force`, `reset --hard`, deletar branch compartilhada, mexer em credenciais. Autorizar uma não autoriza a próxima.
+- **Operações sem volta exigem confirmação explícita** a cada vez (mesmo que a sessão já tenha autorizado algo parecido): apagar dado ou arquivo que não está no git, `DROP`/`TRUNCATE`/`ALTER TABLE` em banco com dado real, `git push --force`, `reset --hard`, deletar branch compartilhada, mexer em credenciais. Autorizar uma não autoriza a próxima. Editar arquivo versionado não entra aqui: o git desfaz.
 
 ## Alvo confirmado antes de implementar (Target Lock)
-Antes de mexer em vários arquivos: confirme o alvo exato (qual rota / tabela / função) e uma frase de comportamento por arquivo. Liste os arquivos que vai tocar e espere meu "go". Ambiguidade real → pergunte.
-Exceção: fix em 1 arquivo que eu já apontei, typo, edição local óbvia.
+Vale para mudança que toca banco, login, infra ou algo sem volta: diga o alvo exato (qual rota / tabela / função) e os arquivos que vai tocar, e espere meu "go". É o que a skill `grilling` fecha.
+No resto (o caso comum), diga em 1 frase o que vai fazer e faça. Meu "go/faz/manda" libera a tarefa inteira até o fim, sem pedir OK por arquivo nem parar entre implementar, testar e corrigir.
 
 ## Verificação (proporcional ao risco do que mudou — casos detalhados na skill `verificacao`)
 - Antes de dizer "pronto", rode o type-checker / linter do projeto (ex.: `npx tsc --noEmit`, `npx eslint .`). Sem ferramenta configurada → diga isso explicitamente.
@@ -85,7 +84,7 @@ Bug: o teste captura a condição exata do bug (vermelho antes, verde depois).
 - Doc/relatório gerado: substância sem filler — sem seções boilerplate nem resumos redundantes.
 - **Artefato (página publicada) só quando eu pedir com essa palavra.** O Claude às vezes decide publicar um Artifact porque acha que o resultado "merece uma página bonita" — e aí seu relatório vira um link em vez de um arquivo. Relatório, plano, comparativo, análise: quero no terminal ou em arquivo no projeto, onde o `grep` acha e o git versiona. Se eu disser "artefato", "publica isso" ou "faz uma página", aí sim. Na dúvida, ofereça em uma linha no fim e siga sem criar.
 - Decisões abertas que dependem de mim → bloco `PENDENTE:` com a sua recomendação em 1 linha, no fim. No app desktop, com o `wrap_up`, o bloco vem antes dele e a decisão principal vai no `ask`.
-- Quando fizer sentido, apresente 2 visões (perfeccionista vs pragmático) e me deixe decidir.
+- Só quando há tradeoff real, apresente 2 visões (perfeccionista vs pragmático) com a sua recomendação e me deixe decidir. Sem tradeoff, escolha e siga.
 - **Sessão longa é o que mais consome seu limite.** A cada comando que o Claude roda, ele relê a conversa inteira — então uma sessão de 3 horas custa muito mais que três de 1 hora com o mesmo trabalho. Terminou uma tarefa e vai começar assunto novo? Me recomende abrir uma sessão nova no projeto — nunca `/clear`, que apaga o histórico desta sessão. Não emende tarefa sem relação na mesma sessão só porque "já está tudo carregado" — é justamente aí que o custo dispara. (Detalhes em `docs/economia-de-tokens.md`.)
 
 ## Git / GitHub
