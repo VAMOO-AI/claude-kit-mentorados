@@ -43,6 +43,8 @@ done
 export PATH="$SEM_RTK"
 
 MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
+# Com commit: o block-main-commit isenta repo ainda sem commit nenhum (primeiro commit do `git init`).
+git -C "$MAIN" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
 # clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
 CLONE="$TMP/clone"; mkdir -p "$CLONE"; git -C "$CLONE" init -q -b main 2>/dev/null

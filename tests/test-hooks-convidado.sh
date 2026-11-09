@@ -52,6 +52,8 @@ node -e '
 rotulo() { printf '%s:%s' "$1" "$(printf '%s' "$2" | sed 's/.*PLUGIN_ROOT}\///; s/"//g; s/^hooks\///; s/^scripts\///')"; }
 
 REPO="$TMP/repo"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main 2>/dev/null
+# Com commit: o block-main-commit isenta repo ainda sem commit nenhum (primeiro commit do `git init`).
+git -C "$REPO" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 payload() { # payload <evento>
   E="$1" D="$REPO" node -e '
     const d = process.env.D;
