@@ -38,7 +38,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **28 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -66,7 +66,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 28. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 29. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -90,6 +90,7 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, PRs abertos e prova de merge vêm pela API com o token que `git config git-sync.tokenVar` nomeia; sem token, só perde a visão de PR) |
 | **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
 | **mcp-sistema** | Cria o **MCP do seu sistema** (Supabase, com Next.js ou SPA) pra você e seu time perguntarem ao Claude ou ao ChatGPT com a própria conta: login OAuth pelo navegador sem token, cada pessoa vê só o que o nível de acesso dela permite, alteração só com prévia + confirmação + registro, e uma página de instalação no app (num SPA, a receita de edge function liga um dono, só leitura). Conduz entrevista → spec → 4 PRs → produção, com o código de referência de um MCP que está no ar. | projeto Supabase: Next.js com Supabase Auth, ou SPA (Vite) com domínio próprio na Vercel via edge function |
+| **mapa-de-app** | *"Quero um sistema igual ao X."* — mapeia o app antes de orçar: telas com estados, fluxos com cliques, componentes, modelo de dados inferido com evidência e a matriz de funcionalidades (deve, deveria, poderia, fora), com o tamanho. Só fonte pública e a conta do próprio cliente: sem código, sem API privada, sem levar logo, texto ou fonte do app. O mapa vira o escopo da proposta ou entra no `grilling`. | nenhum |
 | **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) segura o `npx skills add` de um pacote com dezenas e procura skill pronta no skills.sh, instalando só quando você pede. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
 | **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 | **limpeza-mac** | `/kit-vamoo:limpeza-mac` — limpeza profunda de um Mac de dev: worktrees e branches já mergeadas, node_modules e .next de repo parado, caches e versões velhas de CLI. Faz um inventário read-only primeiro e guarda o SHA de cada branch num ledger antes de apagar; worktree só sai com o `worktree-gc.sh --verificar` liberando: ignorado só passa se for env igual ao do clone principal, symlink ou cache que o build recria (`node_modules`, `.next`, `dist`, `build`, `target`, `.cache`…); qualquer outro, `outputs/` e `out/` inclusive, segura o worktree com o motivo. Você chama; o Claude não aciona sozinho. | macOS; `gh` (opcional — sem ele, branch mergeada por squash fica) |
@@ -247,7 +248,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 28 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 29 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
