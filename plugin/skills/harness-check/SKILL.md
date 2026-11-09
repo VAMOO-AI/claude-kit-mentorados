@@ -64,8 +64,8 @@ Some esse número ao das suas skills globais antes de dizer quanto "os seus arqu
 Passou do teto: a skill `skills-projeto` decide os cortes, não esta.
 
 **Custo por skill e auditoria do prompt** não se reimplementam aqui: peça ao usuário rodar
-e colar o `/skill-doctor` (CLI 2.1.261 ou mais novo) e o `/doctor prompt-audit` (2.1.283
-ou mais novo), built-in como o `/context`. CLI mais velho: INDISPONÍVEL, não estimado.
+e colar o `/skill-doctor` e o `/doctor prompt-audit`, built-in como o `/context`. CLI
+que ainda não tem o comando: INDISPONÍVEL, não estimado.
 
 ## Passo 2 — o gasto durante o uso
 
@@ -114,26 +114,8 @@ Em ordem de impacto medido:
 2. **Modelo caro como padrão.** Modelo que você não escolheu no `ccusage daily` quase
    sempre vem de subagente ou da barra de status.
 3. **Preload**, só depois dos dois acima e com o `/context` na mão.
-4. **Esforço alto fixo** no `settings.json`: no Opus 5.5 pensa mais que no Opus 5 no mesmo
-   nível. Trocar `/effort` no meio da sessão faz a próxima mensagem reler tudo sem cache.
-
-## Quem era cada sessão
-
-Só existe em máquina com identidade: `$CLAUDE_WHO` (por terminal, para duas pessoas na
-mesma máquina), `~/.claude/whoami` (por máquina) ou o kit de um time (`.team-manifest`,
-e aí o hostname vale como último recurso). Com ela, a barra de status do kit carimba
-`sessão → pessoa` em `~/.claude/session-owners.jsonl` no primeiro render, e a sessão cara
-do `ccusage session` ganha dono:
-
-```bash
-grep <session-id> ~/.claude/session-owners.jsonl   # campos who, host e cwd
-```
-
-Sem identidade o arquivo não existe, e a máquina é de uma pessoa só. Ele é local: sessão
-de outra máquina está no arquivo daquela máquina.
-
-**Kit de time.** Se existir `~/.claude/docs/harness-check-time.md`, rode também os passos
-de lá (scripts de custo e de entulho do time) e junte os achados nesta mesma tabela.
+4. **Esforço alto fixo** no `settings.json`: o mesmo nível pode pensar mais num modelo
+   mais novo. Trocar `/effort` no meio da sessão faz a próxima mensagem reler tudo sem cache.
 
 ## Fechamento
 
@@ -149,17 +131,7 @@ está no passo 4.
 - **A coluna SINAL diz de onde saiu a recomendação**: "`foo`: 38 tools no `medir-sessao.py`
   (MEDIDO), escopo user no `claude mcp get foo`, e você disse que não usou este mês". Só
   valem as fontes desta skill (`/context`, `/skill-doctor`, `/doctor prompt-audit`,
-  `medir-sessao.py`, `skills-projeto-scan.sh`, `ccusage`, `claude mcp list/get`, os passos
-  do kit de time, se existirem, e o arquivo que você abriu); "você
-  não usa" é o usuário quem responde.
+  `medir-sessao.py`, `skills-projeto-scan.sh`, `ccusage`, `claude mcp list/get` e o
+  arquivo que você abriu); "você não usa" é o usuário quem responde.
 - **Feche dizendo o que ficou de fora**, numa linha: *"deixei de fora N achados menores
   (MCP e skills) — peça se quiser a lista"*.
-
-**Defasagem contra o kit.** Os textos do kit (template do CLAUDE.md, `subagentes.md` e
-skills) foram auditados contra o guia do modelo padrão em 28/09/2026, no Opus 5.5
-(`claude-opus-5-5`). Confira o padrão da máquina com
-`node -e 'try{console.log(require(require("os").homedir()+"/.claude/settings.json").model||"")}catch{}'`
-(vazio ou alias como `opus` → o modelo desta sessão; o sufixo `[1m]` não conta). Se não for
-`claude-opus-5-5`, a auditoria venceu: feche o relatório com `PENDENTE: os textos do kit
-foram auditados para o Opus 5.5, não para o <modelo>. Atualize o kit e, se esta data
-continuar a mesma, avise quem mantém o kit`. Em dia, não entra no relatório.
