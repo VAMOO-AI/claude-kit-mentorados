@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.90.0] — 2026-11-09
+
+### Adicionado
+
+- **`mapa-de-app`**: mapeia um app existente (telas, fluxos, componentes, dados inferidos e matriz de funcionalidades) antes de orçar a versão própria, só com fonte pública e a conta do cliente.
+
 ## [0.89.0] — 2026-11-08
 
 ### Skills
