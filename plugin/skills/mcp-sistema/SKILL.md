@@ -52,7 +52,7 @@ despersonalizado: adapte nomes de tabela, papéis e tools ao projeto alvo.
    dados v1, escritas, endpoint, página. Na receita edge, feche dados v1, o canal
    do código ao dono (WhatsApp, e-mail) e o domínio público; papel só entra se for
    multiusuário.
-3. Grave a spec em `docs/superpowers/specs/<data>-mcp-<sistema>-design.md` com a
+3. Grave a spec em `.context/docs/<data>-mcp-<sistema>-design.md` com a
    tabela de decisões, o escopo por papel e a ordem de rollout. A spec é o
    contrato dos 4 PRs; atualize o status dela a cada merge.
 
