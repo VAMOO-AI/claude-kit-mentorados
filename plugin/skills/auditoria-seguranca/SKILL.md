@@ -3,8 +3,9 @@ name: auditoria-seguranca
 description: >-
   Auditoria de segurança em 6 categorias (inquilino, permissão no navegador, IDOR,
   chaves expostas, XSS, agente de IA) que entrega PDF em pt-BR no repo e issues prontas.
-  Use em "auditoria de segurança", "relatório de segurança", "achou IDOR?". O secscan é
-  a varredura rápida; esta é o pacote para outra pessoa agir.
+  O secscan é a varredura rápida; esta é o pacote para outra pessoa agir. Só dispara
+  quando você chama: /kit-vamoo:auditoria-seguranca.
+disable-model-invocation: true
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'

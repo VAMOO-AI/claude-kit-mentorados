@@ -4,15 +4,15 @@ description: >-
   Gera o documento de passagem de bastão de uma sessão ou projeto, para outro
   dev, agente ou você mesmo depois. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
-  do que foi verificado versus do que é só crença. Use só quando a pessoa
-  pedir um handoff; nunca por iniciativa própria. Pedidos: "/handoff", "monta
-  o handoff", "documenta pro colega assumir", "passa isso pra outra sessão".
+  do que foi verificado versus do que é só crença. Só dispara quando você
+  chama: /kit-vamoo:handoff.
+disable-model-invocation: true
 ---
 
 # handoff
 
-Só quando a pessoa pede, por `/handoff` ou em texto. O modelo nunca decide sozinho
-que é hora de escrever um; é uma decisão de quem está saindo.
+Só roda quando a pessoa chama `/kit-vamoo:handoff`: escrever um handoff é decisão de
+quem está saindo, nunca do modelo.
 
 ## A regra que dá valor ao documento
 

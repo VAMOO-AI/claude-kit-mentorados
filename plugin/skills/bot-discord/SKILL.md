@@ -4,7 +4,9 @@ description: >-
   Use para criar, diagnosticar (caiu, não responde) ou colocar no ar um bot de
   Discord em Node/TypeScript numa VPS própria. Cobre do Developer Portal ao
   container rodando: intents, convite, código, idempotência, cron, Docker e a
-  verificação de que subiu de verdade.
+  verificação de que subiu de verdade. Só dispara quando você chama:
+  /kit-vamoo:bot-discord.
+disable-model-invocation: true
 ---
 
 # bot-discord — do Developer Portal ao container rodando

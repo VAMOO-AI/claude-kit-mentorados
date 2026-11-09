@@ -5,7 +5,8 @@ description: >-
   (CLAUDE.md, skills, MCPs) e o gasto no uso, com rótulo MEDIDO vs ESTIMADO, e o
   que dá pra cortar sem perder nada. Use quando o limite ou a conta surpreender,
   a sessão nascer cara, houver dúvida se um MCP ou o CLAUDE.md pesa, "MCPs caros"
-  ou "limpar ~/.claude". Não é o secscan nem o baseline.
+  ou "limpar ~/.claude". Só dispara quando você chama: /kit-vamoo:harness-check.
+disable-model-invocation: true
 allowed-tools:
   - 'Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py" *)'
   - 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/medir-sessao.py *)'

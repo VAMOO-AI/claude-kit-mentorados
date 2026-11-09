@@ -5,7 +5,7 @@ description: >-
   disparar. Use ao criar, instalar (npx skills@1.7.4 add), auditar ou enxugar skill
   de projeto, em "quantas skills esse projeto carrega", "essa skill dispara?",
   "existe skill pra X", "vale a pena virar skill?", ou quando o aviso da abertura
-  diz que o projeto passou do teto. Não é o harness-check, que mede a sessão inteira.
+  diz que o projeto passou do teto.
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/skills-projeto-scan.sh *)'

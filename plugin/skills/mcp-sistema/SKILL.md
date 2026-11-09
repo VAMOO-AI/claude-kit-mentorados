@@ -3,8 +3,9 @@ name: mcp-sistema
 description: >-
   Cria o MCP remoto de um sistema Supabase para ligar Claude, ChatGPT ou outro cliente
   com a própria conta: OAuth, recorte por papel, escrita com prévia e log, página de
-  instalação (Next.js ou SPA com edge function). Use em "cria um MCP pro sistema", "MCP
-  com login", "ligar no ChatGPT", "o MCP dá timeout".
+  instalação (Next.js ou SPA com edge function). Também para MCP que dá timeout. Só
+  dispara quando você chama: /kit-vamoo:mcp-sistema.
+disable-model-invocation: true
 ---
 
 # MCP remoto de um sistema (Supabase)

@@ -5,7 +5,7 @@ description: >-
   n8n) em 8 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
   segredos, perímetro. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
   produção está apto?). Use em "está pronto pra prod", "auditar produção",
-  "hardening", "app novo do zero", "baseline".
+  "hardening", "app novo do zero".
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh *)'

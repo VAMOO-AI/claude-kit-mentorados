@@ -3,7 +3,9 @@ name: guardrails-ia
 description: >-
   Guard-rails de agente de IA que fala com pessoa real (WhatsApp, chat, bot): o
   que pode afirmar, opt-out permanente, escalar pra humano, IA vs humano no
-  canal. Use ao construir/revisar bot de cliente ou antes de ligar o disparo.
+  canal. Para construir ou revisar bot de cliente e antes de ligar o disparo.
+  Só dispara quando você chama: /kit-vamoo:guardrails-ia.
+disable-model-invocation: true
 ---
 
 # Guard-rails da IA que fala com cliente
