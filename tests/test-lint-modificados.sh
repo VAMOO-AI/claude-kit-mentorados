@@ -6,11 +6,13 @@
 #     grava o file_path em ~/.claude/.cache/lint-sessao/<sessão>. O --fix async de antes
 #     podia gravar por cima da edição seguinte;
 #   - o Stop linta só o que esta sessão anotou. Arquivo modificado no mesmo clone por
-#     outra sessão fica intocado, mesmo aparecendo no git. Edição feita pelo Bash não
-#     entra na lista e não é lintada: é o custo aceito para o --fix não cair em arquivo
-#     alheio;
-#   - eslint mais próximo do arquivo até a raiz git, um lote por projeto, teto por Stop,
-#     e nunca bloqueia.
+#     outra sessão fica fora, mesmo aparecendo no git. Edição feita pelo Bash não
+#     entra na lista e não é lintada;
+#   - eslint mais próximo do arquivo até a raiz git, um lote por projeto, teto por Stop;
+#   - desde 09/11/2026 (D6) o eslint roda SEM --fix: o hook não reescreve arquivo de ninguém.
+#     Havendo erro, o Stop devolve `{"decision":"block","reason":…}` e o MODELO corrige antes
+#     de encerrar. Com `stop_hook_active` verdadeiro (o Stop já foi segurado uma vez) o hook
+#     só avisa a pessoa, para não entrar em loop.
 #
 # Uso: bash tests/test-lint-modificados.sh [raiz-do-repo]
 set -uo pipefail
@@ -43,10 +45,19 @@ eslint_falso() { # eslint_falso <dir>: instala <dir>/node_modules/.bin/eslint
   mkdir -p "$1/node_modules/.bin"
   cat > "$1/node_modules/.bin/eslint" <<'FAKE'
 #!/usr/bin/env bash
-# eslint falso: anota de onde rodou e os argumentos; sai com ESLINT_EXIT
+# eslint falso: anota de onde rodou e os argumentos; sai com ESLINT_EXIT. Arquivo com a
+# marca ERRO-DE-LINT reprova (exit 1, com a linha no formato do eslint). Com --fix ele
+# "conserta" como o eslint de verdade faria: reescreve o arquivo sem a marca.
 { printf 'cwd=%s\n' "$(pwd -P)"; for a in "$@"; do printf '%s\n' "$a"; done; } >> "$ESLINT_LOG"
-[ "${ESLINT_EXIT:-0}" -ne 0 ] && echo "erro de lint inventado"
-exit "${ESLINT_EXIT:-0}"
+fix=0; for a in "$@"; do [ "$a" = "--fix" ] && fix=1; done
+rc="${ESLINT_EXIT:-0}"
+[ "$rc" -ne 0 ] && echo "erro de lint inventado"
+for a in "$@"; do
+  [ -f "$a" ] && grep -q 'ERRO-DE-LINT' "$a" || continue
+  if [ "$fix" = 1 ]; then grep -v 'ERRO-DE-LINT' "$a" > "$a.tmp"; mv "$a.tmp" "$a"
+  else printf '%s\n  1:1  error  marca ERRO-DE-LINT no arquivo  regra-inventada\n' "$a"; rc=1; fi
+done
+exit "$rc"
 FAKE
   chmod +x "$1/node_modules/.bin/eslint"
 }
@@ -63,7 +74,7 @@ anota() { printf '%s\n' "$2" >> "$LISTAS/$1"; }   # anota <sessão> <arquivo>
 
 json() { # json <sessão> <cwd> [file_path] → payload de hook, montado pelo node
   S="$1" C="$2" F="${3:-}" node -e '
-    const p = { session_id: process.env.S, cwd: process.env.C, hook_event_name: "Stop", stop_hook_active: false };
+    const p = { session_id: process.env.S, cwd: process.env.C, hook_event_name: "Stop", stop_hook_active: process.env.STOP_ATIVO === "1" };
     if (process.env.F) p.tool_input = { file_path: process.env.F };
     process.stdout.write(JSON.stringify(p));' </dev/null
 }
@@ -140,7 +151,7 @@ anota s1 "$A/minha.ts"
 novo_log; roda s1 "$A"
 check     "arquivo da lista é lintado"                        "$A/minha.ts"
 check_nao "arquivo modificado fora da lista fica intocado"    "alheio.ts"
-check     "passa --fix"                                       "--fix"
+check_nao "roda sem --fix (o hook não reescreve arquivo)"     "--fix"
 check     "usa o cache em ~/.claude/.cache/eslint/"           "$FAKE/.claude/.cache/eslint/"
 [ -e "$LISTAS/s1" ] && falha "entradas processadas continuam na lista" || ok "entradas processadas saem da lista"
 
@@ -183,23 +194,52 @@ anota s4b "$S/s.ts"
 novo_log; roda s4b "$S"
 check_nao "fora de repo git o eslint não roda" "s.ts"
 
-echo "== nunca bloqueia, teto, sessão saneada =="
-# 6) erro que o --fix não resolve vira aviso, não bloqueio
-anota s5 "$A/minha.ts"
-novo_log; ESLINT_EXIT=1 roda s5 "$A"
-if [ "$codigo" -eq 0 ] && printf '%s' "$saida" | grep >/dev/null "lint pendente"; then
-  ok "erro de lint vira aviso, não bloqueio"
-else
-  falha "erro de lint vira aviso (codigo=$codigo saida=$saida)"
-fi
+echo "== erro de lint volta para o modelo, sem tocar no arquivo (D6) =="
+campo() { # campo <nome> → o campo do JSON em $saida; vazio se não for JSON ou não tiver
+  printf '%s' "$saida" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const v=j[process.argv[1]];process.stdout.write(typeof v==="string"?v:"")}catch{}})' "$1"
+}
+soma() { { shasum "$1" 2>/dev/null || sha1sum "$1"; } | awk '{print $1}'; }
+# 6) arquivo com erro: conteúdo inalterado e o Stop é segurado com o erro como motivo
+printf 'export const ruim = 1\n// ERRO-DE-LINT\n' > "$A/ruim.ts"
+antes=$(soma "$A/ruim.ts")
+anota s5 "$A/ruim.ts"
+novo_log; roda s5 "$A"
+[ "$(soma "$A/ruim.ts")" = "$antes" ] && ok "arquivo com erro de lint fica inalterado (hash igual)" || falha "o hook reescreveu o arquivo (hash mudou)"
+[ "$codigo" -eq 0 ] && ok "sai 0 (a decisão vai no JSON)" || falha "saiu $codigo"
+[ "$(campo decision)" = block ] && ok 'devolve {"decision":"block"}: o Stop é segurado' || falha "sem decision:block (saida=$saida)"
+motivo=$(campo reason)
+case "$motivo" in *"$A/ruim.ts"*"marca ERRO-DE-LINT no arquivo"*) ok "o motivo traz o arquivo e o erro do eslint, para o modelo corrigir" ;; *) falha "o motivo não traz o erro do eslint (reason=$motivo)" ;; esac
+case "$motivo" in *"não aplica --fix"*|*"sem --fix"*) ok "o motivo diz que o hook não corrige sozinho" ;; *) falha "o motivo não diz que o hook não aplica --fix (reason=$motivo)" ;; esac
+[ "$(cat "$LISTAS/s5" 2>/dev/null)" = "$A/ruim.ts" ] && ok "o arquivo com erro volta para a lista: o próximo Stop confere de novo" || falha "o arquivo com erro saiu da lista (lista='$(cat "$LISTAS/s5" 2>/dev/null)')"
+# 6b) segundo Stop do mesmo turno (stop_hook_active): não segura de novo, só avisa a pessoa
+novo_log; STOP_ATIVO=1 roda s5 "$A"
+[ "$codigo" -eq 0 ] && [ -z "$(campo decision)" ] && ok "com stop_hook_active o hook não bloqueia de novo (sem loop)" || falha "com stop_hook_active ainda bloqueia (codigo=$codigo saida=$saida)"
 # B5 da avaliação de 20/10: o stdout de um Stop vai para o debug log, e ninguém via o aviso.
 # Ele sai como systemMessage num JSON, que a interface mostra para a pessoa.
-msg=$(printf '%s' "$saida" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(typeof j.systemMessage==="string"?j.systemMessage:"")}catch{}})')
-case "$msg" in
-  *"lint pendente"*"erro de lint inventado"*) ok "o aviso sai como systemMessage, com o erro do eslint" ;;
+case "$(campo systemMessage)" in
+  *"lint pendente"*"marca ERRO-DE-LINT no arquivo"*) ok "…e o aviso sai como systemMessage, com o erro do eslint" ;;
   *) falha "o aviso não saiu como systemMessage num JSON (saida=$saida)" ;;
 esac
+[ "$(soma "$A/ruim.ts")" = "$antes" ] && ok "…e o arquivo continua inalterado" || falha "o segundo Stop reescreveu o arquivo"
+[ -e "$LISTAS/s5" ] && falha "depois do aviso a lista deveria estar consumida" || ok "depois do aviso a lista é consumida (não volta a cada Stop)"
+# 6c) arquivo limpo: silêncio
+anota s5c "$A/minha.ts"
+novo_log; roda s5c "$A"
+[ "$codigo" -eq 0 ] && [ -z "$saida" ] && ok "arquivo limpo: silêncio e exit 0" || falha "arquivo limpo deveria ser calado (codigo=$codigo saida=$saida)"
+# 6d) o modelo corrigiu: o Stop seguinte (stop_hook_active) passa calado
+printf 'export const ruim2 = 1\n// ERRO-DE-LINT\n' > "$A/ruim2.ts"; anota s5d "$A/ruim2.ts"
+novo_log; roda s5d "$A"
+printf 'export const ruim2 = 1\n' > "$A/ruim2.ts"; anota s5d "$A/ruim2.ts"
+novo_log; STOP_ATIVO=1 roda s5d "$A"
+[ "$codigo" -eq 0 ] && [ -z "$saida" ] && ok "corrigido pelo modelo: o Stop seguinte passa calado" || falha "depois da correção ainda fala (codigo=$codigo saida=$saida)"
+# 6e) o texto do eslint com aspas, barra e controle vira JSON válido
+anota s5e "$A/minha.ts"
+novo_log; ESLINT_EXIT=1 roda s5e "$A"
+[ "$(campo decision)" = block ] && case "$(campo reason)" in *"erro de lint inventado"*) true ;; *) false ;; esac \
+  && ok "eslint que sai ≠ 0 sem apontar arquivo também volta ao modelo" || falha "eslint ≠ 0 sem decision:block (saida=$saida)"
+rm -f "$LISTAS/s5e"
 
+echo "== teto, sessão saneada =="
 # 7) teto por Stop: o que passou do teto fica para o próximo
 for i in 1 2 3 4 5; do echo "export const f$i = $i" > "$A/f$i.ts"; anota s6 "$A/f$i.ts"; done
 novo_log; LINT_MODIFICADOS_TETO=2 roda s6 "$A"
