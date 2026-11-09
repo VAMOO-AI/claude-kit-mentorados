@@ -96,8 +96,8 @@ Dois campos independentes, nunca um só:
 
 - **estágio do funil** — `novo`, `qualificado`, `proposta`, `ganho`… (onde o
   negócio está)
-- **dono do canal** — `ia` · `humano` · `aguardando_resposta` · `nao_contatar`
-  (quem pode falar agora), com `dono_desde` e `dono_motivo`
+- **dono do canal** — `ia` · `humano` · `api_oficial` · `aguardando_inbound` ·
+  `nao_contatar` (quem pode falar agora), com `dono_desde` e `dono_motivo`
 
 - Ordem obrigatória: **gravar inbound → resolver dono → decidir envio.** Todo
   guard de pausa fica depois da gravação.
@@ -110,6 +110,8 @@ Dois campos independentes, nunca um só:
 - Estágio e dono mudam por razões diferentes: `ganho` com dono `humano` é
   normal. Espremer os dois num campo só obriga a escolher entre perder o funil
   e perder o controle de quem fala.
+- Nunca dois emissores no mesmo fio. Se duas rotas podem enviar, a trava é o
+  dono — não a esperança de que não coincidam.
 
 **Prova (2 minutos, e é o teste que ninguém faz):** transfira uma conversa pra
 humano e mande 3 mensagens como cliente. As 3 têm que aparecer na sua tabela de
