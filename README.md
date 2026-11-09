@@ -39,7 +39,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
 | `plugin/skills/` | plugin | **26 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
-| `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
+| `plugin/commands/` | plugin | `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
@@ -71,7 +71,7 @@ um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
 A maior parte o Claude aciona sozinho, pela situação. As que você chama na mão
-levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
+levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:handoff`.
 
 ### ✅ Prontas pra usar (sem setup extra)
 
@@ -397,7 +397,7 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
 3. [`docs/seguranca.md`](docs/seguranca.md) — os 7 furos que iniciante esquece (RLS, secrets, deps, limite de uso, secret que não é secret) + revisão automática.
 4. [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md) — por que seu limite acaba tão rápido e os 3 hábitos que fazem ele render (spoiler: sessão longa custa juros compostos).
-5. Use `/kit-vamoo:explicar` e `/kit-vamoo:revisar`, modo "explica", e a skill `find-docs`.
+5. Use o modo "explica" ("me explica esse código como numa aula"), peça revisão do que mudou (o Claude chama o subagente `revisor`) e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
 1. [`docs/observabilidade.md`](docs/observabilidade.md) — *"como você descobre que quebrou?"*. Se a resposta é "tento reproduzir", leia antes de colocar qualquer coisa no ar.
