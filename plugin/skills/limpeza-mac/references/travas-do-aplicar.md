@@ -21,7 +21,9 @@ O que o script respeita, e por quê:
   `dev`, `staging` e `production`, que ficam como no `branches.tsv`.
 - **Arquivo ignorado conta como sujeira.** O `worktree remove` sem `--force` apaga ignorado
   sem avisar (`.env.local`, sqlite, dump), e o ledger não restaura isso. Só passa ignorado
-  de build ou cópia byte a byte do mesmo arquivo no clone principal (o `.env` semeado).
+  de build, cópia byte a byte do mesmo arquivo no clone principal (o `.env` semeado) e o
+  rastro do e2e local: o `supabase/.temp/` só com o `cli-latest` e o `test-results/` só com
+  o `.last-run.json`.
 - **Worktree cujo HEAD mudou depois do inventário fica.** Em detached, nenhuma branch
   seguraria o commit novo.
 - **Lock de sessão morta não protege nada.** O Claude grava `claude session X (pid N)` no
