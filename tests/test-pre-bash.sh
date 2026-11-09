@@ -3,9 +3,9 @@
 #
 # Até a 0.25.0 eram cinco entries no hooks.json, cada um um processo `sh` mais um
 # `bash <hook>`: ~140 ms por chamada Bash só de processo. O dispatcher lê o payload uma vez e entrega
-# aos cinco em subshell — e tem que devolver EXATAMENTE o que a cadeia antiga devolvia:
-# o exit 2 (com stderr) do primeiro hook que bloqueia, o `ask` do check-careful, a
-# reescrita do rtk no stdout, e nada quando nenhum hook fala.
+# aos guards em subshell — e tem que devolver EXATAMENTE o que a cadeia antiga devolvia:
+# o exit 2 (com stderr) do primeiro hook que bloqueia, o `ask` do check-careful, e nada
+# quando nenhum hook fala.
 #
 # Cada caso passa pelo DISPATCHER, não pelo hook direto — é a única forma de pegar um
 # `# gatilho:` que ficou estreito demais e passou a pular um hook que deveria bloquear.
@@ -26,27 +26,13 @@ falhas=0
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# O PATH de sempre, menos o rtk: o rtk-claude roda no fim da cadeia quando o rtk existe, e na
-# máquina de quem tem rtk instalado todo comando sairia reescrito. Cada pasta do PATH com rtk
-# vira uma cópia feita de links, sem ele; os casos do rtk põem um de mentira na frente.
-SEM_RTK=""; n=0; resto="$PATH:"
-while [ -n "$resto" ]; do
-  d="${resto%%:*}"; resto="${resto#*:}"
-  [ -n "$d" ] || continue
-  if [ -e "$d/rtk" ]; then
-    n=$((n+1)); mkdir -p "$TMP/sem-rtk/$n"
-    ln -s "$d"/* "$TMP/sem-rtk/$n/" 2>/dev/null; rm -f "$TMP/sem-rtk/$n/rtk"
-    d="$TMP/sem-rtk/$n"
-  fi
-  SEM_RTK="${SEM_RTK:+$SEM_RTK:}$d"
-done
-export PATH="$SEM_RTK"
-
 MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
 # Com commit: o block-main-commit isenta repo ainda sem commit nenhum (primeiro commit do `git init`).
 git -C "$MAIN" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
-# clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
+# Clone principal com marker de OUTRA sessão (<30 min) num HOME falso: até 09/11/2026 era o que
+# o block-parallel-clone-switch lia para bloquear. O guard saiu (D3); o marker fica para provar
+# que ele não decide mais nada.
 CLONE="$TMP/clone"; mkdir -p "$CLONE"; git -C "$CLONE" init -q -b main 2>/dev/null
 H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
 HOME_OUTRA="$TMP/home-outra"; mkdir -p "$HOME_OUTRA/.claude/.cache/repo-sessions/$H"
@@ -81,13 +67,12 @@ espera_rc 2 "$rc" "commit em main sai 2 (block-main-commit)"
 contem "$TMP/err" "cairia na branch 'main'" "stderr traz a mensagem do block-main-commit"
 rc=$(roda "$COMMIT" "$FEAT")
 espera_rc 0 "$rc" "o mesmo commit em feature branch passa"
-for c in 'git checkout main' 'git switch -c feat/y' 'git reset --hard HEAD~1' 'git stash'; do
+for c in 'git checkout main' 'git switch -c feat/y' 'git stash'; do
   rc=$(roda "$c" "$CLONE" default "$HOME_OUTRA")
-  espera_rc 2 "$rc" "'$c' no clone com outra sessão ativa sai 2 (block-parallel-clone-switch)"
+  espera_rc 0 "$rc" "'$c' no clone com marker de outra sessão não bloqueia mais (o block-parallel-clone-switch saiu)"
 done
-contem "$TMP/err" "CLONE PRINCIPAL" "stderr traz a mensagem do block-parallel-clone-switch"
-rc=$(roda 'git stash list' "$CLONE" default "$HOME_OUTRA")
-espera_rc 0 "$rc" "stash list (read-only) passa"
+[ -e "$HOOKS_DIR/block-parallel-clone-switch.sh" ] && falha "block-parallel-clone-switch.sh ainda está em plugin/hooks" || ok "block-parallel-clone-switch.sh saiu de plugin/hooks"
+grep -q 'block-parallel-clone-switch' "$HOOK" && falha "o pre-bash.sh ainda cita o block-parallel-clone-switch" || ok "o pre-bash.sh não cita mais o block-parallel-clone-switch"
 rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
 espera_rc 2 "$rc" "leitura relativa depois de cd sai 2 (block-cd-leitura-relativa)"
 contem "$TMP/err" "caminho relativo" "stderr traz a mensagem do block-cd-leitura-relativa"
@@ -126,13 +111,13 @@ echo "== cadeia: só o exit 2 encerra; outro código é bug do hook e a cadeia s
 # error"), então o comando rodava sem os guards de depois. Agora só o exit 2 encerra.
 FALSOS="$(árvore "$TMP/falsos")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-primeiro' 'echo erro-do-primeiro >&2' 'exit 1' > "$FALSOS/check-careful.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo guard-seguinte-bloqueou >&2' 'exit 2' > "$FALSOS/block-parallel-clone-switch.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo guard-seguinte-bloqueou >&2' 'exit 2' > "$FALSOS/block-delete-branch-with-children.sh"
 rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
 espera_rc 2 "$rc" "exit 1 de um hook não desliga o guard seguinte, que bloqueia com exit 2"
 contem "$TMP/err" 'guard-seguinte-bloqueou' "stderr traz a mensagem do guard que bloqueou"
 contem "$TMP/err" 'erro-do-primeiro' "stderr do hook com bug é repassado"
 contem "$TMP/err" '[pre-bash] check-careful.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
-rm "$FALSOS/block-parallel-clone-switch.sh"
+rm "$FALSOS/block-delete-branch-with-children.sh"
 rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
 espera_rc 0 "$rc" "hook com bug e o resto calado: a cadeia sai 0"
 aviso=$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).systemMessage||""))' "$TMP/out" 2>/dev/null)
@@ -178,7 +163,7 @@ rc=$(roda 'echo commit' "$FEAT" default "$HOME" "$GATW")
 espera_rc 2 "$rc" "hook com CRLF (checkout no Windows): a última palavra do gatilho ainda casa"
 # A linha de gatilho de cada hook real tem que cobrir o que ele bloqueia. Apagar a linha
 # só deixa o hook mais lento; estreitá-la quebra os casos de bloqueio acima.
-for par in 'block-main-commit.sh|commit' 'block-parallel-clone-switch.sh|checkout switch reset stash' 'block-delete-branch-with-children.sh|merge' 'block-cd-leitura-relativa.sh|cd'; do
+for par in 'block-main-commit.sh|commit' 'block-delete-branch-with-children.sh|merge' 'block-cd-leitura-relativa.sh|cd'; do
   f="${par%%|*}"; g="${par#*|}"
   grep -qF "# gatilho: $g" "$HOOKS_DIR/$f" && ok "$f declara '# gatilho: $g'" || falha "$f sem '# gatilho: $g'"
 done
@@ -197,8 +182,6 @@ console.log(g ? g.matcher : "")' "$HOOKS_DIR/hooks.json" "$1" "$2"
 m="$(matcher_de PreToolUse pre-bash.sh)"
 case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o pre-bash.sh casa PowerShell ($m)" ;; *) falha "hooks.json: o pre-bash.sh não casa PowerShell (matcher: $m)" ;; esac
 case "|$m|" in *'|Bash|'*) ok "hooks.json: e continua casando Bash" ;; *) falha "hooks.json: o pre-bash.sh perdeu o Bash (matcher: $m)" ;; esac
-m="$(matcher_de PostToolUse 'repo-session.sh')"
-case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o repo-session (sessão ativa no clone) vê PowerShell" ;; *) falha "hooks.json: repo-session não vê PowerShell (matcher: $m)" ;; esac
 roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
   C="$1" D="$2" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
     | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
@@ -206,13 +189,14 @@ roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
 }
 rc=$(roda_ps "$COMMIT" "$MAIN");  espera_rc 2 "$rc" "PowerShell: git commit em main bloqueia"
 rc=$(roda_ps "$COMMIT" "$FEAT");  espera_rc 0 "$rc" "PowerShell: git commit em feature passa"
-rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push --force pede confirmação"
+rc=$(roda_ps 'git push' "$MAIN"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push sem refspec na main pede confirmação"
+rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push --force é da regra ask do template, e o hook ainda fala: $(cat "$TMP/out")" || ok "PowerShell: push --force fica com a regra ask do template (hook calado)"
 rc=$(roda_ps 'git push --force-with-lease origin feat/x' "$FEAT"); espera_rc 0 "$rc" "PowerShell: --force-with-lease sai 0"
 [ -s "$TMP/out" ] && falha "PowerShell: --force-with-lease interrompido: $(cat "$TMP/out")" || ok "PowerShell: --force-with-lease segue sem perguntar"
 rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push comum interrompido: $(cat "$TMP/out")" || ok "PowerShell: git push comum passa em silêncio"
 rc=$(C='git checkout main' D="$CLONE" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"default",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
   | HOME="$HOME_OUTRA" TMPDIR="$TMP" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; echo $?)
-espera_rc 2 "$rc" "PowerShell: checkout no clone com outra sessão ativa bloqueia"
+espera_rc 0 "$rc" "PowerShell: checkout no clone com marker de outra sessão não bloqueia mais"
 rc=$(roda_ps 'Get-Content .env.local' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Get-Content .env.local pede confirmação (check-careful)"
 rc=$(roda_ps 'Select-String -Path .env -Pattern KEY' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Select-String em .env pede confirmação"
 rc=$(roda_ps 'Get-Content .env.example' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: .env.example interrompido: $(cat "$TMP/out")" || ok "PowerShell: Get-Content .env.example segue livre"
@@ -222,7 +206,7 @@ rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
 espera_rc 2 "$rc" "Bash: o mesmo cd + leitura continua bloqueado (controle)"
 
 echo
-echo "== revisão do PR #170: o que é perigoso pergunta nos dois shells, o resto segue livre =="
+echo "== revisão do PR #170: o que depende de contexto pergunta nos dois shells; o que tem regra fica com a regra =="
 # Cada linha: esperado|shell|repo|comando. shell: B (Bash), P (PowerShell) ou A (os dois).
 # repo: F (branch de feature) ou M (main). Comandos de git valem igual nos dois shells.
 decide_em() { # decide_em <ferramenta> <cwd> <comando> → ask | block | pass
@@ -243,44 +227,21 @@ while IFS='|' read -r esp sh repo cmd; do
     [ "$got" = "$esp" ] && ok "$esp ($t): $cmd" || falha "$t: $cmd (esperado $esp, veio $got)"
   done
 done <<'CASOS'
-# segredo citado por qualquer comando
+# .env citado por qualquer comando (o que o comando faz com o arquivo decide: fica no hook)
 ask|A|F|grep '' .env
 ask|B|F|awk 1 .env
-ask|A|F|cat ~/.ssh/id_ed25519
 ask|A|F|git show HEAD:.env
 ask|A|F|ffmpeg -f data -i .env -map 0 -c copy -f data -
-ask|A|F|cat ~/.aws/credentials
-ask|A|F|cat ~/.netrc
-ask|A|F|cat ~/.config/gh/hosts.yml
-ask|A|F|cat serviceAccountKey.json
 ask|A|F|cat ~/.claude/.env.tokens
-ask|A|F|cat certs/server.pem
-ask|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
 ask|P|F|Get-Content .env
 ask|P|F|Select-Object -InputObject (gc .env)
 ask|P|F|Select-String -Path .env -Pattern KEY
-ask|P|F|gc ~/.claude.json
 pass|A|F|cat .env.example
 pass|A|F|cp .env.example .env.template
 pass|B|F|grep -c '^KEY=' .env.local
 pass|B|F|echo .env >> .gitignore
 pass|A|F|git commit -m "chore: ignora .env"
 pass|A|F|grep -rn "process.env" src
-# variáveis de ambiente inteiras
-ask|B|F|env
-ask|B|F|env | grep TOKEN
-ask|B|F|printenv
-ask|B|F|printenv GITHUB_TOKEN
-ask|B|F|export -p
-ask|P|F|Get-ChildItem Env:
-ask|P|F|gci env:
-ask|P|F|ls env:
-ask|P|F|dir Env:
-ask|P|F|Get-Item Env:GITHUB_TOKEN
-ask|P|F|[Environment]::GetEnvironmentVariables()
-pass|B|F|env FOO=1 npm test
-pass|B|F|export FOO=1
-pass|P|F|Get-ChildItem src
 # rm -r só em pasta descartável
 ask|B|F|rm -rf outputs
 ask|B|F|rm -rf .next outputs
@@ -294,35 +255,60 @@ pass|B|F|rm -rf /tmp/x
 pass|B|F|rm -f arquivo.txt
 pass|P|F|Remove-Item -Recurse -Force .next
 pass|P|F|Remove-Item node_modules -Recurse -ErrorAction SilentlyContinue
-# push
-ask|A|F|git push -uf origin feat/x
-ask|A|F|git push origin :feat/x
-ask|A|F|git push origin +feat/x
-ask|A|F|git push origin HEAD:refs/heads/main
-ask|A|F|git push origin feat/x:main
-ask|A|F|git push origin master
+# push sem destino explícito: a branch atual decide (glob nenhum vê a branch)
 ask|A|M|git push
 ask|A|M|git push origin
 ask|A|M|git push -u origin HEAD
-ask|A|F|git -C @FEAT@ push --force
-ask|A|F|git push --all origin
-ask|A|F|git push --mirror
-ask|A|F|git push --delete origin feat/x
+ask|A|M|git push -f
+ask|A|F|git push origin :feat/x
 pass|A|F|git push
 pass|A|F|git push origin
 pass|A|F|git push -u origin feat/x
 pass|A|F|git push -u origin HEAD
 pass|A|F|git push --force-with-lease origin feat/x
 pass|A|F|git -C @FEAT@ push
-# descartar alteração local
-ask|A|F|git checkout -f feat/y
-ask|A|F|git checkout feat/y --force
-ask|A|F|git switch --discard-changes feat/y
-ask|A|F|git switch -f feat/y
-ask|A|F|git restore .
-ask|A|F|git checkout -- .
-ask|A|F|git stash drop
-ask|A|F|git stash clear
+# Saiu do hook em 09/11/2026 (D5): a pergunta é da regra ask/deny do template, e o hook se
+# cala para a pessoa não ver duas perguntas no mesmo comando. A regra de cada linha está
+# provada em tests/test-merge-settings.sh ("o que saiu do check-careful tem regra").
+pass|A|F|cat ~/.ssh/id_ed25519
+pass|A|F|cat ~/.aws/credentials
+pass|A|F|cat ~/.netrc
+pass|A|F|cat ~/.config/gh/hosts.yml
+pass|A|F|cat serviceAccountKey.json
+pass|A|F|cat certs/server.pem
+pass|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
+pass|P|F|gc ~/.claude.json
+pass|B|F|env
+pass|B|F|env | grep TOKEN
+pass|B|F|printenv
+pass|B|F|printenv GITHUB_TOKEN
+pass|B|F|export -p
+pass|P|F|Get-ChildItem Env:
+pass|P|F|gci env:
+pass|P|F|ls env:
+pass|P|F|dir Env:
+pass|P|F|Get-Item Env:GITHUB_TOKEN
+pass|P|F|[Environment]::GetEnvironmentVariables()
+pass|B|F|env FOO=1 npm test
+pass|B|F|export FOO=1
+pass|P|F|Get-ChildItem src
+pass|A|F|git push -uf origin feat/x
+pass|A|F|git push origin +feat/x
+pass|A|F|git push origin HEAD:refs/heads/main
+pass|A|F|git push origin feat/x:main
+pass|A|F|git push origin master
+pass|A|F|git -C @FEAT@ push --force
+pass|A|F|git push --all origin
+pass|A|F|git push --mirror
+pass|A|F|git push --delete origin feat/x
+pass|A|F|git checkout -f feat/y
+pass|A|F|git checkout feat/y --force
+pass|A|F|git switch --discard-changes feat/y
+pass|A|F|git switch -f feat/y
+pass|A|F|git restore .
+pass|A|F|git checkout -- .
+pass|A|F|git stash drop
+pass|A|F|git stash clear
 pass|A|F|git restore --staged .
 pass|A|F|git restore src/a.ts
 pass|A|F|git switch -c feat/z
@@ -346,14 +332,14 @@ conta_nodes() { # <comando> <cwd> → "<rc> <chamadas>"
   echo "$rc $(wc -l < "$CONTA/chamadas" | tr -d ' ')"
 }
 TODOS="git stash list && git merge x && cd $FEAT && git checkout -b y && $COMMIT"
-r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos dos cinco guards: 1 node (rc ${r% *})" || falha "comando que casa os cinco gatilhos abriu ${r#* } nodes (esperado 1)"
+r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos de todos os guards: 1 node (rc ${r% *})" || falha "comando que casa todos os gatilhos abriu ${r#* } nodes (esperado 1)"
 r=$(conta_nodes "$COMMIT" "$MAIN");  [ "$r" = "2 1" ] && ok "commit na main: bloqueia com 1 node" || falha "commit na main veio '$r' (esperado '2 1')"
 r=$(conta_nodes 'ls -la' "$FEAT");    [ "$r" = "0 1" ] && ok "comando inocente: 1 node (o check-careful roda sempre)" || falha "comando inocente veio '$r' (esperado '0 1')"
 
 echo
-echo "== rtk-claude: último da cadeia, inerte sem rtk, calado quando outro guard falou =="
-# Porte do kit do time (F3 do #241). Um rtk de mentira no PATH reescreve tudo: quem sair sem
-# reescrita saiu por decisão da cadeia.
+echo "== o rtk saiu da cadeia (D2 de 09/11/2026): com rtk no PATH nada é reescrito, e segue 1 node =="
+# O rtk-claude foi para o kit do time. Um rtk de mentira no PATH reescreveria tudo: se o
+# dispatcher ainda o chamasse, o stdout traria o updatedInput e o contador veria o 2º node.
 RTKBIN="$TMP/rtkbin"; mkdir -p "$RTKBIN"
 cat > "$RTKBIN/rtk" <<'MOCK'
 #!/bin/bash
@@ -361,22 +347,18 @@ if [ "$1" = "hook" ] && [ "$2" = "claude" ]; then cat >/dev/null; echo '{"hookSp
 exit 0
 MOCK
 chmod +x "$RTKBIN/rtk"
-com_rtk() { # <comando> <cwd> [modo] → rc; stdout em $TMP/out
-  C="$1" D="$2" MODO="${3:-default}" node -e 'process.stdout.write(JSON.stringify({session_id:"s-rtk",cwd:process.env.D,permission_mode:process.env.MODO,tool_input:{command:process.env.C}}))' \
-    | HOME="$TMP/home-rtk" TMPDIR="$TMP" PATH="$RTKBIN:$PATH" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
-  echo $?
-}
 mkdir -p "$TMP/home-rtk"
-rc=$(com_rtk 'ls -la src' "$FEAT"); espera_rc 0 "$rc" "comando inocente sai 0"
-contem "$TMP/out" 'rtk <reescrito>' "com rtk no PATH, o comando é reescrito"
-rc=$(com_rtk 'rm -rf ~/lixo-inexistente' "$FEAT")
-contem "$TMP/out" '"ask"' "o ask do check-careful chega"
-grep -q 'rtk <reescrito>' "$TMP/out" && falha "com o ask na mesa o rtk não reescreve" || ok "com o ask na mesa o rtk não reescreve"
-rc=$(com_rtk "$COMMIT" "$MAIN"); espera_rc 2 "$rc" "bloqueio continua bloqueio com rtk no PATH"
-grep -q 'rtk <reescrito>' "$TMP/out" && falha "depois do bloqueio o rtk não roda" || ok "depois do bloqueio o rtk não roda"
-rc=$(com_rtk 'git status' "$TMP/x/.claude/worktrees/wt"); [ -s "$TMP/out" ] && falha "git em worktree não pode ganhar o prefixo: $(cat "$TMP/out")" || ok "git em worktree não ganha o prefixo"
-rc=$(com_rtk 'git push -f origin HEAD:main' "$FEAT"); grep -q 'rtk <reescrito>' "$TMP/out" && falha "git push nunca é reescrito" || ok "git push nunca é reescrito"
-r=$(roda 'ls -la src' "$FEAT"); [ -s "$TMP/out" ] && falha "sem rtk no PATH o rtk-claude é inerte: $(cat "$TMP/out")" || ok "sem rtk no PATH o rtk-claude é inerte"
+p=$(C='ls -la src' D="$FEAT" "$NODE_REAL" -e 'process.stdout.write(JSON.stringify({session_id:"s-rtk",cwd:process.env.D,permission_mode:"default",tool_input:{command:process.env.C}}))')
+: > "$CONTA/chamadas"
+printf '%s' "$p" | HOME="$TMP/home-rtk" TMPDIR="$TMP" PATH="$RTKBIN:$CONTA:$PATH" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; rc=$?
+espera_rc 0 "$rc" "comando inocente com rtk no PATH sai 0"
+[ -s "$TMP/out" ] && falha "com rtk no PATH o dispatcher ainda fala: $(cat "$TMP/out")" || ok "com rtk no PATH o comando não é reescrito (stdout vazio)"
+n=$(wc -l < "$CONTA/chamadas" | tr -d ' ')
+[ "$n" = 1 ] && ok "Bash comum com rtk no PATH: 1 node na cadeia" || falha "Bash comum com rtk no PATH abriu $n nodes (esperado 1)"
+for f in rtk-claude.sh rtk-codex.sh; do
+  [ -e "$HOOKS_DIR/$f" ] && falha "$f ainda está em plugin/hooks" || ok "$f saiu de plugin/hooks"
+done
+grep -q 'rtk' "$HOOK" && falha "o pre-bash.sh ainda cita o rtk" || ok "o pre-bash.sh não cita mais o rtk"
 
 # O kit_campos tem de devolver byte a byte o que o hookjson.js devolveria: um guard de mentira
 # (no lugar do check-careful, que roda sempre) compara os dois para cada combinação de campos

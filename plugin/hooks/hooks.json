@@ -6,16 +6,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh\"",
+            "timeout": 20
           }
         ]
       },
       {
-        "matcher": "Edit|Write|Read|NotebookEdit",
+        "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/path-rules.sh\"",
+            "timeout": 5
           }
         ]
       },
@@ -24,7 +26,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-dev-server.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-dev-server.sh\"",
+            "timeout": 10
           }
         ]
       }
@@ -35,17 +38,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\" anota"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|PowerShell|Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch",
-            "async": true
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-modificados.sh\" anota",
+            "timeout": 5
           }
         ]
       }
@@ -55,32 +49,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" touch"
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-branch-worktree.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-kit-updated.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-skills-projeto.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn-doc-ancorado.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-cli-outdated.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-espelho.sh\"",
-            "timeout": 10
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 30
           }
         ]
       },
@@ -100,17 +70,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\""
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/repo-session.sh\" end"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh\"",
+            "timeout": 15
           }
         ]
       }

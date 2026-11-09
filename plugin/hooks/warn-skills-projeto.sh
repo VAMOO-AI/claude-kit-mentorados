@@ -9,7 +9,8 @@
 # hook só volta a olhar quando algum SKILL.md do projeto é mais novo que ele. Sem
 # isso, o `npx skills@1.7.4 add` de ontem viraria o mesmo parágrafo em todo /clear.
 #
-# Lê o cwd do payload por node (scripts/hookjson.js) — jq não é pré-requisito de
+# O cwd vem do session-start.sh (KIT_SESSAO_CWD), que lê o payload uma vez para todos os
+# avisos; chamado sozinho, lê por node (scripts/hookjson.js) — jq não é pré-requisito de
 # quem está aprendendo. Falha-aberta: qualquer coisa fora do lugar, exit 0 calado.
 set -uo pipefail
 
@@ -18,8 +19,8 @@ SCAN="$AQUI/../scripts/skills-projeto-scan.sh"
 H="$AQUI/../scripts/hookjson.js"
 [ -f "$SCAN" ] || exit 0
 
-DIR=""
-if [ -f "$H" ] && command -v node >/dev/null 2>&1; then
+DIR="${KIT_SESSAO_CWD:-}"
+if [ -z "$DIR" ] && [ -f "$H" ] && command -v node >/dev/null 2>&1; then
   DIR="$(cat | node "$H" cwd 2>/dev/null)"
 fi
 [ -n "$DIR" ] || DIR="${CLAUDE_PROJECT_DIR:-$PWD}"

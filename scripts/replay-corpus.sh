@@ -16,7 +16,7 @@
 #           divergência é declarada e sai 0 com aviso; é o que o CI usa)
 #
 # Decisão de um comando: "bloqueia" (rc 2), "ask"/"deny"/"allow" (permissionDecision no
-# stdout), "reescreve" (updatedInput, o rtk), "bug" (rc ≠ 0 e ≠ 2) ou "passa". O texto da
+# stdout), "reescreve" (updatedInput; desde 09/11/2026 nenhum hook do plugin reescreve), "bug" (rc ≠ 0 e ≠ 2) ou "passa". O texto da
 # mensagem não entra na comparação: mudar a frase de um bloqueio não é divergência.
 #
 # Corpus: JSONL com {"command": "..."} por linha. Sem --corpus, sai dos transcripts de

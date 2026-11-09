@@ -65,7 +65,7 @@ Ao terminar: faça merge/PR e limpe a worktree e a branch.
 ## 4. Hooks: automação que dispara sozinha
 
 Hooks rodam comandos automaticamente em eventos do Claude Code. O plugin do kit já traz
-alguns: anota cada arquivo editado e, no fim do turno, roda `eslint --fix` nos JS/TS da sessão; antes de
+alguns: anota cada arquivo editado e, no fim do turno, roda o `eslint` nos JS/TS da sessão e devolve os erros ao Claude para ele corrigir (sem `--fix`); antes de
 todo comando, barra commit na `main` e pede confirmação no destrutivo.
 
 Hook é código que roda a **cada** ação — vale medir. O dispatch do dotcontext é o exemplo

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prova de regressão do hooks/path-rules.sh (PreToolUse em Edit|Write|Read|NotebookEdit).
+# Prova de regressão do hooks/path-rules.sh (PreToolUse em Edit|Write|NotebookEdit).
 #
 # O que precisa continuar valendo: a regra chega uma vez por sessão, chega pelo
 # caminho certo, e o hook NUNCA bloqueia a ferramenta (só acrescenta contexto).

@@ -156,12 +156,6 @@ jobs:
       - name: Leitura relativa depois de cd é bloqueada, e comando legítimo não
         run: bash tests/test-block-cd-leitura-relativa.sh
 
-      - name: Checkout no clone que outra sessão usa é bloqueado; worktree é livre
-        run: bash tests/test-block-parallel-clone-switch.sh
-
-      - name: Checkout no clone que outra sessão usa é bloqueado (payload do Codex)
-        run: bash tests/test-block-parallel-clone-switch.sh --codex
-
       - name: O merge com --delete-branch não fecha PR encadeado
         run: bash tests/test-block-delete-branch.sh
 
@@ -215,28 +209,14 @@ jobs:
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
         run: bash tests/test-changelog-bloco.sh
 
-      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
+      - name: O dispatcher do PreToolUse devolve o que os guards devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
-      - name: O rtk-claude não reescreve git em worktree, git push, segredo nem saída consumida
-        # Porte do kit do time (F3 do #241): último da cadeia do pre-bash, inerte sem rtk.
-        run: bash tests/test-rtk-claude.sh
-
-      - name: O grupo de controle do rtk sorteia só o elegível e o relatório mede por família
-        run: bash tests/test-rtk-holdout.sh
-
-      - name: O rtk-codex não reescreve o que o check-careful vigia, git em worktree nem git push
-        # Porte do kit do time (F5 do #241). A guarda é superset dos gatilhos do check-careful.
-        run: bash tests/test-rtk-codex.sh
-
-      - name: O espelho do Codex atualiza só o guard que já está lá, quando a versão muda
-        run: bash tests/test-codex-espelho.sh
-
-      - name: O codex-optimize aponta skill desligada no config do Codex
-        run: bash tests/test-codex-optimize-skills.sh
-
-      - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
+      - name: O dispatcher do UserPromptSubmit devolve o que os dois hooks devolviam
         run: bash tests/test-pre-prompt.sh
+
+      - name: O dispatcher do SessionStart chama os quatro avisos na ordem, com um node só
+        run: bash tests/test-session-start.sh
 
       - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
         run: bash tests/test-warn-sem-node.sh
@@ -246,9 +226,6 @@ jobs:
 
       - name: O aviso de doc ancorado em SHA distante lê o repo do cwd do payload
         run: bash tests/test-warn-doc-ancorado.sh
-
-      - name: O aviso de Claude Code desatualizado respeita o canal stable, mesmo sem jq
-        run: bash tests/test-warn-cli-outdated.sh
 
       - name: Os zips de downloads/ batem com a skill do plugin
         # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
@@ -664,9 +641,9 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: |
           lista="test-hooks-boot test-pre-bash test-block-main-commit
-                 test-check-careful test-block-parallel-clone-switch
+                 test-check-careful
                  test-block-delete-branch test-block-cd-leitura-relativa
-                 test-pre-prompt test-path-rules test-rtk-claude
+                 test-pre-prompt test-path-rules test-session-start
                  test-merge-settings test-warn-sem-node test-check-dev-server"
           sel="$lista"
           if [ "$EVENTO" = pull_request ]; then

@@ -1,6 +1,9 @@
 #!/bin/bash
-# PreToolUse em Edit|Write|Read|NotebookEdit: injeta a regra do lugar onde o agente
-# acabou de encostar, e só nesse momento.
+# PreToolUse em Edit|Write|NotebookEdit: injeta a regra do lugar onde o agente vai
+# escrever, e só nesse momento. O Read saiu do matcher em 09/11/2026 (decisão D13): as
+# regras do path-rules.conf são todas de quem edita (não commitar .env, migration
+# irreversível, lockfile no mesmo commit), e no Read o hook abria um node em toda leitura
+# de arquivo, o evento mais frequente da sessão, sem ter regra de leitura para entregar.
 #
 # Por que existe: a tabela de roteamento do CLAUDE.md fica no contexto de TODA
 # request, custe ela sendo usada ou não. Regra amarrada a caminho é a que mais
@@ -68,7 +71,7 @@ carrega() { # <arquivo>
     case "$linha" in ''|'#'*) continue ;; esac
     case "$linha" in *'|'*) ;; *) continue ;; esac
     # Apara os espaços sem abrir processo: com o node lendo o payload, dois sed por linha
-    # do conf levavam o hook de ~40 para ~65 ms em todo Read/Edit/Write.
+    # do conf levavam o hook de ~40 para ~65 ms em todo Edit/Write.
     padrao="${linha%%|*}"; padrao="${padrao#"${padrao%%[![:space:]]*}"}"; padrao="${padrao%"${padrao##*[![:space:]]}"}"
     texto="${linha#*|}";   texto="${texto#"${texto%%[![:space:]]*}"}"; texto="${texto%"${texto##*[![:space:]]}"}"
     [ -n "$padrao" ] && [ -n "$texto" ] || continue

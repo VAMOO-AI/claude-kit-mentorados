@@ -38,5 +38,44 @@ dispatch="$(printf '%s\n' "$comandos" | grep -E 'dotcontext-session|hook dispatc
 check "nenhum hook, em evento nenhum, chama o dispatch do dotcontext" "$([ -z "$dispatch" ] && echo ok || echo fail)"
 [ -n "$dispatch" ] && printf '        → em: %s\n' "$(printf '%s' "$dispatch" | tr '\n' ' ')"
 
+# D13 de 09/11/2026. Sem `timeout`, um hook de comando herda 600 s (doc de hooks): um
+# `git fetch` pendurado na rede segurava a abertura da sessão por 10 minutos. Toda entrada
+# declara o teto dela, e nenhuma passa de 60 s.
+sem_teto="$(node -e '
+  const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  for (const [evento, grupos] of Object.entries(j.hooks || {}))
+    for (const g of grupos)
+      for (const h of g.hooks || [])
+        if (!(Number.isInteger(h.timeout) && h.timeout >= 1 && h.timeout <= 60))
+          console.log(evento + ":" + (h.command || "").replace(/.*PLUGIN_ROOT}\//, "").replace(/"/g, "") + " (timeout=" + h.timeout + ")");
+' "$HOOKS_JSON")"
+check "toda entrada do hooks.json tem timeout inteiro entre 1 e 60 s" "$([ -z "$sem_teto" ] && echo ok || echo fail)"
+[ -n "$sem_teto" ] && printf '        → sem teto: %s\n' "$(printf '%s' "$sem_teto" | tr '\n' ';')"
+
+# Um dispatcher só no SessionStart: quatro entries eram quatro `sh` + quatro `bash` + três
+# `node` lendo o mesmo payload, antes do 1º prompt. O compact-estado fica na entrada dele,
+# porque só roda com o matcher `compact`.
+ss="$(node -e '
+  const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  for (const g of j.hooks.SessionStart || [])
+    console.log((g.matcher || "-") + "\t" + (g.hooks || []).map((h) => h.command.replace(/.*PLUGIN_ROOT}\//, "").replace(/"/g, "")).join(","));
+' "$HOOKS_JSON")"
+esperado="$(printf -- '-\thooks/session-start.sh\ncompact\thooks/compact-estado.sh')"
+check "SessionStart: o dispatcher session-start.sh sozinho, mais o compact-estado no matcher compact" "$([ "$ss" = "$esperado" ] && echo ok || echo fail)"
+[ "$ss" = "$esperado" ] || printf '        → veio: %s\n' "$(printf '%s' "$ss" | tr '\n\t' ';|')"
+for f in scripts/warn-branch-worktree.sh scripts/warn-kit-updated.sh hooks/warn-skills-projeto.sh hooks/warn-doc-ancorado.sh; do
+  grep -qF "$f" "$RAIZ/plugin/hooks/session-start.sh" 2>/dev/null \
+    && check "o session-start.sh chama $f" ok || check "o session-start.sh chama $f" fail
+  [ -f "$RAIZ/plugin/$f" ] && check "$f existe" ok || check "$f existe" fail
+done
+
+# O path-rules injeta regra de quem EDITA (não commitar .env, migration irreversível, lockfile):
+# no Read ele abria um node em toda leitura de arquivo para nunca ter o que dizer a mais.
+m="$(node -e '
+  const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  const g = (j.hooks.PreToolUse || []).find((x) => (x.hooks || []).some((h) => h.command.includes("path-rules.sh")));
+  console.log(g ? g.matcher : "");' "$HOOKS_JSON")"
+check "path-rules: matcher Edit|Write|NotebookEdit, sem Read (veio: $m)" "$([ "$m" = 'Edit|Write|NotebookEdit' ] && echo ok || echo fail)"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
