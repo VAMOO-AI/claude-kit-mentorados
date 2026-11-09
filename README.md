@@ -38,7 +38,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/skills/` | plugin | **26 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
 | `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone que outra sessão está usando (worktree é livre); segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação em `rm -rf`/`DROP`/`push --force`/`git add -A`; no fim de cada turno, roda `eslint --fix` nos arquivos JS/TS que a sessão editou; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando a sessão está num worktree já mergeado ou com o clone principal fora da `main`, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
@@ -66,7 +66,7 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 29. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 26. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
@@ -132,10 +132,7 @@ cliente. Slash-only: o Claude não aciona sozinho.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~3,5k tokens quando dispara e lê da `references/` só a parte do pedido (a de vídeo, ~16k); desligue em `/plugin` se não for usar. | conta no gerador |
-| **gerar-imagem** | `/kit-vamoo:gerar-imagem`, só manual: gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
 | **video-watch** | `/kit-vamoo:video-watch`, só manual: "assiste" uma gravação de tela (arquivo local, CleanShot, Loom ou `.mp4` direto). Extrai os frames que importam como imagem e transcreve o áudio offline com whisper.cpp; o vídeo não sai da sua máquina. Serve para bug demonstrado em vídeo e para resumir uma gravação. | macOS com `ffmpeg` 5.1+ e `whisper-cpp` (`brew`), `python3`; modelo do whisper (~1,5 GB, uma vez) |
-| **motion-reel** | Faz vídeo de motion design em Remotion a partir de um template pronto: Reel 9:16, vinheta ou anúncio guiado pela música, ou filme 16:9 com corte 9:16 em que a narração manda no tempo (voz do ElevenLabs cortada por fala, telas do Claude Code Desktop, trilha de cinema). Tipografia cinética, câmera 3D, 10 transições na batida, efeitos sonoros e revisão por folhas de quadros. Você entra com o texto e o seu logo (sem logo sai um placeholder "SUA MARCA"); sai o MP4 pronto pra rede social, com o áudio no volume certo. O áudio é gerado, nunca ouvido pelo Claude: escute antes de postar. | Node.js 18+, `ffmpeg` e `python3` com `numpy`; voz: ElevenLabs (chave ou conector) |
 
 ---
 
@@ -248,7 +245,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 29 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 26 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash

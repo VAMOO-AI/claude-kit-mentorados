@@ -298,45 +298,6 @@ jobs:
         # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
         run: bash tests/test-skill-sem-injecao.sh
 
-      - name: A motion-reel não carrega marca de terceiro e abre/fecha com o marca.png da pessoa
-        run: bash tests/test-motion-reel-sem-marca.sh
-
-      - name: O stills.mjs da motion-reel aceita índices com espaço e vírgula e recusa índice inválido
-        # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
-        run: bash tests/test-motion-reel-stills-indices.sh
-
-      - name: O QA da motion-reel revisa o motion da folha, o glossário reverso aponta nomes que existem e o storyboard pergunta por que cada coisa se move
-        run: bash tests/test-motion-reel-revisao.sh
-
-      - name: O py.sh da motion-reel acha o venv ~/.venvs/motion (macOS e Windows) sem MOTION_PY
-        run: bash tests/test-motion-reel-py.sh
-
-      - name: A narração grátis da motion-reel fala por arquivo (say e PowerShell), respeita a gravação da pessoa e explica a voz que falta
-        run: bash tests/test-motion-reel-voz.sh
-
-      - name: A legenda do Film da motion-reel sai do vo.json no tempo da voz e recusa tempo estimado
-        run: bash tests/test-motion-reel-srt.sh
-
-      - name: A fonte principal que falta derruba o render da motion-reel (render real fora do CI)
-        # Sem Remotion instalado aqui o teste sai "pulado"; a prova com render real roda local
-        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>) e no CI do content-studio-template.
-        run: bash tests/test-motion-reel-fonte.sh
-
-      - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
-        run: bash tests/test-motion-reel-galeria.sh
-
-      - name: Os sons da motion-reel saem da cena (src/sons.mjs) e o impacto põe o pico do SFX no quadro
-        # Sem python com numpy a parte do WAV sintético sai "pulada"; a lista de cenas e os tempos rodam.
-        run: bash tests/test-motion-reel-sons.sh
-
-      - name: Nenhuma palavra cortada na borda na bancada de pior caso da motion-reel (render real fora do CI)
-        # Sem Remotion instalado aqui o teste sai "pulado"; a prova roda local
-        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>).
-        run: bash tests/test-motion-reel-texto.sh
-
-      - name: O briefing de motion tem as cinco partes, a timeline avisa leitura curta e o explicativo vira filme na batida
-        run: bash tests/test-motion-reel-briefing.sh
-
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
         # a versão e o destino real do kit-setup.sh num HOME descartável. Exceções com motivo
@@ -737,16 +698,9 @@ jobs:
           "$HOME/ffmpeg-estatico/ffmpeg" -version | head -1
           "$HOME/ffmpeg-estatico/ffprobe" -version | head -1
 
-      - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
-        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
-        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
-        run: |
-          set -o pipefail
-          bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
-          ! grep -q '^pulado' /tmp/final-verificar.log
-
       - name: O watch.sh da video-watch cai para intervalo em vídeo parado, avisa do modelo ausente e não aborta
-        # Mesmo ffmpeg do passo acima; aqui a parte de vídeo não pode sair "pulado".
+        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui a parte de vídeo precisa rodar de verdade.
+        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
         run: |
           set -o pipefail
           bash tests/test-video-watch.sh | tee /tmp/video-watch.log
