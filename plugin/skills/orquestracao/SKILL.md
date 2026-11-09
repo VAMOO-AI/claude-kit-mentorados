@@ -126,8 +126,8 @@ protocolo, as cinco categorias e a varredura de SKILL.md vêm no próprio agente
 - **Contexto = o diff.** `gh pr diff <n>` ou `git diff --stat` primeiro; `.context/docs` só se
   o diff citar. Revisor que varre o repo inteiro gasta 30 minutos ou mais por passada.
 - Um revisor por PR, **em paralelo**. Nunca N PRs em série na mesma sessão.
-- Codex como revisor alternativo: `codex -p review` (o perfil que o `codex-optimize.sh` cria:
-  effort high, sem memories, sem subagente). Em `max`, a mesma revisão custa 3 a 4 vezes o
+- Codex como revisor alternativo: `codex -p review`, num perfil com effort high,
+  sem memories e sem subagente. Em `max`, a mesma revisão custa 3 a 4 vezes o
   tempo e não acha mais nada.
 - **Segunda passada só onde o risco paga.** PR que toca auth/RLS, migration, dinheiro ou
   disparo para pessoa: ao fechar, ofereça em uma linha uma segunda revisão com lente

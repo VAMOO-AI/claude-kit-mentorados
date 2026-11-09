@@ -97,10 +97,9 @@ levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:handoff`.
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
-Estas são as skills que o CLAUDE.md roteia por situação (ver a tabela de
-roteamento no topo do `plugin/templates/CLAUDE-global.md`); a `guardrails-ia` é a
-exceção, você chama. Guardam o passo-a-passo
-que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
+Estas são as skills que o Claude aciona sozinho quando a situação aparece (quem roteia é a
+descrição de cada uma, não uma tabela no CLAUDE.md); a `guardrails-ia` é a exceção, você
+chama. Guardam o passo-a-passo que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
@@ -171,7 +170,8 @@ kit põe por cima um `ask` que pergunta sempre, em qualquer modo, o que não tem
 `git push --force` (em qualquer forma), push na main,
 apagar branch remota, `git reset --hard`, `git clean`, `git branch -D`, descartar
 alteração local (`checkout -f`, `switch --discard-changes`, `restore .`, `stash drop`),
-`gh pr merge`, `gh repo delete`, `rm -r`/`Remove-Item -Recurse` fora das pastas
+`gh pr merge`, `gh repo delete`, trocar ou apagar segredo do Supabase
+(`supabase secrets set`/`unset`), `supabase migration repair`, `rm -r`/`Remove-Item -Recurse` fora das pastas
 descartáveis (`node_modules`, `.next`, `dist`, `build`…), `find -delete`/`-exec`, listar
 as variáveis de ambiente e qualquer comando que cite arquivo de segredo (`.env`, chave
 SSH, `.pem`, credencial de AWS/gh/npm). Vale no Bash e no PowerShell, e os bloqueios de

@@ -74,8 +74,8 @@ worktree que você já tem.
   Caiu errado → reporte antes de corrigir.
 - O kit bloqueia `git commit` na `main` (`HOTFIX_MAIN=1` de propósito) e checa a branch
   **antes** do comando: crie a branch num comando, commite em outro.
-- O kit bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone principal com outra
-  sessão ativa nos últimos 30 min (`PARALLEL_OK=1` só com certeza).
+- Nada no kit impede `checkout`/`switch`/`stash`/`reset --hard` no clone principal enquanto
+  outra sessão trabalha nele: a proteção é cada sessão que escreve ter o seu worktree.
 
 ## O banco local NÃO é isolado por worktree
 

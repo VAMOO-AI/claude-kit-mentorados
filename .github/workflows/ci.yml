@@ -339,11 +339,6 @@ jobs:
         # Porte do kit do time (F5 do #241).
         run: bash tests/test-medir-sessao.sh
 
-      - name: O boot-guard da monitoramento-infra reata por tier, respeita ORDEM_TIERS e start-first, e o dry-run não toca em nada
-        # Swarm de mentira: docker, nsenter, ss e curl são stubs no PATH. O teste exige que o
-        # stub tenha sido chamado, porque o runner tem docker de verdade.
-        run: bash tests/test-boot-guard.sh
-
       - name: Todo teste roda em algum shard do macOS, e em um só
         run: bash tests/test-ci-shard.sh
 
@@ -492,8 +487,8 @@ jobs:
           # exit 128 = "No package sources found" — o kit é só markdown + shell, sem
           # manifest de deps (package.json/requirements.txt). Nada a escanear = ok.
           # Outros códigos (ex: 1 = vulnerabilidade encontrada) continuam falhando.
-          # Único manifest hoje: o lock do template da motion-reel (pin do Remotion). Vermelho
-          # aqui num PR que não toca a skill = advisory novo; suba o pacote nesse lock.
+          # Hoje o repo não tem manifest (o lock da motion-reel foi com ela para o plugin marca),
+          # então o caso normal é o 128 abaixo.
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
 

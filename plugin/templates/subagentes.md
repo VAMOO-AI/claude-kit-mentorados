@@ -37,7 +37,7 @@
 - Reporte só o que foi pedido. Notou um problema fora do escopo? Mencione, mas não mexa.
 
 ## Segurança ao editar
-- Antes de editar: leia o arquivo; releia se um hook ou outra sessão pode ter mexido nele (o `eslint --fix` do fim do turno, outro terminal no mesmo clone, edição feita via Bash).
+- Antes de editar: leia o arquivo; releia se um hook ou outra sessão pode ter mexido nele (um formatador no pre-commit, outro terminal no mesmo clone, edição feita via Bash).
 - Antes de reportar, confira o conjunto pelo `git diff --stat`: é a lista de "Arquivos tocados".
 - Rename: grep separado por chamadas, tipos, strings, imports e testes/mocks.
 - Nunca delete arquivo sem checar quem referencia.
