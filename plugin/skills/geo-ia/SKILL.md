@@ -2,8 +2,9 @@
 name: geo-ia
 description: >-
   Site aparecer nas respostas do ChatGPT e do Perplexity (GEO): base técnica, indexação no
-  Google e no Bing, medição semanal com Canonry e decisão de conteúdo por pergunta. Use em
-  "GEO", "aparecer no ChatGPT", "remedição GEO".
+  Google e no Bing, medição semanal com Canonry e decisão de conteúdo por pergunta. Só
+  dispara quando você chama: /kit-vamoo:geo-ia.
+disable-model-invocation: true
 ---
 
 # GEO: aparecer quando alguém pergunta para uma IA

@@ -3,7 +3,8 @@
 > Referência da skill `n8n-workflow-agent`. Carregue só quando o tema for esse.
 
 O que a IA pode afirmar, por que pedido de parar é estado permanente, quando
-escalar e quem é dono do canal: skill `guardrails-ia`. Aqui fica só **onde cada
+escalar e quem é dono do canal: leia `guardrails-ia/SKILL.md` (a skill é só-slash, o
+modelo não a aciona: `/kit-vamoo:guardrails-ia`). Aqui fica só **onde cada
 guard-rail entra** no fluxo típico do `SKILL.md` (Log Entrada → IF dono/pausa →
 AI Agent → Validar JSON → IF transferir → Split Out → Enviar).
 

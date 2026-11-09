@@ -38,8 +38,8 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 | O que | Vai pra onde | Pra que serve |
 |---|---|---|
-| `plugin/skills/` | plugin | **29 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
-| `plugin/commands/` | plugin | `/kit-vamoo:revisar` (revisa seu diff, separando o que é mecânico do que é decisão sua), `/kit-vamoo:explicar` (explica um código de forma didática) e `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
+| `plugin/skills/` | plugin | **26 skills** (busca de doc, revisão de segurança, deploy, sincronia com o GitHub, memória de projeto, custo das skills do projeto, mais as de processo). Ver [Skills incluídas](#skills-incluídas). |
+| `plugin/commands/` | plugin | `/kit-vamoo:atalhos` (lista as simplificações marcadas com `// atalho:` e aponta as que não têm gatilho de revisão). |
 | `plugin/hooks/` | plugin | **Guard-rails de git e de sessão**: bloqueia commit na `main`; segura o `gh pr merge --delete-branch` que fecharia um PR encadeado; pede confirmação no que depende de contexto (`rm -rf` fora de pasta descartável, `DROP`/DDL executado, `git push` sem destino com a branch na `main`, `git add -A` em clone, `.env` impresso), enquanto o resto do destrutivo (`push --force`, `checkout -f`, `stash drop`…) pergunta pelas regras `ask` das preferências; no fim de cada turno, roda o `eslint` (sem `--fix`) nos arquivos JS/TS que a sessão editou e, havendo erro, devolve ao Claude para ele corrigir antes de encerrar; devolve o estado do repo (branch, modificados, memória pendente) logo depois de um compact; avisa quando a branch está atrás do remoto, quando o contexto da sessão passou de 150 mil tokens (e de novo em 300 mil e a cada +100 mil), quando o próprio kit foi atualizado (o que entrou desde a sua última sessão) e quando as skills deste projeto passaram do teto de contexto. Leem tudo via **node** (não precisam de `jq`). |
 | `plugin/templates/CLAUDE-global.md` | `~/.claude/CLAUDE.md` | Suas **regras globais** — valem em todo projeto. Como o Claude deve agir, verificar, commitar, proteger escopo. |
 | `plugin/templates/subagentes.md` | `~/.claude/subagentes.md` | Regras dos **sub-agentes** (quando o Claude dispara ajudantes em paralelo). |
@@ -66,76 +66,74 @@ idioma e permissões **não cabem num plugin** — quem instala isso é o
 
 ## Skills incluídas
 
-São 29. Algumas funcionam de cara; outras só fazem efeito depois que você liga
+São 26. Algumas funcionam de cara; outras só fazem efeito depois que você liga
 um pré-requisito (uma API, um MCP, uma conta) — sem ele a skill simplesmente
 **não dispara**, não quebra nada.
 
 A maior parte o Claude aciona sozinho, pela situação. As que você chama na mão
-levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:revisar`.
+levam o prefixo do plugin: `/kit-vamoo:setup`, `/kit-vamoo:handoff`.
 
 ### ✅ Prontas pra usar (sem setup extra)
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **find-docs** | Busca documentação oficial e atualizada antes de escrever código. Mata API inventada. | nenhum (a skill instala o `ctx7` na primeira vez, se faltar) |
-| **auditoria-seguranca** | Auditoria em 6 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com ferramentas) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
+| **auditoria-seguranca** | `/kit-vamoo:auditoria-seguranca` (você chama) — auditoria em 6 categorias (isolamento de inquilino, permissão decidida no navegador, IDOR, chaves expostas, XSS, agente de IA com ferramentas) que sai em **PDF pt-BR + issues prontas**. Detecta a stack antes de auditar, então serve projeto que não é Supabase. | nenhum |
 | **secscan** | Varredura de segurança read-only do repositório inteiro: RLS, secrets, deps vulneráveis. "roda um secscan". Revisão só do que mudou no diff é o `/security-review` do Claude Code. Ver `docs/seguranca.md`. | nenhum |
 | **baseline** | *"Este app está pronto pra produção?"* — 8 pilares: bundle, RLS, login e permissão, limites de uso, carga e cache, observabilidade, segredos e perímetro (o que fica exposto na internet). Inclui a checklist de migration que não derruba um banco com dado. Dois modos: **construir** (app novo nasce certo) e **auditar** (app no ar). Mede com script, não com achismo. Ver `docs/observabilidade.md`. | `jq`, `node` |
 | **otimizar-app** | *"Está pesado, lento, travando."* — triagem do que não é o app (`next dev`, região da função longe do banco, dado velho, a própria máquina), número antes de mexer, o fix mais barato na camada certa (front, bytes ou dados), a mesma medição depois e a prova de que chegou ao ar, **sem mudar o visual**. Traz dois scripts sem `npm install`: CPU da página por fase (parada, rolando, celular com CPU 4× mais lenta) e uma foto da estrutura da página para comparar antes e depois. "Sem ganho medido" é resultado, não vira commit de `perf:`. | Node 22+ e Chrome (para os scripts) |
-| **geo-ia** | *"Meu site não aparece quando perguntam pro ChatGPT."* Ordem fixa: linha de base com 9 perguntas, base técnica (robots, sitemap, `llms.txt`, JSON-LD, 404 real, IndexNow), indexação conferida página por página no Google **e** no Bing, remedição e só então conteúdo, com matriz por pergunta. Traz a medição semanal pronta (Action do GitHub + Canonry) que comenta numa issue e avisa quando uma IA falta na rodada. | chaves da OpenAI e da Perplexity (crédito comprado) |
-| **handoff** | `/kit-vamoo:handoff` — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
+| **geo-ia** | `/kit-vamoo:geo-ia` (você chama) — *"Meu site não aparece quando perguntam pro ChatGPT."* Ordem fixa: linha de base com 9 perguntas, base técnica (robots, sitemap, `llms.txt`, JSON-LD, 404 real, IndexNow), indexação conferida página por página no Google **e** no Bing, remedição e só então conteúdo, com matriz por pergunta. Traz a medição semanal pronta (Action do GitHub + Canonry) que comenta numa issue e avisa quando uma IA falta na rodada. | chaves da OpenAI e da Perplexity (crédito comprado) |
+| **handoff** | `/kit-vamoo:handoff` (você chama) — monta o documento de passagem pra outra sessão, outro dev, ou você daqui a três semanas. Marca o que foi **verificado** e o que é só **crença**, que é o que evita o próximo trabalhar em cima de premissa falsa. | nenhum |
 | **ship** | Pipeline de release com gates (typecheck/lint/test → commit → push → PR). | editar o passo de deploy pro seu stack |
 | **memoria-projeto** | Tira a memória do projeto da sua máquina e põe no repositório (`.context/memoria/`). É o que faz o contexto sobreviver a trocar de computador — e o que deixa outra pessoa (ou o Codex) enxergar o que vocês decidiram. Recusa a adoção se achar credencial escrita ali dentro. Quando o índice passa de 8 KB, `memoria-indice.sh` o divide em dois níveis para não pesar toda request. | projeto em git |
 | **setup** | `/kit-vamoo:setup` — instala o que o plugin não consegue (CLAUDE.md global, barra de status, preferências) e te ajuda a preencher o CLAUDE.md. Rode uma vez, depois de instalar. | nenhum |
 | **git-sync** | Deixa seu clone em dia com o GitHub (fetch + fast-forward, nunca force). Em repo com mais gente, mostra o que o outro mudou, PRs abertos e **risco de conflito** antes de você codar. `/kit-vamoo:git-sync`. | `gh` instalado e autenticado (opcional — sem ele, PRs abertos e prova de merge vêm pela API com o token que `git config git-sync.tokenVar` nomeia; sem token, só perde a visão de PR) |
-| **bot-discord** | Bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
-| **mcp-sistema** | Cria o **MCP do seu sistema** (Supabase, com Next.js ou SPA) pra você e seu time perguntarem ao Claude ou ao ChatGPT com a própria conta: login OAuth pelo navegador sem token, cada pessoa vê só o que o nível de acesso dela permite, alteração só com prévia + confirmação + registro, e uma página de instalação no app (num SPA, a receita de edge function liga um dono, só leitura). Conduz entrevista → spec → 4 PRs → produção, com o código de referência de um MCP que está no ar. | projeto Supabase: Next.js com Supabase Auth, ou SPA (Vite) com domínio próprio na Vercel via edge function |
+| **bot-discord** | `/kit-vamoo:bot-discord` (você chama) — bot de Discord em Node/TypeScript hospedado em VPS própria, do Developer Portal ao container rodando: intents, convite, código, idempotência, cron, Docker e a verificação de que subiu de verdade. Também serve pra debugar bot que "conecta mas não responde". | conta Discord; VPS com Docker (só na hora do deploy) |
+| **mcp-sistema** | `/kit-vamoo:mcp-sistema` (você chama) — cria o **MCP do seu sistema** (Supabase, com Next.js ou SPA) pra você e seu time perguntarem ao Claude ou ao ChatGPT com a própria conta: login OAuth pelo navegador sem token, cada pessoa vê só o que o nível de acesso dela permite, alteração só com prévia + confirmação + registro, e uma página de instalação no app (num SPA, a receita de edge function liga um dono, só leitura). Conduz entrevista → spec → 4 PRs → produção, com o código de referência de um MCP que está no ar. | projeto Supabase: Next.js com Supabase Auth, ou SPA (Vite) com domínio próprio na Vercel via edge function |
 | **mapa-de-app** | *"Quero um sistema igual ao X."* — mapeia o app antes de orçar: telas com estados, fluxos com cliques, componentes, modelo de dados inferido com evidência e a matriz de funcionalidades (deve, deveria, poderia, fora), com o tamanho. Só fonte pública e a conta do próprio cliente: sem código, sem API privada, sem levar logo, texto ou fonte do app. O mapa vira o escopo da proposta ou entra no `grilling`. | nenhum |
 | **skills-projeto** | *"Por que este projeto ficou caro?"* — skill de projeto (`.claude/skills`) cobra contexto em **toda request**, dispare ou não. Mede o que as suas custam, reprova a que cobra sem servir (`name` diferente da pasta não roteia; SKILL.md de corpo vazio não ensina nada) segura o `npx skills add` de um pacote com dezenas e procura skill pronta no skills.sh, instalando só quando você pede. Traz um teto (8 skills / 2.000 chars) e **não** manda gerar skill: faça na mão três vezes primeiro. | nenhum |
-| **harness-check** | *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
+| **harness-check** | `/kit-vamoo:harness-check` (você chama) — *"Por que gastei tanto token?"* — mede **para onde** ele foi: o que a sessão carrega antes do seu primeiro prompt (`/context`), o gasto real por dia e por sessão (`ccusage`), e o MCP que você não usa mas paga em toda request. Manda medir antes de cortar: na medição que originou a skill, o CLAUDE.md era 4% do contexto inicial — cortar ele é faxina, não economia. | `npx` disponível (pro `ccusage`) |
 | **limpeza-mac** | `/kit-vamoo:limpeza-mac` — limpeza profunda de um Mac de dev: worktrees e branches já mergeadas, node_modules e .next de repo parado, caches e versões velhas de CLI. Faz um inventário read-only primeiro e guarda o SHA de cada branch num ledger antes de apagar; worktree só sai com o `worktree-gc.sh --verificar` liberando: ignorado só passa se for env igual ao do clone principal, symlink ou cache que o build recria (`node_modules`, `.next`, `dist`, `build`, `target`, `.cache`…); qualquer outro, `outputs/` e `out/` inclusive, segura o worktree com o motivo. Você chama; o Claude não aciona sozinho. | macOS; `gh` (opcional — sem ele, branch mergeada por squash fica) |
 
 ### 🧭 Processo (como o Claude trabalha — sem setup)
 
 Estas são as skills que o CLAUDE.md roteia por situação (ver a tabela de
-roteamento no topo do `plugin/templates/CLAUDE-global.md`). Guardam o passo-a-passo
+roteamento no topo do `plugin/templates/CLAUDE-global.md`); a `guardrails-ia` é a
+exceção, você chama. Guardam o passo-a-passo
 que sairia do CLAUDE.md pra não pesar o contexto toda sessão.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **grilling** | Interroga um plano grande até fechar antes de codar. O Claude aciona ao detectar uma implementação grande; você chama com `/kit-vamoo:grilling`. Em projeto com `.context/`, lê a doc antes e grava as decisões no fim. | nenhum |
-| **guardrails-ia** | Agente de IA que fala com cliente: o que ele pode afirmar, pedido de parar, escalar pra humano, e quem responde o fio quando IA e humano disputam. | nenhum |
+| **guardrails-ia** | `/kit-vamoo:guardrails-ia` (você chama) — agente de IA que fala com cliente: o que ele pode afirmar, pedido de parar, escalar pra humano, e quem responde o fio quando IA e humano disputam. | nenhum |
 | **verificacao** | Casos de "como testar de verdade antes de dizer pronto" (ramos, UI, runners, erro de prod), o formato do veredito de QA e o método pra teste instável (esperar condição, achar o teste que suja o estado). | nenhum |
 | **orquestracao** | Como disparar vários subagentes em paralelo sem estourar rate-limit. | nenhum |
 | **worktrees** | Trabalhar com vários terminais no mesmo projeto sem um atrapalhar o outro. | nenhum |
 
-### 💬 WhatsApp e n8n (você chama)
+### 💬 WhatsApp e n8n
 
-Para quem monta agente ou inbox de WhatsApp sobre n8n. As duas são slash-only: o Claude
-não aciona sozinho, então não pesam nas suas requests quando você não está nesse assunto.
+Para quem monta agente ou inbox de WhatsApp sobre n8n. O Claude aciona as duas pela
+situação; você também chama pelo nome.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
 | **n8n-workflow-agent** | `/kit-vamoo:n8n-workflow-agent` — construir, editar, depurar e publicar workflow n8n, com ou sem agente de WhatsApp: layout sem cruzamento, baseline + diff antes de mexer pela API, Code Node, e referências de UAZAPI (motivo real de queda, escada de reconexão, nono dígito), NotificaMe, Chatwoot, Pipedrive, Postgres, disparo, pausa no Redis e QA simulada do agente (lead falso + juiz). | n8n com API key; o provedor de WhatsApp que você usa |
 | **whatsapp-inbox-stack** | `/kit-vamoo:whatsapp-inbox-stack` — a ponta do inbox no seu app (página própria ou Chatwoot): mídia que não chega ou não toca, áudio longo sem estourar a edge, IA e humano no mesmo fio, status da conexão que mente, entrega confirmada e relatório de quem falou com o lead. | n8n + Supabase; NotificaMe ou UAZAPI |
 
-### 🛰️ Monitoramento e VPS (você chama)
+### 🛰️ Monitoramento (você chama)
 
 Para quem tem sistema no ar — app, n8n, WhatsApp, VPS — e quer saber que caiu antes do
 cliente. Slash-only: o Claude não aciona sozinho.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **monitoramento-infra** | `/kit-vamoo:monitoramento-infra` — monitorar o que está no ar e ser avisado no celular: sondas com pg_cron, antiflap, confirmação de queda, recovery que não mente, lembrete enquanto continua fora e quem vigia o vigia; ntfy como canal de push (tópico é credencial, Title só ASCII, prioridade por severidade); e os cuidados de VPS com Docker: Traefik que dá 404 depois do Docker 29, netdata que põe o daemon em 95% de CPU, reboot em Swarm que sobe container sem rede, firewall que o Docker atravessa e backup cruzado que deixa apagar. | Supabase (para as sondas) ou n8n; app ntfy no celular; VPS só se for mexer nela |
+| **monitoramento-infra** | `/kit-vamoo:monitoramento-infra` — monitorar o que está no ar e ser avisado no celular: sondas com pg_cron, antiflap, confirmação de queda, recovery que não mente, lembrete enquanto continua fora e quem vigia o vigia; ntfy como canal de push (tópico é credencial, Title só ASCII, prioridade por severidade). Traz uma sonda HTTP pronta em shell, para começar sem Supabase. | Supabase (para as sondas) ou uma máquina que não seja a vigiada; app ntfy no celular |
 
 ### 🎨 Bônus
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **diretor-imagem** | Transforma um pedido em linguagem normal ("mais cinematográfico", "zoom out lento") em prompt pronto pra gerador de imagem e vídeo (nano banana, Midjourney, Flux, Kling). Nada a ver com código — é a que mais rende em post e material de apresentação. Pesa ~3,5k tokens quando dispara e lê da `references/` só a parte do pedido (a de vídeo, ~16k); desligue em `/plugin` se não for usar. | conta no gerador |
-| **gerar-imagem** | `/kit-vamoo:gerar-imagem`, só manual: gera a imagem de verdade, pela API de imagens da OpenAI, e entrega o JPEG pronto pra web ou pra publicar num artefato. O prompt vem da `diretor-imagem`; esta roda o comando. Cada imagem é cobrada na sua conta da OpenAI. | chave da API da OpenAI (`OPENAI_API_KEY`) e `python3`; `ffmpeg` opcional (sem ele, sai o PNG original) |
 | **video-watch** | `/kit-vamoo:video-watch`, só manual: "assiste" uma gravação de tela (arquivo local, CleanShot, Loom ou `.mp4` direto). Extrai os frames que importam como imagem e transcreve o áudio offline com whisper.cpp; o vídeo não sai da sua máquina. Serve para bug demonstrado em vídeo e para resumir uma gravação. | macOS com `ffmpeg` 5.1+ e `whisper-cpp` (`brew`), `python3`; modelo do whisper (~1,5 GB, uma vez) |
-| **motion-reel** | Faz vídeo de motion design em Remotion a partir de um template pronto: Reel 9:16, vinheta ou anúncio guiado pela música, ou filme 16:9 com corte 9:16 em que a narração manda no tempo (voz do ElevenLabs cortada por fala, telas do Claude Code Desktop, trilha de cinema). Tipografia cinética, câmera 3D, 10 transições na batida, efeitos sonoros e revisão por folhas de quadros. Você entra com o texto e o seu logo (sem logo sai um placeholder "SUA MARCA"); sai o MP4 pronto pra rede social, com o áudio no volume certo. O áudio é gerado, nunca ouvido pelo Claude: escute antes de postar. | Node.js 18+, `ffmpeg` e `python3` com `numpy`; voz: ElevenLabs (chave ou conector) |
 
 ---
 
@@ -248,7 +246,7 @@ Faz exatamente o mesmo que os três comandos acima, a partir do clone local.
 
 ### Só as skills, em outro agente (skills.sh)
 
-As 29 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
+As 26 skills também estão no catálogo aberto [skills.sh](https://www.skills.sh/VAMOO-AI/claude-kit-mentorados),
 que instala `SKILL.md` em Claude Code, Codex, Cursor e outros:
 
 ```bash
@@ -400,7 +398,7 @@ O kit serve aos dois níveis. Comece pelo seu e cresça.
 2. [`docs/memoria-e-contexto.md`](docs/memoria-e-contexto.md) — como o Claude lembra: global vs projeto, o que vai no CLAUDE.md vs em `docs/`. (O tema que mais confunde.)
 3. [`docs/seguranca.md`](docs/seguranca.md) — os 7 furos que iniciante esquece (RLS, secrets, deps, limite de uso, secret que não é secret) + revisão automática.
 4. [`docs/economia-de-tokens.md`](docs/economia-de-tokens.md) — por que seu limite acaba tão rápido e os 3 hábitos que fazem ele render (spoiler: sessão longa custa juros compostos).
-5. Use `/kit-vamoo:explicar` e `/kit-vamoo:revisar`, modo "explica", e a skill `find-docs`.
+5. Use o modo "explica" ("me explica esse código como numa aula"), peça revisão do que mudou (o Claude chama o subagente `revisor`) e a skill `find-docs`.
 
 **Avançado — quando já estiver confortável:**
 1. [`docs/observabilidade.md`](docs/observabilidade.md) — *"como você descobre que quebrou?"*. Se a resposta é "tento reproduzir", leia antes de colocar qualquer coisa no ar.

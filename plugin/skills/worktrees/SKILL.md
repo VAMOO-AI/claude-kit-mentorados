@@ -42,8 +42,8 @@ allowed-tools:
 
 ## Quando o guard recusa o comando
 
-*"too complex to verify that it stays inside the worktree"* é do harness, não do kit. Na
-2.1.306 seguem recusados: `bash "$VAR/x.sh"` (o caminho literal passa), `source <arquivo>`,
+*"too complex to verify that it stays inside the worktree"* é do harness, não do kit. Formas
+que ele recusa: `bash "$VAR/x.sh"` (o caminho literal passa), `source <arquivo>`,
 `gh` com `VAR="$(…)"` somado a `-q`/`--jq` entre aspas, launcher antes do `git` (o `git` tem
 de ser o primeiro token) e heredoc seguido de `&&`. Contorno: `Write` o comando num `.sh` no
 scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de ferramenta.

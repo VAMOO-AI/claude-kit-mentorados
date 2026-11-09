@@ -35,7 +35,7 @@ instância do projeto está lá.
 | Pipedrive (deals, stages via n8n) | [references/pipedrive.md](references/pipedrive.md) |
 | Pipeline de dispatch, estágios do cliente, resumo diário, follow-up | [references/pipelines.md](references/pipelines.md) |
 | ElevenLabs TTS, transcrição Whisper, auth de webhook (inclui token no corpo via `.hash`), API route Next.js, Supabase Storage | [references/integrations-misc.md](references/integrations-misc.md) |
-| IA que fala com cliente: onde cada guard-rail entra no workflow (allowlist, opt-out, escalar pra humano, pausa) | [references/guardrails-ia.md](references/guardrails-ia.md) — o porquê está na skill `guardrails-ia` |
+| IA que fala com cliente: onde cada guard-rail entra no workflow (allowlist, opt-out, escalar pra humano, pausa) | [references/guardrails-ia.md](references/guardrails-ia.md) — o porquê está em `guardrails-ia/SKILL.md` (leia o arquivo; a pessoa chama por `/kit-vamoo:guardrails-ia`) |
 | **Qualquer bug, erro estranho, teste de agente** | [references/troubleshooting.md](references/troubleshooting.md) — comece pela tabela Common Mistakes |
 | Regressão de agente em conversa longa ou com lead imprevisível (lead simulado + juiz + checagens) | [references/qa-simulada.md](references/qa-simulada.md) — `scripts/simular-conversa.mjs` |
 | Inbox próprio (React+Storage), mídia inbound NULL, áudio >1min, CSP, transcode edge | **`/kit-vamoo:whatsapp-inbox-stack`** (gotcha #9 OOM + fast path) — complementa esta skill na ponta UI/storage |
