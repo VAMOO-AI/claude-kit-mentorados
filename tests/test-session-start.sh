@@ -43,9 +43,12 @@ for rel in $QUATRO; do
   n="$(basename "$rel" .sh)"
   aviso "$R" "$rel" "case \"\$(cat)\" in *'\"session_id\":\"s1\"'*) echo \"$n leu cwd=\$KIT_SESSAO_CWD\" ;; *) echo \"$n sem-payload\" ;; esac"
 done
-rc=$(roda "$R" "/x/meu projeto")
+# cwd sem `/` na frente: no Git Bash o MSYS converte para caminho do Windows a variável que
+# parece caminho POSIX ao chamar o node nativo (`/x/…` virava `X:/…`), e o que se prova aqui é
+# que o valor chega igual aos quatro, não o formato dele.
+rc=$(roda "$R" "x/meu projeto")
 igual 0 "$rc" "sai 0"
-esperado="$(for rel in $QUATRO; do echo "$(basename "$rel" .sh) leu cwd=/x/meu projeto"; done)"
+esperado="$(for rel in $QUATRO; do echo "$(basename "$rel" .sh) leu cwd=x/meu projeto"; done)"
 igual "$esperado" "$(cat "$TMP/out")" "os quatro leem o payload, nesta ordem, e recebem o cwd em KIT_SESSAO_CWD"
 
 echo "== aviso calado não deixa linha; ausente é pulado; bug não desliga os seguintes =="

@@ -341,8 +341,12 @@ echo "== regras do template: PowerShell, ask e nada genérico =="
 # qualquer texto; o ` *` final casa também o comando sem argumento, mas SÓ quando é o único
 # curinga da regra. `git push * --force *` não pega `git push origin x --force`.
 casa() { # casa <lista allow|ask|deny> <Ferramenta> <comando> → 0 se alguma regra casa
-  node -e '
-const [tpl, lista, tool, cmd] = process.argv.slice(1)
+  # O comando vai por stdin, não por argumento: no Git Bash o MSYS converte para caminho do
+  # Windows todo argumento que começa com `/` ao chamar o node nativo, e
+  # `/opt/homebrew/bin/supabase …` chegava trocado (job windows do #334).
+  printf '%s' "$3" | node -e '
+const [tpl, lista, tool] = process.argv.slice(1)
+const cmd = require("fs").readFileSync(0, "utf8")
 const regras = require(tpl).permissions[lista] || []
 const pref = tool + "("
 const ok = regras.some((r) => {
@@ -354,7 +358,7 @@ const ok = regras.some((r) => {
   const re = so1 && p.endsWith(" *") ? "^" + esc(p.slice(0, -2)) + "( [\\s\\S]*)?$" : "^" + esc(p) + "$"
   return new RegExp(re, tool === "PowerShell" ? "i" : "").test(cmd)
 })
-process.exit(ok ? 0 : 1)' "$TEMPLATE" "$1" "$2" "$3"
+process.exit(ok ? 0 : 1)' "$TEMPLATE" "$1" "$2"
 }
 for tool in Bash PowerShell; do
   for c in 'git push --force' 'git push origin feat --force' 'git push -f origin feat' 'git push origin feat -f' \
