@@ -13,8 +13,9 @@ O que derruba bot de Discord raramente é o código: é configuração invisíve
 do portal, um scope do convite) e operação (a mensagem reprocessada, o container que morre
 calado). Onde diz **ARMADILHA**, um bot em produção já caiu por causa disso.
 
-VPS em si (hardening, firewall, CPU alta, backup, reboot em Swarm e o `boot-guard`) é da
-skill `monitoramento-infra` (`monitoramento-infra/references/vps.md`). Aqui fica o que é do bot.
+Aqui fica o que é do bot. Da VPS em si, a `references/03-deploy-vps.md` traz só o que o
+bot precisa (firewall com Docker, reboot em Swarm, conferir o backup); ser avisado quando
+ele cair é o `/kit-vamoo:monitoramento-infra`.
 
 ## Como usar esta skill
 

@@ -119,14 +119,14 @@ não aciona sozinho, então não pesam nas suas requests quando você não está
 | **n8n-workflow-agent** | `/kit-vamoo:n8n-workflow-agent` — construir, editar, depurar e publicar workflow n8n, com ou sem agente de WhatsApp: layout sem cruzamento, baseline + diff antes de mexer pela API, Code Node, e referências de UAZAPI (motivo real de queda, escada de reconexão, nono dígito), NotificaMe, Chatwoot, Pipedrive, Postgres, disparo, pausa no Redis e QA simulada do agente (lead falso + juiz). | n8n com API key; o provedor de WhatsApp que você usa |
 | **whatsapp-inbox-stack** | `/kit-vamoo:whatsapp-inbox-stack` — a ponta do inbox no seu app (página própria ou Chatwoot): mídia que não chega ou não toca, áudio longo sem estourar a edge, IA e humano no mesmo fio, status da conexão que mente, entrega confirmada e relatório de quem falou com o lead. | n8n + Supabase; NotificaMe ou UAZAPI |
 
-### 🛰️ Monitoramento e VPS (você chama)
+### 🛰️ Monitoramento (você chama)
 
 Para quem tem sistema no ar — app, n8n, WhatsApp, VPS — e quer saber que caiu antes do
 cliente. Slash-only: o Claude não aciona sozinho.
 
 | Skill | Pra que serve | Pré-requisito |
 |---|---|---|
-| **monitoramento-infra** | `/kit-vamoo:monitoramento-infra` — monitorar o que está no ar e ser avisado no celular: sondas com pg_cron, antiflap, confirmação de queda, recovery que não mente, lembrete enquanto continua fora e quem vigia o vigia; ntfy como canal de push (tópico é credencial, Title só ASCII, prioridade por severidade); e os cuidados de VPS com Docker: Traefik que dá 404 depois do Docker 29, netdata que põe o daemon em 95% de CPU, reboot em Swarm que sobe container sem rede, firewall que o Docker atravessa e backup cruzado que deixa apagar. | Supabase (para as sondas) ou n8n; app ntfy no celular; VPS só se for mexer nela |
+| **monitoramento-infra** | `/kit-vamoo:monitoramento-infra` — monitorar o que está no ar e ser avisado no celular: sondas com pg_cron, antiflap, confirmação de queda, recovery que não mente, lembrete enquanto continua fora e quem vigia o vigia; ntfy como canal de push (tópico é credencial, Title só ASCII, prioridade por severidade). Traz uma sonda HTTP pronta em shell, para começar sem Supabase. | Supabase (para as sondas) ou uma máquina que não seja a vigiada; app ntfy no celular |
 
 ### 🎨 Bônus
 

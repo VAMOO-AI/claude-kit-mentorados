@@ -9,7 +9,7 @@ que segue é o que já enganou uma sonda em produção.
   está vivo; site que redireciona responde 301/302.
 - Mas 401 do Traefik prova que **o roteamento** está de pé, não que o backend
   responde. Para backend, sonde uma rota que toca o banco (`/healthz` que faz
-  `select 1`), ou o netns do container (ver [vps.md](vps.md)).
+  `select 1`).
 - Timeout curto (10s), segunda tentativa só sem resposta, guarda de checker cego
   e limiar 2 — tudo isso está no [`assets/sonda-http.sh`](../assets/sonda-http.sh).
 - Projeto Supabase de outra org, sem token: um alvo HTTP em `/rest/v1/` com
@@ -65,9 +65,8 @@ Os sinais que a sonda óbvia perde:
   (`/endpoints/<id>/docker/containers/<id>/exec` e depois `/exec/<id>/start`).
 - Atrás da overlay, todo cliente aparece com o mesmo `client_addr` no
   `pg_stat_activity` (SNAT). Quem separa é `application_name` e `query`.
-- O que derruba a VPS em si (Docker 29, netdata, reboot, firewall) está em
-  [vps.md](vps.md). Netdata é ótimo para **ver**; para **avisar**, use uma sonda
-  de fora — a VPS que caiu não manda alerta.
+- Netdata é ótimo para **ver**; para **avisar**, use uma sonda de fora — a VPS
+  que caiu não manda alerta.
 
 ## WhatsApp (instância UAZAPI / Evolution / similar)
 

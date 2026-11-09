@@ -53,8 +53,8 @@
       ]
     },
     {
-      "title": "Monitoramento e VPS",
-      "description": "Saber que caiu antes do cliente: sondas, antiflap, alerta no celular pelo ntfy e os cuidados de VPS com Docker, Traefik e backup. Você chama; o Claude não aciona sozinho.",
+      "title": "Monitoramento",
+      "description": "Saber que caiu antes do cliente: sondas, antiflap, confirmação de queda e alerta no celular pelo ntfy. Você chama; o Claude não aciona sozinho.",
       "skills": [
         "monitoramento-infra"
       ]

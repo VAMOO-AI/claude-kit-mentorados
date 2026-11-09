@@ -3,19 +3,17 @@ name: monitoramento-infra
 description: >-
   Monitorar o que está no ar e ser avisado no celular antes do cliente: sondas
   (pg_cron, n8n, VPS, WhatsApp), antiflap, confirmação de queda, recovery que
-  não mente, lembrete, quem vigia o vigia, ntfy como canal; e os cuidados de VPS
-  com Docker/Traefik (404 do Docker 29, netdata a 1s, reboot em Swarm, firewall,
-  backup). Só dispara quando você chama. Erro de app e log ficam no pilar 06 da
-  /kit-vamoo:baseline.
+  não mente, lembrete, quem vigia o vigia e ntfy como canal. Só dispara quando
+  você chama. Erro de app e log ficam no pilar 06 da /kit-vamoo:baseline.
 disable-model-invocation: true
 ---
 
-# Monitoramento e infra
+# Monitoramento: sonda e alerta
 
 Para quem tem sistema no ar — app, n8n, agente de WhatsApp, VPS — e quer saber
-que caiu **antes** do cliente mandar mensagem. Tudo aqui saiu de um monitor e de
-uma frota de VPS em produção: cada regra corrigiu um alarme falso, uma queda que
-passou calada ou um monitor que derrubou o próprio banco.
+que caiu **antes** do cliente mandar mensagem. Tudo aqui saiu de um monitor em
+produção: cada regra corrigiu um alarme falso, uma queda que passou calada ou um
+monitor que derrubou o próprio banco.
 
 Este arquivo é o roteador. **Leia só a referência do tema da tarefa.**
 
@@ -26,12 +24,11 @@ Este arquivo é o roteador. **Leia só a referência do tema da tarefa.**
 | Desenhar ou consertar um monitor: alarme falso, alerta que não chega, "RECUPERADO" que mente, barulho demais | [references/arquitetura-monitor.md](references/arquitetura-monitor.md) |
 | Sonda rodando no Supabase (pg_cron + pg_net + edge function) | [references/supabase-cron.md](references/supabase-cron.md) |
 | O que sondar em n8n, VPS/Portainer, WhatsApp, Vercel, job agendado | [references/sondas.md](references/sondas.md) |
-| VPS caiu, 404 em todas as rotas, CPU alta do Docker, reboot, firewall, backup, SSH | [references/vps.md](references/vps.md) + [assets/fix-vps-hardening.sh](assets/fix-vps-hardening.sh) |
-| VPS com Swarm que reinicia sem você (provedor, hypervisor) e volta com site fora | [references/vps.md](references/vps.md#guard-automático-depois-do-boot-boot-guard) + [assets/boot-guard.sh](assets/boot-guard.sh) |
 
 Erro de front, Sentry, log estruturado, custo de IA e trilha de auditoria são o
 **lado do app**: pilar 06 (observabilidade) da `/kit-vamoo:baseline`.
-Esta skill é o lado da operação.
+Esta skill é o lado da operação: saber que caiu. Consertar a VPS por dentro
+(Docker, Traefik, reboot em Swarm, firewall, backup) não está aqui.
 
 ## Três regras que valem para tudo
 
@@ -74,10 +71,8 @@ Daí para cima — lanes, dedup, múltiplos canais, lembrete por criticidade —
 
 ## Antes de mexer em produção
 
-- **VPS:** rode o diagnóstico de [vps.md](references/vps.md#diagnóstico-sempre-primeiro)
-  antes de qualquer receita. Toda receita mexe no que está no ar: backup do
-  arquivo, janela combinada com quem usa o sistema e o rollback escrito antes. O
-  Claude **propõe** cada comando que muda estado e espera o seu OK.
+- **Sonda nova em máquina que já roda outra coisa:** o Claude **propõe** cada
+  comando que muda estado (cron, arquivo em `/opt`) e espera o seu OK.
 - **Alerta novo:** rode um ciclo real e leia o payload cru do que deu `down`
   antes de ligar o aviso. Metade dos alarmes falsos que este monitor teve era
   campo mal interpretado.
