@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Os repos de onde o kit tira ideia (superpowers, rtk, gstack…) andam toda semana, e a
+# Os repos de onde o kit tira ideia (superpowers, gstack…) andam toda semana, e a
 # leitura deles era por lembrança: a de 01/09/2026 só se repetiu em 28/10, e nesse meio o
 # superpowers já tinha achado o corte de skill na compactação que pegava a ship e a secscan.
 # Este script compara cada repo do scripts/upstreams.json com a data da última leitura e

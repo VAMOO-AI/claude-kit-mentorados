@@ -76,11 +76,6 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/warn-cli-outdated.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-espelho.sh\"",
-            "timeout": 10
           }
         ]
       },

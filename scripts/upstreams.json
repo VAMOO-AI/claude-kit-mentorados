@@ -10,14 +10,6 @@
       "que_trouxemos": "skill-pressure-test (writing-skills); gate de tamanho do SKILL.md (7.0.1, corte da compactação). Plugin e persona descartados."
     },
     {
-      "repo": "rtk-ai/rtk",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v1.1.0",
-      "tag": "^v",
-      "commits_minimo": 0,
-      "que_trouxemos": "Binário via brew, chamado pelo rtk-claude.sh. Nunca rtk init. Cada versão nova: conferir hooks/permissions no changelog contra o rtk-claude.sh."
-    },
-    {
       "repo": "garrytan/gstack",
       "lido_em": "2026-10-28T15:00:00Z",
       "lido_versao": "v1.91.242.0",

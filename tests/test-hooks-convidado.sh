@@ -24,8 +24,8 @@ RAIZ="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 HOOKS_JSON="$RAIZ/plugin/hooks/hooks.json"
 [ -f "$HOOKS_JSON" ] || { echo "hooks.json não encontrado: $HOOKS_JSON"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
-# Herdados, o codex-espelho escreveria no Codex de quem rodou o teste (o HOME é trocado, esses
-# dois não). O KIT_VAMOO_HOOKS sai para provar que nada depende dele.
+# O KIT_VAMOO_HOOKS sai para provar que nada depende dele; os outros dois, para o hook não
+# enxergar o Codex nem a pasta de dados do plugin de quem rodou o teste.
 unset KIT_VAMOO_HOOKS CODEX_HOME CLAUDE_PLUGIN_DATA
 TAB="$(printf '\t')"
 
