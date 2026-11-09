@@ -215,6 +215,9 @@ jobs:
       - name: O dispatcher do UserPromptSubmit devolve o que os dois hooks devolviam
         run: bash tests/test-pre-prompt.sh
 
+      - name: O dispatcher do SessionStart chama os quatro avisos na ordem, com um node só
+        run: bash tests/test-session-start.sh
+
       - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
         run: bash tests/test-warn-sem-node.sh
 
@@ -640,7 +643,7 @@ jobs:
           lista="test-hooks-boot test-pre-bash test-block-main-commit
                  test-check-careful
                  test-block-delete-branch test-block-cd-leitura-relativa
-                 test-pre-prompt test-path-rules
+                 test-pre-prompt test-path-rules test-session-start
                  test-merge-settings test-warn-sem-node test-check-dev-server"
           sel="$lista"
           if [ "$EVENTO" = pull_request ]; then

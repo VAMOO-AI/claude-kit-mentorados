@@ -261,10 +261,11 @@ if [ -f "$HOOKS_JSON" ] && command -v node >/dev/null 2>&1; then
     const fs = require("fs");
     const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     const cmds = (j.hooks.SessionStart || []).flatMap((g) => (g.hooks || []).map((h) => h.command || ""));
-    process.stdout.write(cmds.some((c) => c.includes("warn-kit-updated.sh")) ? "sim" : "nao");
+    process.stdout.write(cmds.some((c) => c.includes("hooks/session-start.sh")) ? "sim" : "nao");
   ' "$HOOKS_JSON" 2>/dev/null)"
-  check "warn-kit-updated.sh está no bloco SessionStart" \
-    "$([ "$no_sessionstart" = sim ] && echo ok || echo fail)"
+  # Desde 09/11/2026 quem está no SessionStart é o dispatcher, e é ele que chama este script.
+  check "o SessionStart chama o session-start.sh, e ele chama o warn-kit-updated.sh" \
+    "$([ "$no_sessionstart" = sim ] && grep -qF 'scripts/warn-kit-updated.sh' "$RAIZ/plugin/hooks/session-start.sh" 2>/dev/null && echo ok || echo fail)"
 else
   check "hooks.json legível (node disponível)" fail
 fi

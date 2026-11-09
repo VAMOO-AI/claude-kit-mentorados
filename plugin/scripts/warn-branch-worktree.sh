@@ -1,29 +1,40 @@
 #!/usr/bin/env bash
-# warn-branch-worktree.sh — SessionStart hook. Um aviso só sobre o estado do git da sessão.
+# warn-branch-worktree.sh — aviso de SessionStart (chamado pelo hooks/session-start.sh):
+# a branch atual está atrás do upstream.
 #
-# Até a 0.64 eram dois hooks (warn-branch-behind.sh e warn-worktree-stale.sh), cada um um
-# processo a mais em toda sessão, e os dois decidiam o repositório por
-# `${CLAUDE_PROJECT_DIR:-$PWD}`. Numa sessão de worktree do app desktop, esse diretório
-# pode ser a raiz do clone principal: o aviso de worktree mergeado nunca disparava, e o de
-# branch atrasada olhava a branch do clone. Agora o diretório vem do `.cwd` do payload
-# (lido por node, scripts/hookjson.js); o env e o $PWD ficam só de reserva, para payload
-# sem cwd.
+# Até a 0.90 este script dava três avisos: branch atrás do upstream, worktree cuja branch já
+# foi mergeada e clone principal fora da main. Os dois últimos saíram em 09/11/2026 (decisão
+# D13): pediam `gh pr list` e um fetch de `refs/pull/<n>/head` na abertura de toda sessão em
+# worktree, e a limpeza de worktree mergeado já tem dono (skill worktrees, seção "Limpeza no
+# fim", e o `git-sync --cleanup-dry-run`). O nome do arquivo ficou para não quebrar quem o
+# chama pelo caminho.
 #
-# O que avisa, nesta ordem:
-#   (1) a branch atual está atrás do upstream (fetch leve, no máximo 1x a cada 10 min por
-#       repositório+branch);
-#   (2) a sessão está num worktree cuja branch JÁ FOI MERGEADA. Branch sem commit próprio
-#       não conta como mergeada, e worktree com mudança não commitada nunca é lixo;
-#   (3) o CLONE PRINCIPAL não está em main — numa sessão em worktree, ou no próprio clone
-#       quando o repo tem worktree vivo.
-# Não modifica o git: só lê e avisa (os fetches gravam objetos e refs remotas, nunca branch
-# nem HEAD; o do head do PR, nem ref). Silencioso quando está tudo em ordem. Falha-aberta.
+# O diretório vem do `.cwd` do payload: numa sessão de worktree do app desktop,
+# `${CLAUDE_PROJECT_DIR:-$PWD}` pode ser a raiz do clone principal, e o aviso olharia a
+# branch errada. Quem lê o payload é o session-start.sh, que entrega o cwd em
+# KIT_SESSAO_CWD; chamado sozinho, o script lê por node (scripts/hookjson.js). O env e o
+# $PWD ficam de reserva, para payload sem cwd.
+#
+# Precisa de upstream configurado (branch já pushada com -u, ou main rastreando
+# origin/main). O fetch custava ~1 s (965–1.300 ms medidos em 03/09/2026) em TODA sessão;
+# dentro da janela de 10 min compara com o origin/<branch> que já está local. A chave é o
+# git-common-dir: worktrees partilham as refs remotas, então o fetch de um vale para os
+# outros.
+#
+# Teto de tempo no fetch: rede lenta, VPN caída ou remote que pede credencial penduravam a
+# abertura da sessão. `timeout` não existe no macOS sem o coreutils, então o teto é feito em
+# bash (com_teto): passou de WARN_BRANCH_FETCH_TETO segundos (padrão 5), o fetch é morto e o
+# aviso sai com o origin/<branch> que já está local. O marcador é gravado do mesmo jeito,
+# para a sessão seguinte não esperar de novo.
+#
+# Não modifica o git: só lê e avisa (o fetch grava objetos e refs remotas, nunca branch nem
+# HEAD). Silencioso quando está tudo em ordem. Falha-aberta.
 set -uo pipefail
 
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 H="$AQUI/hookjson.js"
-DIR=""
-if [ -f "$H" ] && command -v node >/dev/null 2>&1 && [ ! -t 0 ]; then
+DIR="${KIT_SESSAO_CWD:-}"
+if [ -z "$DIR" ] && [ -f "$H" ] && command -v node >/dev/null 2>&1 && [ ! -t 0 ]; then
   DIR="$(node "$H" cwd 2>/dev/null)"
 fi
 [ -n "$DIR" ] || DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
@@ -31,110 +42,44 @@ cd "$DIR" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
 br="$(git branch --show-current 2>/dev/null)"
+[ -n "$br" ] || exit 0
+up="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" || exit 0
+[ -n "$up" ] || exit 0
 
-# ── (1) atrás do upstream ────────────────────────────────────────────────────────────
-# Precisa de upstream configurado (branch já pushada com -u, ou main rastreando
-# origin/main). O fetch custava ~1 s (965–1.300 ms medidos em 03/09/2026) em TODA sessão;
-# dentro da janela de 10 min compara com o origin/<branch> que já está local. A chave é o
-# git-common-dir: worktrees partilham as refs remotas, então o fetch de um vale para os
-# outros.
-atras() {
-  [ -n "$br" ] || return 0
-  local up gdir h marker behind
-  up="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" || return 0
-  [ -n "$up" ] || return 0
-  gdir="$(git rev-parse --git-common-dir 2>/dev/null)" || gdir=".git"
-  gdir="$(cd "$gdir" 2>/dev/null && pwd -P)" || gdir="$DIR"
-  local CACHE_DIR="$HOME/.claude/.cache/warn-branch-behind"
-  h="$(printf '%s' "$gdir" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')"
-  [ -z "$h" ] && h="$(printf '%s' "$gdir" | cksum | awk '{print $1}')"
-  marker="$CACHE_DIR/$h-$(printf '%s' "$br" | tr '/' '_')"
-  if [ -z "$(find "$marker" -mmin -10 2>/dev/null)" ]; then
-    git fetch --quiet --no-tags origin "$br" 2>/dev/null || true
-    mkdir -p "$CACHE_DIR" 2>/dev/null && touch "$marker" 2>/dev/null
-    find "$CACHE_DIR" -type f -mtime +7 -delete 2>/dev/null   # branch que ninguém abre mais
-  fi
-  behind="$(git rev-list --count "HEAD..@{upstream}" 2>/dev/null || echo 0)"
-  if [ "${behind:-0}" -gt 0 ]; then
-    echo "⚠️ git: '$br' está $behind commit(s) atrás de $up. Faça 'git pull --ff-only' antes de copiar arquivos OU criar worktree. Em worktree a fonte de verdade é origin/<branch> — nunca o clone principal."
-  fi
+# com_teto <segundos> <comando>...: roda o comando e o mata se passar do teto. Devolve o
+# código dele (143 quando foi morto). O vigia e o comando ficam sem o stdout do hook: um
+# `sleep` órfão segurando o pipe faria o Claude Code esperar o teto inteiro mesmo com o
+# fetch já terminado.
+com_teto() {
+  local teto="$1" pid vigia rc
+  shift
+  "$@" </dev/null >/dev/null 2>&1 &
+  pid=$!
+  ( sleep "$teto"; kill "$pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 &
+  vigia=$!
+  wait "$pid" 2>/dev/null; rc=$?
+  kill "$vigia" 2>/dev/null
+  wait "$vigia" 2>/dev/null
+  return "$rc"
 }
-atras
+TETO="${WARN_BRANCH_FETCH_TETO:-5}"
+case "$TETO" in ''|*[!0-9]*|0) TETO=5 ;; esac
 
-GIT_DIR="$(cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)" || exit 0
-COMMON="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)" || exit 0
-PRIMARY="$(dirname "$COMMON")"
-# Sessão no clone principal: o (2) não se aplica, e o (3) só vale com worktree vivo. Sem
-# worktree nenhum, branch no clone é o jeito normal de trabalhar e o aviso seria ruído; com
-# worktree, o clone é a base deles e fica na main (decisão de 22/10/2026, F2 do #241).
-NO_CLONE=0
-if [ "$GIT_DIR" = "$COMMON" ]; then
-  [ "$(git worktree list --porcelain 2>/dev/null | grep -c '^worktree ')" -gt 1 ] || exit 0
-  NO_CLONE=1
+gdir="$(git rev-parse --git-common-dir 2>/dev/null)" || gdir=".git"
+gdir="$(cd "$gdir" 2>/dev/null && pwd -P)" || gdir="$DIR"
+CACHE_DIR="$HOME/.claude/.cache/warn-branch-behind"
+h="$(printf '%s' "$gdir" | { shasum 2>/dev/null || sha1sum 2>/dev/null; } | awk '{print $1}')"
+[ -z "$h" ] && h="$(printf '%s' "$gdir" | cksum | awk '{print $1}')"
+marker="$CACHE_DIR/$h-$(printf '%s' "$br" | tr '/' '_')"
+if [ -z "$(find "$marker" -mmin -10 2>/dev/null)" ]; then
+  # Sem prompt de credencial: remote que pede senha ficaria esperando até o teto.
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" \
+    com_teto "$TETO" git fetch --quiet --no-tags origin "$br" || true
+  mkdir -p "$CACHE_DIR" 2>/dev/null && touch "$marker" 2>/dev/null
+  find "$CACHE_DIR" -type f -mtime +7 -delete 2>/dev/null   # branch que ninguém abre mais
 fi
-
-# Branch recém-criada de origin/main é ancestral dela sem ter commit nenhum, e o
-# `--is-ancestor` sozinho a chamava de mergeada: em 24/09/2026, num projeto real, o
-# aviso mandou remover um worktree com o fix inteiro ainda sem commit. Sem commit próprio
-# = o tip não passou do ponto de criação (a 1ª entrada do reflog), ou é commit da linha
-# first-parent da main — a branch que só puxou a base, ou cujo reflog já expirou.
-sem_commit_proprio() {
-  local tip="$1" criacao ultimo
-  criacao="$(git reflog show --format='%H %gs' "refs/heads/$br" 2>/dev/null | tail -n 1)"
-  case "$criacao" in
-    *" branch: Created from "*)
-      [ "$(git rev-list --count "${criacao%% *}..$tip" 2>/dev/null)" = 0 ] && return 0 ;;
-  esac
-  # atalho: merge fast-forward na main fica sem aviso (parece base puxada); rever se o time mergear por ff fora do PR
-  [ "$tip" = "$(git rev-parse --verify -q origin/main)" ] && return 0
-  ultimo="$(git rev-list --first-parent origin/main "^$tip" 2>/dev/null | tail -n 1)"
-  [ -n "$ultimo" ] && [ "$(git rev-parse --verify -q "$ultimo^1")" = "$tip" ]
-}
-
-# ── (2) worktree cuja branch já foi mergeada ─────────────────────────────────────────
-if [ "$NO_CLONE" = 0 ] && [ -n "$br" ] && [ "$br" != "main" ] && [ "$br" != "master" ]; then
-  merged=0
-  tip="$(git rev-parse --verify -q "refs/heads/$br")"
-  if [ -n "$tip" ] && ! sem_commit_proprio "$tip"; then
-    if git merge-base --is-ancestor "$tip" origin/main 2>/dev/null; then
-      merged=1
-    elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-      # Squash: o tip precisa estar contido no head do PR mergeado — commit feito depois
-      # do merge, ou nome de branch reaproveitado, é trabalho (mesma regra do worktree-gc).
-      # Os últimos commits do PR feitos noutro clone deixam o head só em refs/pull/<n>/head:
-      # sem o objeto aqui, o --is-ancestor falhava e o aviso nunca acendia. Busca só objetos,
-      # sem ref, e só nesse caso (PR achado, head ausente).
-      line="$(gh pr list --head "$br" --state merged --json number,headRefOid \
-        --jq '.[0] // empty | "\(.number) \(.headRefOid)"' 2>/dev/null)"
-      n="${line%% *}"; oid="${line#* }"
-      [ "$oid" != "$line" ] || oid=""
-      if [ -n "$oid" ] && ! git cat-file -e "$oid^{commit}" 2>/dev/null; then
-        case "$n" in
-          ''|*[!0-9]*) ;;
-          *) GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" \
-               git fetch -q --no-tags --no-write-fetch-head origin "refs/pull/$n/head" >/dev/null 2>&1 || true ;;
-        esac
-      fi
-      [ -n "$oid" ] && git merge-base --is-ancestor "$tip" "$oid" 2>/dev/null && merged=1
-    fi
-  fi
-  if [ "$merged" = 1 ]; then
-    sujos="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
-    if [ "${sujos:-0}" -gt 0 ]; then
-      echo "⚠️ worktree: '$br' já foi mergeada, mas tem $sujos arquivo(s) com mudança não commitada — é trabalho, não remova este worktree."
-    else
-      # O --verificar só lê: diz se o worktree pode sair ou o que o segura (env diferente do
-      # clone, repo aninhado, ignorado de valor como outputs/), que o `status` não mostra.
-      gc="$AQUI/worktree-gc.sh"
-      wt="$(git rev-parse --show-toplevel 2>/dev/null)"
-      echo "🧹 worktree: '$br' já foi mergeada e está limpo. Se o usuário não for mais usá-lo, diga que ele pode pedir a limpeza; ela segue a seção 'Limpeza no fim' da skill worktrees (prova completa; antes de remover, bash $gc --verificar '$wt' diz o que ainda segura o worktree: env diferente do clone, repo aninhado ou ignorado de valor como outputs/). Para vários de uma vez, 'git-sync --cleanup-dry-run' primeiro, e o '--cleanup-apply' só com o pedido dele."
-    fi
-  fi
-fi
-
-# ── (3) clone principal fora de main ─────────────────────────────────────────────────
-primary_br="$(git -C "$PRIMARY" branch --show-current 2>/dev/null)"
-if [ -n "$primary_br" ] && [ "$primary_br" != "main" ] && [ "$primary_br" != "master" ]; then
-  echo "⚠️ clone principal ($PRIMARY) está em '$primary_br', não em main. Com worktrees, o clone principal fica na main, só pra leitura (skill worktrees); se não houver trabalho não commitado nele, ofereça ao usuário voltar pra main."
+behind="$(git rev-list --count "HEAD..@{upstream}" 2>/dev/null || echo 0)"
+if [ "${behind:-0}" -gt 0 ]; then
+  echo "⚠️ git: '$br' está $behind commit(s) atrás de $up. Faça 'git pull --ff-only' antes de copiar arquivos OU criar worktree. Em worktree a fonte de verdade é origin/<branch> — nunca o clone principal."
 fi
 exit 0
