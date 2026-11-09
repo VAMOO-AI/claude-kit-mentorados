@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pre-bash.sh — dispatcher do PreToolUse(Bash|PowerShell): lê o payload UMA vez e o entrega, em ordem,
-# aos cinco hooks de Bash que até a 0.25.0 eram cinco entries no hooks.json.
+# aos guards de Bash que até a 0.25.0 eram entries separados no hooks.json (hoje quatro).
 #
 # Por que existe: cada entry custa um processo de shell mais um `bash <hook>` antes de o
 # hook olhar o payload — e cada hook do plugin ainda abre um `node` para ler o JSON. Cinco
@@ -58,8 +58,8 @@ tem_gatilho() {
 
 # PowerShell (0.48.0): o hooks.json casa `Bash|PowerShell`, porque regra e hook de Bash não
 # veem o comando que o Claude roda pelo PowerShell (code.claude.com/docs/en/tools-reference#powershell-tool).
-# git e gh se escrevem igual nas duas shells, então commit em main, push --force, checkout no
-# clone compartilhado e merge com branch-filha valem lá também. O block-cd-leitura-relativa
+# git e gh se escrevem igual nas duas shells, então commit em main, comando destrutivo e
+# merge com branch-filha valem lá também. O block-cd-leitura-relativa
 # fica de fora: ele modela `cd` + leitura relativa do bash, e PowerShell lê com Get-Content.
 powershell=0
 [[ $payload =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"PowerShell\" ]] && powershell=1
@@ -106,7 +106,7 @@ avisos=""
 # Só guards: nenhum hook desta cadeia reescreve o comando. A reescrita de saída que existia
 # aqui até a 0.90 saiu do plugin público em 09/11/2026 (decisão D2) e mora no kit do time.
 for h in block-main-commit.sh check-careful.sh block-cd-leitura-relativa.sh \
-         block-parallel-clone-switch.sh block-delete-branch-with-children.sh; do
+         block-delete-branch-with-children.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
   [ "$powershell" = 1 ] && [ "$h" = block-cd-leitura-relativa.sh ] && continue

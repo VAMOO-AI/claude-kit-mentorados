@@ -3,7 +3,7 @@
 #
 # Até a 0.25.0 eram cinco entries no hooks.json, cada um um processo `sh` mais um
 # `bash <hook>`: ~140 ms por chamada Bash só de processo. O dispatcher lê o payload uma vez e entrega
-# aos cinco em subshell — e tem que devolver EXATAMENTE o que a cadeia antiga devolvia:
+# aos guards em subshell — e tem que devolver EXATAMENTE o que a cadeia antiga devolvia:
 # o exit 2 (com stderr) do primeiro hook que bloqueia, o `ask` do check-careful, e nada
 # quando nenhum hook fala.
 #
@@ -30,7 +30,9 @@ MAIN="$TMP/main"; mkdir -p "$MAIN"; git -C "$MAIN" init -q -b main 2>/dev/null
 # Com commit: o block-main-commit isenta repo ainda sem commit nenhum (primeiro commit do `git init`).
 git -C "$MAIN" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 FEAT="$TMP/feat"; mkdir -p "$FEAT"; git -C "$FEAT" init -q -b feat/x 2>/dev/null
-# clone principal com OUTRA sessão ativa (marker <30min) num HOME falso
+# Clone principal com marker de OUTRA sessão (<30 min) num HOME falso: até 09/11/2026 era o que
+# o block-parallel-clone-switch lia para bloquear. O guard saiu (D3); o marker fica para provar
+# que ele não decide mais nada.
 CLONE="$TMP/clone"; mkdir -p "$CLONE"; git -C "$CLONE" init -q -b main 2>/dev/null
 H=$(printf '%s' "$(git -C "$CLONE" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
 HOME_OUTRA="$TMP/home-outra"; mkdir -p "$HOME_OUTRA/.claude/.cache/repo-sessions/$H"
@@ -65,13 +67,12 @@ espera_rc 2 "$rc" "commit em main sai 2 (block-main-commit)"
 contem "$TMP/err" "cairia na branch 'main'" "stderr traz a mensagem do block-main-commit"
 rc=$(roda "$COMMIT" "$FEAT")
 espera_rc 0 "$rc" "o mesmo commit em feature branch passa"
-for c in 'git checkout main' 'git switch -c feat/y' 'git reset --hard HEAD~1' 'git stash'; do
+for c in 'git checkout main' 'git switch -c feat/y' 'git stash'; do
   rc=$(roda "$c" "$CLONE" default "$HOME_OUTRA")
-  espera_rc 2 "$rc" "'$c' no clone com outra sessão ativa sai 2 (block-parallel-clone-switch)"
+  espera_rc 0 "$rc" "'$c' no clone com marker de outra sessão não bloqueia mais (o block-parallel-clone-switch saiu)"
 done
-contem "$TMP/err" "CLONE PRINCIPAL" "stderr traz a mensagem do block-parallel-clone-switch"
-rc=$(roda 'git stash list' "$CLONE" default "$HOME_OUTRA")
-espera_rc 0 "$rc" "stash list (read-only) passa"
+[ -e "$HOOKS_DIR/block-parallel-clone-switch.sh" ] && falha "block-parallel-clone-switch.sh ainda está em plugin/hooks" || ok "block-parallel-clone-switch.sh saiu de plugin/hooks"
+grep -q 'block-parallel-clone-switch' "$HOOK" && falha "o pre-bash.sh ainda cita o block-parallel-clone-switch" || ok "o pre-bash.sh não cita mais o block-parallel-clone-switch"
 rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
 espera_rc 2 "$rc" "leitura relativa depois de cd sai 2 (block-cd-leitura-relativa)"
 contem "$TMP/err" "caminho relativo" "stderr traz a mensagem do block-cd-leitura-relativa"
@@ -110,13 +111,13 @@ echo "== cadeia: só o exit 2 encerra; outro código é bug do hook e a cadeia s
 # error"), então o comando rodava sem os guards de depois. Agora só o exit 2 encerra.
 FALSOS="$(árvore "$TMP/falsos")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-primeiro' 'echo erro-do-primeiro >&2' 'exit 1' > "$FALSOS/check-careful.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo guard-seguinte-bloqueou >&2' 'exit 2' > "$FALSOS/block-parallel-clone-switch.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo guard-seguinte-bloqueou >&2' 'exit 2' > "$FALSOS/block-delete-branch-with-children.sh"
 rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
 espera_rc 2 "$rc" "exit 1 de um hook não desliga o guard seguinte, que bloqueia com exit 2"
 contem "$TMP/err" 'guard-seguinte-bloqueou' "stderr traz a mensagem do guard que bloqueou"
 contem "$TMP/err" 'erro-do-primeiro' "stderr do hook com bug é repassado"
 contem "$TMP/err" '[pre-bash] check-careful.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
-rm "$FALSOS/block-parallel-clone-switch.sh"
+rm "$FALSOS/block-delete-branch-with-children.sh"
 rc=$(roda 'ls' "$FEAT" default "$HOME" "$FALSOS")
 espera_rc 0 "$rc" "hook com bug e o resto calado: a cadeia sai 0"
 aviso=$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).systemMessage||""))' "$TMP/out" 2>/dev/null)
@@ -162,7 +163,7 @@ rc=$(roda 'echo commit' "$FEAT" default "$HOME" "$GATW")
 espera_rc 2 "$rc" "hook com CRLF (checkout no Windows): a última palavra do gatilho ainda casa"
 # A linha de gatilho de cada hook real tem que cobrir o que ele bloqueia. Apagar a linha
 # só deixa o hook mais lento; estreitá-la quebra os casos de bloqueio acima.
-for par in 'block-main-commit.sh|commit' 'block-parallel-clone-switch.sh|checkout switch reset stash' 'block-delete-branch-with-children.sh|merge' 'block-cd-leitura-relativa.sh|cd'; do
+for par in 'block-main-commit.sh|commit' 'block-delete-branch-with-children.sh|merge' 'block-cd-leitura-relativa.sh|cd'; do
   f="${par%%|*}"; g="${par#*|}"
   grep -qF "# gatilho: $g" "$HOOKS_DIR/$f" && ok "$f declara '# gatilho: $g'" || falha "$f sem '# gatilho: $g'"
 done
@@ -181,8 +182,6 @@ console.log(g ? g.matcher : "")' "$HOOKS_DIR/hooks.json" "$1" "$2"
 m="$(matcher_de PreToolUse pre-bash.sh)"
 case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o pre-bash.sh casa PowerShell ($m)" ;; *) falha "hooks.json: o pre-bash.sh não casa PowerShell (matcher: $m)" ;; esac
 case "|$m|" in *'|Bash|'*) ok "hooks.json: e continua casando Bash" ;; *) falha "hooks.json: o pre-bash.sh perdeu o Bash (matcher: $m)" ;; esac
-m="$(matcher_de PostToolUse 'repo-session.sh')"
-case "|$m|" in *'|PowerShell|'*) ok "hooks.json: o repo-session (sessão ativa no clone) vê PowerShell" ;; *) falha "hooks.json: repo-session não vê PowerShell (matcher: $m)" ;; esac
 roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
   C="$1" D="$2" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"acceptEdits",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
     | TMPDIR="$TMP" CHECK_CAREFUL_LOG= bash "$HOOK" >"$TMP/out" 2>"$TMP/err"
@@ -196,7 +195,7 @@ rc=$(roda_ps 'git push --force-with-lease origin feat/x' "$FEAT"); espera_rc 0 "
 rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push comum interrompido: $(cat "$TMP/out")" || ok "PowerShell: git push comum passa em silêncio"
 rc=$(C='git checkout main' D="$CLONE" node -e 'process.stdout.write(JSON.stringify({session_id:"sessao-ps",cwd:process.env.D,permission_mode:"default",tool_name:"PowerShell",tool_input:{command:process.env.C}}))' \
   | HOME="$HOME_OUTRA" TMPDIR="$TMP" bash "$HOOK" >"$TMP/out" 2>"$TMP/err"; echo $?)
-espera_rc 2 "$rc" "PowerShell: checkout no clone com outra sessão ativa bloqueia"
+espera_rc 0 "$rc" "PowerShell: checkout no clone com marker de outra sessão não bloqueia mais"
 rc=$(roda_ps 'Get-Content .env.local' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Get-Content .env.local pede confirmação (check-careful)"
 rc=$(roda_ps 'Select-String -Path .env -Pattern KEY' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: Select-String em .env pede confirmação"
 rc=$(roda_ps 'Get-Content .env.example' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: .env.example interrompido: $(cat "$TMP/out")" || ok "PowerShell: Get-Content .env.example segue livre"
@@ -330,7 +329,7 @@ conta_nodes() { # <comando> <cwd> → "<rc> <chamadas>"
   echo "$rc $(wc -l < "$CONTA/chamadas" | tr -d ' ')"
 }
 TODOS="git stash list && git merge x && cd $FEAT && git checkout -b y && $COMMIT"
-r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos dos cinco guards: 1 node (rc ${r% *})" || falha "comando que casa os cinco gatilhos abriu ${r#* } nodes (esperado 1)"
+r=$(conta_nodes "$TODOS" "$FEAT"); [ "${r#* }" = 1 ] && ok "comando que casa os gatilhos de todos os guards: 1 node (rc ${r% *})" || falha "comando que casa todos os gatilhos abriu ${r#* } nodes (esperado 1)"
 r=$(conta_nodes "$COMMIT" "$MAIN");  [ "$r" = "2 1" ] && ok "commit na main: bloqueia com 1 node" || falha "commit na main veio '$r' (esperado '2 1')"
 r=$(conta_nodes 'ls -la' "$FEAT");    [ "$r" = "0 1" ] && ok "comando inocente: 1 node (o check-careful roda sempre)" || falha "comando inocente veio '$r' (esperado '0 1')"
 

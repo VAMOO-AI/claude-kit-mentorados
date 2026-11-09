@@ -9,7 +9,9 @@
 #
 # Depois da 0.64 a fila ficou com três (warn-sem-node, session-size-guard, repo-session): o
 # branch-guard, o memoria-worktree-link e o worktree-seed-env foram cortados, e a
-# devolução do compact virou o compact-estado.sh no SessionStart(compact).
+# devolução do compact virou o compact-estado.sh no SessionStart(compact). Em 09/11/2026
+# (decisão D3) o repo-session saiu junto com o block-parallel-clone-switch, que era o único
+# leitor dos markers dele: ficaram dois.
 #
 # Linha que começa com `@usuario ` (o aviso do session-size) é para a pessoa: sai num JSON,
 # no systemMessage, e o resto vai para o modelo no additionalContext do mesmo JSON. Sem
@@ -71,12 +73,12 @@ tem()     { case "$2" in *"$1"*) ok "$3" ;; *) falha "$3 (não achei '$1' em: $2
 nao_tem() { case "$2" in *"$1"*) falha "$3 (achei '$1' em: $2)" ;; *) ok "$3" ;; esac; }
 texto_puro() { case "$(head -c1 "$TMP/out")" in "{") falha "$1 (saiu JSON: $(cat "$TMP/out"))" ;; *) ok "$1" ;; esac; }
 
-echo "== primeiro prompt: silêncio, e o repo-session registrou a sessão =="
+echo "== primeiro prompt: silêncio, e nenhum marker de sessão é gravado (o repo-session saiu) =="
 rc=$(roda s1 "$REPO")
 espera_rc 0 "$rc" "sai 0"
 [ -s "$TMP/out" ] && falha "stdout deveria estar vazio: $(cat "$TMP/out")" || ok "stdout vazio (nenhum hook tinha o que dizer)"
-H=$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | { shasum 2>/dev/null || sha1sum; } | awk '{print $1}')
-[ -f "$HOME/.claude/.cache/repo-sessions/$H/s1" ] && ok "repo-session marcou s1 no repo" || falha "repo-session não marcou a sessão"
+[ -e "$HOME/.claude/.cache/repo-sessions" ] && falha "o pre-prompt ainda grava marker em ~/.claude/.cache/repo-sessions" || ok "nada em ~/.claude/.cache/repo-sessions"
+[ -e "$HOOKS_DIR/repo-session.sh" ] && falha "repo-session.sh ainda está em plugin/hooks" || ok "repo-session.sh saiu de plugin/hooks"
 
 echo
 echo "== contexto de 160K: o session-size vai para a pessoa, e nada para o modelo =="
@@ -99,32 +101,31 @@ echo "== aviso para a pessoa com outros hooks falando: separa, na ordem =="
 PESSOA="$(árvore "$TMP/pessoa")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo "@usuario pra-pessoa"' 'exit 0' > "$PESSOA/session-size-guard.sh"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo primeiro' 'exit 0' > "$PESSOA/warn-sem-node.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo terceiro' 'exit 0' > "$PESSOA/repo-session.sh"
 rc=$(roda s5 "$REPO" "$PESSOA")
 espera_rc 0 "$rc" "sai 0"
 igual "pra-pessoa" "$(json systemMessage)" "systemMessage é só a linha @usuario, sem o prefixo"
-igual "$(printf 'primeiro\nterceiro')" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto, na ordem dos hooks"
+igual "primeiro" "$(json hookSpecificOutput.additionalContext)" "additionalContext tem o resto"
 
 echo
-echo "== três hooks, na ordem, todos com o payload; os cortados não rodam mais =="
+echo "== dois hooks, na ordem, os dois com o payload; os cortados não rodam mais =="
 TRES="$(árvore "$TMP/tres")"
-for h in warn-sem-node session-size-guard repo-session; do
+for h in warn-sem-node session-size-guard; do
   printf '%s\n' '#!/bin/bash' "case \"\$(cat)\" in *'\"session_id\":\"s4\"'*) echo $h-leu ;; *) echo $h-sem-payload ;; esac" 'exit 0' > "$TRES/$h.sh"
 done
-for h in precompact-devolve branch-guard memoria-worktree-link worktree-seed-env warn-sem-jq; do
+for h in precompact-devolve branch-guard memoria-worktree-link worktree-seed-env warn-sem-jq repo-session; do
   printf '%s\n' '#!/bin/bash' "echo $h-RODOU" 'exit 0' > "$TRES/$h.sh"
 done
 rc=$(roda s4 "$REPO" "$TRES")
 espera_rc 0 "$rc" "sai 0"
 # O warn-sem-jq do kit do time saiu da cadeia (F8a do núcleo único): mesmo que um
 # ~/.claude/hooks antigo ainda o tenha, ele não roda.
-igual "$(printf 'warn-sem-node-leu\nsession-size-guard-leu\nrepo-session-leu')" "$(cat "$TMP/out")" "os três leem o payload, nesta ordem, e nenhum hook cortado roda"
+igual "$(printf 'warn-sem-node-leu\nsession-size-guard-leu')" "$(cat "$TMP/out")" "os dois leem o payload, nesta ordem, e nenhum hook cortado roda (nem o repo-session de um ~/.claude/hooks antigo)"
 
 echo
 echo "== sem linha @usuario, texto puro como antes, na ordem =="
 TEXTO="$(árvore "$TMP/texto")"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo primeiro' 'exit 0' > "$TEXTO/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo segundo' 'exit 0' > "$TEXTO/repo-session.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo primeiro' 'exit 0' > "$TEXTO/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo segundo' 'exit 0' > "$TEXTO/session-size-guard.sh"
 rc=$(roda s6 "$REPO" "$TEXTO")
 espera_rc 0 "$rc" "sai 0"
 texto_puro "não vira JSON"
@@ -135,19 +136,19 @@ echo "== sem node (ou com o node quebrado): texto puro, sem o prefixo =="
 SEM="$(sem_node "$TMP/sem-node")"
 rc=$(roda s7 "$REPO" "$PESSOA" "$SEM")
 espera_rc 0 "$rc" "sem node: sai 0"
-igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "sem node: tudo em texto, o aviso sem @usuario"
+igual "$(printf 'primeiro\npra-pessoa')" "$(cat "$TMP/out")" "sem node: tudo em texto, o aviso sem @usuario"
 QUEBRADO="$(sem_node "$TMP/node-quebrado")"
 printf '%s\n' '#!/bin/sh' 'exit 1' > "$QUEBRADO/node"; chmod +x "$QUEBRADO/node"
 rc=$(roda s8 "$REPO" "$PESSOA" "$QUEBRADO")
 espera_rc 0 "$rc" "node que falha: sai 0"
-igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "node que falha: mesmo texto de quem não tem node"
+igual "$(printf 'primeiro\npra-pessoa')" "$(cat "$TMP/out")" "node que falha: mesmo texto de quem não tem node"
 # Sem node e sem sed: o prefixo sai em bash puro. A máquina sem node é justamente a que pode
 # não ter outras coisas, e o fallback com sed devolvia nada.
 MINIMO="$TMP/minimo"; mkdir -p "$MINIMO"
 printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v cat)" > "$MINIMO/cat"; chmod +x "$MINIMO/cat"
 rc=$(roda s9 "$REPO" "$PESSOA" "$MINIMO")
 espera_rc 0 "$rc" "PATH só com cat: sai 0"
-igual "$(printf 'primeiro\npra-pessoa\nterceiro')" "$(cat "$TMP/out")" "PATH só com cat: o mesmo texto, sem o prefixo"
+igual "$(printf 'primeiro\npra-pessoa')" "$(cat "$TMP/out")" "PATH só com cat: o mesmo texto, sem o prefixo"
 
 echo
 echo "== hook ausente é pulado; pasta vazia sai 0 calado =="
@@ -165,7 +166,6 @@ echo "== cadeia: o primeiro código ≠ 0 encerra, com o stdout e o stderr dele 
 FALSOS="$(árvore "$TMP/falsos")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo "@usuario aviso-do-primeiro"' 'exit 0' > "$FALSOS/warn-sem-node.sh"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo bloqueio' 'echo motivo >&2' 'exit 2' > "$FALSOS/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo NAO-DEVIA-RODAR' 'exit 0' > "$FALSOS/repo-session.sh"
 rc=$(roda s9 "$REPO" "$FALSOS")
 espera_rc 2 "$rc" "exit 2 do hook vira exit 2 da cadeia"
 contem "$TMP/out" 'aviso-do-primeiro' "o que os anteriores disseram é repassado"
@@ -173,6 +173,12 @@ nao_contem "$TMP/out" '@usuario' "…sem o prefixo @usuario"
 texto_puro "…em texto puro, como antes (JSON mudaria o efeito do exit ≠ 0)"
 contem "$TMP/out" 'bloqueio' "stdout do hook que saiu ≠ 0 é repassado"
 contem "$TMP/err" 'motivo' "stderr do hook que saiu ≠ 0 é repassado"
+# Com dois hooks na cadeia, "o seguinte não roda" precisa do bloqueio no primeiro.
+PRIMEIRO="$(árvore "$TMP/bloqueia-primeiro")"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo bloqueio' 'exit 2' > "$PRIMEIRO/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo NAO-DEVIA-RODAR' 'exit 0' > "$PRIMEIRO/session-size-guard.sh"
+rc=$(roda s9 "$REPO" "$PRIMEIRO")
+espera_rc 2 "$rc" "exit 2 do primeiro hook encerra a cadeia"
 nao_contem "$TMP/out" 'NAO-DEVIA-RODAR' "o hook seguinte não roda"
 
 echo
@@ -182,18 +188,23 @@ echo "== cadeia: exit fora de 0 e 2 é bug do hook, e os seguintes rodam =="
 BUG="$(árvore "$TMP/bug")"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo aviso-do-primeiro' 'exit 0' > "$BUG/warn-sem-node.sh"
 printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-bug' 'echo erro-do-bug >&2' 'exit 1' > "$BUG/session-size-guard.sh"
-printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo seguinte-rodou' 'exit 0' > "$BUG/repo-session.sh"
 rc=$(roda s9 "$REPO" "$BUG")
 espera_rc 0 "$rc" "hook com exit 1 não encerra a cadeia: sai 0"
 modelo=$(json hookSpecificOutput.additionalContext)
 pessoa=$(json systemMessage)
-tem 'seguinte-rodou' "$modelo" "o hook seguinte roda e chega ao modelo"
 tem 'aviso-do-primeiro' "$modelo" "o que os anteriores disseram continua chegando"
 nao_tem 'saida-do-bug' "$modelo" "o stdout do hook com bug não vira contexto"
 tem 'session-size-guard.sh saiu 1' "$pessoa" "a pessoa vê qual hook falhou (systemMessage)"
 contem "$TMP/err" '[pre-prompt] session-size-guard.sh saiu 1 (bug do hook; cadeia segue)' "stderr diz qual hook falhou e com que código"
 contem "$TMP/err" 'erro-do-bug' "stderr do hook com bug é repassado"
 contem "$TMP/err" 'saida-do-bug' "…e o stdout dele também, para diagnóstico"
+# Com dois hooks na cadeia, "o seguinte roda" precisa do bug no primeiro.
+BUG1="$(árvore "$TMP/bug-primeiro")"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo saida-do-bug' 'exit 1' > "$BUG1/warn-sem-node.sh"
+printf '%s\n' '#!/bin/bash' 'cat >/dev/null' 'echo seguinte-rodou' 'exit 0' > "$BUG1/session-size-guard.sh"
+rc=$(roda s9 "$REPO" "$BUG1")
+espera_rc 0 "$rc" "bug no primeiro hook: a cadeia sai 0"
+tem 'seguinte-rodou' "$(json hookSpecificOutput.additionalContext)" "o hook seguinte roda e chega ao modelo"
 
 echo
 echo "== fail-open =="

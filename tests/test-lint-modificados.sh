@@ -109,12 +109,17 @@ if [ -n "$STOP" ] && [ "$(printf '%s' "$STOP" | cut -f3)" = "-" ] && [ "$(printf
 else
   falha "Stop sem o lint-modificados.sh (ou async, ou sem timeout)"
 fi
-# B9 da avaliação de 20/10: o touch do repo-session roda em todo Bash, Edit e Write e não
-# decide nada, então vai em async. O anota fica síncrono (o Stop lê a lista dele).
-if awk -F"$TAB" '$1=="PostToolUse" && $5 ~ /repo-session\.sh" touch$/ && $3=="true"' "$TMP/registro" | grep -q .; then
-  ok "PostToolUse do repo-session (touch) é async"
+# O repo-session (marker de sessão por repo) saiu em 09/11/2026 com o block-parallel-clone-switch,
+# o único leitor dele. A lista do Stop nunca dependeu dele: vem do `anota` acima.
+if grep -q 'repo-session' "$TMP/registro"; then
+  falha "o hooks.json ainda registra o repo-session"
 else
-  falha "PostToolUse do repo-session (touch) deveria ser async"
+  ok "nenhum evento registra o repo-session (PostToolUse, SessionStart, SessionEnd)"
+fi
+if awk -F"$TAB" '$1=="SessionEnd"' "$TMP/registro" | grep -q .; then
+  falha "sobrou hook em SessionEnd (só o repo-session morava lá)"
+else
+  ok "SessionEnd sem hook"
 fi
 [ -f "$HOOK" ] && ok "plugin/hooks/lint-modificados.sh existe" || falha "plugin/hooks/lint-modificados.sh não existe"
 

@@ -48,7 +48,7 @@ node -e '
       for (const h of g.hooks || []) console.log(evento + "\t" + (h.command || ""));
 ' "$HOOKS_JSON" > "$TMP/comandos" || { echo "hooks.json ilegível"; exit 2; }
 
-# "PreToolUse:pre-bash.sh", "SessionEnd:repo-session.sh end" — o nome que aparece na falha.
+# "PreToolUse:pre-bash.sh", "Stop:lint-modificados.sh" — o nome que aparece na falha.
 rotulo() { printf '%s:%s' "$1" "$(printf '%s' "$2" | sed 's/.*PLUGIN_ROOT}\///; s/"//g; s/^hooks\///; s/^scripts\///')"; }
 
 REPO="$TMP/repo"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main 2>/dev/null
