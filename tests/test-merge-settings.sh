@@ -605,6 +605,37 @@ deixa_c '/usr/bin/grep -rn "vercel login --github" docs'
 deixa_c 'echo /supabase db push'
 deixa_c 'echo supabase link --project-ref abc'
 
+echo "== supabase: secrets set/unset e migration repair perguntam; functions deploy segue livre (D15) =="
+# Decisão de 09/11/2026: trocar segredo de produção e reescrever o histórico de migration são
+# irreversíveis para quem está aprendendo, e não têm undo pelo git. Pergunta (ask), não nega:
+# os dois são rotina legítima. As formas são as do deny de `db push`: binário puro, por
+# caminho, sudo, env, /…/env e cada runner, com e sem argumento.
+for pre in '' '/opt/homebrew/bin/' 'sudo ' 'sudo -E ' 'env FOO=1 ' '/usr/bin/env FOO=1 ' 'npx ' 'npx -y ' 'bunx ' \
+           'pnpm dlx ' 'pnpm exec ' 'pnpx ' 'yarn dlx ' 'npm exec -- ' 'bun x '; do
+  for c in 'supabase secrets set X=1' 'supabase secrets set' 'supabase secrets unset X' 'supabase secrets unset' \
+           'supabase migration repair --status reverted 123' 'supabase migration repair'; do
+    if casa ask Bash "${pre}$c"; then echo "  ok    ask (Bash): ${pre}$c"; else echo "  FALHA ask não pega (Bash): ${pre}$c"; falhas=$((falhas+1)); fi
+    negado_cmd "${pre}$c" && { echo "  FALHA virou deny (era para perguntar): ${pre}$c"; falhas=$((falhas+1)); }
+  done
+done
+for pre in '' 'sudo ' 'env FOO=1 ' 'npx ' 'bunx ' 'pnpm dlx ' 'yarn dlx ' 'npm exec -- ' 'bun x ' 'pnpx '; do
+  for c in 'supabase secrets set X=1' 'supabase secrets set' 'supabase secrets unset X' \
+           'supabase migration repair --status reverted 123' 'supabase migration repair'; do
+    if casa ask PowerShell "${pre}$c"; then echo "  ok    ask (PowerShell): ${pre}$c"; else echo "  FALHA ask não pega (PowerShell): ${pre}$c"; falhas=$((falhas+1)); fi
+  done
+done
+for tool in Bash PowerShell; do
+  for c in 'npx supabase functions deploy foo' 'npx supabase functions deploy secrets-set' 'npx supabase secrets list' \
+           'npx supabase migration new repair_tabela' 'npx supabase migration list' 'npx supabase migration up'; do
+    if casa ask "$tool" "$c"; then echo "  FALHA ask pega rotina ($tool): $c"; falhas=$((falhas+1))
+    elif casa allow "$tool" "$c"; then echo "  ok    livre ($tool): $c"
+    else echo "  FALHA não está no allow ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+done
+for c in 'supabase secrets list' 'supabase functions deploy foo' 'supabase migration list' 'grep -rn "supabase secrets set" docs'; do
+  if casa ask Bash "$c"; then echo "  FALHA ask pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    não pergunta: $c"; fi
+done
+
 echo "== deny de leitura que passava pelo nome exato (#246, item 1) =="
 # Read(): gitignore. `//` é a raiz e `~/` o home; `*` não atravessa `/` e `**` atravessa.
 CASA_T=/home/teste
