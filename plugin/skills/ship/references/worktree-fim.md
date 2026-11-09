@@ -2,16 +2,13 @@
 
 Lido no §6, quando `git rev-parse --show-toplevel` está dentro de `.claude/worktrees/` ou `.claude-worktrees/`.
 
-Se `git rev-parse --show-toplevel` estiver dentro de `.claude/worktrees/` ou `.claude-worktrees/`,
-confira as guardas — é a prova da skill `worktrees` ("Limpeza no fim"):
+Fora de um worktree desses, pule o §6. Dentro, confira as guardas: a prova manual (PR `MERGED`,
+o `headRefOid` dele e `worktree-gc.sh --verificar <wt>` com exit 0) é a da skill `worktrees`,
+seção "Limpeza no fim". Rode os comandos de lá.
 
-```bash
-git rev-parse --show-toplevel | grep -qE '/\.claude/worktrees/|/\.claude-worktrees/' && echo EM_WORKTREE   # senão, pule o §6
-gh pr view <n> --json state -q .state           # MERGED
-gh pr view <n> --json headRefOid -q .headRefOid # o SHA que o PR levou
-git rev-parse HEAD                              # o mesmo SHA: nenhum commit local ficou fora do PR
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-gc.sh" --verificar <wt>   # exit 0 "pode remover" · exit 1 "keep: <motivos>"
-```
+O critério da ship para o SHA é mais estrito que o de lá: `git rev-parse HEAD` tem de ser
+**igual** ao `headRefOid` do PR (nenhum commit local ficou fora do PR); tip só contido no head
+não basta aqui.
 
 `<wt>` é o caminho do worktree, escrito por extenso. O `--verificar` pega mudança não commitada,
 branch não mergeada e o que o git ignora e o `remove` apagaria calado: env ignorado (`.env*`,
