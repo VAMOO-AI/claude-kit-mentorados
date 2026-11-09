@@ -189,7 +189,8 @@ roda_ps() { # roda_ps <comando> <cwd> → rc, com tool_name PowerShell
 }
 rc=$(roda_ps "$COMMIT" "$MAIN");  espera_rc 2 "$rc" "PowerShell: git commit em main bloqueia"
 rc=$(roda_ps "$COMMIT" "$FEAT");  espera_rc 0 "$rc" "PowerShell: git commit em feature passa"
-rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push --force pede confirmação"
+rc=$(roda_ps 'git push' "$MAIN"); contem "$TMP/out" '"permissionDecision":"ask"' "PowerShell: git push sem refspec na main pede confirmação"
+rc=$(roda_ps 'git push --force origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push --force é da regra ask do template, e o hook ainda fala: $(cat "$TMP/out")" || ok "PowerShell: push --force fica com a regra ask do template (hook calado)"
 rc=$(roda_ps 'git push --force-with-lease origin feat/x' "$FEAT"); espera_rc 0 "$rc" "PowerShell: --force-with-lease sai 0"
 [ -s "$TMP/out" ] && falha "PowerShell: --force-with-lease interrompido: $(cat "$TMP/out")" || ok "PowerShell: --force-with-lease segue sem perguntar"
 rc=$(roda_ps 'git push -u origin feat/x' "$FEAT"); [ -s "$TMP/out" ] && falha "PowerShell: push comum interrompido: $(cat "$TMP/out")" || ok "PowerShell: git push comum passa em silêncio"
@@ -205,7 +206,7 @@ rc=$(roda 'cd /Users/x/proj/app && cat package.json' "$FEAT")
 espera_rc 2 "$rc" "Bash: o mesmo cd + leitura continua bloqueado (controle)"
 
 echo
-echo "== revisão do PR #170: o que é perigoso pergunta nos dois shells, o resto segue livre =="
+echo "== revisão do PR #170: o que depende de contexto pergunta nos dois shells; o que tem regra fica com a regra =="
 # Cada linha: esperado|shell|repo|comando. shell: B (Bash), P (PowerShell) ou A (os dois).
 # repo: F (branch de feature) ou M (main). Comandos de git valem igual nos dois shells.
 decide_em() { # decide_em <ferramenta> <cwd> <comando> → ask | block | pass
@@ -226,44 +227,21 @@ while IFS='|' read -r esp sh repo cmd; do
     [ "$got" = "$esp" ] && ok "$esp ($t): $cmd" || falha "$t: $cmd (esperado $esp, veio $got)"
   done
 done <<'CASOS'
-# segredo citado por qualquer comando
+# .env citado por qualquer comando (o que o comando faz com o arquivo decide: fica no hook)
 ask|A|F|grep '' .env
 ask|B|F|awk 1 .env
-ask|A|F|cat ~/.ssh/id_ed25519
 ask|A|F|git show HEAD:.env
 ask|A|F|ffmpeg -f data -i .env -map 0 -c copy -f data -
-ask|A|F|cat ~/.aws/credentials
-ask|A|F|cat ~/.netrc
-ask|A|F|cat ~/.config/gh/hosts.yml
-ask|A|F|cat serviceAccountKey.json
 ask|A|F|cat ~/.claude/.env.tokens
-ask|A|F|cat certs/server.pem
-ask|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
 ask|P|F|Get-Content .env
 ask|P|F|Select-Object -InputObject (gc .env)
 ask|P|F|Select-String -Path .env -Pattern KEY
-ask|P|F|gc ~/.claude.json
 pass|A|F|cat .env.example
 pass|A|F|cp .env.example .env.template
 pass|B|F|grep -c '^KEY=' .env.local
 pass|B|F|echo .env >> .gitignore
 pass|A|F|git commit -m "chore: ignora .env"
 pass|A|F|grep -rn "process.env" src
-# variáveis de ambiente inteiras
-ask|B|F|env
-ask|B|F|env | grep TOKEN
-ask|B|F|printenv
-ask|B|F|printenv GITHUB_TOKEN
-ask|B|F|export -p
-ask|P|F|Get-ChildItem Env:
-ask|P|F|gci env:
-ask|P|F|ls env:
-ask|P|F|dir Env:
-ask|P|F|Get-Item Env:GITHUB_TOKEN
-ask|P|F|[Environment]::GetEnvironmentVariables()
-pass|B|F|env FOO=1 npm test
-pass|B|F|export FOO=1
-pass|P|F|Get-ChildItem src
 # rm -r só em pasta descartável
 ask|B|F|rm -rf outputs
 ask|B|F|rm -rf .next outputs
@@ -277,35 +255,60 @@ pass|B|F|rm -rf /tmp/x
 pass|B|F|rm -f arquivo.txt
 pass|P|F|Remove-Item -Recurse -Force .next
 pass|P|F|Remove-Item node_modules -Recurse -ErrorAction SilentlyContinue
-# push
-ask|A|F|git push -uf origin feat/x
-ask|A|F|git push origin :feat/x
-ask|A|F|git push origin +feat/x
-ask|A|F|git push origin HEAD:refs/heads/main
-ask|A|F|git push origin feat/x:main
-ask|A|F|git push origin master
+# push sem destino explícito: a branch atual decide (glob nenhum vê a branch)
 ask|A|M|git push
 ask|A|M|git push origin
 ask|A|M|git push -u origin HEAD
-ask|A|F|git -C @FEAT@ push --force
-ask|A|F|git push --all origin
-ask|A|F|git push --mirror
-ask|A|F|git push --delete origin feat/x
+ask|A|M|git push -f
+ask|A|F|git push origin :feat/x
 pass|A|F|git push
 pass|A|F|git push origin
 pass|A|F|git push -u origin feat/x
 pass|A|F|git push -u origin HEAD
 pass|A|F|git push --force-with-lease origin feat/x
 pass|A|F|git -C @FEAT@ push
-# descartar alteração local
-ask|A|F|git checkout -f feat/y
-ask|A|F|git checkout feat/y --force
-ask|A|F|git switch --discard-changes feat/y
-ask|A|F|git switch -f feat/y
-ask|A|F|git restore .
-ask|A|F|git checkout -- .
-ask|A|F|git stash drop
-ask|A|F|git stash clear
+# Saiu do hook em 09/11/2026 (D5): a pergunta é da regra ask/deny do template, e o hook se
+# cala para a pessoa não ver duas perguntas no mesmo comando. A regra de cada linha está
+# provada em tests/test-merge-settings.sh ("o que saiu do check-careful tem regra").
+pass|A|F|cat ~/.ssh/id_ed25519
+pass|A|F|cat ~/.aws/credentials
+pass|A|F|cat ~/.netrc
+pass|A|F|cat ~/.config/gh/hosts.yml
+pass|A|F|cat serviceAccountKey.json
+pass|A|F|cat certs/server.pem
+pass|P|F|git diff --no-index NUL $HOME\.ssh\id_ed25519
+pass|P|F|gc ~/.claude.json
+pass|B|F|env
+pass|B|F|env | grep TOKEN
+pass|B|F|printenv
+pass|B|F|printenv GITHUB_TOKEN
+pass|B|F|export -p
+pass|P|F|Get-ChildItem Env:
+pass|P|F|gci env:
+pass|P|F|ls env:
+pass|P|F|dir Env:
+pass|P|F|Get-Item Env:GITHUB_TOKEN
+pass|P|F|[Environment]::GetEnvironmentVariables()
+pass|B|F|env FOO=1 npm test
+pass|B|F|export FOO=1
+pass|P|F|Get-ChildItem src
+pass|A|F|git push -uf origin feat/x
+pass|A|F|git push origin +feat/x
+pass|A|F|git push origin HEAD:refs/heads/main
+pass|A|F|git push origin feat/x:main
+pass|A|F|git push origin master
+pass|A|F|git -C @FEAT@ push --force
+pass|A|F|git push --all origin
+pass|A|F|git push --mirror
+pass|A|F|git push --delete origin feat/x
+pass|A|F|git checkout -f feat/y
+pass|A|F|git checkout feat/y --force
+pass|A|F|git switch --discard-changes feat/y
+pass|A|F|git switch -f feat/y
+pass|A|F|git restore .
+pass|A|F|git checkout -- .
+pass|A|F|git stash drop
+pass|A|F|git stash clear
 pass|A|F|git restore --staged .
 pass|A|F|git restore src/a.ts
 pass|A|F|git switch -c feat/z

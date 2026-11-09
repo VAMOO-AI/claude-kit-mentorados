@@ -4,6 +4,24 @@
 # ignorada no meio de um fluxo. Lê o JSON via node (sem jq). Fail-open: sem node /
 # sem match => não interfere.
 #
+# O QUE FICA AQUI (decisão D5 de 09/11/2026): só o que nenhuma regra declarativa expressa,
+# porque depende de contexto que um glob não vê.
+#   • `rm -rf` — o alvo decide (pasta descartável passa, o resto pergunta);
+#   • SQL destrutivo/DDL — só quando há executor no comando, não em quem cita;
+#   • `supabase db reset` — só o remoto;
+#   • `git push` sem destino explícito — a branch ATUAL do repo-alvo decide; e o push que
+#     apaga por refspec (`:branch`), que nenhum glob escreve: regra terminada em `:*` é lida
+#     pelo Claude Code como o sufixo legado ` *`;
+#   • `git add` amplo — só em clone, não em worktree;
+#   • `.env` citado — quem imprime pergunta, quem só carrega ou escreve passa;
+#   • rede + credencial no mesmo segmento (exfiltração).
+# O QUE SAIU, e quem cobre: push --force/--delete/-d/--mirror/--all e destino main explícito,
+# checkout/switch -f, restore ., stash drop/clear, listar o ambiente (env, printenv…) e
+# chave/credencial fora do .env (.ssh, .pem, .aws, .netrc, .npmrc, gh, .claude.json) são das
+# regras `ask`/`deny` de templates/settings.json. O hook as repetia, e pior: perguntava de
+# novo o que a regra já tinha perguntado. Cada caso retirado tem asserção de regra em
+# tests/test-merge-settings.sh ("o que saiu do check-careful").
+#
 # ATENÇÃO ao mexer: um "ask" daqui ATRAVESSA o modo bypass. Cada falso positivo vira
 # uma interrupção real no meio do trabalho — e interrupção demais faz a pessoa desligar
 # o hook inteiro, que é o pior desfecho possível. Duas recalibrações por medição:
@@ -23,6 +41,7 @@
 #       `--dry-run`) e não em quem EXECUTA. Agora exige executor no comando.
 #     • `supabase db reset` local é rotina de migration; só o remoto apaga dado real.
 #     • `git add -A` só é risco em clone compartilhado — worktree tem index próprio.
+#   (as duas primeiras regras, de push, hoje são das regras `ask` do template.)
 #
 # ESCOTILHA: prefixe o comando com CAREFUL_OFF=1 para o hook não opinar nele (mesmo
 # idioma do HOTFIX_MAIN=1 do block-main-commit.sh).
@@ -104,8 +123,7 @@ m()  { printf '%s' "$c" | grep -qiE "$1"; }   # case-insensitive: SQL, nomes de 
 ms() { printf '%s' "$c" | grep -qE  "$1"; }   # case-sensitive: flags (-f do force ≠ -F do heredoc)
 
 # Segmentos do comando, sem o corpo de heredoc: `&&`, `||`, `;`, `|` e quebra de linha
-# separam. Os blocos de rm, push, descarte local, segredo e variável de ambiente (0.48.0)
-# decidem por segmento — testar no comando inteiro foi o defeito de 29/08 (o -F do heredoc
+# separam. Os blocos de rm, push e segredo decidem por segmento — testar no comando inteiro foi o defeito de 29/08 (o -F do heredoc
 # casando com o -f do force). Vale para Bash e PowerShell: o pre-bash.sh entrega os dois.
 segs=$(printf '%s\n' "$c_hd" | awk '{ gsub(/&&|\|\||;|\|/, "\n"); print }')
 desaspa() { local a="$1"; a="${a#[\"\']}"; a="${a%[\"\']}"; printf '%s' "$a"; }
@@ -167,19 +185,18 @@ done <<< "$segs"
 fi
 shopt -u nocasematch
 
-# git push (0.48.0; posição e `cd` vêm do kit do time, F4 do núcleo único). Lê flag, refspec
-# e o branch do repo-alvo:
-#   • force por flag agrupada (`-uf`), `--force` ou refspec com `+`; --force-with-lease e
-#     --force-if-includes são isentos (recusam se o remoto andou);
-#   • apagar por `--delete`/`-d` ou refspec `:branch`; `--mirror` e `--all`;
-#   • destino main/master em qualquer forma (`main`, `HEAD:main`, `x:refs/heads/main`);
-#   • `git push`/`git push origin` sem refspec (ou `HEAD`) estando na main/master.
+# git push sem destino explícito, estando na main/master. É o único caso de push que glob
+# nenhum expressa: `git push`, `git push origin` e `git push -u origin HEAD` são o push de
+# rotina numa feature branch e vão direto na main quando a branch atual é ela. Force,
+# --delete, --mirror/--all e o destino main ESCRITO no comando são das regras `ask` do
+# template (e o force na main, do `deny`). O refspec `:branch`, que apaga a branch remota,
+# fica aqui pelo motivo do cabeçalho; pergunta sempre, como a regra do `--delete`.
 # Só conta o push em posição de comando: o corpo de heredoc já saiu, e "git push" citado
 # numa string do python, num doc ou num caso de teste não começa segmento. O branch é o do
 # repo-alvo, seguindo o `cd` do próprio comando e o `git -C <dir>`; `cd` com variável deixa o
-# branch desconhecido, e aí só o destino explícito pergunta. HOTFIX_MAIN=1 (a escotilha do
-# block-main-commit) cala só a regra da main. Medido no time em 15/10/2026 (30 dias): 98
-# disparos sem a posição, a maioria texto; 48 com ela e sem seguir o `cd`.
+# branch desconhecido, e aí o hook não pergunta. HOTFIX_MAIN=1 (a escotilha do
+# block-main-commit) cala a regra. Medido no time em 15/10/2026 (30 dias): 98 disparos sem a
+# posição, a maioria texto; 48 com ela e sem seguir o `cd`.
 case "$c_hd" in *push*)
 alvo_main() { local d="${1#refs/heads/}"; [ "$d" = main ] || [ "$d" = master ]; }
 branch_de() { [ -n "$1" ] && git -C "$1" symbolic-ref --short -q HEAD 2>/dev/null; }
@@ -211,87 +228,31 @@ while IFS= read -r seg; do
     case "$dir_c" in *'$'*|*'`'*) dir="" ;; /*) dir="$dir_c" ;; '~'*) dir="$HOME${dir_c#\~}" ;; *) [ -n "$dir" ] && dir="$dir/$dir_c" ;; esac
   fi
   args="${seg#*push}"
-  force=0; apaga=0; tudo=0; pos=(); pula=0; fim=0; del_flag=0
+  pos=(); pula=0; fim=0
   for w in $args; do
     if [ "$pula" = 1 ]; then pula=0; continue; fi
     if [ "$fim" = 0 ]; then
       case "$w" in
         --) fim=1; continue ;;
-        --force-with-lease*|--force-if-includes|--no-force-if-includes) continue ;;
-        --force|--force=*) force=1; continue ;;
-        --delete) apaga=1; del_flag=1; continue ;;
-        --mirror|--all|--branches) tudo=1; continue ;;
         --push-option|--repo|--receive-pack|--exec) pula=1; continue ;;
         --*) continue ;;
-        -[a-zA-Z]*)
-          case "$w" in *f*) force=1 ;; esac
-          case "$w" in *d*) apaga=1; del_flag=1 ;; esac
-          case "$w" in *o) pula=1 ;; esac
-          continue ;;
+        -[a-zA-Z]*) case "$w" in *o) pula=1 ;; esac; continue ;;
       esac
     fi
     pos+=("$(desaspa "$w")")
   done
   refs=(${pos[@]+"${pos[@]:1}"})
-  main=0; apagadas=()
-  [ "$del_flag" = 1 ] && apagadas=(${refs[@]+"${refs[@]}"})
+  main=0; apaga=""
   for r in ${refs[@]+"${refs[@]}"}; do
-    case "$r" in +*) force=1; r="${r#+}" ;; esac
-    case "$r" in :*) apaga=1; apagadas+=("${r#:}") ;; esac
-    dst="${r##*:}"
-    alvo_main "$dst" && main=1
-    if [ "$dst" = HEAD ] || [ "$r" = HEAD ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
+    r="${r#+}"
+    case "$r" in :?*) apaga="$r" ;; esac
+    if [ "${r##*:}" = HEAD ] || [ "$r" = HEAD ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
   done
+  [ -n "$apaga" ] && ask "[cuidado] git push apagando branch remota por refspec ($apaga). Confirme."
   if [ "${#refs[@]}" = 0 ]; then alvo_main "$(branch_de "$dir")" && main=1; fi
   [ "$hotfix" = 1 ] && main=0
-  [ "$force" = 1 ] && ask "[cuidado] git push --force (ou -f agrupado, ou refspec com +) reescreve a história remota sem checar se alguém empurrou antes. Confirme — ou use --force-with-lease."
-  # Apagar branch que já tem PR mergeado é a limpeza depois do merge (o fluxo do git-sync), e
-  # passa (decisão do Ruan na F4). Sem PR mergeado, ou sem como saber (gh ausente, sem rede,
-  # sem branch no comando), pergunta.
-  if [ "$apaga" = 1 ]; then
-    sem_merge=0
-    [ "${#apagadas[@]}" = 0 ] && sem_merge=1
-    command -v gh >/dev/null 2>&1 || sem_merge=1
-    if [ "$sem_merge" = 0 ]; then
-      for b in "${apagadas[@]}"; do
-        b="${b#refs/heads/}"
-        n=$(cd "${dir:-${cwd:-.}}" 2>/dev/null && gh pr list --head "$b" --state merged --json number --jq length 2>/dev/null)
-        case "$n" in ''|*[!0-9]*|0) sem_merge=1; break ;; esac
-      done
-    fi
-    [ "$sem_merge" = 1 ] && ask "[cuidado] git push apagando branch remota (--delete, -d ou refspec :branch) que não tem PR mergeado. Confirme."
-  fi
-  [ "$tudo" = 1 ] && ask "[cuidado] git push --mirror/--all empurra todas as branches, main incluída. Confirme."
-  [ "$main" = 1 ] && ask "[cuidado] git push direto na main/master. O fluxo do kit é branch + PR. Confirme."
+  [ "$main" = 1 ] && ask "[cuidado] git push sem destino explícito com a branch atual na main/master: vai direto na main. O fluxo do kit é branch + PR. Confirme."
 done <<< "$segs_cmd"
-;; esac
-
-# Descartar alteração local não commitada (0.48.0): não há undo nenhum, nem do git.
-case "$c_hd" in *checkout*|*switch*|*restore*|*stash*)
-while IFS= read -r seg; do
-  [ -z "$seg" ] && continue
-  printf '%s' "$seg" | grep -qE '(^|[[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(checkout|switch|restore|stash)([[:space:]]|$)' || continue
-  sub=$(printf '%s' "$seg" | sed -nE 's/.*git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(checkout|switch|restore|stash)([[:space:]].*)?$/\2/p')
-  args=" $(printf '%s' "$seg" | sed -E 's/^.*[[:space:]](checkout|switch|restore|stash)([[:space:]]+|$)//') "
-  case "$sub" in
-    checkout)
-      printf '%s' "$args" | grep -qE '[[:space:]](--force|-[a-zA-Z]*f[a-zA-Z]*)[[:space:]]' \
-        && ask "[cuidado] git checkout --force/-f descarta as alterações locais. Confirme."
-      printf '%s' "$args" | grep -qE '[[:space:]](\.|:/|\*)[[:space:]]' \
-        && ask "[cuidado] git checkout -- . descarta as alterações locais de tudo. Confirme." ;;
-    switch)
-      printf '%s' "$args" | grep -qE '[[:space:]](--discard-changes|--force|-[a-zA-Z]*f[a-zA-Z]*)[[:space:]]' \
-        && ask "[cuidado] git switch --discard-changes/-f descarta as alterações locais. Confirme." ;;
-    restore)
-      if printf '%s' "$args" | grep -qE '[[:space:]](\.|:/|\*)[[:space:]]'; then
-        if printf '%s' "$args" | grep -qE '[[:space:]](--staged|-S)[[:space:]]' && ! printf '%s' "$args" | grep -qE '[[:space:]](--worktree|-W)[[:space:]]'; then :
-        else ask "[cuidado] git restore . descarta as alterações locais. Confirme."; fi
-      fi ;;
-    stash)
-      printf '%s' "$args" | grep -qE '^[[:space:]]+(drop|clear)([[:space:]]|$)' \
-        && ask "[cuidado] git stash drop/clear apaga o que estava guardado no stash. Confirme." ;;
-  esac
-done <<< "$segs"
 ;; esac
 
 # SQL destrutivo: só quando há EXECUTOR. Corpo de heredoc cuja linha de abertura não tem
@@ -344,13 +305,16 @@ if [[ $c == *add* ]] && ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[
   [ "$em_worktree" = 0 ] && ask "[cuidado] git add amplo (-A/-u/--all/.) em clone compartilhado. Prefira paths explícitos pra não commitar arquivo errado."
 fi
 
-# Segredo citado por QUALQUER comando (0.48.0). O deny de Read só cobre os comandos de
+# `.env` citado por QUALQUER comando (0.48.0). O deny de Read só cobre os comandos de
 # arquivo que o Claude Code reconhece no Bash; `grep '' .env`, `awk 1 .env`, `git show
 # HEAD:.env`, `ffmpeg -i .env` e os cmdlets do PowerShell passavam calados. Agora o texto do
-# segmento basta. Isentos: .env.example/.sample/.template/.1password (públicos), escrita por
+# segmento basta. Fica no hook porque a decisão depende do que o comando FAZ com o arquivo, e
+# um `ask` por glob (`*.env*`) perguntaria em `source .env.local`, `cp .env.example .env` e
+# `grep -rn process.env src`. Chave SSH, .pem e credencial de nuvem/gh/npm saíram daqui em
+# 09/11/2026: são das regras `ask` do template (`Bash(*.ssh/*)`, `Bash(*.pem*)`…). Isentos: .env.example/.sample/.template/.1password (públicos), escrita por
 # redirecionamento (`>> .env.local`) e o que não imprime conteúdo (`grep -c/-q/-l`, test, ls,
 # stat, echo/printf, mensagem de commit/PR — sem substituição de comando).
-SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|[A-Za-z0-9_-]\.env($|[^A-Za-z0-9_.-])|\.ssh[/\\]|id_rsa|id_ed25519|id_ecdsa|\.pem($|[^A-Za-z0-9_])|\.aws[/\\]credentials|\.netrc|\.npmrc|\.claude\.json|\.config[/\\]gh[/\\]hosts\.yml|serviceAccountKey\.json'
+SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|[A-Za-z0-9_-]\.env($|[^A-Za-z0-9_.-])'
 if [[ $c_hd =~ $SEGREDO ]]; then
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
@@ -371,26 +335,13 @@ while IFS= read -r seg; do
     printf '%s' "$limpo" | grep -qE '^[[:space:]]*(test|\[|\[\[|ls|stat|echo|printf|touch|chmod|git[[:space:]]+(check-ignore|ls-files|commit|rm[[:space:]]+--cached)|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit))([[:space:]]|$)' && continue
     printf '%s' "$limpo" | grep -qiE '^[[:space:]]*test-path([[:space:]]|$)' && continue
   ;; esac
-  ask "[cuidado] o comando cita arquivo de segredo (.env, chave SSH, .pem, credencial de nuvem/gh/npm) e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe, sem ver o valor: bash $ETC arquivo CHAVE"
+  ask "[cuidado] o comando cita um arquivo .env e pode trazer a credencial pro contexto ou mandá-la pra fora. Pra saber só se a chave existe, sem ver o valor: bash $ETC arquivo CHAVE"
 done <<< "$segs"
 fi
 
-# Variáveis de ambiente inteiras (0.48.0): `env`, `printenv`, `export -p`, `set` e, no
-# PowerShell, `Get-ChildItem Env:` mostram todos os tokens carregados de uma vez.
-shopt -s nocasematch; tem_env=0; [[ $c_hd =~ (env|set|export|declare|nvironment) ]] && tem_env=1; shopt -u nocasematch
-if [ "$tem_env" = 1 ]; then
-while IFS= read -r seg; do
-  [ -z "$seg" ] && continue
-  if printf '%s' "$seg" | grep -qE '^[[:space:]]*(env|printenv|set|export[[:space:]]+-p|export|declare[[:space:]]+-[a-zA-Z]*[xp][a-zA-Z]*)([[:space:]]+-0)?[[:space:]]*$|^[[:space:]]*printenv([[:space:]]|$)' \
-     || printf '%s' "$seg" | grep -qiE '(^|[[:space:](])(get-childitem|gci|ls|dir|get-item|gi|get-content|gc)[[:space:]]+(-path[[:space:]]+|-literalpath[[:space:]]+)?["'"'"']?env:|\[(system\.)?environment\]::getenvironmentvariables'; then
-    ask "[cuidado] listar as variáveis de ambiente mostra todos os tokens carregados. Pra uma só: echo \"\${NOME:+definida}\" (Bash) ou [bool]\$env:NOME (PowerShell)."
-  fi
-done <<< "$segs"
-fi
-
-# Exfiltração de credencial pra fora da máquina. Nada mais no harness barra isso:
-# permissions.deny só cobre o tool Read, e o `ask` de hook não freia subagent — mas na
-# sessão interativa esta é a última chance antes do segredo sair.
+# Exfiltração de credencial pra fora da máquina. Regra declarativa não expressa "comando de
+# rede E credencial no mesmo segmento, para um destino que não é o dono dela"; o `ask` de
+# hook não freia subagent, mas na sessão interativa esta é a última chance antes do segredo sair.
 # A credencial tem que estar DENTRO do segmento do comando de rede: testar as duas
 # metades no comando inteiro dispara em `source .env.tokens; ...; curl`, que é o padrão
 # mais comum aqui — 3.407 disparos no corpus de 30 dias contra 118 da versão por
