@@ -13,7 +13,9 @@
 #   atras    tip contido no head, head só no origin    → pode remover (head buscado)
 #   avancou  commit local depois do head               → keep, NÃO mergeada
 #   ausente  head nunca chegou ao origin               → keep, "indisponível", nunca seco
-# E o hook: atras avisa "já foi mergeada"; avancou e ausente ficam calados.
+# O aviso de abertura (warn-branch-worktree.sh) avisava "já foi mergeada" no caso `atras`. Ele
+# saiu em 09/11/2026 (decisão D13): o script só avisa de branch atrás do upstream. Aqui fica a
+# prova de que ele cala nos três casos e não busca refs/pull na abertura da sessão.
 #
 # Uso: bash tests/test-worktree-gc-head-pr.sh [worktree-gc.sh] [warn-branch-worktree.sh]
 set -uo pipefail
@@ -162,11 +164,13 @@ refute "removeria: .*/(avancou|ausente) "          "gh dry-run: avançou e ausen
 check  "ausente.*head do PR #74 indisponível"      "gh dry-run: ausente com o motivo"      "$OUT"
 esquece_heads
 
-echo "== hook: aviso de worktree mergeado =="
+echo "== hook: o aviso de worktree mergeado saiu da abertura da sessão (D13) =="
 sem_head || echo "  (aviso: o gc não tirou o head buscado)"
-check  "'atras' já foi mergeada"   "hook: atrás do head avisa que já mergeou" "$(hook atras)"
+refute "já foi mergeada"           "hook: atrás do head não avisa mais (a limpeza é do worktree-gc e do git-sync)" "$(hook atras)"
 refute "já foi mergeada"           "hook: avançou fica calado"                "$(hook avancou)"
 refute "já foi mergeada"           "hook: head ausente fica calado"           "$(hook ausente)"
+if sem_head; then printf '  ok    %s\n' "o hook não busca o head do PR (sem fetch de refs/pull na abertura)"
+else printf '  FALHA %s\n' "o hook buscou o head do PR"; falhas=$((falhas+1)); fi
 esquece_heads
 
 echo "== API REST: --verificar =="

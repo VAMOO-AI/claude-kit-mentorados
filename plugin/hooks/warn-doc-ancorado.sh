@@ -5,9 +5,10 @@
 # sozinho: o repo é que anda. Sem este aviso, alguém planeja em cima de um doc que
 # descreve um estado de três semanas atrás e não tem como saber.
 #
-# O repo vem do `.cwd` do payload (lido por node, scripts/hookjson.js): numa sessão de
-# worktree do app desktop, `${CLAUDE_PROJECT_DIR:-$PWD}` pode ser a raiz do clone principal.
-# O env e o $PWD ficam só de reserva, para payload sem cwd.
+# O repo vem do `.cwd` do payload: numa sessão de worktree do app desktop,
+# `${CLAUDE_PROJECT_DIR:-$PWD}` pode ser a raiz do clone principal. Quem lê o payload é o
+# session-start.sh, que entrega o cwd em KIT_SESSAO_CWD; chamado sozinho, o hook lê por node
+# (scripts/hookjson.js). O env e o $PWD ficam só de reserva, para payload sem cwd.
 #
 # Silencioso no caso bom, e o caso bom é conferido em toda sessão (são três ou quatro
 # chamadas de git). Depois de avisar, cala no mesmo repo até o dia seguinte: o marcador é
@@ -17,8 +18,8 @@ set -uo pipefail
 
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 H="$AQUI/../scripts/hookjson.js"
-DIR=""
-if [ -f "$H" ] && command -v node >/dev/null 2>&1 && [ ! -t 0 ]; then
+DIR="${KIT_SESSAO_CWD:-}"
+if [ -z "$DIR" ] && [ -f "$H" ] && command -v node >/dev/null 2>&1 && [ ! -t 0 ]; then
   DIR="$(node "$H" cwd 2>/dev/null)"
 fi
 [ -n "$DIR" ] || DIR="${CLAUDE_PROJECT_DIR:-$PWD}"

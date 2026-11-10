@@ -72,10 +72,12 @@ else
   else check "pagina-plugin-mentoria.md \"Hoje:\": diz ${n:-?} skills, a pasta tem $pastas" fail; fi
   cmds=$(find "$COMANDOS" -maxdepth 1 -name '*.md' | sed 's#.*/##; s#\.md$##' | sort | tr '\n' ' ')
   ncmd=$(printf '%s' "$cmds" | wc -w | tr -d ' ')
-  m=$(printf '%s\n' "$hoje" | grep -oE '[0-9]+ comandos' | grep -oE '[0-9]+')
+  # "1 comando" no singular também conta: com um comando só, o plural não casava e o
+  # check reprovava a linha certa.
+  m=$(printf '%s\n' "$hoje" | grep -oE '[0-9]+ comandos?' | grep -oE '[0-9]+')
   if [ "$m" = "$ncmd" ]; then check "pagina-plugin-mentoria.md \"Hoje:\": $m comandos = plugin/commands/" ok
   else check "pagina-plugin-mentoria.md \"Hoje:\": diz ${m:-?} comandos, plugin/commands/ tem $ncmd" fail; fi
-  listados=$(printf '%s\n' "$hoje" | sed -n 's/.*comandos (\([^)]*\)).*/\1/p' | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort | tr '\n' ' ')
+  listados=$(printf '%s\n' "$hoje" | sed -n 's/.*comandos\{0,1\} (\([^)]*\)).*/\1/p' | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort | tr '\n' ' ')
   if [ "$listados" = "$cmds" ]; then check "pagina-plugin-mentoria.md \"Hoje:\": lista os comandos ($cmds)" ok
   else check "pagina-plugin-mentoria.md \"Hoje:\": lista ($listados), plugin/commands/ tem ($cmds)" fail; fi
   versao=$(node -e 'console.log(require(process.argv[1]).version)' "$RAIZ/plugin/.claude-plugin/plugin.json" 2>/dev/null)

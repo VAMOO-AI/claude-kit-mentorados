@@ -10,6 +10,44 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.91.0] — 2026-11-09
+
+### Adicionado
+
+- **`templates/settings.json`**: `ask` para `supabase secrets set`, `secrets unset` e `migration repair` em todas as formas; `ask` para `git -C <dir>` e `sudo git` em push, checkout, switch, restore e stash; `*.pem*` e `*id_ecdsa*`.
+
+- **Canal estável**: o branch padrão do repo passa a ser o `stable`, que é o que o marketplace de quem instalou segue; a `main` recebe os releases. `scripts/promover-stable.sh <versão> [--push]` avança o canal até a tag (só avança). Fluxo no `CONTRIBUTING.md`; o `release-trem.sh` imprime o `gh pr create` com `--base main`.
+
+### Mudado
+
+- **`check-careful`**: fica só com o que depende de contexto (`rm -rf` por alvo, SQL com executor, `db reset` remoto, push sem destino na main, push que apaga por refspec, `git add` amplo em clone, `.env` citado, exfiltração). O resto pergunta pelas regras `ask`/`deny` do template.
+- **`lint-modificados`**: o Stop roda o `eslint` sem `--fix` e devolve o erro ao modelo (`decision: block`); com `stop_hook_active` só avisa.
+- **`hooks.json`**: `timeout` em todas as entradas; SessionStart com um dispatcher (`hooks/session-start.sh`) e o `compact-estado`; `path-rules` só em `Edit|Write|NotebookEdit`.
+- **`warn-branch-worktree`**: teto de 5 s no `git fetch`, feito em bash.
+- **Só-slash**: `handoff`, `auditoria-seguranca`, `geo-ia`, `bot-discord`, `harness-check`, `mcp-sistema` e `guardrails-ia` ganham `disable-model-invocation: true`. A lista do modelo cai de 7.962 para 4.974 chars, e o `test-skill-descriptions` trava a relação e a meta de 5.000.
+- **Texto num lugar só**: publicar memória (`memoria-projeto` §4), dono do canal (`guardrails-ia`, com `ia · humano · api_oficial · aguardando_inbound · nao_contatar`), prova de limpeza de worktree (`worktrees`), fronteira de segurança (`baseline/references/fronteira.md`) e modelo do `vereditos.md` (`secscan/references/falso-positivo.md`).
+- **`CLAUDE-global.md`**: reescrito, de 14,1 KB para 6,4 KB. Sai a tabela de roteamento, o detalhe de harness que o hook já explica e as citações a docs que não vão no pacote; o Target Lock passa a valer só para banco, login, infra ou mudança sem volta.
+- **`bot-discord`**: o que o bot precisa da VPS passa a estar em `references/03-deploy-vps.md`.
+- **`mcp-sistema`**: a spec vai para `.context/docs/`.
+
+### Corrigido
+
+- **`/kit-vamoo:setup`**: o workflow `audit-multidim` aparecia duas vezes na lista, porque o plugin já o entrega e o setup o copiava para `~/.claude/workflows/`. O setup para de copiar e tira a cópia igual à do plugin, com backup. As skills `orquestracao` e `baseline` apontam para `/kit-vamoo:audit-multidim`.
+- **`block-main-commit`**: deixa passar o primeiro commit de um repo ainda sem commit nenhum.
+- **`guardrails-ia`**: `aguardando_resposta` deixa de existir; a lista de donos do canal divergia da `whatsapp-inbox-stack`.
+- **README e `skills.sh.json`**: diziam que `n8n-workflow-agent` e `whatsapp-inbox-stack` eram só-slash.
+
+### Removido
+
+- **RTK e Codex**: `rtk-claude`, `rtk-codex`, `rtk-holdout`, `codex-espelho` e `codex-optimize` saem do plugin público e vão para o kit do time. O `pre-bash` não reescreve mais comando.
+- **`block-parallel-clone-switch` e `repo-session`**: o bloqueio de troca de branch no clone e o marker de sessão que só ele lia. O `hooks.json` não registra mais nada em SessionEnd.
+- **`warn-cli-outdated`**.
+- **`warn-branch-worktree`**: os avisos de worktree já mergeado e de clone principal fora da main, com as chamadas ao `gh` na abertura. Fica o de branch atrás do upstream.
+- **`motion-reel`, `diretor-imagem`, `gerar-imagem`**: passam ao plugin `marca`, com os testes da `motion-reel` e os passos deles no CI.
+- **`/kit-vamoo:explicar` e `/kit-vamoo:revisar`**: o review fica com o subagente `revisor`.
+- **`monitoramento-infra`**: sai a parte de VPS e Swarm (`references/vps.md`, `fix-vps-hardening.sh`, `boot-guard`); fica sonda e ntfy.
+- **`harness-check`**: saem "Quem era cada sessão", o passo do kit de time e a auditoria de defasagem contra um modelo específico.
+
 ## [0.90.0] — 2026-11-09
 
 ### Adicionado

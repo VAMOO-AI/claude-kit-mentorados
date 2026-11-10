@@ -28,7 +28,7 @@ allowed-tools:
 | **`otimizar-app`** (esta) | "Está pesado/lento. Onde, quanto, e quanto melhorou?" |
 | `baseline` | "A plataforma está apta a produção?" É postura. O pilar 05 tem as queries de banco que esta skill usa. |
 | `verificacao` | "Posso dizer pronto?" |
-| `/kit-vamoo:monitoramento-infra` | VPS, Docker ou Traefik lento, ou dockerd com CPU alta |
+| nenhuma do kit | VPS, Docker ou Traefik lento, ou dockerd com CPU alta: é o host, não o app. Meça lá antes de abrir código. |
 | `ship` | levar o fix para o ar. Se existir `.context/docs/deploy.md` no projeto, ele diz como. |
 
 ## 0. Triagem: "travando" quase nunca foi a CPU do app

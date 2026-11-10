@@ -24,8 +24,8 @@ RAIZ="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 HOOKS_JSON="$RAIZ/plugin/hooks/hooks.json"
 [ -f "$HOOKS_JSON" ] || { echo "hooks.json não encontrado: $HOOKS_JSON"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }
-# Herdados, o codex-espelho escreveria no Codex de quem rodou o teste (o HOME é trocado, esses
-# dois não). O KIT_VAMOO_HOOKS sai para provar que nada depende dele.
+# O KIT_VAMOO_HOOKS sai para provar que nada depende dele; os outros dois, para o hook não
+# enxergar o Codex nem a pasta de dados do plugin de quem rodou o teste.
 unset KIT_VAMOO_HOOKS CODEX_HOME CLAUDE_PLUGIN_DATA
 TAB="$(printf '\t')"
 
@@ -48,10 +48,12 @@ node -e '
       for (const h of g.hooks || []) console.log(evento + "\t" + (h.command || ""));
 ' "$HOOKS_JSON" > "$TMP/comandos" || { echo "hooks.json ilegível"; exit 2; }
 
-# "PreToolUse:pre-bash.sh", "SessionEnd:repo-session.sh end" — o nome que aparece na falha.
+# "PreToolUse:pre-bash.sh", "Stop:lint-modificados.sh" — o nome que aparece na falha.
 rotulo() { printf '%s:%s' "$1" "$(printf '%s' "$2" | sed 's/.*PLUGIN_ROOT}\///; s/"//g; s/^hooks\///; s/^scripts\///')"; }
 
 REPO="$TMP/repo"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main 2>/dev/null
+# Com commit: o block-main-commit isenta repo ainda sem commit nenhum (primeiro commit do `git init`).
+git -C "$REPO" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 payload() { # payload <evento>
   E="$1" D="$REPO" node -e '
     const d = process.env.D;

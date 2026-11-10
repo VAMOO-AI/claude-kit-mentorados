@@ -4,15 +4,15 @@ description: >-
   Gera o documento de passagem de bastão de uma sessão ou projeto, para outro
   dev, agente ou você mesmo depois. Template fixo, destino
   durável em .context/docs/handoffs/, âncora de git real e marcação obrigatória
-  do que foi verificado versus do que é só crença. Use só quando a pessoa
-  pedir um handoff; nunca por iniciativa própria. Pedidos: "/handoff", "monta
-  o handoff", "documenta pro colega assumir", "passa isso pra outra sessão".
+  do que foi verificado versus do que é só crença. Só dispara quando você
+  chama: /kit-vamoo:handoff.
+disable-model-invocation: true
 ---
 
 # handoff
 
-Só quando a pessoa pede, por `/handoff` ou em texto. O modelo nunca decide sozinho
-que é hora de escrever um; é uma decisão de quem está saindo.
+Só roda quando a pessoa chama `/kit-vamoo:handoff`: escrever um handoff é decisão de
+quem está saindo, nunca do modelo.
 
 ## A regra que dá valor ao documento
 
@@ -89,28 +89,10 @@ pode ficar só no handoff — handoff é de uma frente, memória é do projeto. 
 raiz de incidente recorrente, decisão do cliente que parece bug, armadilha que
 custou horas: isso vira arquivo na memória, com link para o handoff.
 
-Se a máquina tiver um script de publicação de memória (o kit de um time pode instalar o
-`publicar-memoria.sh` em `~/.claude/scripts/`), publique por ele, apontando o clone
-principal: ele faz a conferência abaixo e reaproveita o PR de memória aberto. Sem script,
-a conferência é sua.
-
-Na hora de publicar, confira antes se já há PR aberto com memória — publicar em
-paralelo com outra sessão é como nascem dois PRs com os mesmos arquivos. De dentro
-de um worktree, se o guard recusar o `gh` (skill `worktrees`: os dois gatilhos somados, um
-prefixo de env com `$(…)` e o `--jq` entre aspas), grave o comando num `.sh` no scratchpad e
-rode `bash <caminho absoluto>`:
-
-```bash
-gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[]
-  | select(any(.files[]?; .path | startswith(".context/memoria/")))
-  | (if all(.files[]?; .path | startswith(".context/memoria/")) then "memoria" else "misto" end) as $t
-  | "#\(.number) \($t) \(.headRefName) \(.url)"'
-```
-
-Linha `memoria` (PR só de memória): commite na branch desse PR em vez de abrir
-outro, e cite o PR no handoff — quem assume precisa saber que tem memória
-esperando merge. Linha `misto` é PR de feature que levou memória junto: não
-commite nele; só cite no handoff.
+Publicar é a §4 da skill `memoria-projeto` (branch, conferência de PR de memória já
+aberto, script do time se houver), apontando o clone principal. No handoff, cite o PR de
+memória em que você commitou e todo PR `misto` que a conferência mostrar: quem assume
+precisa saber que tem memória esperando merge.
 
 Sem `.context/memoria/` no projeto, diga no handoff onde a memória mora (ou que
 não existe) — a próxima sessão precisa saber se pode confiar em algo além do

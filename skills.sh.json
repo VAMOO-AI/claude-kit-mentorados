@@ -46,15 +46,15 @@
     },
     {
       "title": "WhatsApp e n8n",
-      "description": "Agente e inbox de WhatsApp sobre n8n: workflow, provedores (UAZAPI, NotificaMe, Chatwoot), mídia, IA e humano no mesmo fio e QA simulada do agente. Você chama; o Claude não aciona sozinho.",
+      "description": "Agente e inbox de WhatsApp sobre n8n: workflow, provedores (UAZAPI, NotificaMe, Chatwoot), mídia, IA e humano no mesmo fio e QA simulada do agente.",
       "skills": [
         "n8n-workflow-agent",
         "whatsapp-inbox-stack"
       ]
     },
     {
-      "title": "Monitoramento e VPS",
-      "description": "Saber que caiu antes do cliente: sondas, antiflap, alerta no celular pelo ntfy e os cuidados de VPS com Docker, Traefik e backup. Você chama; o Claude não aciona sozinho.",
+      "title": "Monitoramento",
+      "description": "Saber que caiu antes do cliente: sondas, antiflap, confirmação de queda e alerta no celular pelo ntfy. Você chama; o Claude não aciona sozinho.",
       "skills": [
         "monitoramento-infra"
       ]
@@ -66,9 +66,6 @@
         "bot-discord",
         "mcp-sistema",
         "mapa-de-app",
-        "diretor-imagem",
-        "gerar-imagem",
-        "motion-reel",
         "video-watch",
         "geo-ia"
       ]

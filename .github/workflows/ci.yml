@@ -156,12 +156,6 @@ jobs:
       - name: Leitura relativa depois de cd é bloqueada, e comando legítimo não
         run: bash tests/test-block-cd-leitura-relativa.sh
 
-      - name: Checkout no clone que outra sessão usa é bloqueado; worktree é livre
-        run: bash tests/test-block-parallel-clone-switch.sh
-
-      - name: Checkout no clone que outra sessão usa é bloqueado (payload do Codex)
-        run: bash tests/test-block-parallel-clone-switch.sh --codex
-
       - name: O merge com --delete-branch não fecha PR encadeado
         run: bash tests/test-block-delete-branch.sh
 
@@ -181,6 +175,9 @@ jobs:
         # No ubuntu o disco diferencia maiúscula: roda o caso (d). O (b), que só existe em
         # disco que não diferencia (Mac, Windows), roda na máquina de quem mantém.
         run: bash tests/test-kit-setup-subagentes.sh
+
+      - name: O kit-setup não copia mais o workflow do plugin e tira a cópia duplicada que as versões antigas punham
+        run: bash tests/test-kit-setup-workflows.sh
 
       - name: O setup em HOME temporário termina em auto e sem allow de execução arbitrária
         run: bash tests/test-kit-setup-permissoes.sh
@@ -215,28 +212,14 @@ jobs:
         # release.yml publica o bloco da versão recortado por .github/scripts/changelog-bloco.sh.
         run: bash tests/test-changelog-bloco.sh
 
-      - name: O dispatcher do PreToolUse devolve o que os cinco hooks devolviam separados, e hook com bug não desliga os seguintes
+      - name: O dispatcher do PreToolUse devolve o que os guards devolviam separados, e hook com bug não desliga os seguintes
         run: bash tests/test-pre-bash.sh
 
-      - name: O rtk-claude não reescreve git em worktree, git push, segredo nem saída consumida
-        # Porte do kit do time (F3 do #241): último da cadeia do pre-bash, inerte sem rtk.
-        run: bash tests/test-rtk-claude.sh
-
-      - name: O grupo de controle do rtk sorteia só o elegível e o relatório mede por família
-        run: bash tests/test-rtk-holdout.sh
-
-      - name: O rtk-codex não reescreve o que o check-careful vigia, git em worktree nem git push
-        # Porte do kit do time (F5 do #241). A guarda é superset dos gatilhos do check-careful.
-        run: bash tests/test-rtk-codex.sh
-
-      - name: O espelho do Codex atualiza só o guard que já está lá, quando a versão muda
-        run: bash tests/test-codex-espelho.sh
-
-      - name: O codex-optimize aponta skill desligada no config do Codex
-        run: bash tests/test-codex-optimize-skills.sh
-
-      - name: O dispatcher do UserPromptSubmit devolve o que os três hooks devolviam
+      - name: O dispatcher do UserPromptSubmit devolve o que os dois hooks devolviam
         run: bash tests/test-pre-prompt.sh
+
+      - name: O dispatcher do SessionStart chama os quatro avisos na ordem, com um node só
+        run: bash tests/test-session-start.sh
 
       - name: Sem node, os guards falham aberto e a sessão fica sabendo (uma vez)
         run: bash tests/test-warn-sem-node.sh
@@ -246,9 +229,6 @@ jobs:
 
       - name: O aviso de doc ancorado em SHA distante lê o repo do cwd do payload
         run: bash tests/test-warn-doc-ancorado.sh
-
-      - name: O aviso de Claude Code desatualizado respeita o canal stable, mesmo sem jq
-        run: bash tests/test-warn-cli-outdated.sh
 
       - name: Os zips de downloads/ batem com a skill do plugin
         # downloads/<skill>.zip é o link fixo de quem instala a skill avulsa. Zip velho
@@ -297,45 +277,6 @@ jobs:
         # Exclamação + crase no corpo de um SKILL.md roda o comando no load e escapa
         # de todo o PreToolUse (testado em 05/09/2026). O gate varre plugin/skills/.
         run: bash tests/test-skill-sem-injecao.sh
-
-      - name: A motion-reel não carrega marca de terceiro e abre/fecha com o marca.png da pessoa
-        run: bash tests/test-motion-reel-sem-marca.sh
-
-      - name: O stills.mjs da motion-reel aceita índices com espaço e vírgula e recusa índice inválido
-        # Node vem no ubuntu-latest; o Remotion e o ffmpeg do teste são falsos.
-        run: bash tests/test-motion-reel-stills-indices.sh
-
-      - name: O QA da motion-reel revisa o motion da folha, o glossário reverso aponta nomes que existem e o storyboard pergunta por que cada coisa se move
-        run: bash tests/test-motion-reel-revisao.sh
-
-      - name: O py.sh da motion-reel acha o venv ~/.venvs/motion (macOS e Windows) sem MOTION_PY
-        run: bash tests/test-motion-reel-py.sh
-
-      - name: A narração grátis da motion-reel fala por arquivo (say e PowerShell), respeita a gravação da pessoa e explica a voz que falta
-        run: bash tests/test-motion-reel-voz.sh
-
-      - name: A legenda do Film da motion-reel sai do vo.json no tempo da voz e recusa tempo estimado
-        run: bash tests/test-motion-reel-srt.sh
-
-      - name: A fonte principal que falta derruba o render da motion-reel (render real fora do CI)
-        # Sem Remotion instalado aqui o teste sai "pulado"; a prova com render real roda local
-        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>) e no CI do content-studio-template.
-        run: bash tests/test-motion-reel-fonte.sh
-
-      - name: A galeria da motion-reel mostra toda cena e transição do template e devolve o roteiro
-        run: bash tests/test-motion-reel-galeria.sh
-
-      - name: Os sons da motion-reel saem da cena (src/sons.mjs) e o impacto põe o pico do SFX no quadro
-        # Sem python com numpy a parte do WAV sintético sai "pulada"; a lista de cenas e os tempos rodam.
-        run: bash tests/test-motion-reel-sons.sh
-
-      - name: Nenhuma palavra cortada na borda na bancada de pior caso da motion-reel (render real fora do CI)
-        # Sem Remotion instalado aqui o teste sai "pulado"; a prova roda local
-        # (MOTION_RENDER_REAL=1 MOTION_PROJETO=<projeto>).
-        run: bash tests/test-motion-reel-texto.sh
-
-      - name: O briefing de motion tem as cinco partes, a timeline avisa leitura curta e o explicativo vira filme na batida
-        run: bash tests/test-motion-reel-briefing.sh
 
       - name: O texto que o modelo lê não cita caminho inexistente nem instala instrução no lugar errado
         # Caminho do kit que não existe, skill só-slash citada como chamável, frase relativa
@@ -401,17 +342,16 @@ jobs:
         # Porte do kit do time (F5 do #241).
         run: bash tests/test-medir-sessao.sh
 
-      - name: O boot-guard da monitoramento-infra reata por tier, respeita ORDEM_TIERS e start-first, e o dry-run não toca em nada
-        # Swarm de mentira: docker, nsenter, ss e curl são stubs no PATH. O teste exige que o
-        # stub tenha sido chamado, porque o runner tem docker de verdade.
-        run: bash tests/test-boot-guard.sh
-
       - name: Todo teste roda em algum shard do macOS, e em um só
         run: bash tests/test-ci-shard.sh
 
       - name: O release-trem junta os PRs, sobe a versão nos cinco lugares e monta CHANGELOG e novidades sem push
         # Repo git de mentira e gh de stub: não usa rede.
         run: bash tests/test-release-trem.sh
+
+      - name: O promover-stable só avança o canal estável, e só com --push
+        # Remote git de mentira: não usa rede.
+        run: bash tests/test-promover-stable.sh
 
       - name: O replay compara a decisão do pre-bash do base com a do head e só passa divergência declarada
         # Base e head são cópias de plugin/; a divergência é plantada. Não usa rede nem corpus real.
@@ -480,12 +420,17 @@ jobs:
         run: |
           repo="$(mktemp -d)"; cd "$repo"; git init -q -b main
           git config user.email ci@ci; git config user.name ci
+          # Com um commit: o hook isenta o repo ainda sem commit nenhum (o primeiro commit de um
+          # `git init` só pode cair na branch inicial).
+          git commit -q --allow-empty -m init
           # o hook manda a mensagem de bloqueio pra stderr — sem o 2>&1 o
           # $( ) volta vazio e o teste reprova um hook que funcionou.
           out="$(printf '{"tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$repo" \
                  | bash "$GITHUB_WORKSPACE/plugin/hooks/block-main-commit.sh" 2>&1 || true)"
           echo "$out" | grep -q BLOQUEADO
-          printf '{"tool_input":{"command":"git push --force origin main"}}' \
+          # O check-careful ficou só com o que depende de contexto; o force push é das regras
+          # ask/deny do template (tests/test-merge-settings.sh).
+          printf '{"tool_input":{"command":"supabase db reset --linked"}}' \
             | bash "$GITHUB_WORKSPACE/plugin/hooks/check-careful.sh" | grep -q '"ask"'
 
       - name: Links Markdown internos existem
@@ -554,8 +499,8 @@ jobs:
           # exit 128 = "No package sources found" — o kit é só markdown + shell, sem
           # manifest de deps (package.json/requirements.txt). Nada a escanear = ok.
           # Outros códigos (ex: 1 = vulnerabilidade encontrada) continuam falhando.
-          # Único manifest hoje: o lock do template da motion-reel (pin do Remotion). Vermelho
-          # aqui num PR que não toca a skill = advisory novo; suba o pacote nesse lock.
+          # Hoje o repo não tem manifest (o lock da motion-reel foi com ela para o plugin marca),
+          # então o caso normal é o 128 abaixo.
           if [ "$code" = "128" ]; then echo "sem manifests de dependência — nada a escanear"; exit 0; fi
           exit "$code"
 
@@ -664,9 +609,9 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: |
           lista="test-hooks-boot test-pre-bash test-block-main-commit
-                 test-check-careful test-block-parallel-clone-switch
+                 test-check-careful
                  test-block-delete-branch test-block-cd-leitura-relativa
-                 test-pre-prompt test-path-rules test-rtk-claude
+                 test-pre-prompt test-path-rules test-session-start
                  test-merge-settings test-warn-sem-node test-check-dev-server"
           sel="$lista"
           if [ "$EVENTO" = pull_request ]; then
@@ -737,16 +682,9 @@ jobs:
           "$HOME/ffmpeg-estatico/ffmpeg" -version | head -1
           "$HOME/ffmpeg-estatico/ffprobe" -version | head -1
 
-      - name: O final.sh da motion-reel reprova áudio fora do alvo, limita o pico, avisa cena parada e preserva o MP4 bom
-        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui ele precisa rodar de verdade.
-        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
-        run: |
-          set -o pipefail
-          bash tests/test-motion-reel-final-verificar.sh | tee /tmp/final-verificar.log
-          ! grep -q '^pulado' /tmp/final-verificar.log
-
       - name: O watch.sh da video-watch cai para intervalo em vídeo parado, avisa do modelo ausente e não aborta
-        # Mesmo ffmpeg do passo acima; aqui a parte de vídeo não pode sair "pulado".
+        # Sem ffmpeg o teste sai "pulado" com exit 0; aqui a parte de vídeo precisa rodar de verdade.
+        # O shell padrão do step é `bash -e` sem pipefail: sem ele o tee engole o exit 1 do teste.
         run: |
           set -o pipefail
           bash tests/test-video-watch.sh | tee /tmp/video-watch.log

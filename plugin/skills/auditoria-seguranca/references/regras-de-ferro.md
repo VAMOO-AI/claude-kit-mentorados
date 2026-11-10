@@ -4,11 +4,9 @@ Lido no começo da auditoria, antes da Fase 0, e de novo antes de classificar qu
 
 ## Fronteira — qual skill responde o quê
 
-| Skill | Responde | Entrega |
-|---|---|---|
-| **`auditoria-seguranca`** (esta) | "Quais das 6 falhas clássicas este código tem, e o que faço com isso?" | PDF + issues, **dentro** do repo |
-| `secscan` | "Existe `service_role` em `src/`? Esse `eval` é explorável?" | Markdown + SARIF em `secscan-reports/`, **fora** do git |
-| `baseline` | "A plataforma está apta a produção?" | contrato em `.context/docs/baseline.md` (ou o doc de contrato do seu projeto) |
+A tabela (o que cada uma responde e entrega: esta, `secscan`, `baseline` e `verificacao`)
+mora num lugar só: `baseline/references/fronteira.md`. Leia lá. Desta skill sai PDF + issues,
+**dentro** do repo.
 
 **Não reimplemente as sondas do secscan aqui.** Em stack Next/React/Supabase, as de
 banco já estão calibradas na Fase 2 de lá, e a A1 aponta para ela; n8n o `secscan`

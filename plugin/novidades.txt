@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.91.0|O kit ficou mais leve em toda conversa e em cada comando: sete skills de uso eventual agora só carregam quando você chama por /kit-vamoo:nome, as de vídeo e imagem saíram, o lint do fim do turno devolve os erros para o Claude corrigir em vez de reescrever seus arquivos, e o primeiro commit de um projeto novo não é mais bloqueado|setup
 0.90.0|Skill nova mapa-de-app: quando o cliente pede um sistema igual a outro, o Claude mapeia telas, fluxos e funcionalidades antes de você orçar
 0.89.0|A `video-watch` agora diz quando usar o conector Watch Any Video (YouTube público) e quando ficar nela (vídeo privado ou de cliente)
 0.88.0|Nova skill geo-ia: descubra se o ChatGPT e o Perplexity citam seu site e o que fazer, começando pela indexação no Google e no Bing|setup

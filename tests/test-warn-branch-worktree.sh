@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Prova de regressão do plugin/scripts/warn-branch-worktree.sh (hook de SessionStart), que
-# depois da 0.64 juntou o warn-branch-behind.sh e o warn-worktree-stale.sh num aviso só.
+# Prova de regressão do plugin/scripts/warn-branch-worktree.sh (aviso de SessionStart).
 #
-# Três partes:
+# Quatro partes:
 #
 # (A) Branch atrás do upstream, com o cache de fetch. O hook fazia `git fetch` em TODA
 #     sessão (~1 s cada). Agora faz no máximo 1x a cada 10 min por repositório+branch,
@@ -11,18 +10,17 @@
 #     PATH é um wrapper que conta os `fetch`: é o único jeito de saber se o remoto foi
 #     consultado sem depender de rede.
 #
-# (B) Worktree mergeado. O hook chamava de mergeada toda branch ancestral de origin/main, e
-#     a branch recém-criada de origin/main, sem commit nenhum, é ancestral por definição
-#     (24/09/2026: o aviso mandou remover um worktree com o fix inteiro sem commit). Agora:
-#     branch sem commit próprio não é mergeada; mergeada com mudança não commitada não é
-#     lixo; a prova por PR (squash) exige o tip contido no head do PR. O aviso não dá
-#     ordem nem oferece o ExitWorktree: aponta a skill worktrees, o `worktree-gc.sh
-#     --verificar <caminho>` (só lê) e o `git-sync --cleanup-dry-run` antes do apply. E o
-#     clone principal fora da main só é assunto numa sessão em worktree.
+# (B) Só esse aviso ficou (decisão D13 de 09/11/2026). Até a 0.90 o script também avisava de
+#     worktree com branch já mergeada e de clone principal fora da main, o que pedia
+#     `gh pr list` e fetch de refs/pull na abertura. Aqui se prova que os dois calaram, e que
+#     o script não chama mais o `gh`.
 #
-# (C) O diretório vem do `.cwd` do payload. Numa sessão de worktree do app desktop, o
-#     $PWD do hook (e o CLAUDE_PROJECT_DIR) pode ser a raiz do clone principal. Os dois
-#     scripts antigos liam `${CLAUDE_PROJECT_DIR:-$PWD}` e calavam ali.
+# (C) O diretório vem do `.cwd` do payload, ou do KIT_SESSAO_CWD que o session-start.sh
+#     entrega. Numa sessão de worktree do app desktop, o $PWD do hook (e o
+#     CLAUDE_PROJECT_DIR) pode ser a raiz do clone principal.
+#
+# (D) O fetch tem teto de tempo, sem depender do `timeout` do coreutils (o macOS não traz):
+#     fetch pendurado é morto e o aviso sai com o que já está local.
 #
 # O `gh` é falso (PATH). Uso: bash tests/test-warn-branch-worktree.sh [caminho-do-script]
 set -uo pipefail
@@ -100,7 +98,7 @@ sim "marcador renovado"                            "$([ -n "$m" ] && [ -n "$(fin
 git -C "$WORK" pull -q --ff-only 2>/dev/null
 calado "branch em dia: silencioso" "$(roda_em "$WORK")"
 
-echo "== (B) worktree mergeado e clone principal fora da main =="
+echo "== (B) worktree mergeado e clone fora da main não são mais assunto deste aviso =="
 ORIGIN="$TMP/origin.git"; CLONE="$TMP/clone"; WTS="$CLONE/.claude/worktrees"
 g() { "$REAL_GIT" -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@"; }
 G() { g -C "$CLONE" "$@"; }
@@ -110,110 +108,68 @@ echo base > "$CLONE/base.txt"
 G add base.txt; G commit -qm base
 G remote add origin "$ORIGIN"; G push -qu origin main
 mkdir -p "$WTS"
-
-novo_wt()    { G worktree add -q -b "$1" "$WTS/$1" "${2:-origin/main}"; }
-commit_em()  { g -C "$WTS/$1" commit -q --allow-empty -m "$2"; }
-merge_main() { G merge -q --no-ff -m "merge $1" "$1"; G push -q origin main; }
-
-novo_wt nova-suja
-echo mudou >> "$WTS/nova-suja/base.txt"; echo novo > "$WTS/nova-suja/novo.txt"
-novo_wt nova-limpa
-novo_wt sem-reflog
-G reflog expire --expire=now refs/heads/sem-reflog
-novo_wt sincronizada
-novo_wt feat; commit_em feat f
-G worktree add -q -b empilhada "$WTS/empilhada" feat
-merge_main feat
-novo_wt mergeada; commit_em mergeada m; merge_main mergeada
-novo_wt mergeada-suja; commit_em mergeada-suja ms; merge_main mergeada-suja
-echo depois >> "$WTS/mergeada-suja/base.txt"
-novo_wt squash; commit_em squash s
-OID_SQUASH="$(g -C "$WTS/squash" rev-parse HEAD)"
-novo_wt squash-depois; commit_em squash-depois X
-OID_X="$(g -C "$WTS/squash-depois" rev-parse HEAD)"
-commit_em squash-depois Y
-novo_wt viva; commit_em viva v
-g -C "$WTS/sincronizada" merge -q --ff-only origin/main
-G commit -q --allow-empty -m "main andou"; G push -q origin main
-
-cat > "$BIN/gh" <<GH
+# Worktree com commit próprio, mergeado na main e limpo: era o caso do "🧹 já foi mergeada".
+G worktree add -q -b mergeada "$WTS/mergeada" origin/main
+g -C "$WTS/mergeada" commit -q --allow-empty -m m
+G merge -q --no-ff -m "merge mergeada" mergeada; G push -q origin main
+# Um `gh` que deixa rastro: o script não pode mais chamá-lo.
+cat > "$BIN/gh" <<EOF
 #!/usr/bin/env bash
-case "\$1" in auth) exit 0 ;; esac
-br=""; forma=""
-while [ \$# -gt 0 ]; do
-  case "\$1" in --head) br="\$2"; shift ;; --json) forma="\$2"; shift ;; esac
-  shift
-done
-oid=""
-case "\$br" in squash) oid="$OID_SQUASH" ;; squash-depois) oid="$OID_X" ;; esac
-case "\$forma" in
-  headRefOid) printf '%s\n' "\$oid" ;;
-  number,headRefOid) [ -n "\$oid" ] && printf '1 %s\n' "\$oid" ;;
-esac
+echo "gh \$*" >> "$TMP/gh-chamadas"
 exit 0
-GH
+EOF
 chmod +x "$BIN/gh"
-
-# Os worktrees da fixture rastreiam origin/main e ficam atrás dela: a linha "⚠️ git:" é da
-# parte (A), que já saía assim com os dois hooks separados. Aqui só conta o resto.
-run() { roda_em "$WTS/$1" | grep -v '^⚠️ git:'; }
-
-calado "nova de origin/main com mudança sem commit (o caso de 24/09)"   "$(run nova-suja)"
-calado "nova de origin/main, limpa"                                     "$(run nova-limpa)"
-calado "nova com o reflog expirado (linha first-parent da main)"        "$(run sem-reflog)"
-calado "nova que só puxou a base (ff), com a main andando depois"       "$(run sincronizada)"
-calado "empilhada numa branch que depois foi mergeada"                  "$(run empilhada)"
-OUT="$(run mergeada)"
-check  "já foi mergeada e está limpo"            "commit próprio em origin/main, limpa: avisa"  "$OUT"
-check  "pedir a limpeza"                         "diz que a pessoa pode pedir a limpeza"        "$OUT"
-check  "skill worktrees"                         "aponta o procedimento da skill worktrees"     "$OUT"
-check  "cleanup-dry-run.*cleanup-apply"          "dry-run antes do apply, como na skill"        "$OUT"
-check  "cleanup-apply.* só com o pedido"         "o apply só com o pedido da pessoa"            "$OUT"
-check  "worktree-gc\.sh --verificar '?[^ ]*/worktrees/mergeada" "cita o --verificar com o caminho do worktree" "$OUT"
-refute "gc\.sh --apply|--prune-remote"           "nunca o gc que remove"                        "$OUT"
-refute "Remova|é lixo|~/\.claude/scripts"        "não manda remover nem cita ~/.claude/scripts" "$OUT"
-refute "ExitWorktree"                            "não oferece ExitWorktree direto, sem a prova" "$OUT"
-check  "já foi mergeada e está limpo"            "squash com tip == head do PR, limpa: avisa"   "$(run squash)"
-OUT="$(run mergeada-suja)"
-check  "mergeada.*mudança não commitada"         "mergeada com mudança sem commit: avisa a mudança" "$OUT"
-refute "lixo|ExitWorktree|worktree-gc"           "mergeada suja nunca é chamada de lixo"        "$OUT"
-calado "commit depois do head do PR mergeado"                           "$(run squash-depois)"
-calado "commit próprio sem merge e sem PR"                              "$(run viva)"
-
+OUT="$(roda_em "$WTS/mergeada")"
+refute "já foi mergeada|worktree-gc|ExitWorktree|🧹" "sessão em worktree já mergeado: sem aviso de limpeza" "$OUT"
+# Clone principal fora da main, com worktree vivo: era o "clone principal … não em main".
 G checkout -q -b no-clone
-[ "$(G branch --show-current)" = no-clone ] || { echo "fixture: o clone não saiu da main"; exit 2; }
-# Com worktree vivo, o clone é a base deles e fica na main, só pra leitura: avisa também na
-# sessão do próprio clone (decisão de 22/10/2026, F2 do #241). Sem worktree nenhum, branch no
-# clone é o jeito normal de trabalhar, e o aviso seria ruído (caso logo abaixo).
-OUT="$(roda_em "$CLONE")"
-check  "clone principal .* está em 'no-clone'"   "sessão no próprio clone fora da main, com worktree vivo: avisa também" "$OUT"
-refute "worktree:"                               "sessão no clone não fala de worktree mergeado" "$OUT"
-OUT="$(run viva)"
-check  "clone principal .* está em 'no-clone'"   "sessão em worktree: avisa o clone fora da main" "$OUT"
-check  "ofereça ao usuário voltar pra main"      "oferece a volta, sem dar ordem"               "$OUT"
-refute "Sua regra|Volte pra main"                "sem 'sua regra' nem 'volte pra main'"         "$OUT"
+OUT="$(roda_em "$WTS/mergeada")"
+refute "clone principal \(|não em main" "sessão em worktree com o clone fora da main: sem aviso" "$OUT"
+calado "sessão no próprio clone fora da main, sem upstream: calado" "$(roda_em "$CLONE")"
 G checkout -q main
-git -C "$WORK" checkout -q -b feat/x
-calado "clone sem worktree nenhum, numa feat/x: nada a avisar"          "$(roda_em "$WORK")"
-git -C "$WORK" checkout -q main
+sim "o script não chama o gh" "$([ ! -e "$TMP/gh-chamadas" ] && echo ok || echo fail)"
+grep -v '^[[:space:]]*#' "$SCRIPT" | grep -qE '(^|[^a-z])gh (pr|auth)' && sim "o script não cita gh pr/auth" fail || sim "o script não cita gh pr/auth" ok
 
 echo "== (C) o diretório vem do .cwd do payload, não do \$PWD nem do CLAUDE_PROJECT_DIR =="
-# O caso do app desktop: o processo do hook nasce na raiz do clone principal (em main, em
-# dia, sem nada a avisar), e o payload diz que a sessão está no worktree mergeado.
-OUT="$(payload "$WTS/mergeada" > "$TMP/payload.json"; cd "$CLONE" && HOME="$FAKE_HOME" CLAUDE_PROJECT_DIR="$CLONE" PATH="$BIN:$PATH" bash "$SCRIPT" < "$TMP/payload.json" 2>&1)"
-check  "já foi mergeada e está limpo"            "PWD e CLAUDE_PROJECT_DIR no clone, cwd no worktree: avisa o worktree" "$OUT"
-# O inverso: o processo no worktree, o payload no clone em dia — nada a dizer do worktree.
-OUT="$(payload "$CLONE" > "$TMP/payload.json"; cd "$WTS/mergeada" && HOME="$FAKE_HOME" CLAUDE_PROJECT_DIR="$WTS/mergeada" PATH="$BIN:$PATH" bash "$SCRIPT" < "$TMP/payload.json" 2>&1)"
-calado "PWD no worktree, cwd no clone em main: calado"                  "$OUT"
-# A parte (A) também segue o payload: o WORK atrasado de novo, processo no clone em dia.
+# O caso do app desktop: o processo do hook nasce noutro repo (em dia, sem nada a avisar),
+# e o payload diz que a sessão está no WORK, que ficou atrás de novo.
 git -C "$SEED" commit -q --allow-empty -m mais && git -C "$SEED" push -q origin main 2>/dev/null
 rm -rf "$CACHE_DIR"
 check  "1 commit\(s\) atrás"                     "branch atrasada lida do cwd do payload, com o processo em outro repo" "$(roda_em "$WORK" "$CLONE")"
+# O inverso: o processo no repo atrasado, o payload num repo em dia.
+calado "PWD no repo atrasado, cwd do payload num repo em dia: calado"   "$(roda_em "$CLONE" "$WORK")"
+# O dispatcher (session-start.sh) entrega o cwd em KIT_SESSAO_CWD, e ele vale sobre o stdin.
+OUT="$(cd "$CLONE" && printf '{}' | KIT_SESSAO_CWD="$WORK" HOME="$FAKE_HOME" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"
+check  "1 commit\(s\) atrás"                     "KIT_SESSAO_CWD do dispatcher: lê o repo dele, sem payload" "$OUT"
 # Payload sem cwd (ou sem node): cai no CLAUDE_PROJECT_DIR, como antes.
-OUT="$(cd "$TMP" && printf '{}' | HOME="$FAKE_HOME" CLAUDE_PROJECT_DIR="$WTS/mergeada" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"
-check  "já foi mergeada e está limpo"            "payload sem cwd: cai no CLAUDE_PROJECT_DIR"   "$OUT"
+OUT="$(cd "$TMP" && printf '{}' | HOME="$FAKE_HOME" CLAUDE_PROJECT_DIR="$WORK" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"
+check  "1 commit\(s\) atrás"                     "payload sem cwd: cai no CLAUDE_PROJECT_DIR"   "$OUT"
 OUT="$(cd "$TMP" && payload "$TMP" | HOME="$FAKE_HOME" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"; rc=$?
 sim "fora de repo git: sai 0 calado" "$([ "$rc" = 0 ] && [ -z "$OUT" ] && echo ok || echo fail)"
+
+echo "== (D) fetch pendurado: o teto mata, e o aviso sai com o que já está local =="
+# Um git cujo `fetch` dorme 30 s (rede caída, remote que pede senha). Sem teto, a abertura
+# da sessão esperava o fetch inteiro. O PATH do teste não tem `timeout`: o teto é do script.
+LENTO="$TMP/bin-lento"; mkdir -p "$LENTO"
+cat > "$LENTO/git" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = fetch ]; then echo fetch >> "$TMP/fetches-lentos"; sleep 30; exit 0; fi
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$LENTO/git"
+printf '#!/bin/sh\necho "timeout não devia ser chamado" >&2\nexit 127\n' > "$LENTO/timeout"; chmod +x "$LENTO/timeout"
+rm -rf "$CACHE_DIR"
+payload "$WORK" > "$TMP/payload.json"
+t0=$(date +%s)
+OUT="$(cd "$WORK" && HOME="$FAKE_HOME" PATH="$LENTO:$PATH" WARN_BRANCH_FETCH_TETO=2 bash "$SCRIPT" < "$TMP/payload.json" 2>&1)"; rc=$?
+dt=$(( $(date +%s) - t0 ))
+sim "com o fetch pendurado sai 0" "$([ "$rc" = 0 ] && echo ok || echo fail)"
+sim "o fetch foi tentado" "$([ -s "$TMP/fetches-lentos" ] && echo ok || echo fail)"
+if [ "$dt" -le 10 ]; then printf '  ok    %s\n' "volta em ${dt}s com teto de 2 s (o fetch dormiria 30)"
+else printf '  FALHA %s\n' "levou ${dt}s com teto de 2 s: o fetch pendurado segurou o hook"; falhas=$((falhas+1)); fi
+check "1 commit\(s\) atrás" "…e ainda avisa pelo origin/main que já está local" "$OUT"
+refute "timeout não devia" "não depende do binário timeout" "$OUT"
+sim "o marcador é gravado mesmo com o fetch morto (a sessão seguinte não espera de novo)" "$([ -n "$(marcador)" ] && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

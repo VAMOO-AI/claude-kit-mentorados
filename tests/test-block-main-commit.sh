@@ -20,7 +20,11 @@ command -v jq >/dev/null 2>&1 || { echo "jq ausente"; exit 2; }
 
 falhas=0
 . "$(dirname "$0")/lib-esperado-falhar.sh"
-MAIN=$(mktemp -d);  git -C "$MAIN" init -q -b main 2>/dev/null
+# Repo em main COM commit: o hook isenta o repo ainda sem commit nenhum (o primeiro commit de
+# um `git init` só pode cair na branch inicial), então fixture vazio não prova bloqueio.
+semeia() { git -C "$1" -c user.email=t@t.invalid -c user.name=t commit -q --allow-empty -m init 2>/dev/null; }
+MAIN=$(mktemp -d);  git -C "$MAIN" init -q -b main 2>/dev/null; semeia "$MAIN"
+VAZIO=$(mktemp -d); git -C "$VAZIO" init -q -b main 2>/dev/null
 FEAT=$(mktemp -d);  git -C "$FEAT" init -q -b feat/x 2>/dev/null
 COM_ESPACO=$(mktemp -d)/"pasta com espaço"; mkdir -p "$COM_ESPACO"; git -C "$COM_ESPACO" init -q -b feat/y 2>/dev/null
 
@@ -30,7 +34,7 @@ COM_ESPACO=$(mktemp -d)/"pasta com espaço"; mkdir -p "$COM_ESPACO"; git -C "$CO
 # REPO — e aí o hook decide pela branch errada, nas duas direções.
 GEMEO=$(mktemp -d)
 IRMAO_MAIN="$GEMEO/projeto";          mkdir -p "$IRMAO_MAIN"
-git -C "$IRMAO_MAIN" init -q -b main 2>/dev/null
+git -C "$IRMAO_MAIN" init -q -b main 2>/dev/null; semeia "$IRMAO_MAIN"
 IRMAO_WT="$GEMEO/projeto - cópia/wt"; mkdir -p "$IRMAO_WT"
 git -C "$IRMAO_WT" init -q -b feat/z 2>/dev/null
 
@@ -38,11 +42,11 @@ git -C "$IRMAO_WT" init -q -b feat/z 2>/dev/null
 # `git -C "~/x"` não resolve — bash não expande til dentro de aspas, e o hook usa aspas.
 NO_HOME=$(mktemp -d "$HOME/.tmp-hooktest-XXXXXX")
 HOME_FEAT="$NO_HOME/wt";   mkdir -p "$HOME_FEAT";   git -C "$HOME_FEAT" init -q -b feat/til 2>/dev/null
-HOME_MAIN="$NO_HOME/main"; mkdir -p "$HOME_MAIN";   git -C "$HOME_MAIN" init -q -b main 2>/dev/null
+HOME_MAIN="$NO_HOME/main"; mkdir -p "$HOME_MAIN";   git -C "$HOME_MAIN" init -q -b main 2>/dev/null; semeia "$HOME_MAIN"
 TIL_FEAT="~/${HOME_FEAT#"$HOME"/}"
 TIL_MAIN="~/${HOME_MAIN#"$HOME"/}"
 
-trap 'rm -rf "$MAIN" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME"' EXIT
+trap 'rm -rf "$MAIN" "$VAZIO" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME"' EXIT
 
 decide() { # decide <comando> [cwd]
   if [ "$CODEX" = 1 ]; then
@@ -241,11 +245,20 @@ check passa    "scratch do Claude em /tmp"                "git -C /tmp/claude-10
 check bloqueia "/tmp comum não é descartável por nome"    "git -C /tmp/outra/coisa commit -m x"
 check bloqueia "claude- sem uid não é a raiz de scratch"  "git -C /tmp/claude-x/coisa commit -m x"
 
+# 4) Primeiro commit de um repo recém-criado (09/11/2026). Na medição de 15/10 o único
+#    bloqueio "útil" em 30 dias foi este, e não era útil: sem commit nenhum não existe de onde
+#    abrir feature branch, e quem acabou de rodar `git init` ficava travado no primeiro commit.
+#    Com um commit na main, o bloqueio volta.
+check passa    "primeiro commit de repo recém-criado (cwd)"     'git commit -q -m "primeiro commit"' "$VAZIO"
+check passa    "primeiro commit de repo recém-criado (git -C)"  "git -C $VAZIO commit -m x" "$FEAT"
+check passa    "git init e primeiro commit no mesmo comando"    "cd $VAZIO && git add -A && git commit -m x" "$FEAT"
+check bloqueia "repo em main com commit segue bloqueado"        "git -C $MAIN commit -m x" "$VAZIO"
+
 # Invariante 4 do núcleo único (#241): o payload é lido com um node só. Até a 0.71 o hook
 # abria o node duas vezes, uma para o comando e outra para o cwd, e cada startup custa ~30 ms
 # em todo Bash com `commit`. Um node de mentira na frente do PATH conta as chamadas.
 NODE_REAL="$(command -v node)"
-CONTA="$(mktemp -d)"; trap 'rm -rf "$MAIN" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME" "$CONTA"' EXIT
+CONTA="$(mktemp -d)"; trap 'rm -rf "$MAIN" "$VAZIO" "$FEAT" "$(dirname "$COM_ESPACO")" "$GEMEO" "$NO_HOME" "$CONTA"' EXIT
 printf '#!/bin/sh\necho x >> "%s/chamadas"\nexec "%s" "$@"\n' "$CONTA" "$NODE_REAL" > "$CONTA/node"; chmod +x "$CONTA/node"
 for caso in "bloqueia|$MAIN" "passa|$FEAT"; do
   : > "$CONTA/chamadas"

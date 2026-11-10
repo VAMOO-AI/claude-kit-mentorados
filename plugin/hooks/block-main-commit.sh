@@ -207,6 +207,15 @@ checa_alvo() {
     alvo_incerto="$p_cru"
   fi
 
+  # Repo ainda sem commit nenhum: o primeiro commit de um `git init` só pode cair na branch
+  # inicial, e não existe de onde abrir feature branch. Na medição de 15/10/2026 este era o
+  # único bloqueio contado como útil em 30 dias, e travava quem acabou de criar o projeto.
+  # `rev-parse --git-dir` separa "repo vazio" de "não é repo" (que segue para a checagem).
+  if git -C "$tgt" rev-parse --git-dir >/dev/null 2>&1 \
+     && ! git -C "$tgt" rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    return 0
+  fi
+
   b=$(git -C "$tgt" branch --show-current 2>/dev/null)
   case "$b" in
     main|master)

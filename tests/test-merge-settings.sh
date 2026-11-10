@@ -341,8 +341,12 @@ echo "== regras do template: PowerShell, ask e nada genérico =="
 # qualquer texto; o ` *` final casa também o comando sem argumento, mas SÓ quando é o único
 # curinga da regra. `git push * --force *` não pega `git push origin x --force`.
 casa() { # casa <lista allow|ask|deny> <Ferramenta> <comando> → 0 se alguma regra casa
-  node -e '
-const [tpl, lista, tool, cmd] = process.argv.slice(1)
+  # O comando vai por stdin, não por argumento: no Git Bash o MSYS converte para caminho do
+  # Windows todo argumento que começa com `/` ao chamar o node nativo, e
+  # `/opt/homebrew/bin/supabase …` chegava trocado (job windows do #334).
+  printf '%s' "$3" | node -e '
+const [tpl, lista, tool] = process.argv.slice(1)
+const cmd = require("fs").readFileSync(0, "utf8")
 const regras = require(tpl).permissions[lista] || []
 const pref = tool + "("
 const ok = regras.some((r) => {
@@ -354,7 +358,7 @@ const ok = regras.some((r) => {
   const re = so1 && p.endsWith(" *") ? "^" + esc(p.slice(0, -2)) + "( [\\s\\S]*)?$" : "^" + esc(p) + "$"
   return new RegExp(re, tool === "PowerShell" ? "i" : "").test(cmd)
 })
-process.exit(ok ? 0 : 1)' "$TEMPLATE" "$1" "$2" "$3"
+process.exit(ok ? 0 : 1)' "$TEMPLATE" "$1" "$2"
 }
 for tool in Bash PowerShell; do
   for c in 'git push --force' 'git push origin feat --force' 'git push -f origin feat' 'git push origin feat -f' \
@@ -604,6 +608,139 @@ deixa_c '/usr/bin/grep -rn "supabase db push" docs'
 deixa_c '/usr/bin/grep -rn "vercel login --github" docs'
 deixa_c 'echo /supabase db push'
 deixa_c 'echo supabase link --project-ref abc'
+
+echo "== o que saiu do check-careful tem regra ask ou deny que casa o comando (D5) =="
+# Em 09/11/2026 o check-careful ficou só com o que depende de contexto. Cada caso abaixo era
+# um `ask` do hook (vinha das suítes test-check-careful.sh e test-pre-bash.sh) e passou a ser
+# só da regra declarativa. Deny e ask valem quando qualquer subcomando casa (doc de
+# permissões, "Compound commands"), então o caso composto é conferido pedaço a pedaço.
+# Regra nova que este corte pediu: `*.pem*`, `*id_ecdsa*`, a família
+# `git -C * <push|checkout|switch|restore|stash> …` (`Bash(git push --force *)` não vê
+# `git -C <dir> push --force`) e `sudo *git *<push|checkout|…>` (o `sudo` não está entre os
+# wrappers que o Claude Code tira antes de casar; com sudo, pergunta sempre).
+# E o gêmeo com ` *` de `git checkout * -- .` e de `git restore .`/`-- .`/`:/`: a regra exata não
+# casava o comando com `2>/dev/null` no fim (2 comandos do corpus real de 30 dias).
+# Ficou no hook, por não ter glob: apagar por refspec (`git push origin :branch`). A regra
+# teria de terminar em `:*`, que a doc lê como o sufixo legado ` *`.
+coberto() { # coberto <Ferramenta> <comando> → 0 se ask ou deny casa o comando ou um subcomando
+  local t="$1" c="$2" sub
+  c=${c//'&&'/$'\n'}; c=${c//'||'/$'\n'}; c=${c//';'/$'\n'}; c=${c//'|'/$'\n'}
+  while IFS= read -r sub; do
+    sub="${sub#"${sub%%[![:space:]]*}"}"; sub="${sub%"${sub##*[![:space:]]}"}"
+    [ -n "$sub" ] || continue
+    casa ask "$t" "$sub" && return 0
+    casa deny "$t" "$sub" && return 0
+  done <<< "$2"$'\n'"$c"
+  return 1
+}
+cob() { if coberto "$1" "$2"; then echo "  ok    regra cobre ($1): $2"; else echo "  FALHA saiu do hook e nenhuma regra ask/deny casa ($1): $2"; falhas=$((falhas+1)); fi; }
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  cob Bash "$c"; cob PowerShell "$c"
+done <<'CASOS'
+git push --force origin main
+git push --force origin feat/x
+git push -f origin feat/x
+git push origin feat/x -f
+git push -uf origin feat/x
+git push origin +feat/x
+git push origin main && rm -f /tmp/lixo.txt
+git push origin master
+cd "$T" && git push origin main
+git push origin HEAD:main
+git push origin feat/x:main
+git push origin feat/x:refs/heads/main
+git push origin HEAD:refs/heads/main
+git push origin --delete feat/aberta
+git push --delete origin feat/x
+git push -d origin feat/mergeada feat/aberta
+git push --mirror
+git push --all origin
+sudo git push --force
+sudo git push origin --delete feat/velha
+sudo git push origin main
+sudo -E git push -f origin feat/x
+sudo git checkout -f feat/y
+sudo git stash drop
+git -C /x/repo push --force
+git -C /x/repo push --force origin feat/x
+git -C /x/repo push -f origin feat/x
+git -C /x/repo push origin feat/x --force
+git -C /x/repo push origin main
+git -C /x/repo push origin HEAD:main
+git -C /x/repo push origin --delete feat/x
+git -C /x/repo push --mirror
+git checkout -f feat/y
+git checkout feat/y --force
+git switch --discard-changes feat/y
+git switch -f feat/y
+git restore .
+git checkout -- .
+git stash drop
+git stash clear
+git -C /x/repo checkout -f feat/y
+git -C /x/repo checkout -- .
+git -C /x/repo switch --discard-changes feat/y
+git -C /x/repo restore .
+git -C /x/repo stash drop
+git -C /x/repo stash clear
+git checkout -q origin/main -- . 2>/dev/null
+git restore . 2>/dev/null
+git -C /x/repo checkout origin/main -- . 2>/dev/null
+cat ~/.ssh/id_ed25519
+cat ~/.ssh/id_ecdsa
+cat ~/.aws/credentials
+cat ~/.netrc
+cat ~/.config/gh/hosts.yml
+cat serviceAccountKey.json
+cat certs/server.pem
+CASOS
+for c in 'env' 'env | grep TOKEN' 'printenv' 'printenv GITHUB_TOKEN' 'export -p'; do cob Bash "$c"; done
+for c in 'Get-ChildItem Env:' 'gci env:' 'ls env:' 'dir Env:' 'Get-Item Env:GITHUB_TOKEN' '[Environment]::GetEnvironmentVariables()' \
+         'git diff --no-index NUL $HOME\.ssh\id_ed25519' 'gc ~/.claude.json'; do cob PowerShell "$c"; done
+# As regras novas não podem pegar a rotina: push de feature, criar branch, stash, restore de arquivo.
+for tool in Bash PowerShell; do
+  for c in 'git -C /x/repo push' 'git -C /x/repo push -u origin feat/x' 'git -C /x/repo push --force-with-lease origin feat/x' \
+           'git -C /x/repo push origin feat/main' 'git -C /x/repo push origin HEAD' 'git -C /x/repo checkout -b feat/z' \
+           'git -C /x/repo switch -c feat/z' 'git -C /x/repo restore --staged .' 'git -C /x/repo restore src/a.ts' \
+           'git -C /x/repo stash' 'git -C /x/repo stash list' 'git -C /x/repo status' 'git -C /x/repo log --oneline main' \
+           'git push origin feat/x:feat/x' 'git push origin feat/x' 'git push -u origin HEAD'; do
+    if coberto "$tool" "$c"; then echo "  FALHA regra nova pega rotina ($tool): $c"; falhas=$((falhas+1)); else echo "  ok    rotina segue sem pergunta ($tool): $c"; fi
+  done
+done
+# O que nenhum glob resolve fica no hook, e está provado lá (tests/test-check-careful.sh):
+# `git push`/`git push -f` sem refspec com a branch atual na main, e `.env` citado.
+
+echo "== supabase: secrets set/unset e migration repair perguntam; functions deploy segue livre (D15) =="
+# Decisão de 09/11/2026: trocar segredo de produção e reescrever o histórico de migration são
+# irreversíveis para quem está aprendendo, e não têm undo pelo git. Pergunta (ask), não nega:
+# os dois são rotina legítima. As formas são as do deny de `db push`: binário puro, por
+# caminho, sudo, env, /…/env e cada runner, com e sem argumento.
+for pre in '' '/opt/homebrew/bin/' 'sudo ' 'sudo -E ' 'env FOO=1 ' '/usr/bin/env FOO=1 ' 'npx ' 'npx -y ' 'bunx ' \
+           'pnpm dlx ' 'pnpm exec ' 'pnpx ' 'yarn dlx ' 'npm exec -- ' 'bun x '; do
+  for c in 'supabase secrets set X=1' 'supabase secrets set' 'supabase secrets unset X' 'supabase secrets unset' \
+           'supabase migration repair --status reverted 123' 'supabase migration repair'; do
+    if casa ask Bash "${pre}$c"; then echo "  ok    ask (Bash): ${pre}$c"; else echo "  FALHA ask não pega (Bash): ${pre}$c"; falhas=$((falhas+1)); fi
+    negado_cmd "${pre}$c" && { echo "  FALHA virou deny (era para perguntar): ${pre}$c"; falhas=$((falhas+1)); }
+  done
+done
+for pre in '' 'sudo ' 'env FOO=1 ' 'npx ' 'bunx ' 'pnpm dlx ' 'yarn dlx ' 'npm exec -- ' 'bun x ' 'pnpx '; do
+  for c in 'supabase secrets set X=1' 'supabase secrets set' 'supabase secrets unset X' \
+           'supabase migration repair --status reverted 123' 'supabase migration repair'; do
+    if casa ask PowerShell "${pre}$c"; then echo "  ok    ask (PowerShell): ${pre}$c"; else echo "  FALHA ask não pega (PowerShell): ${pre}$c"; falhas=$((falhas+1)); fi
+  done
+done
+for tool in Bash PowerShell; do
+  for c in 'npx supabase functions deploy foo' 'npx supabase functions deploy secrets-set' 'npx supabase secrets list' \
+           'npx supabase migration new repair_tabela' 'npx supabase migration list' 'npx supabase migration up'; do
+    if casa ask "$tool" "$c"; then echo "  FALHA ask pega rotina ($tool): $c"; falhas=$((falhas+1))
+    elif casa allow "$tool" "$c"; then echo "  ok    livre ($tool): $c"
+    else echo "  FALHA não está no allow ($tool): $c"; falhas=$((falhas+1)); fi
+  done
+done
+for c in 'supabase secrets list' 'supabase functions deploy foo' 'supabase migration list' 'grep -rn "supabase secrets set" docs'; do
+  if casa ask Bash "$c"; then echo "  FALHA ask pega rotina: $c"; falhas=$((falhas+1)); else echo "  ok    não pergunta: $c"; fi
+done
 
 echo "== deny de leitura que passava pelo nome exato (#246, item 1) =="
 # Read(): gitignore. `//` é a raiz e `~/` o home; `*` não atravessa `/` e `**` atravessa.
