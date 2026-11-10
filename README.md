@@ -177,6 +177,21 @@ as variáveis de ambiente e qualquer comando que cite arquivo de segredo (`.env`
 SSH, `.pem`, credencial de AWS/gh/npm). Vale no Bash e no PowerShell, e os bloqueios de
 login do Supabase/Vercel continuam em todo modo.
 
+- **Trabalha em bypass e não quer essas perguntas?** Regra `ask` pergunta em qualquer modo,
+  inclusive no `bypassPermissions`. O modo sem perguntas tira as regras `ask` de comando do
+  kit e não as põe de volta nas atualizações: `/kit-vamoo:setup --sem-perguntas` (no terminal,
+  `bash kit-setup.sh --sem-perguntas`). Deixam de pedir confirmação todos os comandos da lista
+  acima que são regra `ask`: force push, `--delete`, `--mirror` e `--all` em branch que não é
+  a main, push direto na main, `git reset --hard`, `git clean`, `git branch -D`, `checkout -f`,
+  `switch --discard-changes`, `restore .`, `stash drop`/`clear`, `gh pr merge`,
+  `gh repo delete`, `supabase secrets set`/`unset`, `supabase migration repair`,
+  `find -delete`/`-exec`, `Remove-Item -Recurse`, listar variáveis de ambiente e comando que
+  cita `.pem`, chave SSH ou credencial. Continua barrado, porque as regras `deny` não mudam:
+  force push na main, `supabase db push`, login do Supabase/Vercel e leitura de `.env`. Os
+  hooks (commit na main, `rm -rf` fora de pasta descartável), as regras `ask` de conector e as
+  que você mesmo escreveu também continuam. A escolha fica em
+  `~/.claude/kit-vamoo/sem-perguntas`; `/kit-vamoo:setup --com-perguntas` desliga e devolve as
+  regras.
 - **O Auto não está disponível na sua conta ou no seu modelo?** O Claude Code abre a
   sessão em **Manual** e pede "Permitir" a cada passo. Não é o setup que falhou. Se
   preferir, escolha **Accept edits** no seletor de modo.

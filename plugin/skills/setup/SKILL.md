@@ -82,6 +82,13 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
   nunca escolheu continua no curto. Pergunte qual a pessoa prefere e acrescente
   `--statusline painel` ou `--statusline curto` aos dois comandos acima. A escolha fica em
   `~/.claude/statusline-modo` e vale até ela rodar o setup com a outra.
+- **Modo sem perguntas, só para quem pedir.** Se a pessoa chamou a skill com `--sem-perguntas`
+  ou `--com-perguntas`, ou pediu para o kit parar de pedir confirmação, acrescente a opção aos
+  dois comandos acima. Não ofereça por conta própria: é escolha de quem já trabalha em bypass
+  e sabe o que está dispensando. Antes de rodar sem `--dry-run`, leia para ela a lista do que
+  deixa de pedir confirmação e do que continua barrado, que está em
+  [references/decisoes-do-setup.md](references/decisoes-do-setup.md). A escolha fica em
+  `~/.claude/kit-vamoo/sem-perguntas` e vale nos setups seguintes, até o `--com-perguntas`.
 - **Leia [references/decisoes-do-setup.md](references/decisoes-do-setup.md)** e diga à pessoa
   também o que está lá: o `settings.json` é mesclado, o modo de permissão vira Auto (e como
   ficar no Accept edits ou no Manual), o que entra e sai do `allow`/`ask` e o auto-update do

@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.93.0] — 2026-11-10
+
+### Adicionado
+
+- **Modo sem perguntas**: `/kit-vamoo:setup --sem-perguntas` tira as regras `ask` de comando (`Bash(...)` e `PowerShell(...)`) que o kit põe no `settings.json` e não as devolve nas atualizações; `--com-perguntas` desliga. A escolha fica em `~/.claude/kit-vamoo/sem-perguntas`. As regras `deny`, as `ask` de conector e as `ask` que a pessoa escreveu não mudam.
+- **`merge-settings.js`**: regra `$merge.semAskDeComando` no overlay e flag `--sem-ask-de-comando`, com o mesmo efeito. `tests/test-kit-setup-sem-perguntas.sh` (novo, no CI).
+
+### Corrigido
+
+- **`merge-settings.js`**: `permissions` num overlay soma ao do kit em vez de trocá-lo. Um overlay que só acrescentava regras `ask` apagava `allow`, `deny` e `ask` do kit para quem o usava.
+
 ## [0.92.0] — 2026-11-10
 
 ### Corrigido
