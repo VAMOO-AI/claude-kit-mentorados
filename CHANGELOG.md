@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.92.0] — 2026-11-10
+
+### Corrigido
+
+- **`worktree-gc`**: o `--verificar` deixa passar o rastro do e2e local, `supabase/.temp/` só com o `cli-latest` e `test-results/` só com o `.last-run.json`. Trace de teste que falhou e `project-ref` continuam segurando.
+
 ## [0.91.0] — 2026-11-09
 
 ### Adicionado
