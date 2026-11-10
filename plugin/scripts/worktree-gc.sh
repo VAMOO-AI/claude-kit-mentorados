@@ -267,6 +267,15 @@ eh_regeneravel() {   # <caminho relativo; diretório termina em />
   return 1
 }
 
+# O ignorado é o arquivo <nome> ou uma pasta só com ele: o cli-latest do supabase e o
+# .last-run.json do Playwright, que a próxima execução regrava. Qualquer outra coisa na pasta
+# (project-ref, trace, screenshot) a devolve para as travas de sempre.
+so_tem() {   # <caminho absoluto> <nome>; 0 = só o arquivo <nome>
+  local p="${1%/}"
+  [ "${p##*/}" = "$2" ] && { [ -f "$p" ]; return; }
+  [ -f "$p/$2" ] && [ "$(cd "$p" 2>/dev/null && find . -mindepth 1)" = "./$2" ]
+}
+
 # Ignorado não aparece no `status` e o `git worktree remove` sem --force o apaga calado: até
 # 28/09/2026 só env era conferido, e um outputs/video.mp4 sumia com o worktree "limpo". Lista
 # os ignorados no nível em que o padrão casa (`status --ignored=matching`: node_modules/ sai
@@ -287,8 +296,15 @@ ignorado_de_valor() {   # <worktree> — 0 = achou algum
       # Cache do supabase CLI (project-ref, versões) que o `supabase link` recria — mas guarda
       # a qual projeto o worktree está ligado. Passa só se for cópia byte a byte do clone; o
       # `diff -rq` também falha quando o clone não tem a pasta. `cmp` não tem -r no macOS.
+      # Só com o cli-latest (a versão que o CLI confere a cada comando) não há projeto ligado,
+      # e passa mesmo de outra versão: é o que o `supabase status` do e2e local deixa (09/11/2026).
       supabase/.temp/*|*/supabase/.temp/*)
+        so_tem "$wt/$f" cli-latest && continue
         diff -rq "$wt/$f" "$PRIMARY/$f" >/dev/null 2>&1 || dif="${dif:+$dif }$f"; continue ;;
+      # Saída do Playwright: só o .last-run.json (o que o --last-failed lê) volta no próximo run.
+      # Trace, screenshot e vídeo de teste que falhou podem ser a prova de um bug, e seguram.
+      test-results/*|*/test-results/*)
+        so_tem "$wt/$f" .last-run.json && continue ;;
       */) r="$(cd "$wt" && find "${f%/}" -name .git -prune 2>/dev/null | sed 's|\.git$||' | tr '\n' ' ')"
           r="${r% }"
           [ -n "$r" ] && { repo="${repo:+$repo }$r"; continue; } ;;

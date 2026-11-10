@@ -63,7 +63,7 @@ G() { g -C "$CLONE" "$@"; }
 # O .gitignore entra no PRIMEIRO commit, antes de qualquer worktree: a trava do .env.local
 # só é alcançada se o arquivo estiver ignorado — untracked, ele já cai na trava de "sujo".
 # Sem isto o teste passava só em máquina cujo gitignore global ignora .env.local (03/09/2026).
-echo base > "$CLONE/base.txt"; printf 'settings.local.json\n.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\nnext-env.d.ts\n*.tsbuildinfo\n**/supabase/.temp/\n' > "$CLONE/.gitignore"
+echo base > "$CLONE/base.txt"; printf 'settings.local.json\n.env.local\n.npmrc\nbunfig.toml\n.bunfig.toml\nvendor/\noutputs/\nout/\nnode_modules/\n.next/\n.venv\nnext-env.d.ts\n*.tsbuildinfo\n**/supabase/.temp/\ntest-results/\n' > "$CLONE/.gitignore"
 G add base.txt .gitignore; G commit -qm base
 G branch -M main; G remote add origin "$ORIGIN"; G push -qu origin main
 G remote set-head origin main
@@ -147,6 +147,19 @@ mkdir -p "$WTS/wt-ger-sbt-dif/supabase"; cp -R "$CLONE/supabase/.temp" "$WTS/wt-
 echo efgh > "$WTS/wt-ger-sbt-dif/supabase/.temp/project-ref"
 novo_wt ger-sbt-mono; commit_em ger-sbt-mono sm; merge_main ger-sbt-mono
 mkdir -p "$WTS/wt-ger-sbt-mono/apps/api/supabase/.temp"; echo abcd > "$WTS/wt-ger-sbt-mono/apps/api/supabase/.temp/project-ref"
+# ger-sbt-cli*, ger-tr e ger-tr-trace: o que o e2e local deixa num worktree (09/11/2026, a
+# limpeza de um worktree mergeado parou nos dois). O `supabase status` grava só o cli-latest,
+# de outra versão que a do clone e sem project-ref; o Playwright grava o
+# test-results/.last-run.json. Sozinhos, os dois passam; o trace de um teste que falhou segura.
+novo_wt ger-sbt-cli; commit_em ger-sbt-cli c; merge_main ger-sbt-cli
+mkdir -p "$WTS/wt-ger-sbt-cli/supabase/.temp"; echo "v2.54.0" > "$WTS/wt-ger-sbt-cli/supabase/.temp/cli-latest"
+novo_wt ger-sbt-cli-mono; commit_em ger-sbt-cli-mono cm; merge_main ger-sbt-cli-mono
+mkdir -p "$WTS/wt-ger-sbt-cli-mono/apps/api/supabase/.temp"; echo "v2.54.0" > "$WTS/wt-ger-sbt-cli-mono/apps/api/supabase/.temp/cli-latest"
+novo_wt ger-tr; commit_em ger-tr t; merge_main ger-tr
+mkdir -p "$WTS/wt-ger-tr/test-results"; echo '{"status":"passed","failedTests":[]}' > "$WTS/wt-ger-tr/test-results/.last-run.json"
+novo_wt ger-tr-trace; commit_em ger-tr-trace tt; merge_main ger-tr-trace
+mkdir -p "$WTS/wt-ger-tr-trace/test-results/login-falhou"; echo '{"status":"failed","failedTests":["a"]}' > "$WTS/wt-ger-tr-trace/test-results/.last-run.json"
+echo zip > "$WTS/wt-ger-tr-trace/test-results/login-falhou/trace.zip"
 git init -q "$WTS/wt-env-repo/vendor/lib"
 
 # ign-*: mergeadas e limpas, cada uma com um tipo de ignorado. `outputs/` é trabalho (o
@@ -283,6 +296,10 @@ verif 0 'pode remover: .*wt-ger-next'        "next-env.d.ts e tsbuildinfo, na ra
 verif 0 'pode remover: .*wt-ger-sbt( |$)'    "supabase/.temp igual ao do clone: exit 0" --verificar "$WTS/wt-ger-sbt"
 verif 1 'keep: .*wt-ger-sbt-dif .*supabase/\.temp/ difere' "supabase/.temp diferente do clone: exit 1 e o caminho" --verificar "$WTS/wt-ger-sbt-dif"
 verif 1 'keep: .*wt-ger-sbt-mono .*apps/api/supabase/\.temp/ difere' "supabase/.temp que o clone não tem: exit 1" --verificar "$WTS/wt-ger-sbt-mono"
+verif 0 'pode remover: .*wt-ger-sbt-cli( |$)' "supabase/.temp só com o cli-latest, de outra versão: exit 0" --verificar "$WTS/wt-ger-sbt-cli"
+verif 0 'pode remover: .*wt-ger-sbt-cli-mono' "o mesmo em apps/api, que o clone não tem: exit 0" --verificar "$WTS/wt-ger-sbt-cli-mono"
+verif 0 'pode remover: .*wt-ger-tr( |$)'      "test-results/ só com o .last-run.json: exit 0" --verificar "$WTS/wt-ger-tr"
+verif 1 'keep: .*wt-ger-tr-trace .*apagaria: test-results/' "test-results/ com o trace de um teste que falhou: exit 1" --verificar "$WTS/wt-ger-tr-trace"
 verif 0 'pode remover: .*wt-sl-igual'         ".claude/settings.local.json igual ao do clone: exit 0" --verificar "$WTS/wt-sl-igual"
 verif 1 'keep: .*wt-sl-dif .*\.claude/settings\.local\.json difere' "settings.local.json editado: exit 1 e o arquivo" --verificar "$WTS/wt-sl-dif"
 verif 1 'keep: .*wt-sl-outro .*apps/z/\.claude/settings\.local\.json' "settings.local.json fora da raiz não é a cópia do app" --verificar "$WTS/wt-sl-outro"
@@ -422,6 +439,7 @@ no_disco wt-env-repo     "repo aninhado ignorado"
 no_disco wt-dirty        "estava sujo"
 no_disco wt-ign-outputs  "outputs/video.mp4 ignorado"
 no_disco wt-ign-out      "out/video.mp4 ignorado"
+no_disco wt-ger-tr-trace "trace de teste que falhou em test-results/"
 no_disco wt-det-ign      "outputs/video.mp4 ignorado num detached"
 check 'removido: .*wt-ign-cache'        "apply remove o que só tem cache"                        "$OUT"
 check 'removido: .*wt-ign-venv'         "apply remove o que só tem o symlink"                    "$OUT"
