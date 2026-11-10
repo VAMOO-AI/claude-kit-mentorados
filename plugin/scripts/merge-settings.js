@@ -29,7 +29,8 @@
 //
 // --overlay <arquivo> (F6 do núcleo único), repetível e aplicado em ordem: JSON com chaves de
 // topo que substituem as do kit antes do merge (na mesma chave, a última camada vence); `hooks`
-// se SOMA aos do kit, por evento. O `$merge` das camadas se soma: listas concatenam, mapas se
+// se SOMA aos do kit, por evento, e `permissions` também: lista (allow, deny, ask) vira união
+// com a do kit e valor simples (defaultMode) é o do overlay. O `$merge` das camadas se soma: listas concatenam, mapas se
 // juntam e o valor simples da última vale. A meta-chave `$merge` traz as
 // regras de quem distribui o overlay e nunca é gravada no settings.json:
 //   allowsRevogados {texto exato: substituto|null}, envDoKit {VAR: valor exato} e
@@ -149,6 +150,16 @@ for (const overlayPath of overlayPaths) {
     if (objeto(ov.$merge)) regras = somaRegras(regras, ov.$merge);
     delete ov.$merge;
     for (const [k, v] of Object.entries(ov)) {
+      // `permissions` soma, pelo mesmo motivo de `hooks`: trocando, o overlay de quem só
+      // acrescenta um ask apagava allow, deny e ask do kit, e deny novo não chegava à pessoa.
+      if (k === 'permissions' && objeto(v) && objeto(kit.permissions)) {
+        const p = { ...kit.permissions };
+        for (const [pk, pv] of Object.entries(v)) {
+          p[pk] = Array.isArray(pv) && Array.isArray(p[pk]) ? [...p[pk], ...pv.filter((x) => !p[pk].includes(x))] : pv;
+        }
+        kit.permissions = p;
+        continue;
+      }
       if (k !== 'hooks') { kit[k] = v; continue; }
       if (!objeto(v)) { console.log('! overlay: `hooks` não é um objeto — ignorado'); continue; }
       // Somar, não trocar: um `hooks` no overlay que substituísse o do kit apagaria todos os
@@ -338,7 +349,8 @@ if (Array.isArray(kitPerms.allow)) kitPerms.allow = kitPerms.allow.filter((p) =>
 // as de comando: as do template não entram e as que o kit já tinha posto saem, casadas pelo
 // texto exato de uma regra do template de agora (regra que o kit já tirou do template não é
 // reconhecida e fica; quem escreveu por conta própria uma regra idêntica à do kit perde junto,
-// porque não dá para distinguir). O `deny` não passa por aqui.
+// porque não dá para distinguir). Regra de comando que veio do `permissions` de um overlay conta
+// como do kit. O `deny` não passa por aqui.
 const askDeComando = (r) => typeof r === 'string' && /^(Bash|PowerShell)\(/.test(r);
 let asksDoKitFora = 0;
 let asksTirados = 0;

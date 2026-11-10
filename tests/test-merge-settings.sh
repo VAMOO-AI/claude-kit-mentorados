@@ -1340,6 +1340,22 @@ jsmod "$TMP/kit-sa.json" "$TMP/kit-sa-so-cmd.json" 'd.permissions.ask = d.permis
 cp "$TMP/mine-sa-so-kit.json" "$TMP/out-sa-vazio.json"
 node "$MERGE" "$TMP/kit-sa-so-cmd.json" "$TMP/out-sa-vazio.json" --sem-ask-de-comando >/dev/null 2>&1
 check "sem nenhuma ask restante, a chave ask some (não fica lista vazia)" "'ask' in d.permissions" 'false' "$TMP/out-sa-vazio.json"
+# `permissions` no overlay se SOMA ao do kit, como `hooks`. Trocando, o overlay de uma pessoa que
+# só acrescenta ask de conector apagava allow, deny e ask do kit para ela: nenhum deny novo chegava.
+echo '{"permissions":{"ask":["mcp__claude_ai_Gmail__send_message","mcp__gmail__send_message"],"defaultMode":"plan"}}' > "$TMP/ov-perm.json"
+echo '{}' > "$TMP/out-ovperm.json"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-ovperm.json" --overlay "$TMP/ov-perm.json" > "$TMP/out-ovperm.txt" 2>&1
+check "permissions no overlay: o deny do kit continua chegando" "d.permissions.deny" '["Bash(git push --force origin main)","Read(**/.env)"]' "$TMP/out-ovperm.json"
+check "permissions no overlay: o allow do kit continua chegando" "d.permissions.allow" '["Bash(ls:*)"]' "$TMP/out-ovperm.json"
+check "permissions no overlay: as listas se somam, sem duplicar" "d.permissions.ask.length" '6' "$TMP/out-ovperm.json"
+check "permissions no overlay: a regra do overlay entra" "d.permissions.ask.includes('mcp__claude_ai_Gmail__send_message')" 'true' "$TMP/out-ovperm.json"
+check "permissions no overlay: valor simples é o do overlay" "d.permissions.defaultMode" '"plan"' "$TMP/out-ovperm.json"
+echo '{"permissions":{"ask":["mcp__claude_ai_Gmail__send_message"]},"$merge":{"semAskDeComando":true}}' > "$TMP/ov-perm-sa.json"
+echo '{}' > "$TMP/out-ovperm-sa.json"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-ovperm-sa.json" --overlay "$TMP/ov-perm-sa.json" >/dev/null 2>&1
+check "overlay com ask de conector + semAskDeComando: só as de conector ficam" "d.permissions.ask" \
+  '["mcp__gmail__send_message","WebFetch(domain:pagamento.example)","mcp__claude_ai_Gmail__send_message"]' "$TMP/out-ovperm-sa.json"
+check "…e o deny do kit chega inteiro" "d.permissions.deny.length" '2' "$TMP/out-ovperm-sa.json"
 # O template de verdade: nenhuma regra de comando sobra e o deny chega inteiro.
 TPL_REAL="$(cd "$(dirname "$0")/.." && pwd)/plugin/templates/settings.json"
 echo '{}' > "$TMP/out-sa-real.json"
