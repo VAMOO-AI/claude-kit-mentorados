@@ -1256,5 +1256,97 @@ check "statusLine governada: volta ao do kit" "d.statusLine.command" '"bash ~/.c
 check "env listada em chavesGovernadas segue a regra dela (união: a da pessoa fica)" "d.env.MINHA" '"1"' "$TMP/out-obj.json"
 check "…e a do kit entra" "d.env.DO_KIT" '"1"' "$TMP/out-obj.json"
 
+echo "== \$merge.semAskDeComando: o modo sem perguntas dispensa as regras ask de comando do kit =="
+# Regra ask pergunta em QUALQUER modo de permissão, bypass incluso, e o ask é união: quem
+# trabalha em bypass de propósito não tinha como dispensar as do kit (allowsRevogados é do
+# allow, hooksRemovidos é de hook). O modo tira só as de comando (Bash/PowerShell) que são
+# texto exato de regra do template; deny, ask de conector e ask que a pessoa escreveu ficam.
+cat > "$TMP/kit-sa.json" <<'JSON'
+{
+  "permissions": {
+    "allow": ["Bash(ls:*)"],
+    "deny": ["Bash(git push --force origin main)", "Read(**/.env)"],
+    "ask": ["Bash(git push --force *)", "PowerShell(git push --force *)", "Bash(git stash drop *)",
+            "mcp__gmail__send_message", "WebFetch(domain:pagamento.example)"]
+  }
+}
+JSON
+cat > "$TMP/mine-sa.json" <<'JSON'
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": ["Bash(git push --force origin feat)"],
+    "deny": ["Bash(meu-deny:*)"],
+    "ask": ["Bash(git push --force *)", "Bash(meu perigoso *)", "mcp__meu__apagar"]
+  }
+}
+JSON
+echo '{"$merge":{"semAskDeComando":true}}' > "$TMP/ov-sa.json"
+DE_COMANDO="d.permissions.ask.filter((r) => /^(Bash|PowerShell)\\(/.test(r))"
+cp "$TMP/mine-sa.json" "$TMP/out-sa-ref.json"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa-ref.json" > "$TMP/out-sa-ref.txt" 2>&1
+check "sem a preferência: as 3 de comando do kit entram (controle)" "$DE_COMANDO.length" '4' "$TMP/out-sa-ref.json"
+cp "$TMP/mine-sa.json" "$TMP/out-sa.json"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa.json" --overlay "$TMP/ov-sa.json" > "$TMP/out-sa.txt" 2>&1
+check "(a) nenhuma ask de comando do kit é acrescentada" \
+  "['PowerShell(git push --force *)', 'Bash(git stash drop *)'].filter((r) => d.permissions.ask.includes(r)).length" '0' "$TMP/out-sa.json"
+check "(b) a que o kit pôs em versão anterior sai do settings da pessoa" \
+  "d.permissions.ask.includes('Bash(git push --force *)')" 'false' "$TMP/out-sa.json"
+check "(c) ask de comando que a pessoa escreveu fica" "$DE_COMANDO" '["Bash(meu perigoso *)"]' "$TMP/out-sa.json"
+check "(d) deny igual ao do merge sem a preferência" "d.permissions.deny" \
+  '["Bash(meu-deny:*)","Bash(git push --force origin main)","Read(**/.env)"]' "$TMP/out-sa.json"
+check "(d) …e o controle confirma o mesmo deny" "d.permissions.deny" \
+  '["Bash(meu-deny:*)","Bash(git push --force origin main)","Read(**/.env)"]' "$TMP/out-sa-ref.json"
+check "(e) ask de conector e de WebFetch seguem em união" \
+  "d.permissions.ask.filter((r) => !/^(Bash|PowerShell)\\(/.test(r))" \
+  '["mcp__meu__apagar","mcp__gmail__send_message","WebFetch(domain:pagamento.example)"]' "$TMP/out-sa.json"
+check "o allow da pessoa não muda" "d.permissions.allow" '["Bash(git push --force origin feat)","Bash(ls:*)"]' "$TMP/out-sa.json"
+check "a meta-chave não é gravada no settings" "'\$merge' in d || 'semAskDeComando' in d" 'false' "$TMP/out-sa.json"
+saida_tem "(f) a saída nomeia o modo" "$TMP/out-sa.txt" "modo sem perguntas"
+saida_tem "(f) …diz quantas regras do kit ficam de fora" "$TMP/out-sa.txt" "3 regra(s) ask de comando do kit"
+saida_tem "(f) …quantas saíram do settings agora" "$TMP/out-sa.txt" "1 tirada(s) do seu settings.json"
+saida_tem "(f) …e o que a pessoa deixa de ver" "$TMP/out-sa.txt" "deixa de pedir confirmação"
+saida_sem "sem ask novo por cima, não avisa que o allow da pessoa passa a perguntar" "$TMP/out-sa.txt" "passa(m) a perguntar"
+ANTES_SA="$(cat "$TMP/out-sa.json")"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa.json" --overlay "$TMP/ov-sa.json" > "$TMP/out-sa2.txt" 2>&1
+[ "$ANTES_SA" = "$(cat "$TMP/out-sa.json")" ] && echo "  ok    (g) ligado: a segunda passada não muda o arquivo" \
+  || { echo "  FALHA (g) ligado: a segunda passada mudou o arquivo"; falhas=$((falhas+1)); }
+saida_tem "(g) ligado: a segunda passada diz que nada saiu agora" "$TMP/out-sa2.txt" "0 tirada(s)"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa.json" > "$TMP/out-sa3.txt" 2>&1
+check "(g) desligar traz as regras de comando do kit de volta" \
+  "['Bash(git push --force *)', 'PowerShell(git push --force *)', 'Bash(git stash drop *)'].filter((r) => d.permissions.ask.includes(r)).length" '3' "$TMP/out-sa.json"
+check "(g) …sem duplicar nem perder a da pessoa" "$DE_COMANDO.length" '4' "$TMP/out-sa.json"
+saida_sem "(g) desligado: a saída não fala do modo" "$TMP/out-sa3.txt" "modo sem perguntas"
+ANTES_SA="$(cat "$TMP/out-sa.json")"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa.json" >/dev/null 2>&1
+[ "$ANTES_SA" = "$(cat "$TMP/out-sa.json")" ] && echo "  ok    (g) desligado: a segunda passada não muda o arquivo" \
+  || { echo "  FALHA (g) desligado: a segunda passada mudou o arquivo"; falhas=$((falhas+1)); }
+# O kit-setup.sh não tem overlay: liga pela flag, que vale o mesmo que a chave.
+cp "$TMP/mine-sa.json" "$TMP/out-sa-flag.json"
+node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa-flag.json" --sem-ask-de-comando > "$TMP/out-sa-flag.txt" 2>&1
+[ "$(cat "$TMP/out-sa-flag.json")" = "$(node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa.json" --overlay "$TMP/ov-sa.json" >/dev/null 2>&1; cat "$TMP/out-sa.json")" ] \
+  && echo "  ok    a flag --sem-ask-de-comando dá o mesmo arquivo que a chave do overlay" \
+  || { echo "  FALHA a flag --sem-ask-de-comando difere do overlay: $(cat "$TMP/out-sa-flag.txt")"; falhas=$((falhas+1)); }
+# Só o booleano true liga: "true" em string ou false numa camada posterior não dispensam nada.
+for v in '"true"' 'false' '1'; do
+  echo "{\"\$merge\":{\"semAskDeComando\":$v}}" > "$TMP/ov-sa-nao.json"
+  cp "$TMP/mine-sa.json" "$TMP/out-sa-nao.json"
+  node "$MERGE" "$TMP/kit-sa.json" "$TMP/out-sa-nao.json" --overlay "$TMP/ov-sa.json" --overlay "$TMP/ov-sa-nao.json" >/dev/null 2>&1
+  check "semAskDeComando: $v na última camada não liga" "$DE_COMANDO.length" '4' "$TMP/out-sa-nao.json"
+done
+# Quem só tinha ask do kit fica sem a chave, em vez de uma lista vazia.
+jsmod "$TMP/mine-sa.json" "$TMP/mine-sa-so-kit.json" 'd.permissions.ask = ["Bash(git stash drop *)"]'
+jsmod "$TMP/kit-sa.json" "$TMP/kit-sa-so-cmd.json" 'd.permissions.ask = d.permissions.ask.filter((r) => /^(Bash|PowerShell)\(/.test(r))'
+cp "$TMP/mine-sa-so-kit.json" "$TMP/out-sa-vazio.json"
+node "$MERGE" "$TMP/kit-sa-so-cmd.json" "$TMP/out-sa-vazio.json" --sem-ask-de-comando >/dev/null 2>&1
+check "sem nenhuma ask restante, a chave ask some (não fica lista vazia)" "'ask' in d.permissions" 'false' "$TMP/out-sa-vazio.json"
+# O template de verdade: nenhuma regra de comando sobra e o deny chega inteiro.
+TPL_REAL="$(cd "$(dirname "$0")/.." && pwd)/plugin/templates/settings.json"
+echo '{}' > "$TMP/out-sa-real.json"
+node "$MERGE" "$TPL_REAL" "$TMP/out-sa-real.json" --sem-ask-de-comando > "$TMP/out-sa-real.txt" 2>&1
+check "template real: zero ask de Bash/PowerShell" "(d.permissions.ask || []).filter((r) => /^(Bash|PowerShell)\\(/.test(r)).length" '0' "$TMP/out-sa-real.json"
+N_DENY_REAL="$(node -e 'const d = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(String(d.permissions.deny.length))' < "$TPL_REAL")"
+check "template real: o deny chega inteiro" "d.permissions.deny.length" "$N_DENY_REAL" "$TMP/out-sa-real.json"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

@@ -15,6 +15,8 @@
 #   bash kit-setup.sh --dry-run    # mostra o que faria, não toca em nada
 #   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir e roda até por cima do kit do time
 #   bash kit-setup.sh --statusline curto|painel   # barra de uma linha ou o painel de até 7
+#   bash kit-setup.sh --sem-perguntas   # modo sem perguntas: sem as regras ask de comando do kit
+#   bash kit-setup.sh --com-perguntas   # desliga o modo e devolve as regras
 #
 # Tudo que o script toca ganha cópia em ~/.claude/backup-kit-<data>/ antes; ficam
 # os 3 backups mais recentes. O que você tem em ~/.claude e não quer ver removido
@@ -36,6 +38,7 @@ KEEP_LOCAL="$CLAUDE_DIR/.keep-local"
 DRY=0
 FORCE=0
 SL_MODO=""
+PERGUNTAS=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -43,7 +46,10 @@ while [ $# -gt 0 ]; do
     --force)   FORCE=1 ;;
     --statusline)   SL_MODO="${2:-}"; [ $# -gt 1 ] && shift ;;
     --statusline=*) SL_MODO="${1#*=}" ;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    --sem-perguntas|--com-perguntas)
+      [ -n "$PERGUNTAS" ] && [ "$PERGUNTAS" != "${1#--}" ] && { echo "--sem-perguntas e --com-perguntas juntas: escolha uma" >&2; exit 2; }
+      PERGUNTAS="${1#--}" ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "opção desconhecida: $1" >&2; exit 2 ;;
   esac
   shift
@@ -252,12 +258,37 @@ ok "barra de status instalada (diretório, branch, ↑↓, gh, PR, contexto)"
 # O instalador antigo sobrescrevia e quem tinha permissions/env customizados
 # perdia tudo com um aviso fácil de não ver. Agora as suas chaves ganham: o kit
 # só preenche o que está faltando, e a lista `allow` é a união das duas.
+#
+# Modo sem perguntas: regra `ask` pergunta em qualquer modo de permissão, bypass incluso, e a
+# união devolve as do kit a cada setup. Quem escolhe trabalhar sem elas liga com
+# --sem-perguntas; a escolha é o arquivo ~/.claude/kit-vamoo/sem-perguntas (mesma pasta dos
+# manter-modo-manual e manter-accept-edits), que este script lê a cada rodada, e sai com
+# --com-perguntas. Só as regras ask de COMANDO do kit saem; deny não muda.
+SEM_PERG_MARCA="$CLAUDE_DIR/kit-vamoo/sem-perguntas"
+SEM_PERG=0
+[ -f "$SEM_PERG_MARCA" ] && SEM_PERG=1
+case "$PERGUNTAS" in
+  sem-perguntas)
+    SEM_PERG=1
+    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] ligaria o modo sem perguntas (gravaria ~/.claude/kit-vamoo/sem-perguntas)"
+    else mkdir -p "$CLAUDE_DIR/kit-vamoo"; printf 'ligado em %s pelo kit-setup.sh --sem-perguntas\n' "$STAMP" > "$SEM_PERG_MARCA"; fi ;;
+  com-perguntas)
+    SEM_PERG=0
+    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] desligaria o modo sem perguntas (apagaria ~/.claude/kit-vamoo/sem-perguntas)"
+    else rm -f "$SEM_PERG_MARCA"; fi ;;
+esac
 backup "settings.json"
 if [ "$DRY" -eq 1 ]; then
   echo "  [dry-run] mesclaria $TPL/settings.json em $CLAUDE_DIR/settings.json"
+  [ "$SEM_PERG" -eq 1 ] && echo "  [dry-run] modo sem perguntas: tiraria as regras ask de comando do kit (deny não muda)"
 elif command -v node >/dev/null 2>&1; then
-  node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json"
+  if [ "$SEM_PERG" -eq 1 ]; then
+    node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json" --sem-ask-de-comando
+  else
+    node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json"
+  fi
   ok "settings.json mesclado (as suas chaves foram preservadas)"
+  [ "$PERGUNTAS" = com-perguntas ] && ok "modo sem perguntas desligado: as regras ask de comando do kit voltaram"
 else
   warn "sem node — não deu pra mesclar o settings.json. Modelo em $TPL/settings.json"
 fi
@@ -309,6 +340,18 @@ say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o
 say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Auto\" em cada pasta onde escolheu Manual."
 say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
 say "  Quer ficar no Accept edits? Crie ~/.claude/kit-vamoo/manter-accept-edits e ponha permissions.defaultMode em \"acceptEdits\"."
+if [ "$SEM_PERG" -eq 1 ]; then
+  warn "Modo sem perguntas LIGADO (~/.claude/kit-vamoo/sem-perguntas): o kit não põe as regras ask de comando."
+  warn "  Deixa de pedir confirmação, em qualquer modo de permissão: git push --force, --delete, --mirror e --all em branch"
+  warn "  que não é a main; push direto na main; git reset --hard; git clean; git branch -D; checkout -f; checkout -- .;"
+  warn "  switch --discard-changes; restore .; stash drop/clear; worktree remove --force; gh pr merge; gh repo delete;"
+  warn "  gh release delete; supabase secrets set/unset; supabase migration repair; find -delete/-exec; Remove-Item -Recurse;"
+  warn "  listar variáveis de ambiente (env, printenv) e comando que cita .pem, chave SSH ou credencial (.aws, .npmrc, .netrc)."
+  warn "  Continua barrado pelas regras deny: force push na main, supabase db push, login do Supabase e da Vercel, leitura de .env."
+  warn "  Continuam valendo: os hooks do kit (commit na main, rm -rf fora de pasta descartável), as regras ask de conector"
+  warn "  e as ask que você mesmo escreveu. Fora do bypass, o modo de permissão segue revisando cada comando."
+  warn "  Pra voltar a ser perguntado: /kit-vamoo:setup --com-perguntas (ou bash kit-setup.sh --com-perguntas)."
+fi
 ok "Pronto."
 [ -d "$BACKUP_DIR" ] && say "Seus arquivos antigos: $BACKUP_DIR"
 if [ "$INSTALOU_CLAUDE" -eq 1 ]; then

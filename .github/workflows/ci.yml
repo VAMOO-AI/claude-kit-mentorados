@@ -182,6 +182,9 @@ jobs:
       - name: O setup em HOME temporário termina em auto e sem allow de execução arbitrária
         run: bash tests/test-kit-setup-permissoes.sh
 
+      - name: O modo sem perguntas do setup tira só as regras ask de comando do kit, persiste e desliga
+        run: bash tests/test-kit-setup-sem-perguntas.sh
+
       - name: O kit-setup tira o MCP do dotcontext de quem ainda o tem registrado
         run: bash tests/test-kit-setup-dotcontext.sh
 
