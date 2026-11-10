@@ -349,6 +349,10 @@ jobs:
         # Repo git de mentira e gh de stub: não usa rede.
         run: bash tests/test-release-trem.sh
 
+      - name: O promover-stable só avança o canal estável, e só com --push
+        # Remote git de mentira: não usa rede.
+        run: bash tests/test-promover-stable.sh
+
       - name: O replay compara a decisão do pre-bash do base com a do head e só passa divergência declarada
         # Base e head são cópias de plugin/; a divergência é plantada. Não usa rede nem corpus real.
         run: bash tests/test-replay-corpus.sh

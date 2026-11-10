@@ -67,6 +67,35 @@ precisa de versão, porque o gate só olha `plugin/`. Ele entra sozinho, sem esp
 A tag sai do workflow de release quando o `plugin.json` muda na `main`. Não crie tag na mão.
 O restante do fluxo está no README, na seção "Se você mantém o kit".
 
+## O release não chega ao mentorado sozinho: canal estável
+
+O branch padrão do repo é o `stable`, e é ele que o marketplace de quem instalou o kit segue
+(o Claude Code clona o branch padrão quando a fonte não fixa um `ref`). A `main` recebe os PRs
+e os releases; o `stable` só anda quando alguém promove uma versão.
+
+Até a 0.90 o padrão era a `main`: com o `autoUpdate` que o setup liga, cada merge de release
+virava código novo de hook na sessão seguinte de todo mentorado, sem ninguém ter usado a
+versão antes.
+
+- **Todo PR é contra a `main`.** O `gh pr create` sem `--base` abre contra o branch padrão,
+  que agora é o `stable`: passe `--base main` sempre. O `release-trem.sh` já imprime o comando
+  com a flag.
+- **Promover:** depois de usar a versão no time por alguns dias,
+
+  ```bash
+  bash scripts/promover-stable.sh 0.91.0          # confere e mostra o que faria
+  bash scripts/promover-stable.sh 0.91.0 --push   # avança o stable até a tag
+  ```
+
+  O script só avança. Voltar o `stable` para uma versão anterior (release ruim que já foi
+  promovido) é à mão: `git push --force-with-lease origin v<versão boa>^{commit}:refs/heads/stable`,
+  e avise no grupo, porque quem já recebeu a versão ruim só volta quando a versão do
+  `plugin.json` mudar de novo.
+- **Quem mantém o kit segue a `main`**, não o `stable`: registre o marketplace com
+  `claude plugin marketplace add VAMOO-AI/claude-kit-mentorados#main`.
+- Correção urgente segue o mesmo caminho, sem a espera: release na `main` e promoção em
+  seguida.
+
 ## Gates para rodar antes de abrir o PR
 
 São rápidos e pegam o que mais volta do CI:

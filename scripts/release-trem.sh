@@ -259,4 +259,6 @@ echo
 echo "release/$V pronto em $DIR (commit $(git -C "$DIR" rev-parse --short HEAD)). Nada foi enviado."
 echo "Revise o CHANGELOG e a linha das novidades, e então:"
 echo "  git -C $DIR push -u origin $BR"
-echo "  gh pr create --draft --head $BR --title 'release: $V' --body-file $CORPO"
+# --base main explícito: o branch padrão do repo é o `stable` (canal dos mentorados), e sem a
+# flag o gh abriria o PR contra ele.
+echo "  gh pr create --draft --base main --head $BR --title 'release: $V' --body-file $CORPO"
