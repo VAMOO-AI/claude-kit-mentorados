@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # pre-prompt.sh — dispatcher do UserPromptSubmit: lê o payload UMA vez e o entrega, em
-# ordem, aos hooks que até a 0.25.0 eram entries separados no hooks.json. Hoje são três: o
-# aviso de node ausente (primeiro: sem node os outros guards saem calados), o
-# session-size-guard e o repo-session. O warn-sem-jq do kit do time saiu quando o último
+# ordem, aos hooks que até a 0.25.0 eram entries separados no hooks.json. Hoje são dois: o
+# aviso de node ausente (primeiro: sem node os outros guards saem calados) e o
+# session-size-guard. O repo-session saiu em 09/11/2026 com o block-parallel-clone-switch,
+# o único leitor dos markers dele. O warn-sem-jq do kit do time saiu quando o último
 # guard de lá que lia por jq (check-dev-server) passou a vir daqui. Depois da 0.64 saíram o branch-guard, o
 # memoria-worktree-link, o worktree-seed-env e a devolução do compact (que virou o
 # compact-estado.sh, no SessionStart(compact)).
@@ -56,13 +57,10 @@ emite() { # <código com que a cadeia vai sair>
 
 saida=""
 # O aviso de binário vem antes do session-size-guard, que pode bloquear.
-for h in warn-sem-node.sh session-size-guard.sh repo-session.sh; do
+for h in warn-sem-node.sh session-size-guard.sh; do
   f="$HOOKS_DIR/$h"
   [ -f "$f" ] || continue
-  case "$h" in
-    repo-session.sh)          out=$(printf '%s' "$payload" | ( . "$f" touch )); rc=$? ;;
-    *)                        out=$(printf '%s' "$payload" | ( . "$f" )); rc=$? ;;
-  esac
+  out=$(printf '%s' "$payload" | ( . "$f" )); rc=$?
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then
     [ -n "$out" ] && printf '%s\n' "$out" >&2
     aviso="[pre-prompt] $h saiu $rc (bug do hook; cadeia segue)"

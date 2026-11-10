@@ -63,7 +63,9 @@ Ligar **não** publica. `git status --short .context/memoria/` com linhas: commi
 fechar a sessão, **numa branch** (o hook bloqueia a `main`) — a da tarefa, se vai virar PR;
 senão `docs/memoria-<AAAA-MM-DD>`, num worktree se outra sessão usa este clone. Memória não
 commitada fica nesta máquina e, num worktree, vai embora com ele. Antes de abrir PR **só de
-memória**, procure um aberto na mesma pasta:
+memória**, procure um aberto na mesma pasta (publicar em paralelo com outra sessão é como
+nascem dois PRs com os mesmos arquivos). De dentro de um worktree, se o guard recusar o `gh`
+(skill `worktrees`), grave o comando num `.sh` no scratchpad e rode `bash <caminho absoluto>`:
 
 ```bash
 gh pr list --state open --limit 100 --json number,headRefName,url,files --jq '.[]

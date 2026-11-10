@@ -3,8 +3,8 @@ name: grilling
 description: >-
   Interroga o usuário sobre um plano até fechar cada ramo de decisão antes de
   codar. Acione em implementação GRANDE (multi-sistema, schema/auth/infra,
-  irreversível); não em tarefa pequena e vaga. Também em "/kit-vamoo:grilling",
-  "me interroga", "fecha o plano".
+  irreversível); não em tarefa pequena e vaga. Também em "me interroga",
+  "fecha o plano".
 ---
 
 # Grilling — interrogatório de plano

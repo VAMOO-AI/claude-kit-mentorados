@@ -56,7 +56,7 @@ cenário que veio de outra pessoa como revisaria um script.
     "psql \"$DATABASE_URL\" -c \"delete from <agente>_leads where phone = '{{telefone}}'\"",
     "redis-cli -u \"$REDIS_URL\" del 'DEBOUNCE_<AGENTE>_{{telefone}}' 'PAUSA_<AGENTE>_{{telefone}}'"
   ],
-  "llm": { "modelo": "claude-opus-5" }
+  "llm": { "effort_juiz": "high" }
 }
 ```
 
@@ -71,7 +71,7 @@ cenário que veio de outra pessoa como revisaria um script.
 | `intervalo_rajada_ms` | Intervalo entre mensagens de uma rajada do lead (padrão 1000). Precisa ser menor que o debounce, senão a rajada vira dois turnos. |
 | `intervalo_poll_s` | De quanto em quanto tempo consultar o n8n (padrão 2). A lista de execuções vem sem `runData`; o detalhe é buscado uma vez por execução nova e terminada. |
 | `limpeza` | Comandos rodados no fim, com `cwd` no diretório do `agente.json` e 60s de timeout cada. Apague leads, mensagens e as chaves Redis de debounce e pausa, com os nomes que o seu workflow usa. Sem isso, o próximo teste herda estado. Comando que falha faz a saída ser `2`; o erro mostra só o número do comando, nunca o texto com o `{{env:}}` expandido. |
-| `llm` | `modelo` (padrão `claude-opus-5`), `effort_lead` (padrão `low`), `effort_juiz` (padrão `high`). |
+| `llm` | `modelo` (opcional: o id de um modelo Claude; sem ele vale o padrão da função `claude()` do script), `effort_lead` (padrão `low`), `effort_juiz` (padrão `high`). |
 
 `{{env:VAR}}` vale em `n8n_url`, `webhook_url`, `limpeza` e nas checagens `comando`. A chave da
 API do n8n vem de `N8N_API_KEY` (ou da variável que `n8n_api_key_env` nomear).
@@ -124,13 +124,13 @@ vira silêncio e a rodada sai `2`.
 
 ### Checagem em código ou juiz
 
-O juiz também é um LLM, e controle que depende de modelo vaza (skill `guardrails-ia`). Regra que
+O juiz também é um LLM, e controle que depende de modelo vaza (`guardrails-ia/SKILL.md`). Regra que
 dá para verificar com código vira checagem. Julgamento vira critério do juiz.
 
 | Tipo | Reprova quando |
 |---|---|
 | `proibido` | Uma resposta do agente, a partir de `a_partir_do_turno`, casa com `regex`. |
-| `numeros_permitidos` | Uma resposta do agente tem um número que não está na lista nem nas falas do próprio lead. A `lista` vai inline no cenário, com as alegações verificadas do anúncio (como no exemplo acima); se elas já vivem num JSON do seu projeto, troque `lista` por `arquivo` (caminho relativo ao cenário) + `chave` (o campo com o array). É a regra do dígito da skill `guardrails-ia`. Os números são comparados pelo valor: "R$ 450.000,00", "450 mil" e "450000" são o mesmo número, e "2%" só é liberado por um "2%" (o "2 quartos" da lista não libera). Horário ("14h", "14:30") e data ("28/09") não contam. Número por extenso ("trinta por cento") escapa: deixe isso para o juiz. |
+| `numeros_permitidos` | Uma resposta do agente tem um número que não está na lista nem nas falas do próprio lead. A `lista` vai inline no cenário, com as alegações verificadas do anúncio (como no exemplo acima); se elas já vivem num JSON do seu projeto, troque `lista` por `arquivo` (caminho relativo ao cenário) + `chave` (o campo com o array). É a regra do dígito de `guardrails-ia/SKILL.md`. Os números são comparados pelo valor: "R$ 450.000,00", "450 mil" e "450000" são o mesmo número, e "2%" só é liberado por um "2%" (o "2 quartos" da lista não libera). Horário ("14h", "14:30") e data ("28/09") não contam. Número por extenso ("trinta por cento") escapa: deixe isso para o juiz. |
 | `silencio_apos` | O agente responde no `turno` indicado ou depois dele, ou não respondeu nada antes dele. O `turno` tem que ser uma fala fixa do `roteiro`, a partir do 2: o gatilho não pode depender do que o lead simulado resolver dizer, e sem resposta antes o silêncio não prova nada. |
 | `comando` | O stdout do comando (`{{telefone}}` substituído, `cwd` no diretório do cenário, 60s de timeout) difere de `espera` (comparação exata, sem espaços nas pontas) ou não casa com `regex`. Para contagem, `psql -tAc` devolve só o número; cliente SQL que imprime tabela ou JSON faz um `regex` frouxo casar com o rodapé. Serve para conferir estado: linha em `nao_contatar`, dono do canal virou humano, label no Chatwoot. |
 
@@ -160,8 +160,9 @@ Um cenário por bug que já aconteceu. Todos saem do `troubleshooting.md`:
   turnos leva uns 4 minutos. `--paralelo` roda rodadas e cenários ao mesmo tempo, porque cada
   um tem o próprio telefone.
 - **Custo.** Por turno, uma chamada ao Claude para o lead (effort `low`) e a execução normal
-  do agente; mais uma chamada do juiz por conversa. Com `claude-opus-5` o script manda
-  `fallbacks: "default"`, para o juiz não morrer numa recusa de classificador.
+  do agente; mais uma chamada do juiz por conversa. Nos modelos da lista
+  `MODELOS_COM_FALLBACK` do script ele manda `fallbacks: "default"`, para o juiz não morrer
+  numa recusa de classificador.
 - **Não cobre mídia.** O payload é de texto. Áudio e imagem precisam de uma URL de mídia no
   formato do provider, e ficam para quando um bug pedir.
 - **Workflow desativado ou webhook em queue mode sem Publish** aparece como silêncio em todos

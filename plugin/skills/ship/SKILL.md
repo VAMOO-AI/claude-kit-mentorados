@@ -1,9 +1,8 @@
 ---
 name: ship
 description: >-
-  Pipeline de release com portões de verificação. Use quando o usuário disser
-  "ship", "/ship", "deploy", "manda pra prod", ou pedir pra fechar uma feature
-  com commit + PR. Gates duros (format, lint, testes, commit, PR, CI fail-fast)
+  Pipeline de release com portões de verificação. Use em "ship", "/ship",
+  "deploy", "manda pra prod", ou para fechar uma feature com commit + PR. Gates duros (format, lint, testes, commit, PR, CI fail-fast)
   e o deploy do que o diff tocou, pelo .context/docs/deploy.md.
 ---
 

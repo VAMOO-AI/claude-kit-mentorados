@@ -3,8 +3,9 @@ name: mcp-sistema
 description: >-
   Cria o MCP remoto de um sistema Supabase para ligar Claude, ChatGPT ou outro cliente
   com a própria conta: OAuth, recorte por papel, escrita com prévia e log, página de
-  instalação (Next.js ou SPA com edge function). Use em "cria um MCP pro sistema", "MCP
-  com login", "ligar no ChatGPT", "o MCP dá timeout".
+  instalação (Next.js ou SPA com edge function). Também para MCP que dá timeout. Só
+  dispara quando você chama: /kit-vamoo:mcp-sistema.
+disable-model-invocation: true
 ---
 
 # MCP remoto de um sistema (Supabase)
@@ -51,7 +52,7 @@ despersonalizado: adapte nomes de tabela, papéis e tools ao projeto alvo.
    dados v1, escritas, endpoint, página. Na receita edge, feche dados v1, o canal
    do código ao dono (WhatsApp, e-mail) e o domínio público; papel só entra se for
    multiusuário.
-3. Grave a spec em `docs/superpowers/specs/<data>-mcp-<sistema>-design.md` com a
+3. Grave a spec em `.context/docs/<data>-mcp-<sistema>-design.md` com a
    tabela de decisões, o escopo por papel e a ordem de rollout. A spec é o
    contrato dos 4 PRs; atualize o status dela a cada merge.
 

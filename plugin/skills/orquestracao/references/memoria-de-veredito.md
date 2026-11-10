@@ -6,15 +6,9 @@ Lido antes de silenciar um achado ou reabrir um finding (auditoria, revisor de P
 
 Silenciar o achado onde ele aparece (`nosemgrep`, `eslint-disable`, exceção no scanner)
 espalha a decisão pelo código, some no diff e não diz quem decidiu nem quando. O veredito vai
-num arquivo, no formato do `secscan`:
-
-```markdown
-<!-- .context/docs/security/vereditos.md -->
-| Fingerprint | Veredito | Por quê | Quem | Quando |
-|---|---|---|---|---|
-| `src/import.ts:88 sql-injection` | falso-positivo | parâmetro vem de enum fechado, não de input | dev responsável | 2026-08-22 |
-| `scripts/build-*.cjs service_role` | risco aceito | ver EX-01 em `.context/docs/baseline.md` | dev responsável | 2026-08-22 |
-```
+num arquivo, `.context/docs/security/vereditos.md`. O modelo da tabela (fingerprint ·
+veredito · por quê · quem · quando) mora em `secscan/references/falso-positivo.md`: leia lá
+antes de criar o arquivo.
 
 Antes de reabrir um finding, consulte a tabela; depois de julgar um novo, escreva nela. Vale
 para auditoria, revisor de PR e todo fan-out que produz achado: sem isso, cada rodada paga o

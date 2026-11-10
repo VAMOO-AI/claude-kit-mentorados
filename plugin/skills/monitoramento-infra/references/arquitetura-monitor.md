@@ -114,7 +114,7 @@ O [`assets/sonda-http.sh`](../assets/sonda-http.sh) implementa a guarda com o te
   401: ficaram dias em `down` falso, ~1.400 falhas cada — e, com o incidente
   aberto, **uma queda real não alertaria**. `expected_status: [200,301,302,401,403]`
   para esses. (O outro lado: 401 prova que o Traefik roteia, **não** que o
-  backend está vivo — ver [vps.md](vps.md).)
+  backend está vivo.)
 - Canal oficial de WhatsApp "Conectado" no painel e morto: a API responde HTTP
   200 com o erro no corpo. Sonda HTTP não serve; precisa ler o corpo.
 

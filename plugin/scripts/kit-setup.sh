@@ -228,15 +228,23 @@ run cp "$PLUGIN_ROOT/scripts/statusline.js" "$CLAUDE_DIR/scripts/statusline.js"
 run cp "$PLUGIN_ROOT/scripts/hookjson.js" "$CLAUDE_DIR/scripts/hookjson.js"
 run cp "$PLUGIN_ROOT/scripts/merge-settings.js" "$CLAUDE_DIR/scripts/merge-settings.js"
 
-# Workflows do Workflow tool: o plugin não os entrega sozinho (o Claude Code lê
-# ~/.claude/workflows/), e a skill `baseline` cita o audit-multidim pelo nome. Sem este
-# passo, a skill manda usar um arquivo que não existe na máquina de quem instalou.
-run mkdir -p "$CLAUDE_DIR/workflows"
+# Workflows: o Claude Code carrega a pasta workflows/ do plugin sozinho (vira
+# /kit-vamoo:<nome>). Até a 0.90 este passo copiava cada um para ~/.claude/workflows/, e o
+# mesmo workflow aparecia duas vezes na lista. Agora o setup só tira a cópia que ele mesmo
+# punha: a que é igual, byte a byte, à do plugin. Arquivo diferente é edição da pessoa ou
+# cópia de versão antiga, e fica com aviso.
 for w in "$PLUGIN_ROOT/workflows"/*.js; do
   [ -e "$w" ] || continue
   n="$(basename "$w")"
+  [ -f "$CLAUDE_DIR/workflows/$n" ] || continue
   if protegido "workflows/$n"; then warn "mantido (está no .keep-local): workflows/$n"; continue; fi
-  backup "workflows/$n"; run cp "$w" "$CLAUDE_DIR/workflows/$n"
+  if cmp -s "$w" "$CLAUDE_DIR/workflows/$n"; then
+    backup "workflows/$n"; run rm -f "$CLAUDE_DIR/workflows/$n"
+    if [ "$DRY" -eq 1 ]; then ok "removeria a cópia duplicada workflows/$n (o plugin já entrega /kit-vamoo:${n%.js})"
+    else ok "cópia duplicada workflows/$n removida — o plugin já entrega /kit-vamoo:${n%.js}"; fi
+  else
+    warn "workflows/$n difere do que o plugin entrega e ficou: ele aparece em dobro com /kit-vamoo:${n%.js}. Se não é edição sua, apague ~/.claude/workflows/$n."
+  fi
 done
 ok "barra de status instalada (diretório, branch, ↑↓, gh, PR, contexto)"
 

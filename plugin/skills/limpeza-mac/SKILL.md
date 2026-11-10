@@ -98,16 +98,11 @@ O que continua com você:
   <caminho>` já prova o caso quando o HEAD é o head de um PR MERGED no default, pelo `gh`
   ou pela API REST (token de `git config git-sync.tokenVar`, como no git-sync): exit 0 é a
   sua confirmação antes do remove. Quando ele diz "sem gh nem token da API", a prova não
-  rodou; aí vale a consulta à mão, com uma conta do `gh` que enxergue o repo, como na
-  skill `worktrees`:
-
-  ```bash
-  gh pr list -R <dono/repo> --state merged --search <sha-do-HEAD> --json number,headRefOid,baseRefName
-  ```
-
-  O `<dono/repo>` sai de `git -C <repo> remote get-url origin`. O PR tem de estar mergeado
-  no default, com `headRefOid` igual ao HEAD do worktree. A prova cobre só esse motivo:
-  qualquer outro da linha `keep:` continua valendo. Com ela,
+  rodou; aí vale a prova manual da skill `worktrees`, seção "Limpeza no fim", com uma conta
+  do `gh` que enxergue o repo. Detached não tem branch: ache o PR pelo SHA
+  (`gh pr list -R <dono/repo> --state merged --search <sha-do-HEAD>`), e aqui o `headRefOid`
+  tem de ser **igual** ao HEAD do worktree, num PR mergeado no default. A prova cobre só
+  esse motivo: qualquer outro da linha `keep:` continua valendo. Com ela,
   `git -C <repo> worktree remove <caminho>`, sem `--force`, e só com o OK da pessoa.
 
 Não rode `git gc --prune=now` nem `--aggressive` depois. O ledger restaura com

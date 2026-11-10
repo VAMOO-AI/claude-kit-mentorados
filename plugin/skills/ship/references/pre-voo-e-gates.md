@@ -33,7 +33,7 @@ dentro do repo e reprova o seu PR pelo código de outra sessão.
 arquivos entram no commit. Pular o `format:check` porque o eslint passou custa um CI inteiro.
 
 **tsc: no máximo um processo por HEAD.**
-- Silêncio por vários minutos é normal: wrappers (`rtk tsc`) guardam a saída até o fim. Não é
+- Silêncio por vários minutos é normal: o tsc só imprime no fim, e wrapper de terminal guarda a saída até lá. Não é
   travamento, e não lance um segundo tsc; se já existe um deste HEAD, espere esse.
 - Se o CI tem check obrigatório de typecheck (`tsc --noEmit`), não segure o push esperando o
   tsc local: format + eslint verdes bastam para commitar, e o CI é o gate de tipos.

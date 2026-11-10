@@ -73,8 +73,10 @@ domínio, nem proxy reverso. Com firewall ativo, só a 22 (SSH) precisa de entra
 bot também expuser webhook ou painel HTTP.
 
 Isso vale para o bot. Se a mesma VPS roda **outros** containers com porta publicada, o ufw
-fechado não os protege: ver "Firewall: porta do Docker passa por cima do ufw" na
-`monitoramento-infra/references/vps.md`, que também cuida do hardening do host.
+fechado não os protege: o Docker escreve as regras de iptables dele antes das do `ufw`.
+Quem fecha é regra na chain `DOCKER-USER`, reaplicada depois do boot por uma unit systemd
+com `After=docker.service`, e o teste que vale é de **fora** da VPS, depois de um boot
+(`nc -z -w 4 <IP_DA_VPS> <PORTA>`).
 
 ## Código na VPS — use git
 
@@ -141,11 +143,12 @@ gotchas abaixo são reais e custaram tempo de bot fora do ar:
 ### Depois de reiniciar a VPS
 
 Em Swarm, um service pode voltar `1/1 Running` e **fora da rede overlay**, e o bot (ou o
-Redis dele) cai em crash loop com `getaddrinfo`. O detector por netns, a ordem de reatar
-(dependência antes da vítima) e o timer que faz isso sozinho depois de cada boot estão na
-`monitoramento-infra/references/vps.md`: "Reboot em Swarm: rota em 200 não prova que
-voltou" e "Guard automático depois do boot (`boot-guard`)". Rode o detector como root: sem
-root o `nsenter` falha, a lista de interfaces vem vazia, e vazio é `NÃO MEDIDO`, não verde.
+Redis dele) cai em crash loop com `getaddrinfo`. O container sem rede só tem a interface
+`lo`: confira como root com `nsenter -t <PID> -n ip -4 -o addr show` (o PID vem do
+`docker inspect -f '{{.State.Pid}}' <CONTAINER>`). Sem root o `nsenter` falha, a lista vem
+vazia, e vazio é `NÃO MEDIDO`, não verde. Reatar:
+`docker service update --force --no-resolve-image <STACK>_<SERVICO>`, a dependência (Redis,
+banco) antes do bot.
 
 O que é do bot: depois de qualquer reboot, rode a Fase 9 inteira. O `Online as` no log é a
 prova de que ele voltou; `1/1 Running` e rota HTTP respondendo não são.
@@ -172,26 +175,22 @@ ssh <USUARIO>@<IP_DA_VPS> 'docker system df && docker image prune -f'
 **Backup:** o que precisa de backup é o **banco** e o **`.env`** — o código está no git. Se a VPS
 morrer, com esses dois você reconstrói tudo em 15 minutos.
 
-**Tamanho do backup não prova nada:** confira o conteúdo com "Backup: tamanho não prova
-nada", na `monitoramento-infra/references/vps.md`. Dump no formato custom (`pg_dump -Fc`) se
-confere pelo índice: `pg_restore -l <ARQUIVO>.dump | grep -c 'TABLE DATA'`.
+**Tamanho do backup não prova nada:** confira o conteúdo. Dump em texto comprimido:
+`gzip -t <ARQUIVO>` e `zcat <ARQUIVO> | grep -c '^COPY '`. Dump no formato custom
+(`pg_dump -Fc`) se confere pelo índice: `pg_restore -l <ARQUIVO>.dump | grep -c 'TABLE DATA'`.
+E, de vez em quando, restaure num banco descartável.
 
 **Sem CI para a imagem do bot?** Então o `Dockerfile` só é exercitado no deploy manual, e ele
 apodrece calado: um `COPY` que virou obsoleto continua passando no build e só falha no boot.
 Ou você builda a imagem no CI a cada PR, ou trata a verificação pós-deploy como parte do deploy —
 não como algo que se faz "quando dá".
 
-## VPS lenta, firewall, hardening
+## VPS lenta
 
 A VPS do bot costuma dividir a máquina com outras coisas (n8n, painel, monitoramento), e
-quando tudo fica lento o culpado muitas vezes é um vizinho. Nada disso é do bot: está na
-`monitoramento-infra/references/vps.md`.
-
-- "CPU alta de `dockerd`/`containerd`: medir antes de culpar": jiffies numa janela, não
-  `ps %CPU`, e o netdata perguntando ao Docker a cada 1 segundo.
-- "Firewall: porta do Docker passa por cima do ufw": `DOCKER-USER`, a unit que reaplica as
-  regras depois do boot e o teste de fora.
-- "Receita de hardening" e "Acesso SSH".
+quando tudo fica lento o culpado muitas vezes é um vizinho, não o bot. Meça antes de
+culpar: CPU de `dockerd`/`containerd` numa janela de 60 s, não o `%CPU` do `ps`; um
+coletor de métricas (netdata) perguntando ao Docker a cada 1 segundo já foi a causa.
 
 Duas pegadinhas de quem investiga por SSH, que valem para qualquer host:
 

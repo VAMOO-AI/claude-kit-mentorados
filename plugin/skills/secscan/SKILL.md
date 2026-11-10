@@ -4,14 +4,16 @@ description: >-
   Varredura de segurança do repositório LOCAL inteiro (Next.js / React /
   Supabase): scanners, RLS faltando, secret vazando, "roda um secscan",
   "checa a segurança do projeto". Read-only, nunca edita. Revisão só do diff
-  é o /security-review; entregável para terceiro é a auditoria-seguranca.
+  é o /security-review.
 ---
 
 # secscan — Revisão de segurança (read-only)
 
 Revisão **estática e read-only** do projeto local, com a cabeça de um pentester: código,
 config, `.env`, SQL/migrations e regras de banco. Não testa nada rodando, deployado ou em
-produção. Aponta (`arquivo:linha`) e sugere; quem corrige é o dono do projeto.
+produção. Aponta (`arquivo:linha`) e sugere; quem corrige é o dono do projeto. Se o pedido
+é um pacote para outra pessoa agir (PDF e issues), diga que isso é o
+`/kit-vamoo:auditoria-seguranca`, que só a pessoa chama.
 
 Cada fase tem os comandos e o critério num arquivo de `references/`. **Leia o arquivo da fase
 antes de rodá-la**, mesmo que já tenha lido antes: depois de uma compactação, só o começo desta

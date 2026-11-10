@@ -4,7 +4,7 @@ description: >-
   Busca documentação oficial atualizada (API, config, exemplos) de lib/SDK/serviço
   via Context7 (ctx7). Use ANTES de escrever código com tecnologia externa, ao
   checar versão/breaking changes ou quando o modelo pode estar desatualizado.
-  Gatilhos: "find-docs", dúvida de API/SDK/CLI, migração.
+  Gatilhos: dúvida de API/SDK/CLI, migração.
 ---
 
 # Doc oficial pelo Context7

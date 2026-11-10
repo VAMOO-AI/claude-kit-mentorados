@@ -26,7 +26,15 @@ saíram dessa rodada:
   do projeto registra em `.context/docs/security/vereditos.md` (fingerprint · veredito ·
   por quê · quem · quando — a skill `baseline` lê a mesma tabela). Antes de reportar,
   consulte: achado já julgado não volta como novo. O veredito vence quando o código ao
-  redor muda — por isso o "por quê" é obrigatório.
+  redor muda — por isso o "por quê" é obrigatório. O modelo da tabela:
+
+  ```markdown
+  <!-- .context/docs/security/vereditos.md -->
+  | Fingerprint | Veredito | Por quê | Quem | Quando |
+  |---|---|---|---|---|
+  | `src/import.ts:88 sql-injection` | falso-positivo | parâmetro vem de enum fechado, não de input | dev responsável | 2026-08-22 |
+  | `scripts/build-*.cjs service_role` | risco aceito | ver EX-01 em `.context/docs/baseline.md` | dev responsável | 2026-08-22 |
+  ```
 
 **Precedentes.** [references/checklist-incidentes.md](checklist-incidentes.md)
 traz 27 checks de C2, C3, C5 e C6 que nasceram de incidente real, cada um com como achar a

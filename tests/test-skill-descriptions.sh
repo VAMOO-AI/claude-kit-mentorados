@@ -106,5 +106,34 @@ else
   else printf '\n'; fi
 fi
 
+# Só no plugin do kit (sem pasta no argumento): quem é só-slash por decisão e a meta da lista.
+# Em 09/11/2026 a lista somava 7.962 chars, colada no teto. Sete skills que a pessoa chama
+# pelo nome saíram dela, e a meta passou a 5.000. Skill dessa relação que volta a ser
+# invocável pelo modelo, ou a skills-projeto virando só-slash (o aviso de abertura manda o
+# modelo acioná-la), reprova aqui: a mudança tem de ser de propósito, editando este teste.
+if [ "$#" -eq 0 ]; then
+  META="${META_LISTA:-5000}"
+  eh_manual() {
+    [ "$(awk -F': *' '/^---/{c++; next} c==1 && /^disable-model-invocation:/{gsub(/\r/,""); print $2; exit}' "$DIR/$1/SKILL.md" 2>/dev/null)" = true ]
+  }
+  for s in handoff auditoria-seguranca geo-ia bot-discord harness-check mcp-sistema guardrails-ia; do
+    [ -f "$DIR/$s/SKILL.md" ] || continue
+    if ! eh_manual "$s"; then
+      echo "FALHA $s voltou para a lista do modelo: ela é só /$PLUGIN:$s (disable-model-invocation: true)"
+      falhas=$((falhas+1))
+    fi
+  done
+  if [ -f "$DIR/skills-projeto/SKILL.md" ] && eh_manual skills-projeto; then
+    echo "FALHA skills-projeto virou só-slash: o aviso de abertura do kit manda o modelo acioná-la"
+    falhas=$((falhas+1))
+  fi
+  if [ "$soma" -gt "$META" ]; then
+    echo "FALHA a lista soma $soma chars, acima da meta de $META"
+    falhas=$((falhas+1))
+  else
+    echo "meta da lista: $soma de $META chars"
+  fi
+fi
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde (limite $LIMITE chars)"; else echo "$falhas falha(s)"; exit 1; fi

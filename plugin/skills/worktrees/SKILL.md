@@ -42,8 +42,8 @@ allowed-tools:
 
 ## Quando o guard recusa o comando
 
-*"too complex to verify that it stays inside the worktree"* é do harness, não do kit. Na
-2.1.306 seguem recusados: `bash "$VAR/x.sh"` (o caminho literal passa), `source <arquivo>`,
+*"too complex to verify that it stays inside the worktree"* é do harness, não do kit. Formas
+que ele recusa: `bash "$VAR/x.sh"` (o caminho literal passa), `source <arquivo>`,
 `gh` com `VAR="$(…)"` somado a `-q`/`--jq` entre aspas, launcher antes do `git` (o `git` tem
 de ser o primeiro token) e heredoc seguido de `&&`. Contorno: `Write` o comando num `.sh` no
 scratchpad e `bash /caminho/absoluto.sh`. Segunda recusa idêntica → troque de ferramenta.
@@ -74,8 +74,8 @@ worktree que você já tem.
   Caiu errado → reporte antes de corrigir.
 - O kit bloqueia `git commit` na `main` (`HOTFIX_MAIN=1` de propósito) e checa a branch
   **antes** do comando: crie a branch num comando, commite em outro.
-- O kit bloqueia `checkout`/`switch`/`stash`/`reset --hard` no clone principal com outra
-  sessão ativa nos últimos 30 min (`PARALLEL_OK=1` só com certeza).
+- Nada no kit impede `checkout`/`switch`/`stash`/`reset --hard` no clone principal enquanto
+  outra sessão trabalha nele: a proteção é cada sessão que escreve ter o seu worktree.
 
 ## O banco local NÃO é isolado por worktree
 
