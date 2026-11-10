@@ -5,13 +5,14 @@
 // vivia num heredoc dentro do instalador e só dava pra exercitar rodando o
 // instalador inteiro contra o ~/.claude de verdade.
 //
-//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito]
+//   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito] [--sem-ask-de-comando]
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
 //   • allow, deny e ask são UNIÃO: o kit acrescenta e nunca tira o que é seu — a
 //     exceção são os allows de execução arbitrária que o próprio kit gravou até a
-//     0.55.0 (ALLOWS_LEGADOS), casados pelo texto exato;
+//     0.55.0 (ALLOWS_LEGADOS), casados pelo texto exato, e as regras ask de comando do
+//     kit para quem ligou o modo sem perguntas (semAskDeComando, abaixo);
 //   • defaultMode: Manual ("default"), ausente ou acceptEdits vira o do kit (auto),
 //     salvo os marcadores kit-vamoo/manter-modo-manual e kit-vamoo/manter-accept-edits;
 //     bypass, plan e dontAsk ficam;
@@ -28,7 +29,8 @@
 //
 // --overlay <arquivo> (F6 do núcleo único), repetível e aplicado em ordem: JSON com chaves de
 // topo que substituem as do kit antes do merge (na mesma chave, a última camada vence); `hooks`
-// se SOMA aos do kit, por evento. O `$merge` das camadas se soma: listas concatenam, mapas se
+// se SOMA aos do kit, por evento, e `permissions` também: lista (allow, deny, ask) vira união
+// com a do kit e valor simples (defaultMode) é o do overlay. O `$merge` das camadas se soma: listas concatenam, mapas se
 // juntam e o valor simples da última vale. A meta-chave `$merge` traz as
 // regras de quem distribui o overlay e nunca é gravada no settings.json:
 //   allowsRevogados {texto exato: substituto|null}, envDoKit {VAR: valor exato} e
@@ -42,6 +44,12 @@
 //   modoDaPessoa true — o defaultMode que a pessoa já tem fica, qualquer que seja (o do kit
 //   só entra onde não há modo). chavesGovernadas vale para chave escalar e para objeto sem
 //   regra própria (statusLine); env, hooks, permissions e as outras com regra seguem a delas.
+//   semAskDeComando true — o modo sem perguntas: as regras `ask` de comando do kit (`Bash(` e
+//   `PowerShell(`) não entram, e as que já estão no settings da pessoa com o texto exato de
+//   uma regra do kit saem. `deny`, `ask` de conector (`mcp__…`, `WebFetch`…) e `ask` de
+//   comando que a pessoa escreveu ficam. Só o booleano `true` liga; tirar a chave devolve as
+//   regras no merge seguinte. A flag --sem-ask-de-comando vale o mesmo, para quem chama o
+//   merge sem overlay (o kit-setup.sh, pelo marcador ~/.claude/kit-vamoo/sem-perguntas).
 //
 // --estrito: settings.json inválido sai com rc 1 em vez de 0 (o arquivo continua intacto). O
 // padrão é 0 porque o kit-setup.sh roda com `set -e`.
@@ -59,14 +67,16 @@
 // fazer.
 const fs = require('fs');
 const path = require('path');
-const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito]';
+const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito] [--sem-ask-de-comando]';
 const posicionais = [];
 const overlayPaths = [];
 let estrito = false;
+let semAskFlag = false;
 const skillDirs = [];
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   if (a === '--estrito') { estrito = true; continue; }
+  if (a === '--sem-ask-de-comando') { semAskFlag = true; continue; }
   if (a === '--overlay' || a === '--skills-dir') {
     const v = process.argv[++i];
     if (!v) { console.error(USO); process.exit(2); }
@@ -140,6 +150,16 @@ for (const overlayPath of overlayPaths) {
     if (objeto(ov.$merge)) regras = somaRegras(regras, ov.$merge);
     delete ov.$merge;
     for (const [k, v] of Object.entries(ov)) {
+      // `permissions` soma, pelo mesmo motivo de `hooks`: trocando, o overlay de quem só
+      // acrescenta um ask apagava allow, deny e ask do kit, e deny novo não chegava à pessoa.
+      if (k === 'permissions' && objeto(v) && objeto(kit.permissions)) {
+        const p = { ...kit.permissions };
+        for (const [pk, pv] of Object.entries(v)) {
+          p[pk] = Array.isArray(pv) && Array.isArray(p[pk]) ? [...p[pk], ...pv.filter((x) => !p[pk].includes(x))] : pv;
+        }
+        kit.permissions = p;
+        continue;
+      }
       if (k !== 'hooks') { kit[k] = v; continue; }
       if (!objeto(v)) { console.log('! overlay: `hooks` não é um objeto — ignorado'); continue; }
       // Somar, não trocar: um `hooks` no overlay que substituísse o do kit apagaria todos os
@@ -169,6 +189,7 @@ const chavesGovernadas = lista(regras.chavesGovernadas);
 const scriptsEntregues = lista(regras.scriptsEntregues);
 const removerHooksAlheios = regras.removerHooksAlheios === true;
 const modoDaPessoa = regras.modoDaPessoa === true;
+const semAskDeComando = semAskFlag || regras.semAskDeComando === true;
 
 // Env da máquina antes de qualquer mudança: o aviso do Remote Control fala do que ela tem.
 const envOriginal = objeto(user.env) ? { ...user.env } : null;
@@ -322,6 +343,28 @@ const allowsTirados = Array.isArray(user.permissions.allow)
   : [];
 if (allowsTirados.length) user.permissions.allow = user.permissions.allow.filter((p) => !ALLOWS_LEGADOS.includes(p));
 if (Array.isArray(kitPerms.allow)) kitPerms.allow = kitPerms.allow.filter((p) => !ALLOWS_LEGADOS.includes(p));
+
+// Modo sem perguntas (semAskDeComando). Regra `ask` pergunta em qualquer modo de permissão,
+// bypass incluso, e a união não deixava ninguém dispensar as do kit. Quem liga o modo fica sem
+// as de comando: as do template não entram e as que o kit já tinha posto saem, casadas pelo
+// texto exato de uma regra do template de agora (regra que o kit já tirou do template não é
+// reconhecida e fica; quem escreveu por conta própria uma regra idêntica à do kit perde junto,
+// porque não dá para distinguir). Regra de comando que veio do `permissions` de um overlay conta
+// como do kit. O `deny` não passa por aqui.
+const askDeComando = (r) => typeof r === 'string' && /^(Bash|PowerShell)\(/.test(r);
+let asksDoKitFora = 0;
+let asksTirados = 0;
+if (semAskDeComando) {
+  const doKit = new Set((Array.isArray(kitPerms.ask) ? kitPerms.ask : []).filter(askDeComando));
+  asksDoKitFora = doKit.size;
+  if (Array.isArray(user.permissions.ask)) {
+    const ficam = user.permissions.ask.filter((r) => !doKit.has(r));
+    asksTirados = user.permissions.ask.length - ficam.length;
+    if (ficam.length) user.permissions.ask = ficam;
+    else if (asksTirados) delete user.permissions.ask;
+  }
+  if (Array.isArray(kitPerms.ask)) kitPerms.ask = kitPerms.ask.filter((r) => !doKit.has(r));
+}
 
 const allowAntes = [...(user.permissions.allow || [])];
 const askAntes = new Set(user.permissions.ask || []);
@@ -526,4 +569,8 @@ if (allowsTirados.length) {
   }
   console.log('  projeto que precisa libera o comando exato no próprio .claude/settings.json (ex.: "Bash(npm run build)").');
 }
-if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length) console.log('  já estava tudo lá — nada mudou');
+if (semAskDeComando) {
+  console.log(`  modo sem perguntas: ${asksDoKitFora} regra(s) ask de comando do kit ficam de fora (${asksTirados} tirada(s) do seu settings.json agora).`);
+  console.log('  O que essas regras cobriam (force push, descartar alteração local, trocar segredo, citar chave…) deixa de pedir confirmação, em qualquer modo de permissão. As regras deny, as ask de conector e as ask que você escreveu continuam.');
+}
+if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length && !asksTirados) console.log('  já estava tudo lá — nada mudou');
