@@ -26,10 +26,10 @@ Depois de uma compactação só o começo desta skill volta ao contexto: leia o 
   (`subagent_type: kit-vamoo:executor`); review → `revisor` (`kit-vamoo:revisor`). Os dois
   rodam em `effort: medium`.
 - Onda manual, com barreira entre lotes, só com 429/529 medido: o runner já segura o pico.
-- Auditoria ou review multi-área com juiz adversarial: o workflow `audit-multidim` (o
-  `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda com pedido explícito da pessoa
-  ("usa o workflow", `/audit-multidim`). Com o pedido, não reescreva o script:
-  `scriptPath: ~/.claude/workflows/audit-multidim.js` + `args`
+- Auditoria ou review multi-área com juiz adversarial: o workflow `audit-multidim` (o plugin
+  entrega, como `/kit-vamoo:audit-multidim`) só roda com pedido explícito da pessoa
+  ("usa o workflow", `/kit-vamoo:audit-multidim`). Com o pedido, não reescreva o script:
+  `scriptPath: ${CLAUDE_PLUGIN_ROOT}/workflows/audit-multidim.js` + `args`
   (`{alvo, contexto, regras, areas: [{key, files, foco}], maxFindings}`). Sem ele, faça o
   fan-out com `Agent` e ofereça o workflow em uma linha.
 

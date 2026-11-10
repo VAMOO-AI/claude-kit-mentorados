@@ -70,7 +70,7 @@ A tabela baseline × `secscan` × auditoria × `verificacao` está em [reference
 No pilar de código, **chame `secscan`** — não refaça SAST aqui.
 Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. Ele recebe só o finding (pilar, título, `arquivo:linha`, detalhe) com a ordem de refutá-lo e devolve `mantido` ou `refutado` com o motivo; o refutado vira veredito (fase 2, passo 2).
 
-Auditoria com fan-out por área: o workflow `audit-multidim` (o `/kit-vamoo:setup` instala em `~/.claude/workflows/`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
+Auditoria com fan-out por área: o workflow `audit-multidim` (o plugin entrega, como `/kit-vamoo:audit-multidim`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
 
 ---
 

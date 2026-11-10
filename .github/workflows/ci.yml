@@ -176,6 +176,9 @@ jobs:
         # disco que não diferencia (Mac, Windows), roda na máquina de quem mantém.
         run: bash tests/test-kit-setup-subagentes.sh
 
+      - name: O kit-setup não copia mais o workflow do plugin e tira a cópia duplicada que as versões antigas punham
+        run: bash tests/test-kit-setup-workflows.sh
+
       - name: O setup em HOME temporário termina em auto e sem allow de execução arbitrária
         run: bash tests/test-kit-setup-permissoes.sh
 
