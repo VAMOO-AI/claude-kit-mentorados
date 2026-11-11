@@ -6,6 +6,7 @@
 // instalador inteiro contra o ~/.claude de verdade.
 //
 //   node merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito] [--sem-ask-de-comando]
+//                          [--modo-bypass[=forcar]] [--sai-do-bypass=<modo de antes>] [--tira-skip]
 //
 // Regras, em uma linha cada:
 //   • chave que você já tem ganha da do kit — o kit só preenche o que falta;
@@ -15,7 +16,8 @@
 //     kit para quem ligou o modo sem perguntas (semAskDeComando, abaixo);
 //   • defaultMode: Manual ("default"), ausente ou acceptEdits vira o do kit (auto),
 //     salvo os marcadores kit-vamoo/manter-modo-manual e kit-vamoo/manter-accept-edits;
-//     bypass, plan e dontAsk ficam;
+//     bypass, plan e dontAsk ficam. No modo sem perguntas (--modo-bypass) o destino é
+//     bypassPermissions no lugar do auto; as três flags do modo estão no bloco do defaultMode;
 //   • extraKnownMarketplaces é mesclado POR marketplace: a fonte que você já
 //     tem nunca é trocada, e o kit só acrescenta o `autoUpdate` que falta;
 //   • env e enabledPlugins são UNIÃO, e o seu valor vence o empate: o kit acrescenta a
@@ -67,16 +69,27 @@
 // fazer.
 const fs = require('fs');
 const path = require('path');
-const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito] [--sem-ask-de-comando]';
+const USO = 'uso: merge-settings.js <kit.json> <meu.json> [--overlay <arquivo>]... [--skills-dir <dir>]... [--estrito] [--sem-ask-de-comando] [--modo-bypass[=forcar]] [--sai-do-bypass=<modo de antes>] [--tira-skip]';
 const posicionais = [];
 const overlayPaths = [];
 let estrito = false;
 let semAskFlag = false;
+let modoBypass = null;   // null | 'kit' | 'forcar'
+let saiDoBypass = null;  // null | modo de antes ('' = nenhum)
+let tiraSkip = false;
 const skillDirs = [];
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   if (a === '--estrito') { estrito = true; continue; }
   if (a === '--sem-ask-de-comando') { semAskFlag = true; continue; }
+  if (a === '--modo-bypass') { modoBypass = 'kit'; continue; }
+  if (a.startsWith('--modo-bypass=')) {
+    if (a !== '--modo-bypass=forcar') { console.error(USO); process.exit(2); }
+    modoBypass = 'forcar';
+    continue;
+  }
+  if (a.startsWith('--sai-do-bypass=')) { saiDoBypass = a.slice('--sai-do-bypass='.length); continue; }
+  if (a === '--tira-skip') { tiraSkip = true; continue; }
   if (a === '--overlay' || a === '--skills-dir') {
     const v = process.argv[++i];
     if (!v) { console.error(USO); process.exit(2); }
@@ -419,31 +432,87 @@ if (anulados.length) {
 const MARCADOR = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-modo-manual');
 const MARCADOR_ACCEPT = path.join(path.dirname(userPath), 'kit-vamoo', 'manter-accept-edits');
 const MODOS_MANTIDOS = ['auto', 'bypassPermissions', 'plan', 'dontAsk', 'acceptEdits'];
-const meuModo = user.permissions.defaultMode;
-const modoKit = kitPerms.defaultMode;
+// Modo sem perguntas e o modo de permissão (11/11/2026, pedido do Ruan). Tirar as regras ask
+// não bastava: a pessoa continuava no Auto, ou no Manual onde o Auto não existe, e o app
+// seguia pedindo "Permitir" em `gh pr merge` e afins. Três flags, todas de quem chama o merge
+// (o kit-setup.sh, pelo marcador ~/.claude/kit-vamoo/sem-perguntas):
+//   --modo-bypass          o modo do kit neste merge é bypassPermissions no lugar do auto:
+//                          Manual, ausente e acceptEdits viram bypass; auto, plan e dontAsk
+//                          ficam (num setup comum, a escolha da pessoa vale);
+//   --modo-bypass=forcar   o do pedido explícito (--sem-perguntas): troca qualquer modo;
+//   --sai-do-bypass=<modo> o do --com-perguntas: quem está em bypass volta ao modo de antes
+//                          (o kit-setup.sh guarda no marcador); Manual, ausente e acceptEdits
+//                          seguem a regra de sempre, logo abaixo. --tira-skip tira o
+//                          skipDangerousModePermissionPrompt que o kit tinha posto.
+// Os marcadores manter-modo-manual e manter-accept-edits seguram o modo também aqui. Ao pôr
+// o bypass, o skipDangerousModePermissionPrompt entra junto (só se a chave não existe): sem
+// ele a CLI abre o aviso do modo perigoso na primeira sessão, e recusar fecha o Claude Code.
+// No app de desktop o arquivo não basta, e a saída diz o que falta (toggle e seletor).
+let meuModo = user.permissions.defaultMode;
+if (saiDoBypass !== null && meuModo === 'bypassPermissions' && saiDoBypass !== 'bypassPermissions') {
+  if (saiDoBypass) user.permissions.defaultMode = saiDoBypass; else delete user.permissions.defaultMode;
+  meuModo = user.permissions.defaultMode;
+  novas.push(`permissions.defaultMode (bypassPermissions → ${meuModo || 'o do kit'})`);
+  console.log(`  modo de permissão: "bypassPermissions" → ${meuModo ? `"${meuModo}"` : 'o do kit'} (modo sem perguntas desligado: voltou o modo de antes). No app de desktop, confira o seletor de modo em cada pasta.`);
+}
+const modoKit = modoBypass ? 'bypassPermissions' : kitPerms.defaultMode;
+const paraBypass = modoKit === 'bypassPermissions';
+const anunciaBypass = (de) => {
+  console.log(`  modo de permissão: ${de} → "bypassPermissions" (Ignorar permissões / Bypass permissions): no modo sem perguntas o Claude Code roda os comandos sem pedir "Permitir". Só as regras deny, as ask que sobraram e os hooks do kit ainda param alguma coisa.`);
+  console.log('  no app de desktop o arquivo não basta: ligue Settings > Code > "Allow bypass permissions mode" e, no seletor de modo ao lado do botão de enviar, escolha "Ignorar permissões" em cada pasta onde já tinha escolhido outro modo (o seletor é lembrado por pasta e vence o settings.json). Em plano Team ou Enterprise quem libera o bypass é a organização.');
+};
 if (modoDaPessoa && meuModo) {
   // O overlay declarou o modo como postura de quem senta na cadeira: o da pessoa fica.
 } else if (modoKit && meuModo !== modoKit && (meuModo === undefined || meuModo === 'default')) {
   if (fs.existsSync(MARCADOR)) {
     console.log(`  modo de permissão: mantive o manual porque existe ${MARCADOR}`);
+    if (paraBypass) console.log('  o modo sem perguntas tirou as regras ask, mas o modo de permissão continua o seu: apague esse arquivo para o setup pôr o bypass.');
   } else {
     user.permissions.defaultMode = modoKit;
     novas.push(`permissions.defaultMode (${meuModo || 'sem modo'} → ${modoKit})`);
-    console.log(`  modo de permissão: ${meuModo === 'default' ? 'Manual ("default")' : 'sem modo definido'} → "${modoKit}" (Auto: um classificador revisa cada comando no lugar do "Permitir"; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
-    console.log(`  pra voltar ao manual de vez: crie o arquivo ${MARCADOR} e ponha permissions.defaultMode em "default" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
+    if (paraBypass) {
+      anunciaBypass(meuModo === 'default' ? 'Manual ("default")' : 'sem modo definido');
+    } else {
+      console.log(`  modo de permissão: ${meuModo === 'default' ? 'Manual ("default")' : 'sem modo definido'} → "${modoKit}" (Auto: um classificador revisa cada comando no lugar do "Permitir"; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
+      console.log(`  pra voltar ao manual de vez: crie o arquivo ${MARCADOR} e ponha permissions.defaultMode em "default" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
+    }
   }
-} else if (meuModo === 'acceptEdits' && modoKit === 'auto') {
+} else if (meuModo === 'acceptEdits' && (modoKit === 'auto' || paraBypass)) {
   const segura = [MARCADOR_ACCEPT, MARCADOR].find((m) => fs.existsSync(m));
   if (segura) {
     console.log(`  modo de permissão: mantive o "acceptEdits" (Accept edits) porque existe ${segura}`);
+    if (paraBypass) console.log('  o modo sem perguntas tirou as regras ask, mas o modo de permissão continua o seu: apague esse arquivo para o setup pôr o bypass.');
   } else {
     user.permissions.defaultMode = modoKit;
     novas.push(`permissions.defaultMode (acceptEdits → ${modoKit})`);
-    console.log(`  modo de permissão: Accept edits ("acceptEdits") → "${modoKit}" (Auto: um classificador revisa cada comando, em vez de liberar sem pergunta o que está no allow; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
-    console.log(`  pra voltar ao Accept edits de vez: crie o arquivo ${MARCADOR_ACCEPT} e ponha permissions.defaultMode em "acceptEdits" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
+    if (paraBypass) {
+      anunciaBypass('Accept edits ("acceptEdits")');
+    } else {
+      console.log(`  modo de permissão: Accept edits ("acceptEdits") → "${modoKit}" (Auto: um classificador revisa cada comando, em vez de liberar sem pergunta o que está no allow; o que é destrutivo continua pedindo). Se o Auto não estiver disponível na sua conta ou no modelo, o Claude Code abre em Manual.`);
+      console.log(`  pra voltar ao Accept edits de vez: crie o arquivo ${MARCADOR_ACCEPT} e ponha permissions.defaultMode em "acceptEdits" no settings.json (sem o arquivo, o próximo setup troca de novo).`);
+    }
+  }
+} else if (modoBypass === 'forcar' && meuModo && meuModo !== 'bypassPermissions') {
+  // Pedido explícito de --sem-perguntas: auto, plan, dontAsk e modo desconhecido também trocam.
+  if (fs.existsSync(MARCADOR)) {
+    console.log(`  modo de permissão: mantive o "${meuModo}" porque existe ${MARCADOR}`);
+    console.log('  o modo sem perguntas tirou as regras ask, mas o modo de permissão continua o seu: apague esse arquivo para o setup pôr o bypass.');
+  } else {
+    user.permissions.defaultMode = modoKit;
+    novas.push(`permissions.defaultMode (${meuModo} → ${modoKit})`);
+    anunciaBypass(`"${meuModo}"`);
   }
 } else if (meuModo && modoKit && meuModo !== modoKit && !MODOS_MANTIDOS.includes(meuModo)) {
   console.log(`  seu modo de permissão é "${meuModo}", que o kit não conhece — mantive o seu.`);
+}
+if (modoBypass && user.permissions.defaultMode === 'bypassPermissions' && user.skipDangerousModePermissionPrompt === undefined) {
+  user.skipDangerousModePermissionPrompt = true;
+  novas.push('skipDangerousModePermissionPrompt');
+}
+let skipTirado = false;
+if (tiraSkip && user.permissions.defaultMode !== 'bypassPermissions' && user.skipDangerousModePermissionPrompt === true) {
+  delete user.skipDangerousModePermissionPrompt;
+  skipTirado = true;
 }
 
 // Até a 0.7.0 (24/08) o install.sh SOBRESCREVIA o settings.json com o da raiz do
@@ -573,4 +642,5 @@ if (semAskDeComando) {
   console.log(`  modo sem perguntas: ${asksDoKitFora} regra(s) ask de comando do kit ficam de fora (${asksTirados} tirada(s) do seu settings.json agora).`);
   console.log('  O que essas regras cobriam (force push, descartar alteração local, trocar segredo, citar chave…) deixa de pedir confirmação, em qualquer modo de permissão. As regras deny, as ask de conector e as ask que você escreveu continuam.');
 }
-if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length && !asksTirados) console.log('  já estava tudo lá — nada mudou');
+if (skipTirado) console.log('  removido: skipDangerousModePermissionPrompt (o modo sem perguntas tinha posto; fora do bypass ele não faz nada)');
+if (!novas.length && !legados && !doOverlay && !alheios && !tiradosDoKit.length && !allowsTirados.length && !asksTirados && !skipTirado) console.log('  já estava tudo lá — nada mudou');
