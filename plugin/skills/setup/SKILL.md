@@ -84,11 +84,14 @@ caminho por linha, relativo a `~/.claude`, glob simples) **antes** de rodar sem
   `~/.claude/statusline-modo` e vale até ela rodar o setup com a outra.
 - **Modo sem perguntas, só para quem pedir.** Se a pessoa chamou a skill com `--sem-perguntas`
   ou `--com-perguntas`, ou pediu para o kit parar de pedir confirmação, acrescente a opção aos
-  dois comandos acima. Não ofereça por conta própria: é escolha de quem já trabalha em bypass
-  e sabe o que está dispensando. Antes de rodar sem `--dry-run`, leia para ela a lista do que
-  deixa de pedir confirmação e do que continua barrado, que está em
-  [references/decisoes-do-setup.md](references/decisoes-do-setup.md). A escolha fica em
-  `~/.claude/kit-vamoo/sem-perguntas` e vale nos setups seguintes, até o `--com-perguntas`.
+  dois comandos acima. Não ofereça por conta própria. O modo põe o modo de permissão em
+  `bypassPermissions` (**Ignorar permissões**), tira as regras `ask` de comando e deixa só o
+  que não tem volta perguntando. Antes de rodar sem `--dry-run`, leia para ela, de
+  [references/decisoes-do-setup.md](references/decisoes-do-setup.md), o que deixa de pedir
+  confirmação, o que ainda pergunta e o que continua barrado. Depois, **diga os dois passos
+  do app de desktop** que estão lá (ligar **Allow bypass permissions mode** em Settings > Code
+  e escolher **Ignorar permissões** no seletor de cada pasta): sem eles o app segue pedindo
+  "Permitir". Vale nos setups seguintes, até o `--com-perguntas`.
 - **Leia [references/decisoes-do-setup.md](references/decisoes-do-setup.md)** e diga à pessoa
   também o que está lá: o `settings.json` é mesclado, o modo de permissão vira Auto (e como
   ficar no Accept edits ou no Manual), o que entra e sai do `allow`/`ask` e o auto-update do

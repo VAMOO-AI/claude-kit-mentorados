@@ -15,8 +15,8 @@
 #   bash kit-setup.sh --dry-run    # mostra o que faria, não toca em nada
 #   bash kit-setup.sh --force      # sobrescreve o CLAUDE.md que já existir e roda até por cima do kit do time
 #   bash kit-setup.sh --statusline curto|painel   # barra de uma linha ou o painel de até 7
-#   bash kit-setup.sh --sem-perguntas   # modo sem perguntas: sem as regras ask de comando do kit
-#   bash kit-setup.sh --com-perguntas   # desliga o modo e devolve as regras
+#   bash kit-setup.sh --sem-perguntas   # modo sem perguntas: bypass por padrão e só o gravíssimo pergunta
+#   bash kit-setup.sh --com-perguntas   # desliga o modo: devolve as regras e o modo de antes
 #
 # Tudo que o script toca ganha cópia em ~/.claude/backup-kit-<data>/ antes; ficam
 # os 3 backups mais recentes. O que você tem em ~/.claude e não quer ver removido
@@ -26,7 +26,7 @@
 #
 set -euo pipefail
 
-KIT_VERSION="0.93.0"
+KIT_VERSION="0.94.0"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TPL="$PLUGIN_ROOT/templates"
 CLAUDE_DIR="$HOME/.claude"
@@ -259,33 +259,106 @@ ok "barra de status instalada (diretório, branch, ↑↓, gh, PR, contexto)"
 # perdia tudo com um aviso fácil de não ver. Agora as suas chaves ganham: o kit
 # só preenche o que está faltando, e a lista `allow` é a união das duas.
 #
-# Modo sem perguntas: regra `ask` pergunta em qualquer modo de permissão, bypass incluso, e a
-# união devolve as do kit a cada setup. Quem escolhe trabalhar sem elas liga com
-# --sem-perguntas; a escolha é o arquivo ~/.claude/kit-vamoo/sem-perguntas (mesma pasta dos
-# manter-modo-manual e manter-accept-edits), que este script lê a cada rodada, e sai com
-# --com-perguntas. Só as regras ask de COMANDO do kit saem; deny não muda.
+# Modo sem perguntas: quem liga com --sem-perguntas quer trabalhar sem prompt de permissão. A
+# escolha é o arquivo ~/.claude/kit-vamoo/sem-perguntas (mesma pasta dos manter-modo-manual e
+# manter-accept-edits), que este script lê a cada rodada, e sai com --com-perguntas. O modo faz
+# três coisas:
+#   1. o modo de permissão padrão vira bypassPermissions ("Ignorar permissões"). Até a 0.93.0
+#      ele ficava como estava, e quem estava no Auto, ou no Manual por não ter Auto na conta,
+#      seguia vendo "Permitir" em `gh pr merge` (pedido do Ruan de 11/11/2026);
+#   2. as regras `ask` de COMANDO do kit saem e não voltam nas atualizações: regra `ask`
+#      pergunta em qualquer modo, bypass incluso, e a união devolvia as do kit a cada setup;
+#   3. o hook check-careful, que lê o mesmo marcador, pergunta só o gravíssimo.
+# As regras deny não mudam. O marcador guarda, uma chave por linha, o que o --com-perguntas
+# precisa para desfazer só o que o setup fez:
+#   modo=bypass          o setup já pôs o bypass uma vez. Marcador sem a linha é da 0.93.0 e
+#                        migra: o setup seguinte põe o bypass. Com a linha, um setup comum só
+#                        troca Manual, modo ausente e Accept edits; quem passou para o Auto
+#                        na mão fica nele;
+#   modo_anterior=<modo> o modo que o setup trocou pelo bypass (vazio = não havia);
+#   skip_do_kit=1        foi o setup que pôs o skipDangerousModePermissionPrompt.
 SEM_PERG_MARCA="$CLAUDE_DIR/kit-vamoo/sem-perguntas"
+marca_valor() { # <chave> → valor da linha chave=valor do marcador ("" se não há)
+  local l
+  [ -f "$SEM_PERG_MARCA" ] || return 0
+  while IFS= read -r l || [ -n "$l" ]; do
+    l="${l%$'\r'}"
+    case "$l" in "$1="*) printf '%s' "${l#*=}"; return 0 ;; esac
+  done < "$SEM_PERG_MARCA"
+  return 0
+}
+marca_tem() { # <chave>: o marcador tem a linha chave=...?
+  local l
+  [ -f "$SEM_PERG_MARCA" ] || return 1
+  while IFS= read -r l || [ -n "$l" ]; do
+    case "$l" in "$1="*) return 0 ;; esac
+  done < "$SEM_PERG_MARCA"
+  return 1
+}
+marca_poe() { # <chave> <valor>: troca (ou acrescenta) a linha chave=valor do marcador
+  local l novo=""
+  while IFS= read -r l || [ -n "$l" ]; do
+    l="${l%$'\r'}"
+    case "$l" in "$1="*) ;; *) novo="$novo$l"$'\n' ;; esac
+  done < "$SEM_PERG_MARCA"
+  printf '%s%s=%s\n' "$novo" "$1" "$2" > "$SEM_PERG_MARCA"
+}
+# "<defaultMode>|<1 se o skipDangerousModePermissionPrompt está definido>" do settings.json de
+# agora. O arquivo chega pelo stdin, aberto pelo bash: no Git Bash o node é nativo do Windows
+# e não acha o caminho do MSYS passado por argumento.
+estado_settings() {
+  if [ -f "$CLAUDE_DIR/settings.json" ] && command -v node >/dev/null 2>&1; then
+    node -e 'let s = {}; try { s = JSON.parse(require("fs").readFileSync(0, "utf8")) || {}; } catch (e) {}
+const p = s.permissions || {};
+process.stdout.write((p.defaultMode || "") + "|" + (s.skipDangerousModePermissionPrompt !== undefined ? 1 : 0));' \
+      < "$CLAUDE_DIR/settings.json" 2>/dev/null || printf '|0'
+  else
+    printf '|0'
+  fi
+}
 SEM_PERG=0
-[ -f "$SEM_PERG_MARCA" ] && SEM_PERG=1
+MODO_BYPASS=""     # "", kit (--modo-bypass) ou forcar (--modo-bypass=forcar)
+SAI_BYPASS=""      # a flag --sai-do-bypass=<modo de antes>, no --com-perguntas
+TIRA_SKIP=0
+if [ -f "$SEM_PERG_MARCA" ]; then
+  SEM_PERG=1
+  if marca_tem modo; then MODO_BYPASS=kit; else MODO_BYPASS=forcar; fi
+fi
 case "$PERGUNTAS" in
   sem-perguntas)
-    SEM_PERG=1
-    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] ligaria o modo sem perguntas (gravaria ~/.claude/kit-vamoo/sem-perguntas)"
-    else mkdir -p "$CLAUDE_DIR/kit-vamoo"; printf 'ligado em %s pelo kit-setup.sh --sem-perguntas\n' "$STAMP" > "$SEM_PERG_MARCA"; fi ;;
+    SEM_PERG=1; MODO_BYPASS=forcar
+    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] ligaria o modo sem perguntas (gravaria ~/.claude/kit-vamoo/sem-perguntas e poria o modo de permissão em bypassPermissions)"
+    elif [ ! -f "$SEM_PERG_MARCA" ]; then mkdir -p "$CLAUDE_DIR/kit-vamoo"; printf 'ligado em %s pelo kit-setup.sh --sem-perguntas\n' "$STAMP" > "$SEM_PERG_MARCA"; fi ;;
   com-perguntas)
-    SEM_PERG=0
-    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] desligaria o modo sem perguntas (apagaria ~/.claude/kit-vamoo/sem-perguntas)"
+    if marca_tem modo_anterior; then SAI_BYPASS="--sai-do-bypass=$(marca_valor modo_anterior)"; fi
+    [ "$(marca_valor skip_do_kit)" = 1 ] && TIRA_SKIP=1
+    SEM_PERG=0; MODO_BYPASS=""
+    if [ "$DRY" -eq 1 ]; then echo "  [dry-run] desligaria o modo sem perguntas (apagaria ~/.claude/kit-vamoo/sem-perguntas e devolveria o modo de permissão de antes)"
     else rm -f "$SEM_PERG_MARCA"; fi ;;
 esac
 backup "settings.json"
 if [ "$DRY" -eq 1 ]; then
   echo "  [dry-run] mesclaria $TPL/settings.json em $CLAUDE_DIR/settings.json"
   [ "$SEM_PERG" -eq 1 ] && echo "  [dry-run] modo sem perguntas: tiraria as regras ask de comando do kit (deny não muda)"
+  [ "$MODO_BYPASS" = forcar ] && echo "  [dry-run] modo sem perguntas: poria permissions.defaultMode em bypassPermissions (Ignorar permissões)"
 elif command -v node >/dev/null 2>&1; then
-  if [ "$SEM_PERG" -eq 1 ]; then
-    node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json" --sem-ask-de-comando
-  else
-    node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json"
+  MERGE_ARGS=()
+  [ "$SEM_PERG" -eq 1 ] && MERGE_ARGS+=(--sem-ask-de-comando)
+  case "$MODO_BYPASS" in
+    kit)    MERGE_ARGS+=(--modo-bypass) ;;
+    forcar) MERGE_ARGS+=(--modo-bypass=forcar) ;;
+  esac
+  [ -n "$SAI_BYPASS" ] && MERGE_ARGS+=("$SAI_BYPASS")
+  [ "$TIRA_SKIP" -eq 1 ] && MERGE_ARGS+=(--tira-skip)
+  ANTES="$(estado_settings)"
+  node "$PLUGIN_ROOT/scripts/merge-settings.js" "$TPL/settings.json" "$CLAUDE_DIR/settings.json" ${MERGE_ARGS[@]+"${MERGE_ARGS[@]}"}
+  if [ "$SEM_PERG" -eq 1 ] && [ -f "$SEM_PERG_MARCA" ]; then
+    DEPOIS="$(estado_settings)"
+    if [ "${DEPOIS%%|*}" = bypassPermissions ] && [ "${ANTES%%|*}" != bypassPermissions ]; then
+      marca_poe modo_anterior "${ANTES%%|*}"
+    fi
+    if [ "${ANTES##*|}" = 0 ] && [ "${DEPOIS##*|}" = 1 ]; then marca_poe skip_do_kit 1; fi
+    marca_tem modo || marca_poe modo bypass
   fi
   ok "settings.json mesclado (as suas chaves foram preservadas)"
   [ "$PERGUNTAS" = com-perguntas ] && ok "modo sem perguntas desligado: as regras ask de comando do kit voltaram"
@@ -334,22 +407,37 @@ rotaciona_backups
 
 echo
 if [ "$DRY" -eq 1 ]; then ok "Dry-run concluído — nada foi modificado."; exit 0; fi
-say "Modo de permissão: quem estava no Manual ou no Accept edits passa para \"Auto\" (auto) — um classificador revisa cada comando no lugar do \"Permitir\"; force push, reset --hard e afins continuam pedindo. bypass e plan ficam."
-say "  Sem Auto disponível na sua conta ou no modelo, o Claude Code abre em Manual: não é o setup que falhou."
-say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o settings.json e é lembrado por pasta:"
-say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Auto\" em cada pasta onde escolheu Manual."
-say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
-say "  Quer ficar no Accept edits? Crie ~/.claude/kit-vamoo/manter-accept-edits e ponha permissions.defaultMode em \"acceptEdits\"."
-if [ "$SEM_PERG" -eq 1 ]; then
-  warn "Modo sem perguntas LIGADO (~/.claude/kit-vamoo/sem-perguntas): o kit não põe as regras ask de comando."
-  warn "  Deixa de pedir confirmação, em qualquer modo de permissão: git push --force, --delete, --mirror e --all em branch"
-  warn "  que não é a main; push direto na main; git reset --hard; git clean; git branch -D; checkout -f; checkout -- .;"
-  warn "  switch --discard-changes; restore .; stash drop/clear; worktree remove --force; gh pr merge; gh repo delete;"
-  warn "  gh release delete; supabase secrets set/unset; supabase migration repair; find -delete/-exec; Remove-Item -Recurse;"
+if [ "$SEM_PERG" -eq 0 ]; then
+  say "Modo de permissão: quem estava no Manual ou no Accept edits passa para \"Auto\" (auto) — um classificador revisa cada comando no lugar do \"Permitir\"; force push, reset --hard e afins continuam pedindo. bypass e plan ficam."
+  say "  Sem Auto disponível na sua conta ou no modelo, o Claude Code abre em Manual: não é o setup que falhou."
+  say "  No app de desktop o seletor de modo (ao lado do botão de enviar) vence o settings.json e é lembrado por pasta:"
+  say "  se ele mostrar \"Manual\" (ou \"Ask permissions\" em versão antiga), troque uma vez para \"Auto\" em cada pasta onde escolheu Manual."
+  say "  Quer o manual de vez? Crie ~/.claude/kit-vamoo/manter-modo-manual e o setup não troca mais o seu modo."
+  say "  Quer ficar no Accept edits? Crie ~/.claude/kit-vamoo/manter-accept-edits e ponha permissions.defaultMode em \"acceptEdits\"."
+else
+  MODO_FINAL="$(estado_settings)"; MODO_FINAL="${MODO_FINAL%%|*}"
+  warn "Modo sem perguntas LIGADO (~/.claude/kit-vamoo/sem-perguntas)."
+  if [ "$MODO_FINAL" = bypassPermissions ]; then
+    warn "  Modo de permissão padrão: bypassPermissions (\"Ignorar permissões\" / Bypass permissions). O Claude Code roda os comandos sem pedir \"Permitir\"."
+    warn "  No app de desktop o arquivo não basta, e são dois passos, uma vez:"
+    warn "    1. Settings > Code > ligue \"Allow bypass permissions mode\" (em plano Team ou Enterprise quem libera é a organização);"
+    warn "    2. no seletor de modo ao lado do botão de enviar, escolha \"Ignorar permissões\" em cada pasta onde já tinha outro modo:"
+    warn "       o seletor é lembrado por pasta e vence o settings.json."
+  else
+    warn "  O modo de permissão do settings.json está em \"${MODO_FINAL:-nenhum}\", não em bypass (veja acima o que segurou):"
+    warn "  fora do bypass o Claude Code segue revisando cada comando e pede \"Permitir\" no que não está no allow."
+  fi
+  warn "  Deixa de pedir confirmação: git push --force, --delete, --mirror e --all em branch que não é a main; push direto na main;"
+  warn "  git reset --hard; git clean; git branch -D; checkout -f; checkout -- .; switch --discard-changes; restore .; stash drop/clear;"
+  warn "  worktree remove --force; gh pr merge; gh release delete; supabase secrets set/unset; supabase migration repair;"
+  warn "  find -delete/-exec; Remove-Item -Recurse e rm -r de pasta de dentro do projeto; git add -A; DDL (CREATE/ALTER TABLE);"
   warn "  listar variáveis de ambiente (env, printenv) e comando que cita .pem, chave SSH ou credencial (.aws, .npmrc, .netrc)."
-  warn "  Continua barrado pelas regras deny: force push na main, supabase db push, login do Supabase e da Vercel, leitura de .env."
-  warn "  Continuam valendo: os hooks do kit (commit na main, rm -rf fora de pasta descartável), as regras ask de conector"
-  warn "  e as ask que você mesmo escreveu. Fora do bypass, o modo de permissão segue revisando cada comando."
+  warn "  Ainda pergunta, em qualquer modo, porque não tem volta: rm -r fora do projeto (ou do projeto inteiro e do .git dele),"
+  warn "  DROP/TRUNCATE sendo executado, supabase db reset no banco remoto, gh repo delete e comando de rede que leva credencial para fora."
+  warn "  Continua barrado pelas regras deny: force push na main, supabase db push, login do Supabase e da Vercel, leitura de .env,"
+  warn "  rm -rf em / e na sua pasta de usuário."
+  warn "  Continuam valendo: o hook que bloqueia commit direto na main (o Claude cria a branch e segue, sem perguntar), as regras ask"
+  warn "  de conector e as ask que você mesmo escreveu."
   warn "  Pra voltar a ser perguntado: /kit-vamoo:setup --com-perguntas (ou bash kit-setup.sh --com-perguntas)."
 fi
 ok "Pronto."

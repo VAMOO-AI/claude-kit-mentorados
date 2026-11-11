@@ -10,6 +10,18 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.94.0] — 2026-11-11
+
+### Mudado
+
+- **`/kit-vamoo:setup --sem-perguntas`**: põe `permissions.defaultMode` em `bypassPermissions` e grava `skipDangerousModePermissionPrompt`; o marcador `~/.claude/kit-vamoo/sem-perguntas` passa a guardar `modo=bypass`, `modo_anterior` e `skip_do_kit`, e o `--com-perguntas` desfaz só o que o setup fez. Marcador da 0.93.0 migra uma vez.
+- **`check-careful.sh`**: com o marcador do modo sem perguntas, pergunta só `rm -r` fora do projeto, `DROP`/`TRUNCATE` executado, `supabase db reset` remoto, `gh repo delete` e rede + credencial, em qualquer modo. `CHECK_CAREFUL_SEM_PERGUNTAS=1/0` liga e desliga para teste. Sem o marcador o comportamento é o de antes.
+- **`merge-settings.js`**: flags `--modo-bypass[=forcar]`, `--sai-do-bypass=<modo>` e `--tira-skip`.
+
+### Corrigido
+
+- O modo sem perguntas deixava o modo de permissão no Auto ou no Manual, e o app seguia pedindo "Permitir" em `gh pr merge`.
+
 ## [0.93.0] — 2026-11-10
 
 ### Adicionado
