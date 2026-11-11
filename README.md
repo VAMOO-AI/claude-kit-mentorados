@@ -177,21 +177,39 @@ as variáveis de ambiente e qualquer comando que cite arquivo de segredo (`.env`
 SSH, `.pem`, credencial de AWS/gh/npm). Vale no Bash e no PowerShell, e os bloqueios de
 login do Supabase/Vercel continuam em todo modo.
 
-- **Trabalha em bypass e não quer essas perguntas?** Regra `ask` pergunta em qualquer modo,
-  inclusive no `bypassPermissions`. O modo sem perguntas tira as regras `ask` de comando do
-  kit e não as põe de volta nas atualizações: `/kit-vamoo:setup --sem-perguntas` (no terminal,
-  `bash kit-setup.sh --sem-perguntas`). Deixam de pedir confirmação todos os comandos da lista
-  acima que são regra `ask`: force push, `--delete`, `--mirror` e `--all` em branch que não é
-  a main, push direto na main, `git reset --hard`, `git clean`, `git branch -D`, `checkout -f`,
-  `switch --discard-changes`, `restore .`, `stash drop`/`clear`, `gh pr merge`,
-  `gh repo delete`, `supabase secrets set`/`unset`, `supabase migration repair`,
-  `find -delete`/`-exec`, `Remove-Item -Recurse`, listar variáveis de ambiente e comando que
-  cita `.pem`, chave SSH ou credencial. Continua barrado, porque as regras `deny` não mudam:
-  force push na main, `supabase db push`, login do Supabase/Vercel e leitura de `.env`. Os
-  hooks (commit na main, `rm -rf` fora de pasta descartável), as regras `ask` de conector e as
-  que você mesmo escreveu também continuam. A escolha fica em
-  `~/.claude/kit-vamoo/sem-perguntas`; `/kit-vamoo:setup --com-perguntas` desliga e devolve as
-  regras.
+- **Quer trabalhar sem ser perguntado?** O modo sem perguntas é
+  `/kit-vamoo:setup --sem-perguntas` (no terminal, `bash kit-setup.sh --sem-perguntas`). Ele
+  faz três coisas:
+  1. põe o modo de permissão padrão em `bypassPermissions` (**Ignorar permissões**): o Claude
+     Code roda os comandos sem pedir "Permitir";
+  2. tira as regras `ask` de comando do kit e não as põe de volta nas atualizações (regra
+     `ask` pergunta em qualquer modo, inclusive no bypass);
+  3. reduz o hook de confirmação ao que não tem volta.
+
+  **No app de desktop são mais dois passos, uma vez:** em **Settings > Code**, ligue
+  **Allow bypass permissions mode** (em plano Team ou Enterprise quem libera é a
+  organização); depois, no seletor de modo ao lado do botão de enviar, escolha **Ignorar
+  permissões** em cada pasta onde você já tinha outro modo. O seletor é lembrado por pasta e
+  vence o `settings.json`: sem isso o app continua perguntando.
+
+  Deixam de pedir confirmação: force push, `--delete`, `--mirror` e `--all` em branch que não
+  é a main, push direto na main, `git reset --hard`, `git clean`, `git branch -D`,
+  `checkout -f`, `switch --discard-changes`, `restore .`, `stash drop`/`clear`, `gh pr merge`,
+  `supabase secrets set`/`unset`, `supabase migration repair`, `find -delete`/`-exec`,
+  `rm -r`/`Remove-Item -Recurse` de pasta de dentro do projeto, `git add -A`, DDL
+  (`CREATE`/`ALTER TABLE`), listar variáveis de ambiente e comando que cita `.pem`, chave SSH
+  ou credencial.
+
+  Ainda pergunta, em qualquer modo, porque não tem volta: `rm -r` fora do projeto (ou do
+  projeto inteiro e do `.git` dele), `DROP`/`TRUNCATE` sendo executado, `supabase db reset` no
+  banco remoto, `gh repo delete` e comando de rede que leva credencial para fora.
+
+  Continua barrado, porque as regras `deny` não mudam: force push na main, `supabase db push`,
+  login do Supabase/Vercel, leitura de `.env` e `rm -rf` em `/` e na pasta de usuário. O hook
+  que bloqueia commit direto na main, as regras `ask` de conector e as que você mesmo escreveu
+  também continuam. A escolha fica em `~/.claude/kit-vamoo/sem-perguntas`. Quem troca o modo
+  na mão depois (para o Auto, por exemplo) não é forçado de volta nas atualizações.
+  `/kit-vamoo:setup --com-perguntas` desliga: devolve as regras e o modo de antes.
 - **O Auto não está disponível na sua conta ou no seu modelo?** O Claude Code abre a
   sessão em **Manual** e pede "Permitir" a cada passo. Não é o setup que falhou. Se
   preferir, escolha **Accept edits** no seletor de modo.

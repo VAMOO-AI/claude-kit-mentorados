@@ -49,6 +49,19 @@
 # freia subagent nem workflow, então ele não é controle — é interrupção. Quem protege
 # em bypass é `permissions.deny`, que a doc garante valer em TODO modo
 # (https://code.claude.com/docs/en/permission-modes). CAREFUL_ON=1 traz o hook de volta.
+# MODO SEM PERGUNTAS (11/11/2026): quem rodou o setup com --sem-perguntas tem o marcador
+# ~/.claude/kit-vamoo/sem-perguntas, trabalha em bypass por padrão e pediu para não ser
+# parado no que é rotina ou tem volta. Com o marcador o hook pergunta só o gravíssimo, e
+# pergunta em QUALQUER modo, bypass incluso (aí o `ask` atravessar o bypass é o que se quer):
+#   • `rm -r` cujo alvo sai do projeto, é o projeto inteiro ou o `.git` dele;
+#   • DROP/TRUNCATE sendo executado;
+#   • `supabase db reset` no banco remoto;
+#   • `gh repo delete` (a regra `ask` que cobria saiu junto com as outras de comando);
+#   • rede + credencial para destino de terceiro.
+# Deixam de perguntar: push na main sem destino, push que apaga branch por refspec, DDL
+# (CREATE/ALTER TABLE), `git add` amplo, `.env` citado e `rm -r` de pasta de dentro do
+# projeto. CAREFUL_ON=1 traz o hook inteiro de volta também aqui. A suíte liga e desliga o
+# modo por CHECK_CAREFUL_SEM_PERGUNTAS (1/0), sem depender do ~/.claude de quem roda.
 #
 # Todo caso tem teste em tests/test-check-careful.sh — rode antes de commitar.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
@@ -87,7 +100,17 @@ c_hd=$(printf '%s\n' "$c" | awk '
       }
     }')
 case "$c_hd" in *CAREFUL_OFF=1*) exit 0 ;; esac
-if [ "${CAREFUL_ON:-}" != "1" ] && [ "$modo" = "bypassPermissions" ]; then
+# Modo sem perguntas (cabeçalho): `sem_perg` é o marcador; `so_grave` é o hook reduzido ao
+# gravíssimo, que CAREFUL_ON=1 desfaz.
+sem_perg=0
+case "${CHECK_CAREFUL_SEM_PERGUNTAS-}" in
+  1) sem_perg=1 ;;
+  0) ;;
+  *) [ -f "$HOME/.claude/kit-vamoo/sem-perguntas" ] && sem_perg=1 ;;
+esac
+so_grave=0
+[ "$sem_perg" = 1 ] && [ "${CAREFUL_ON:-}" != "1" ] && so_grave=1
+if [ "${CAREFUL_ON:-}" != "1" ] && [ "$sem_perg" = 0 ] && [ "$modo" = "bypassPermissions" ]; then
   # Este hook é a rede de proteção do kit, e em bypass ele fica MUDO. Quem liga o
   # bypass sem saber disso acha que continua protegido — então avisa uma vez por
   # sessão (marker), com o caminho pra ligar de volta. Silêncio virando falsa
@@ -145,6 +168,134 @@ alvo_descartavel() {
   return 1
 }
 tem_mktemp=0; [[ $c_hd == *mktemp* ]] && tem_mktemp=1
+
+# ── Só no modo sem perguntas: o `rm -r` pergunta quando o alvo PROVADAMENTE sai do projeto,
+# é o projeto inteiro ou o `.git` dele. Pasta de dentro do projeto passa: é o caso de rotina,
+# e quem ligou o modo dispensou essa pergunta. Variável que o comando não resolve e pasta
+# desconhecida (cd com variável) não provam nada e passam: `rm -rf /` e `rm -rf ~` são do
+# `deny` do template e do freio do próprio Claude Code.
+# Barra do Windows vira `/`; com letra de unidade a comparação é em caixa baixa, e no Git
+# Bash `/c/x` vira `c:/x` (o cwd chega como `C:\x`).
+norm_caminho() {
+  local p="${1//\\//}"
+  if [ -n "${WINDIR:-}${MSYSTEM:-}" ] && [[ $p =~ ^/([A-Za-z])/(.*)$ ]]; then p="${BASH_REMATCH[1]}:/${BASH_REMATCH[2]}"; fi
+  if [[ $p == [A-Za-z]:/* ]]; then p="$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')"; fi
+  while [ "${p%/}" != "$p" ] && [ "$p" != "/" ]; do p="${p%/}"; done
+  printf '%s' "$p"
+}
+# Raízes do projeto, calculadas uma vez: o toplevel do git do cwd e, em worktree, a raiz do
+# clone principal (o worktree irmão mora lá dentro). O git devolve o toplevel RESOLVIDO e o
+# cwd chega como a pessoa abriu a pasta: atrás de symlink (no macOS, /var e /tmp são links
+# para /private) os dois diferem, e o alvo relativo, montado em cima do cwd, cairia "fora".
+# Por isso entra também a raiz lógica, o cwd sem o `--show-prefix`. Fora de repo git a raiz
+# é o cwd, menos quando ele é o HOME ou `/`: aí nada conta como "dentro".
+RAIZES_OK=""; RAIZES=""
+raizes_projeto() {
+  [ -n "$RAIZES_OK" ] && return 0
+  RAIZES_OK=1
+  [ -n "$cwd" ] || return 0
+  local top pre logico comum
+  top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
+  if [ -n "$top" ]; then
+    RAIZES="$(norm_caminho "$top")"
+    pre="$(git -C "$cwd" rev-parse --show-prefix 2>/dev/null)"; pre="${pre%/}"
+    logico="$(norm_caminho "$cwd")"
+    [ -n "$pre" ] && logico="${logico%/"$pre"}"
+    RAIZES="$RAIZES"$'\n'"$logico"
+    comum="$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    case "$comum" in */.git) RAIZES="$RAIZES"$'\n'"$(norm_caminho "${comum%/.git}")" ;; esac
+  else
+    top="$(norm_caminho "$cwd")"
+    [ "$top" != "$(norm_caminho "$HOME")" ] && [ "$top" != "/" ] && RAIZES="$top"
+  fi
+}
+alvo_fora_do_projeto() { # 0 = pergunta; 1 = dentro do projeto (ou não dá para provar)
+  local a r dentro=0
+  a="$(desaspa "$1")"; a="${a//\\//}"
+  case "$a" in
+    '$HOME'|'${HOME}') a="$HOME" ;;
+    '$HOME/'*)   a="$HOME/${a#*/}" ;;
+    '${HOME}/'*) a="$HOME/${a#*/}" ;;
+    '~')    a="$HOME" ;;
+    '~/'*)  a="$HOME/${a#*/}" ;;
+  esac
+  case "$a" in *'$'*|*'`'*) return 1 ;; esac
+  case "$a" in
+    /*|[A-Za-z]:/*) ;;
+    *) [ -n "$rm_here" ] || return 1; a="${rm_here%/}/$a" ;;
+  esac
+  # `..` em qualquer ponto sobe de pasta, e o hook não resolve link nem normaliza: pergunta.
+  case "/$a/" in */../*) return 0 ;; esac
+  a="${a%/\*}"; a="${a//\/.\//\/}"
+  while [ "${a%/.}" != "$a" ]; do a="${a%/.}"; done
+  a="$(norm_caminho "$a")"
+  case "$a" in */.git) return 0 ;; esac
+  raizes_projeto
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    [ "$a" = "$r" ] && return 0
+    case "$a" in "$r"/*) dentro=1 ;; esac
+  done <<< "$RAIZES"
+  [ "$dentro" = 1 ] && return 1
+  return 0
+}
+# Quebra os argumentos do rm por espaço respeitando aspas (um por linha, sem as aspas). O
+# `for w in $resto` do modo normal corta "meu projeto/saida" em dois, e lá tanto faz, porque
+# qualquer pedaço fora das descartáveis já pergunta. Aqui o caminho inteiro decide.
+tokens() {
+  local s="$1" t pedaco
+  while [ -n "$s" ]; do
+    s="${s#"${s%%[![:space:]]*}"}"; [ -n "$s" ] || break
+    t=""
+    while [ -n "$s" ]; do
+      case "$s" in
+        [[:space:]]*) break ;;
+        \"*) s="${s#\"}"; t="$t${s%%\"*}"; case "$s" in *\"*) s="${s#*\"}" ;; *) s="" ;; esac ;;
+        \'*) s="${s#\'}"; t="$t${s%%\'*}"; case "$s" in *\'*) s="${s#*\'}" ;; *) s="" ;; esac ;;
+        *) pedaco="${s%%[[:space:]\"\']*}"; t="$t$pedaco"; s="${s#"$pedaco"}" ;;
+      esac
+    done
+    printf '%s\n' "$t"
+  done
+}
+# Pasta em que o segmento roda, seguindo o `cd` do próprio comando ("" = desconhecida).
+segue_cd() { # segue_cd <segmento sem espaço à esquerda> <pasta atual>
+  local seg="$1" here="$2" alvo
+  case "$seg" in
+    cd|'cd '|cd$'\t') printf '%s' "$HOME"; return ;;
+    'cd '*')'*) printf '%s' "$here"; return ;;
+  esac
+  alvo="${seg#cd }"; alvo="${alvo#"${alvo%%[![:space:]]*}"}"
+  case "$alvo" in
+    \"*) alvo="${alvo#\"}"; alvo="${alvo%%\"*}" ;;
+    \'*) alvo="${alvo#\'}"; alvo="${alvo%%\'*}" ;;
+    *)   alvo="${alvo%%[[:space:]]*}" ;;
+  esac
+  case "$alvo" in
+    *'$'*|*'`'*|-*) here="" ;;
+    '~'|'~/'*) here="$HOME${alvo#\~}" ;;
+    /*|[A-Za-z]:[/\\]*) here="$alvo" ;;
+    *) [ -n "$here" ] && here="${here%/}/$alvo" ;;
+  esac
+  printf '%s' "$here"
+}
+# Um argumento do rm por vez. Devolve 1 quando achou alvo que pede confirmação (em $ruim).
+rm_passo() {
+  local w="$1"
+  if [ "$pula" = 1 ]; then pula=0; return 0; fi
+  if [ "$fim_opcoes" = 0 ]; then
+    case "$w" in
+      --) fim_opcoes=1; return 0 ;;
+      -[Ee]rror[Aa]ction|-ea|-[Ff]ilter|-[Ii]nclude|-[Ee]xclude|-[Cc]redential) [ "$ps" = 1 ] && pula=1; return 0 ;;
+      -*) return 0 ;;
+    esac
+  fi
+  alvos=$((alvos+1))
+  alvo_descartavel "$w" && return 0
+  if [ "$so_grave" = 1 ] && ! alvo_fora_do_projeto "$w"; then return 0; fi
+  ruim="$w"; return 1
+}
+rm_here="${cwd:-}"
 # Pré-filtro sem processo: sem um dos comandos de apagar, o laço nem abre.
 shopt -s nocasematch
 if [[ $c_hd =~ (^|[^A-Za-z0-9_-])(rm|remove-item|ri|del|erase|rd|rmdir)([[:space:]]|$) ]]; then
@@ -152,6 +303,10 @@ shopt -u nocasematch
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   case "$seg" in *[![:space:]]*) ;; *) continue ;; esac
+  if [ "$so_grave" = 1 ]; then
+    seg_cd="${seg#"${seg%%[![:space:]]*}"}"
+    case "$seg_cd" in cd|'cd '*|cd$'\t'*) rm_here="$(segue_cd "$seg_cd" "$rm_here")"; continue ;; esac
+  fi
   printf '%s' "$seg" | grep -qE '^[[:space:]]*trap[[:space:]]' && continue
   printf '%s' "$seg" | grep -qE '\bgit[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?rm\b' && continue
   resto=""
@@ -166,19 +321,17 @@ while IFS= read -r seg; do
     continue
   fi
   pula=0; fim_opcoes=0; alvos=0; ruim=""
-  for w in $resto; do
-    if [ "$pula" = 1 ]; then pula=0; continue; fi
-    if [ "$fim_opcoes" = 0 ]; then
-      case "$w" in
-        --) fim_opcoes=1; continue ;;
-        -[Ee]rror[Aa]ction|-ea|-[Ff]ilter|-[Ii]nclude|-[Ee]xclude|-[Cc]redential) [ "$ps" = 1 ] && pula=1; continue ;;
-        -*) continue ;;
-      esac
-    fi
-    alvos=$((alvos+1))
-    alvo_descartavel "$w" || { ruim="$w"; break; }
-  done
-  if [ -n "$ruim" ]; then
+  if [ "$so_grave" = 1 ]; then
+    while IFS= read -r w; do
+      [ -n "$w" ] || continue
+      rm_passo "$w" || break
+    done <<< "$(tokens "$resto")"
+  else
+    for w in $resto; do rm_passo "$w" || break; done
+  fi
+  if [ -n "$ruim" ] && [ "$so_grave" = 1 ]; then
+    ask "[cuidado] apagar pasta inteira (rm -r / Remove-Item -Recurse) fora do projeto, o projeto inteiro ou o .git dele: $ruim. Aí não tem git que devolva. Confirme o alvo."
+  elif [ -n "$ruim" ]; then
     ask "[cuidado] apagar pasta inteira (rm -r / Remove-Item -Recurse) fora das descartáveis (node_modules, .next, dist, build…): $ruim. O git não devolve arquivo ignorado. Confirme o alvo."
   fi
 done <<< "$segs"
@@ -197,7 +350,7 @@ shopt -u nocasematch
 # branch desconhecido, e aí o hook não pergunta. HOTFIX_MAIN=1 (a escotilha do
 # block-main-commit) cala a regra. Medido no time em 15/10/2026 (30 dias): 98 disparos sem a
 # posição, a maioria texto; 48 com ela e sem seguir o `cd`.
-case "$c_hd" in *push*)
+[ "$so_grave" = 0 ] && case "$c_hd" in *push*)
 alvo_main() { local d="${1#refs/heads/}"; [ "$d" = main ] || [ "$d" = master ]; }
 branch_de() { [ -n "$1" ] && git -C "$1" symbolic-ref --short -q HEAD 2>/dev/null; }
 hotfix=0
@@ -285,8 +438,16 @@ if [ "$tem_sql" = 1 ] && m '(psql|db-query\.sh|supabase[[:space:]]+db|PGPASSWORD
     && ask "[cuidado] SQL destrutivo (DROP/TRUNCATE) sendo EXECUTADO. É produção? Confirme."
   # DDL também (do kit do time): CREATE/ALTER TABLE direto no banco muda o schema de quem
   # usa o banco, e em produção não tem desfazer simples.
-  printf '%s' "$c_exec" | grep -qiE '\b(CREATE|ALTER)[[:space:]]+TABLE\b' \
+  [ "$so_grave" = 0 ] && printf '%s' "$c_exec" | grep -qiE '\b(CREATE|ALTER)[[:space:]]+TABLE\b' \
     && ask "[cuidado] DDL (CREATE/ALTER TABLE) direto no banco. É produção? Confirme."
+fi
+
+# gh repo delete: fora do modo sem perguntas é da regra `ask` do template (e o hook não
+# pergunta de novo). No modo, as regras de comando saíram, e apagar o repositório no GitHub
+# não tem volta: o hook assume. Só em posição de comando, sem o corpo de heredoc.
+if [ "$sem_perg" = 1 ] && [[ $c_hd == *repo*delete* ]] \
+   && printf '%s\n' "$segs" | grep -qE '^[[:space:]]*((sudo|command|rtk)[[:space:]]+)*gh[[:space:]]+repo[[:space:]]+delete([[:space:]]|$)'; then
+  ask "[cuidado] gh repo delete apaga o repositório no GitHub, com issues e PRs. Confirme."
 fi
 
 # supabase db reset: o local é rotina de migration; só o remoto apaga dado que importa.
@@ -297,7 +458,7 @@ fi
 
 # git add amplo — o risco é o index compartilhado entre sessões no mesmo clone.
 # Worktree tem index próprio, então lá não pergunta.
-if [[ $c == *add* ]] && ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-[a-zA-Z]*[Au]\b|--all\b|\.)[[:space:]]*($|[;&|])'; then
+if [ "$so_grave" = 0 ] && [[ $c == *add* ]] && ms '(^|[;&|][[:space:]]*)git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?add[[:space:]]+(-[a-zA-Z]*[Au]\b|--all\b|\.)[[:space:]]*($|[;&|])'; then
   em_worktree=0
   case "$cwd" in *worktree*|*.worktrees*) em_worktree=1;; esac
   case "$c" in *worktree*) em_worktree=1;; esac
@@ -315,7 +476,7 @@ fi
 # redirecionamento (`>> .env.local`) e o que não imprime conteúdo (`grep -c/-q/-l`, test, ls,
 # stat, echo/printf, mensagem de commit/PR — sem substituição de comando).
 SEGREDO='(^|[^A-Za-z0-9_])\.env(\.[A-Za-z0-9_-]+)*($|[^A-Za-z0-9_.-])|[A-Za-z0-9_-]\.env($|[^A-Za-z0-9_.-])'
-if [[ $c_hd =~ $SEGREDO ]]; then
+if [ "$so_grave" = 0 ] && [[ $c_hd =~ $SEGREDO ]]; then
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
   limpo=$(printf '%s' "$seg" | sed -E 's/\.env(\.[A-Za-z0-9_-]+)*\.(example|sample|template|1password)//g; s/(process|import\.meta|Deno)\.env//g; s/>>?[[:space:]]*[^[:space:]]+//g')

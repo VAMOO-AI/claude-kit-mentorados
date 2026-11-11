@@ -1364,5 +1364,79 @@ check "template real: zero ask de Bash/PowerShell" "(d.permissions.ask || []).fi
 N_DENY_REAL="$(node -e 'const d = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(String(d.permissions.deny.length))' < "$TPL_REAL")"
 check "template real: o deny chega inteiro" "d.permissions.deny.length" "$N_DENY_REAL" "$TMP/out-sa-real.json"
 
+echo "== --modo-bypass: o modo sem perguntas põe bypassPermissions como modo padrão =="
+# Pedido do Ruan (11/11/2026): tirar as regras ask não bastava. Quem liga o modo sem perguntas
+# continuava no Auto (ou no Manual, onde o Auto não existe), e o app seguia pedindo "Permitir"
+# em `gh pr merge` e afins. Com --modo-bypass o modo do kit passa a ser bypassPermissions:
+# Manual, ausente e acceptEdits viram bypass; auto, plan e dontAsk ficam, porque num setup
+# comum a escolha da pessoa vale. --modo-bypass=forcar é o do pedido explícito
+# (kit-setup.sh --sem-perguntas): troca qualquer modo. Os marcadores manter-* seguram os dois.
+mb() { # mb <modo-inicial|-> <flags do merge, separadas por espaço> [marcador|marcador-accept] → defaultMode final
+  local dir="$TMP/mb-$RANDOM$RANDOM"; mkdir -p "$dir"
+  if [ "$1" = "-" ]; then echo '{"permissions":{}}' > "$dir/settings.json"
+  else printf '{"permissions":{"defaultMode":"%s"}}\n' "$1" > "$dir/settings.json"; fi
+  [ "${3:-}" = marcador ] && { mkdir -p "$dir/kit-vamoo"; : > "$dir/kit-vamoo/manter-modo-manual"; }
+  [ "${3:-}" = marcador-accept ] && { mkdir -p "$dir/kit-vamoo"; : > "$dir/kit-vamoo/manter-accept-edits"; }
+  # shellcheck disable=SC2086  # as flags são palavras separadas de propósito
+  node "$MERGE" "$TMP/kit.json" "$dir/settings.json" $2 > "$dir/saida.txt" 2>&1
+  node -e 'const m=require(process.argv[1]).permissions.defaultMode; console.log(m===undefined?"(nenhum)":m)' "$dir/settings.json"
+  ULTIMO_DIR="$dir"
+}
+for m in - default acceptEdits; do
+  esperado "--modo-bypass: $m vira bypassPermissions" "$(mb "$m" --modo-bypass)" "bypassPermissions"
+done
+for m in auto plan dontAsk; do
+  esperado "--modo-bypass: $m é escolha da pessoa e fica" "$(mb "$m" --modo-bypass)" "$m"
+  esperado "--modo-bypass=forcar: $m vira bypassPermissions" "$(mb "$m" --modo-bypass=forcar)" "bypassPermissions"
+done
+esperado "--modo-bypass=forcar: default vira bypassPermissions" "$(mb default --modo-bypass=forcar)" "bypassPermissions"
+esperado "--modo-bypass: quem já está em bypass fica" "$(mb bypassPermissions --modo-bypass)" "bypassPermissions"
+mb auto --modo-bypass=forcar >/dev/null
+check "ao pôr o bypass, o aviso do modo perigoso da CLI fica dispensado" "d.skipDangerousModePermissionPrompt" 'true' "$ULTIMO_DIR/settings.json"
+for t in 'bypassPermissions' 'Ignorar permissões' 'Allow bypass permissions mode' 'seletor'; do
+  saida_tem "a troca para bypass explica o app de desktop: $t" "$ULTIMO_DIR/saida.txt" "$t"
+done
+ANTES_MB="$(cat "$ULTIMO_DIR/settings.json")"
+SEGUNDA_MB="$(node "$MERGE" "$TMP/kit.json" "$ULTIMO_DIR/settings.json" --modo-bypass=forcar 2>&1)"
+[ "$ANTES_MB" = "$(cat "$ULTIMO_DIR/settings.json")" ] && ! printf '%s' "$SEGUNDA_MB" | grep >/dev/null 'modo de permissão' \
+  && echo "  ok    segunda passada com --modo-bypass=forcar não mexe nem anuncia de novo" \
+  || { echo "  FALHA segunda passada mexeu ou anunciou: $SEGUNDA_MB"; falhas=$((falhas+1)); }
+mb auto --modo-bypass >/dev/null
+check "modo que ficou em auto não ganha skipDangerousModePermissionPrompt" "d.skipDangerousModePermissionPrompt === undefined" 'true' "$ULTIMO_DIR/settings.json"
+echo '{"skipDangerousModePermissionPrompt":false,"permissions":{"defaultMode":"default"}}' > "$TMP/mb-skip-false.json"
+node "$MERGE" "$TMP/kit.json" "$TMP/mb-skip-false.json" --modo-bypass=forcar >/dev/null 2>&1
+check "skipDangerousModePermissionPrompt que a pessoa pôs em false fica" "d.skipDangerousModePermissionPrompt" 'false' "$TMP/mb-skip-false.json"
+esperado "manter-modo-manual segura o Manual até do forcar" "$(mb default --modo-bypass=forcar marcador)" "default"
+esperado "manter-modo-manual segura o auto até do forcar" "$(mb auto --modo-bypass=forcar marcador)" "auto"
+mb default --modo-bypass=forcar marcador >/dev/null
+grep -q 'manter-modo-manual' "$ULTIMO_DIR/saida.txt" \
+  && echo "  ok    …e a saída diz que o marcador segurou o bypass" \
+  || { echo "  FALHA com o marcador a saída não explica: $(cat "$ULTIMO_DIR/saida.txt")"; falhas=$((falhas+1)); }
+esperado "manter-accept-edits segura o Accept edits até do forcar" "$(mb acceptEdits --modo-bypass=forcar marcador-accept)" "acceptEdits"
+esperado "sem a flag nada muda: auto fica auto" "$(mb auto "")" "auto"
+esperado "sem a flag nada muda: default vira auto" "$(mb default "")" "auto"
+echo '{"permissions":{}}' > "$TMP/mb-ruim.json"
+node "$MERGE" "$TMP/kit.json" "$TMP/mb-ruim.json" --modo-bypass=talvez >/dev/null 2>&1; rc_mb=$?
+esperado "--modo-bypass com valor desconhecido sai com 2" "$rc_mb" "2"
+
+echo "== --sai-do-bypass: o --com-perguntas devolve o modo de antes =="
+# O kit-setup.sh guarda no marcador o modo de antes de ligar o sem perguntas e se foi ele que
+# pôs o skipDangerousModePermissionPrompt. Ao desligar, o merge desfaz só o que o kit fez.
+sdb() { # sdb <modo-atual> <anterior> [--tira-skip] → "<defaultMode>|<skip>"
+  local dir="$TMP/sdb-$RANDOM$RANDOM"; mkdir -p "$dir"
+  printf '{"skipDangerousModePermissionPrompt":true,"permissions":{"defaultMode":"%s"}}\n' "$1" > "$dir/settings.json"
+  node "$MERGE" "$TMP/kit.json" "$dir/settings.json" "--sai-do-bypass=$2" ${3:-} > "$dir/saida.txt" 2>&1
+  node -e 'const s=require(process.argv[1]); console.log(s.permissions.defaultMode+"|"+s.skipDangerousModePermissionPrompt)' "$dir/settings.json"
+  ULTIMO_DIR="$dir"
+}
+esperado "bypass que veio do auto volta para auto, e o skip do kit sai" "$(sdb bypassPermissions auto --tira-skip)" "auto|undefined"
+esperado "bypass que veio do plan volta para plan" "$(sdb bypassPermissions plan --tira-skip)" "plan|undefined"
+esperado "bypass que veio do Manual segue a regra do kit (auto)" "$(sdb bypassPermissions default --tira-skip)" "auto|undefined"
+esperado "bypass que veio de modo nenhum segue a regra do kit (auto)" "$(sdb bypassPermissions "" --tira-skip)" "auto|undefined"
+esperado "quem já estava em bypass antes do modo continua, com o skip dele" "$(sdb bypassPermissions bypassPermissions)" "bypassPermissions|true"
+esperado "quem trocou de modo por conta própria não é mexido" "$(sdb plan auto)" "plan|true"
+sdb bypassPermissions auto --tira-skip >/dev/null
+saida_tem "a volta do bypass é anunciada" "$ULTIMO_DIR/saida.txt" 'modo de permissão'
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi
