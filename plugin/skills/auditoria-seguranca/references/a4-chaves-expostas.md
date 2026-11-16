@@ -83,15 +83,17 @@ banco inteiro por cima da RLS.
 original, com comentário, nome de variável e até o trecho que o tree-shaking tirou do
 `.js`. Senha de admin "esquecida" num arquivo de config do front aparece ali inteira. A
 busca 4 varre os `.map` do build, mas só acha token de formato conhecido; senha em texto
-puro não tem formato. O bloco abaixo lê o `sourcesContent` de cada map com a chave da
-busca 3 e sai com o arquivo de origem, a linha, a chave e a máscara. O resto imprime
+puro não tem formato. O bloco abaixo lê o `sourcesContent` de cada map com os nomes de
+chave da busca 3 (os operadores são os de código, sem `=>`) e sai com o arquivo de
+origem, a linha, a chave e a máscara. O resto imprime
 caminho, a opção de config cortada e o status HTTP.
 
 ```bash
 # o build gera map? Next: productionBrowserSourceMaps. Vite: build.sourcemap, que em
 # 'hidden' grava o .map sem o comentário no .js e publica igual se dist/ sobe inteiro.
 # CRA: gera por padrão, e só GENERATE_SOURCEMAP=false (no script do package.json ou no
-# arquivo de ambiente, que este bloco não abre) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
+# arquivo de ambiente, que este bloco não abre: lá, o env-tem-chave.sh do kit diz se a
+# chave existe sem mostrar o valor, e o valor o dono confirma) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
 find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'webpack.config.*' \
   -o -name package.json \) -exec env LC_ALL=C grep -HanoE \
   "(productionBrowserSourceMaps|sourcemap|devtool|GENERATE_SOURCEMAP)[^,}]{0,24}" {} +
@@ -99,19 +101,48 @@ find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'w
 find dist .next/static build out -name '*.map' 2>/dev/null | python3 -c '
 import json, re, sys
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
-# a chave, a anotação de tipo do TS (apiKey: string = …), =, ==, ===, :, => e !==, e o
-# valor entre aspas (com espaço) ou solto
-K = re.compile(r"((?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\x22]?\s*(?::\s*[A-Za-z_][\w<>\[\]|. ]*?\s*)?(?:[:=>]{1,3}|!==?)\s*)(?:([\x27\x22`])([^\x27\x22`]{8,})|([^\x27\x22`\s,;)]{8,}))", re.I)
+# a chave, a anotação de tipo do TS só antes de = (apiKey: string = …), e os operadores
+# =, ==, ===, !==, :. Sai só a chave, o operador e a máscara: o trecho entre a chave e o
+# operador nunca é impresso. Falso positivo de formulário cai fora: comparação só com
+# valor entre aspas; valor solto só com caractere que identificador não tem (- : / + =)
+# e sem ( de chamada, senão é variável ou expressão; entre aspas, nada com ${ nem com
+# dois espaços (texto de interface). O nome da chave pode conter o próprio segredo: do
+# nome só sai a palavra-chave inteira; o que vem antes e depois dela sai só se tiver até
+# 16 caracteres, nenhum dígito, e a captura começar no início do identificador, senão …
+CH = r"(?P<k>[A-Za-z0-9_]{0,24}?(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]{0,32})"
+TS = r"(?::\s*[A-Za-z_][\w.<>\[\]]*(?:\s*\|\s*[A-Za-z_][\w.<>\[\]]*)*\s*(?==))?"
+K = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>!==?|={1,3}|:)\s*(?:(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)|(?P<vs>[^\x27\x22`\s,;)]{8,}))", re.I)
 ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
+TIPO = ("undefined", "function", "object", "string", "boolean", "number", "bigint", "symbol")
+# o fallback chumbado: apiKey = process.env.X || "valor" e import.meta.env.Y ?? "valor"
+FB = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>=|:)[^;,{}\n]{0,120}?(?P<fb>\|\||\?\?)\s*(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)", re.I)
+KW = re.compile(r"api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key", re.I)
+parte = lambda p: p if len(p) <= 16 and not re.search(r"\d", p) else "…"
+def nome(l, g):
+    k, s = g["k"], g.start("k"); h = KW.search(k)
+    meio = s > 0 and (l[s - 1].isalnum() or l[s - 1] == "_")
+    return ("…" if meio else parte(k[:h.start()])) + h[0] + parte(k[h.end():])
+def vale(g):
+    if g["vq"] is not None:
+        v = g["vq"]
+        return not ("${" in v or v.count(" ") >= 2 or v.startswith(ref) or v in TIPO)
+    v = g["vs"]
+    return g["op"] in ("=", ":") and re.search(r"[-:/+=]", v) is not None and "(" not in v and not v.startswith(ref)
 for f in sys.stdin:
     f = f.strip()
     try: d = json.load(open(f, encoding="utf-8", errors="replace"))
-    except Exception: print("map ilegível, sem varrer: " + f); continue
-    for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
-        for i, l in enumerate((txt or "").splitlines(), 1):
+    except Exception: d = None
+    if not isinstance(d, dict): print("map ilegível, sem varrer: " + f); continue
+    S, C = d.get("sources") or [], d.get("sourcesContent") or []
+    if not (isinstance(S, list) and isinstance(C, list)): print("map ilegível, sem varrer: " + f); continue
+    for src, txt in zip(S, C):
+        for i, l in enumerate((txt if isinstance(txt, str) else "").splitlines(), 1):
             for g in K.finditer(l):
-                v = g[3] or g[4]
-                if not v.startswith(ref): print(f + " <- " + str(src) + ":" + str(i) + ": " + g[1] + (g[2] or "") + m(v))'
+                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(l, g) + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))
+            for g in FB.finditer(l):
+                v = g["vq"]
+                if not ("${" in v or v.count(" ") >= 2):
+                    print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(l, g) + " " + g["op"] + " … " + g["fb"] + " " + g["q"] + m(v))'
 # o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
 # SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
 # content-type JSON, não só 200

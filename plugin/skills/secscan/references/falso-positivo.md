@@ -26,13 +26,22 @@ saíram dessa rodada:
   do projeto registra em `.context/docs/security/vereditos.md` (fingerprint · veredito ·
   por quê · quem · quando — a skill `baseline` lê a mesma tabela). Antes de reportar,
   consulte: achado já julgado não volta como novo. O veredito vence quando o código ao
-  redor muda — por isso o "por quê" é obrigatório. O modelo da tabela:
+  redor muda — por isso o "por quê" é obrigatório. O veredito vence também quando cai o
+  **controle** em que se apoia: se o "por quê" se apoia num middleware, guard, policy ou
+  trigger, ele cita o `arquivo:linha` desse controle, e você abre esse arquivo antes de
+  aceitar o veredito. O controle não está mais lá, ou não cobre mais o caminho do achado
+  → julgue o achado de novo. Confira o controle, não o número: a linha pode ter andado
+  com o controle intacto. Sem isso, um middleware removido deixa o falso-positivo
+  congelado com o código do achado intacto. A `baseline` lê a mesma tabela: ao mexer
+  nesta regra, mantenha o passo 2 de `baseline/references/fase2-julgar.md` alinhado. O
+  modelo da tabela:
 
   ```markdown
   <!-- .context/docs/security/vereditos.md -->
   | Fingerprint | Veredito | Por quê | Quem | Quando |
   |---|---|---|---|---|
   | `src/import.ts:88 sql-injection` | falso-positivo | parâmetro vem de enum fechado, não de input | dev responsável | 2026-08-22 |
+  | `src/app/api/admin/route.ts:12 missing-auth` | falso-positivo | o `GET` exportado é envolvido por `withAdmin()` de `src/lib/auth/guard.ts:22`, que responde 403 antes do handler | dev responsável | 2026-08-22 |
   | `scripts/build-*.cjs service_role` | risco aceito | ver EX-01 em `.context/docs/baseline.md` | dev responsável | 2026-08-22 |
   ```
 
