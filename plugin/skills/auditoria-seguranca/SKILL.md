@@ -11,6 +11,8 @@ allowed-tools:
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'
   - 'Bash(cp "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/)'
   - 'Bash(python3 docs/security-audit/gerar-relatorio.py *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh *)'
 ---
 
 # auditoria-seguranca — 6 categorias, PDF e issues
@@ -74,6 +76,7 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
 | A1 inquilino · A2 permissão no navegador · A3 IDOR | [references/a1-a3-inquilino-permissao-idor.md](references/a1-a3-inquilino-permissao-idor.md) | **Materialized view não tem RLS. Nunca.** Consulte o estado vivo, não a migration. A2 é cruzamento gate do front × handler; autenticação não é autorização; check-then-act é uma operação só no banco. A3 percorre todos os handlers (razão lidos/total) e cobre URL vinda do request (SSRF). |
 | A4 chaves expostas | [references/a4-chaves-expostas.md](references/a4-chaves-expostas.md) | Rode o bloco como está: ele sai com `arquivo:linha`, nome, tipo e só a máscara. Sem build no disco, pergunte antes de `npm run build`; sem o ok, a `cobertura[]` da A4 sai `parcial`. Default público é achado mesmo sobrescrito em produção. |
 | A5 XSS · A6 agente de IA | [references/a5-a6-xss-agente.md](references/a5-a6-xss-agente.md) | HTML fora do framework (e-mail, PDF, bot, webhook) é o ponto cego. **Prompt de guard-rail não é fronteira de segurança**: A6 é o handler da tool, com que identidade roda e o que re-checa. |
+| Corroborar — de `lido` para `corroborado` | [references/corroborar-dinamico.md](references/corroborar-dinamico.md) | IDOR diferencial em três requisições de leitura (próprio, vítima, inexistente): o corpo decide, não o status. Matriz de RLS com `count=exact` por papel; escrita só em Supabase local. `fonte` nomeia a requisição, nunca o token. |
 | Fase 5 — evidência, juiz e veredito | [references/fase-5-veredito.md](references/fase-5-veredito.md) | Quatro perguntas por achado (caminho, como sei, alguém tentou derrubar, ainda está de pé), juízes em paralelo, severidade pelas âncoras do `findings-schema.md` e nunca acima do impacto demonstrado. |
 | Fase 6 — findings.json e PDF · Fase 7 — issues | [references/fase-6-7-relatorio-issues.md](references/fase-6-7-relatorio-issues.md) | O bloco abaixo, o trecho mascarado de achado de segredo, a rastreabilidade de compliance ([references/compliance-map.md](references/compliance-map.md)), a conferência do PDF e as issues com critério de aceite executável. |
 | Antes de entregar | [references/armadilhas.md](references/armadilhas.md) | Sintoma × causa real das auditorias que já voltaram. |
