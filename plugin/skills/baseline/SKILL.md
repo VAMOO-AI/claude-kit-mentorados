@@ -68,9 +68,9 @@ não dizem.
 A tabela baseline × `secscan` × auditoria × `verificacao` está em [references/fronteira.md](references/fronteira.md).
 
 No pilar de código, **chame `secscan`** — não refaça SAST aqui.
-Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. Ele recebe só o finding (pilar, título, `arquivo:linha`, detalhe) com a ordem de refutá-lo e devolve `mantido` ou `refutado` com o motivo; o refutado vira veredito (fase 2, passo 2).
+Juiz adversarial na fase 2: um `revisor` fresco por finding `CRITICAL`/`HIGH` (`Agent` com `subagent_type: kit-vamoo:revisor`), todos em paralelo numa mensagem só. O contrato do juiz é o da `auditoria-seguranca` (`skills/auditoria-seguranca/references/fase-5-veredito.md`, pergunta 3), sem cópia aqui: o que muda por causa do formato de finding da baseline (o que entra no dispatch, para onde vai o refutado, o rebaixado) está em [references/fase2-julgar.md](references/fase2-julgar.md), passo 5.
 
-Auditoria com fan-out por área: o workflow `audit-multidim` (o plugin entrega, como `/kit-vamoo:audit-multidim`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha.
+Auditoria com fan-out por área: o workflow `audit-multidim` (o plugin entrega, como `/kit-vamoo:audit-multidim`) só roda quando a pessoa pedir um workflow; sem esse pedido, faça o fan-out com um `Agent` por área, numa mensagem só, e ofereça o workflow em uma linha. Com o workflow ou sem ele, todo `CRITICAL`/`HIGH` que sobrar passa pelo juiz acima: o juiz do workflow descarta na dúvida, e aqui descartar exige prova.
 
 ---
 
@@ -121,7 +121,7 @@ com contexto de regressão.
 | Fase | O que faz | Escreve |
 |---|---|---|
 | **1 Medir** | `doctor.sh` → `collect.sh`. Determinístico, zero julgamento | `findings.json` |
-| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Falso-positivo decidido lendo o `arquivo:linha` e registrado em `.context/docs/security/vereditos.md` | `report.md`, `vereditos.md` |
+| **2 Julgar** | Severidade + confiança. Aplica exceções do contrato. Juiz nos `CRITICAL`/`HIGH`; falso-positivo só com prova (`fase2-julgar.md`, passo 5) e registrado em `.context/docs/security/vereditos.md` | `report.md`, `vereditos.md` |
 | **3 Propor** | Correção concreta + comando de reconferência, por finding | nada |
 | **4 Reconferir** | Roda o comando de reconferência e cola o output | nada |
 
