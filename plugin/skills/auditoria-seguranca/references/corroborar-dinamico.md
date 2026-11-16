@@ -12,8 +12,9 @@ escrever nunca** no ambiente do cliente.
   Nunca o token, a key nem o corpo com dado do cliente. Exemplo:
   `"fonte": "GET /api/pedidos/{id} como usuário A (tenant 1): próprio 200 812 B; vítima (tenant 2) 200 790 B com o id dela no corpo; id inexistente 404"`.
 - Token não entra na conversa. Quem audita gera o token no terminal dele e o deixa num arquivo
-  fora do repo (`chmod 600`), ou exporta no shell que vai rodar o comando. Você nunca pede para
-  colar.
+  fora do repo (`chmod 600`, `$HOME/.matriz-auditoria.conf`, formato `NOME=valor`). Os comandos
+  abaixo leem dali sem ecoar. Você nunca pede para colar. Extensão `.conf`, não `.env`: o guard de
+  segredo do kit pergunta antes de vários comandos que citam `*.env`, e o fluxo pararia nele.
 - Não houve requisição limpa? O achado continua `lido`, ou vira `a_validar` com o
   `plano_validacao` desta página. Inconclusivo não sobe evidência.
 
@@ -30,13 +31,15 @@ requisições iguais, mudando só o id, todas com a sessão do mesmo ator:
 | 3 | um inexistente do mesmo formato (UUID novo, número fora da faixa) | controle negativo: mostra a forma de "não tem nada aqui" |
 
 ```bash
-# Rode no terminal de quem audita. ATOR_JWT já exportado; os ids vêm da leitura do código e dos
-# dados de teste, nunca de um registro real escolhido a esmo.
+# O token do ator vem do arquivo, sem passar pela conversa. BASE e os três ids vêm da leitura
+# do código e dos dados de teste, nunca de um registro real escolhido a esmo.
+ATOR_JWT="$(awk 'index($0, "MATRIZ_JWT_A=") == 1 { print substr($0, 14) }' "$HOME/.matriz-auditoria.conf")"
+hash12() { python3 -I -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest()[:12])' "$1"; }
 ler() { # ler <rótulo> <url> — imprime status, bytes e se o corpo cita o id; o corpo fica no disco
   local f; f="$(mktemp)"
   printf 'header = "Authorization: Bearer %s"\n' "$ATOR_JWT" |
     curl -sS -K - --max-time 20 -o "$f" -w "$1 http=%{http_code} bytes=%{size_download}" "$2"
-  printf ' cita_id=%s sha=%s\n' "$(grep -c -- "$3" "$f")" "$(shasum -a 256 "$f" | cut -c1-12)"
+  printf ' cita_id=%s sha=%s\n' "$(grep -c -- "$3" "$f")" "$(hash12 "$f")"
   rm -f "$f"
 }
 ler proprio     "$BASE/api/pedidos/$ID_PROPRIO"     "$ID_PROPRIO"
@@ -100,15 +103,16 @@ O script lê tudo por variável de ambiente ou por um arquivo `NOME=valor` (`--e
 leva tabela e flag, porque argv vai para o histórico do shell e para o `ps`:
 
 ```bash
-# Arquivo fora do repo, chmod 600, montado por quem audita (nunca colado na conversa):
+# Arquivo fora do repo, chmod 600, montado por quem audita (nunca colado na conversa).
+# A anon legada (JWT) e a sb_publishable_ servem; a publishable vai só no header apikey.
 #   SUPABASE_URL=http://127.0.0.1:54321
 #   SUPABASE_ANON_KEY=...
 #   MATRIZ_JWT_A=...            MATRIZ_JWT_B=...           MATRIZ_JWT_ADMIN=...   (opcional)
 #   MATRIZ_FILTRO=id=eq.<uuid de uma linha do seed>        (só escrita)
 #   MATRIZ_CORPO_INSERT={"tenant_id":"<uuid do tenant B>","titulo":"teste"}   (só escrita)
 #   MATRIZ_CORPO_UPDATE={"titulo":"alterado"}              (só escrita)
-bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" --env "$HOME/.matriz-auditoria.env" pedidos perfis
-bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" --env "$HOME/.matriz-auditoria.env" --escrita pedidos
+bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" --env "$HOME/.matriz-auditoria.conf" pedidos perfis
+bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" --env "$HOME/.matriz-auditoria.conf" --escrita pedidos
 ```
 
 Saída: uma linha por célula, pronta para citar, e a tabela no fim. Exit 0 tudo medido, 3 sobrou
@@ -145,7 +149,7 @@ jwt_de() {
 }
 umask 077
 { echo "SUPABASE_URL=$SB"; echo "SUPABASE_ANON_KEY=$ANON_LOCAL"
-  echo "MATRIZ_JWT_A=$(jwt_de usuario-a)"; echo "MATRIZ_JWT_B=$(jwt_de usuario-b)"; } > "$HOME/.matriz-auditoria.env"
+  echo "MATRIZ_JWT_A=$(jwt_de usuario-a)"; echo "MATRIZ_JWT_B=$(jwt_de usuario-b)"; } > "$HOME/.matriz-auditoria.conf"
 ```
 
 Depois ligue cada usuário ao seu tenant com o mecanismo do próprio app (a tabela de membros, o

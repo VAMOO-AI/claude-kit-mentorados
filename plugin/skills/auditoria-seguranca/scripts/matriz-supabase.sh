@@ -6,7 +6,9 @@
 #
 # Entradas por VARIÁVEL DE AMBIENTE (argumento vai para o histórico do shell e para o `ps`):
 #   SUPABASE_URL              ex.: http://127.0.0.1:54321  (só esquema, host, porta e caminho são usados)
-#   SUPABASE_ANON_KEY         anon/publishable key (SUPABASE_PUBLISHABLE_KEY também serve)
+#   SUPABASE_ANON_KEY         anon/publishable key (SUPABASE_PUBLISHABLE_KEY também serve).
+#                             A anon legada (JWT) vai em apikey e no Bearer; a sb_publishable_,
+#                             que não é JWT, vai só em apikey (no Bearer o gateway recusa).
 #   MATRIZ_JWT_A, MATRIZ_JWT_B, MATRIZ_JWT_ADMIN   JWT de cada papel; papel sem JWT fica de fora
 # Só no modo escrita:
 #   MATRIZ_FILTRO             filtro PostgREST do UPDATE/DELETE, ex.: id=eq.<uuid-do-seed>
@@ -27,7 +29,7 @@
 # Saída: exit 0 tudo medido; 3 sobrou célula não medida; 2 uso inválido ou escrita recusada.
 set -uo pipefail
 
-uso() { sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; }
+uso() { awk 'NR==1{next} /^#/{sub(/^# ?/, ""); print; next} {exit}' "$0"; }
 
 # carrega_env <arquivo>: NOME=valor, com `export ` e aspas opcionais; nunca `source`.
 carrega_env() {
@@ -118,6 +120,9 @@ for par in "A:A:${MATRIZ_JWT_A:-}" "B:B:${MATRIZ_JWT_B:-}" "admin:ADMIN:${MATRIZ
   p="${par%%:*}"; resto="${par#*:}"; var="${resto%%:*}"; t="${resto#*:}"
   if [ -z "$t" ]; then echo "# papel $p sem JWT (MATRIZ_JWT_$var): fora da matriz"; continue; fi
   token_ok "$t" || { echo "matriz-supabase: o JWT do papel $p tem caractere inválido" >&2; exit 2; }
+  # Sem cara de JWT, o Bearer não sairia e o papel seria medido como anon, calado.
+  case "$t" in *.*.*.*) t="" ;; *?.?*.?*) ;; *) t="" ;; esac
+  [ -n "$t" ] || { echo "matriz-supabase: MATRIZ_JWT_$var não tem formato de JWT (cabeçalho.payload.assinatura)" >&2; exit 2; }
   PAPEIS+=("$p"); TOKS+=("$t")
 done
 
@@ -125,6 +130,9 @@ TMPD="$(mktemp -d "${TMPDIR:-/tmp}/matriz-supabase.XXXXXX")" || { echo "matriz-s
 trap 'rm -rf "$TMPD"' EXIT
 CELULAS="$TMPD/celulas.tsv"; : > "$CELULAS"
 NAO_MEDIDAS=0
+
+# Três partes separadas por ponto: cara de JWT. A publishable key nova não é JWT.
+eh_jwt() { case "$1" in *.*.*.*) return 1 ;; *?.?*.?*) return 0 ;; *) return 1 ;; esac; }
 
 # requisita <token> <metodo> <url> [arquivo-de-corpo] -> imprime "<http_code> <total-do-Content-Range>"
 # Os headers com token vão pelo stdin (curl -K -): não aparecem no argv nem no `ps`.
@@ -134,8 +142,8 @@ requisita() {
   : > "$TMPD/h"
   if [ "$met" = "HEAD" ]; then args+=(--head); else args+=(-X "$met"); fi
   [ -n "$corpo" ] && args+=(-H 'Content-Type: application/json' --data-binary "@$corpo")
-  code="$(printf 'url = "%s"\nheader = "apikey: %s"\nheader = "Authorization: Bearer %s"\nheader = "Prefer: return=minimal, count=exact"\n' \
-            "$url" "$KEY" "$tok" | curl "${args[@]}" 2>/dev/null)" || true
+  code="$( { printf 'url = "%s"\nheader = "apikey: %s"\nheader = "Prefer: return=minimal, count=exact"\n' "$url" "$KEY"
+             eh_jwt "$tok" && printf 'header = "Authorization: Bearer %s"\n' "$tok"; } | curl "${args[@]}" 2>/dev/null)" || true
   case "$code" in [0-9][0-9][0-9]) ;; *) code=000 ;; esac
   total="$(tr -d '\r' < "$TMPD/h" | awk 'tolower($1)=="content-range:"{print $2}' | tail -1)"
   total="${total##*/}"

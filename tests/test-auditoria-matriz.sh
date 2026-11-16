@@ -36,16 +36,22 @@ nao_tem() { case "$2" in *"$1"*) falha "$3 (achei '$1')" ;; *) ok "$3" ;; esac; 
 
 # Tokens falsos montados na hora: literal com cara de JWT no fonte reprova os scanners do repo.
 b64url() { printf '%s' "$1" | base64 | tr '+/' '-_' | tr -d '=\n'; }
-jwt() { printf '%s.%s.%s' "$(b64url '{"alg":"HS256","typ":"JWT"}')" "$(b64url "{\"role\":\"$1\",\"sub\":\"$2\"}")" "FALSO$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')assinatura$RANDOM"; }
+jwt() { # payload montado com printf: `{a,b}` solto sofre brace expansion e quebra o JWT em 4 partes
+  local payload; payload="$(printf '{"role":"%s","sub":"%s"}' "$1" "$2")"
+  printf '%s.%s.%s' "$(b64url '{"alg":"HS256","typ":"JWT"}')" "$(b64url "$payload")" "FALSO$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')assinatura$RANDOM"
+}
 ANON="$(jwt anon anonimo)"
+[ "$(printf '%s' "$ANON" | tr -cd . | wc -c | tr -d ' ')" = 2 ] || { echo "JWT falso malformado"; exit 2; }
 JA="$(jwt authenticated usuarioa)"
 JB="$(jwt authenticated usuariob)"
 JADM="$(jwt authenticated administrador)"
+# Publishable key nova: não é JWT. O gateway não aceita no Bearer; vai só na apikey.
+PUB="sb_publishable_FALSO$(printf 'p%.0s' $(seq 1 20))assinatura"
 
 # O PostgREST de mentira: Content-Range diferente por JWT, 401 para o anon na tabela "segredo",
 # 200 sem Content-Range na tabela "semrange". Grava método, caminho e se a apikey chegou.
 cat > "$TMP/cfg.py" <<EOF
-TOKENS = {"$ANON": "anon", "$JA": "A", "$JB": "B", "$JADM": "admin"}
+TOKENS = {"$ANON": "anon", "$PUB": "anon", "$JA": "A", "$JB": "B", "$JADM": "admin"}
 EOF
 cat > "$TMP/mock.py" <<'EOF'
 import http.server, sys, os, importlib.util
@@ -55,8 +61,12 @@ CONTAGEM = {"pedidos": {"anon": 0, "A": 3, "B": 2, "admin": 5}, "perfis": {"anon
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def _papel(self):
-        auth = self.headers.get("Authorization", "")
-        return cfg.TOKENS.get(auth[7:] if auth.startswith("Bearer ") else "", "?")
+        auth = self.headers.get("Authorization")
+        if auth is None:  # sem Authorization, o PostgREST trata como anon (pela apikey)
+            return "anon" if cfg.TOKENS.get(self.headers.get("apikey") or "") == "anon" else "?"
+        tok = auth[7:] if auth.startswith("Bearer ") else ""
+        if tok.count(".") != 2: return "rejeitado"  # Bearer que não é JWT: o gateway barra
+        return cfg.TOKENS.get(tok, "?")
     def _registra(self):
         with open(LOG, "a") as f:
             f.write("%s %s apikey=%s papel=%s\n" % (self.command, self.path, "sim" if self.headers.get("apikey") in cfg.TOKENS else "nao", self._papel()))
@@ -68,6 +78,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def _tabela(self): return self.path.split("?")[0].rsplit("/", 1)[-1]
     def do_HEAD(self):
         self._registra(); t, p = self._tabela(), self._papel()
+        if p == "rejeitado": return self._responde(401)
         if t == "segredo": return self._responde(401 if p == "anon" else 200, None if p == "anon" else "*/1")
         if t == "semrange": return self._responde(200)
         n = CONTAGEM.get(t, {}).get(p)
@@ -107,7 +118,7 @@ roda() { # roda <url> [args...] — ambiente só com o que o script deve ler
 }
 sem_token() { # sem_token <saida> <rótulo>
   local s="$1" vazou=""
-  for t in "$ANON" "$JA" "$JB" "$JADM"; do case "$s" in *"$t"*) vazou=1 ;; esac; done
+  for t in "$ANON" "$PUB" "$JA" "$JB" "$JADM"; do case "$s" in *"$t"*) vazou=1 ;; esac; done
   # nem o miolo da assinatura (pega token cortado ou embrulhado)
   case "$s" in *assinatura*) vazou=1 ;; esac
   [ -z "$vazou" ] && ok "$2: nenhum token na saída" || falha "$2: token apareceu na saída"
@@ -197,15 +208,43 @@ echo "== 6. --env <arquivo>: o segredo vem do arquivo, o argv só leva o caminho
   echo "MATRIZ_JWT_B=$JB"
   echo "PATH=/nao/existe"
   echo "touch $TMP/injetado"
-} > "$TMP/matriz.env"
-saida="$(env -i PATH="$PATH" HOME="$TMP" TMPDIR="$TMP" bash "$SCRIPT" --env "$TMP/matriz.env" pedidos 2>&1)"; rc=$?
+} > "$TMP/matriz.conf"
+saida="$(env -i PATH="$PATH" HOME="$TMP" TMPDIR="$TMP" bash "$SCRIPT" --env "$TMP/matriz.conf" pedidos 2>&1)"; rc=$?
 tem "op=SELECT papel=A tabela=pedidos resultado=3 http=200" "$saida" "A medido com o JWT do arquivo (aspas simples e export aceitos)"
 tem "op=SELECT papel=B tabela=pedidos resultado=2 http=200" "$saida" "B medido com o JWT do arquivo"
 tem "op=SELECT papel=anon tabela=pedidos resultado=0 http=200" "$saida" "anon key do arquivo (aspas duplas aceitas)"
 [ ! -e "$TMP/injetado" ] && ok "o arquivo é lido, não executado" || falha "o arquivo foi executado como shell"
 sem_token "$saida" "--env"
-saida="$(env -i PATH="$PATH" HOME="$TMP" bash "$SCRIPT" --env "$TMP/nao-existe.env" pedidos 2>&1)"; rc=$?
+saida="$(env -i PATH="$PATH" HOME="$TMP" bash "$SCRIPT" --env "$TMP/nao-existe.conf" pedidos 2>&1)"; rc=$?
 [ "$rc" -eq 2 ] && ok "--env com arquivo ausente sai 2" || falha "--env ausente: exit esperado 2, veio $rc"
+
+echo "== 7. publishable key nova (sb_publishable_): vai só na apikey, anon medido =="
+saida="$(env -i PATH="$PATH" HOME="$TMP" TMPDIR="$TMP" SUPABASE_URL="$URL" SUPABASE_PUBLISHABLE_KEY="$PUB" MATRIZ_JWT_A="$JA" bash "$SCRIPT" pedidos 2>&1)"; rc=$?
+tem "op=SELECT papel=anon tabela=pedidos resultado=0 http=200" "$saida" "anon com sb_publishable_ medido (não sai negado falso)"
+tem "op=SELECT papel=A tabela=pedidos resultado=3 http=200" "$saida" "A medido junto com a publishable key"
+sem_token "$saida" "publishable key"
+
+echo "== 8. token vai pelo stdin do curl, nunca no argv (ps) =="
+REAL_CURL="$(command -v curl)"
+mkdir -p "$TMP/bin-espia"
+cat > "$TMP/bin-espia/curl" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >> "$TMP/argv.log"
+cat > "$TMP/stdin.tmp"; cat "$TMP/stdin.tmp" >> "$TMP/stdin.log"
+exec "$REAL_CURL" "\$@" < "$TMP/stdin.tmp"
+EOF
+chmod +x "$TMP/bin-espia/curl"
+: > "$TMP/argv.log"; : > "$TMP/stdin.log"
+saida="$(PATH_TESTE="$TMP/bin-espia:$PATH" roda "$URL" pedidos)"; rc=$?
+tem "op=SELECT papel=A tabela=pedidos resultado=3 http=200" "$saida" "leitura funciona com o curl espião"
+sem_token "$(cat "$TMP/argv.log")" "argv do curl"
+tem "$JA" "$(cat "$TMP/stdin.log")" "o JWT de A chega pelo stdin (-K -)"
+tem "rest/v1/pedidos" "$(cat "$TMP/argv.log" "$TMP/stdin.log")" "o espião viu a requisição de verdade"
+
+echo "== 9. --help mostra o cabeçalho, não código =="
+saida="$(bash "$SCRIPT" --help 2>&1)"
+tem "MATRIZ_JWT_A" "$saida" "--help documenta as variáveis"
+nao_tem "set -uo pipefail" "$saida" "--help não imprime código"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; exit 0; fi
