@@ -179,6 +179,11 @@ grep -rniE 'user_metadata[^;]{0,20}(role|papel|admin|plan|plano|tier|tenant|org)
 grep -rniE '\{[^}]*(role|papel|admin|plan|plano|tier|tenant|org)[^}]*\}[[:space:]]*=[^;]*user_metadata' \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
   | grep -v node_modules
+# o que os dois acima não alcançam (desestruturação em várias linhas, alias
+# const meta = user.user_metadata): quantas leituras por arquivo, para abrir e ler
+grep -rnc 'user_metadata' \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
+  | grep -v -e node_modules -e ':0$'
 ```
 
 Achado: o valor lido de `user_metadata` decide acesso, papel, plano ou tenant
@@ -205,12 +210,14 @@ Vale para `INSERT` também: perfil criado pelo próprio cliente já com
 
 ```sql
 -- colunas de papel, plano, tenant e flag de aprovação que quem vem do browser consegue
--- gravar, com o estado da RLS (rls = false com upd/ins = true é o pior caso). Entra view
--- (relkind 'v'): view gravável sem security_invoker escreve como o dono, por cima da RLS,
--- e para ela a coluna rls não diz nada
-SELECT c.relname AS tabela, a.attname AS coluna, c.relrowsecurity AS rls,
+-- gravar. Tabela (tipo r/p): rls = false com upd/ins = true é o pior caso. View (tipo v):
+-- rls não se aplica e o GRANT padrão do Supabase deixa upd = true em quase todas; o que
+-- pesa é atualizavel = true (a view aceita UPDATE na coluna) sem security_invoker=true
+-- em opcoes, porque aí ela grava como o dono, por cima da RLS
+SELECT c.relname AS tabela, c.relkind AS tipo, a.attname AS coluna, c.relrowsecurity AS rls,
        has_column_privilege(r.papel, c.oid, a.attnum, 'UPDATE') AS upd,
-       has_column_privilege(r.papel, c.oid, a.attnum, 'INSERT') AS ins, r.papel
+       has_column_privilege(r.papel, c.oid, a.attnum, 'INSERT') AS ins, r.papel,
+       pg_column_is_updatable(c.oid, a.attnum, false) AS atualizavel, c.reloptions AS opcoes
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
  CROSS JOIN (VALUES ('anon'), ('authenticated')) r(papel)
@@ -225,7 +232,8 @@ SELECT tablename, policyname, cmd, roles, qual, with_check
 
 -- as triggers que poderiam travar a coluna. pg_trigger, não information_schema.triggers:
 -- a view esconde trigger de tabela em que o papel da auditoria só tem SELECT
--- (só BEFORE trava a coluna: a definição mostra o timing e o evento)
+-- (a definição mostra timing e evento; BEFORE pode reescrever NEW ou abortar, AFTER só
+-- trava com RAISE. Leia a função antes de concluir)
 SELECT t.tgrelid::regclass AS tabela, pg_get_triggerdef(t.oid) AS definicao
   FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -276,7 +284,7 @@ usuário escolheu.
 
 ```bash
 # fetch(x.url), axios.post(x.url), got.get(x.url) e template literal `${x.url}/…`
-grep -rniE '(fetch|axios|got|request|urllib|requests|http)(\.[a-z]+){0,2}\(`?(\$\{)?(req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)' \
+grep -rniE '(fetch|axios|got|request|urllib|requests|httpx|http)(\.[a-z]+){0,2}\(`?(\$\{)?(req\.body|body\.|body\["|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)' \
   --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
 ```
 
