@@ -105,20 +105,23 @@ m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
 # =, ==, ===, !==, :. Sai só a chave, o operador e a máscara: o trecho entre a chave e o
 # operador nunca é impresso. Falso positivo de formulário cai fora: comparação só com
 # valor entre aspas; valor solto só com caractere que identificador não tem (- : / + =)
-# e sem ( de chamada, senão é variável ou expressão; entre aspas, nada com ${ nem com dois espaços (texto de interface).
-# O nome da chave vai do começo do identificador (lastToken, não Token); o que vem depois
-# da palavra só sai inteiro até 16 caracteres, porque pode ser o próprio segredo
+# e sem ( de chamada, senão é variável ou expressão; entre aspas, nada com ${ nem com
+# dois espaços (texto de interface). O nome da chave pode conter o próprio segredo: do
+# nome só sai a palavra-chave inteira; o que vem antes e depois dela sai só se tiver até
+# 16 caracteres, nenhum dígito, e a captura começar no início do identificador, senão …
 CH = r"(?P<k>[A-Za-z0-9_]{0,24}?(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]{0,32})"
 TS = r"(?::\s*[A-Za-z_][\w.<>\[\]]*(?:\s*\|\s*[A-Za-z_][\w.<>\[\]]*)*\s*(?==))?"
 K = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>!==?|={1,3}|:)\s*(?:(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)|(?P<vs>[^\x27\x22`\s,;)]{8,}))", re.I)
 ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
 TIPO = ("undefined", "function", "object", "string", "boolean", "number", "bigint", "symbol")
 # o fallback chumbado: apiKey = process.env.X || "valor" e import.meta.env.Y ?? "valor"
-FB = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>=|:)[^;\n]{0,120}?(?:\|\||\?\?)\s*(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)", re.I)
+FB = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>=|:)[^;,{}\n]{0,120}?(?P<fb>\|\||\?\?)\s*(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)", re.I)
 KW = re.compile(r"api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key", re.I)
-def nome(k):
-    g = KW.search(k); suf = k[g.end():]
-    return k[:g.start()][-16:] + g[0] + (suf if len(suf) <= 16 else suf[:4] + "…")
+parte = lambda p: p if len(p) <= 16 and not re.search(r"\d", p) else "…"
+def nome(l, g):
+    k, s = g["k"], g.start("k"); h = KW.search(k)
+    meio = s > 0 and (l[s - 1].isalnum() or l[s - 1] == "_")
+    return ("…" if meio else parte(k[:h.start()])) + h[0] + parte(k[h.end():])
 def vale(g):
     if g["vq"] is not None:
         v = g["vq"]
@@ -130,14 +133,16 @@ for f in sys.stdin:
     try: d = json.load(open(f, encoding="utf-8", errors="replace"))
     except Exception: d = None
     if not isinstance(d, dict): print("map ilegível, sem varrer: " + f); continue
-    for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
+    S, C = d.get("sources") or [], d.get("sourcesContent") or []
+    if not (isinstance(S, list) and isinstance(C, list)): print("map ilegível, sem varrer: " + f); continue
+    for src, txt in zip(S, C):
         for i, l in enumerate((txt if isinstance(txt, str) else "").splitlines(), 1):
             for g in K.finditer(l):
-                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(g["k"]) + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))
+                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(l, g) + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))
             for g in FB.finditer(l):
                 v = g["vq"]
                 if not ("${" in v or v.count(" ") >= 2):
-                    print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(g["k"]) + " " + g["op"] + " … || " + g["q"] + m(v))'
+                    print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(l, g) + " " + g["op"] + " … " + g["fb"] + " " + g["q"] + m(v))'
 # o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
 # SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
 # content-type JSON, não só 200

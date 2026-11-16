@@ -244,9 +244,12 @@ Sem acesso ao banco, a `cobertura[]` da A2 diz que papel gravado pelo usuário
 não foi medido no estado vivo, e o que sobrou foi a leitura das migrations.
 
 Achado: coluna sensível com `upd` ou `ins` verdadeiro, policy de escrita que
-deixa o dono passar, e nenhum dos três controles. Em view, o achado é
-`atualizavel` e `upd` verdadeiros sem `security_invoker` em `opcoes`: ela grava
-como o dono, e a RLS da tabela de baixo não protege nada. Escreva o caminho completo:
+deixa o dono passar, e nenhum dos três controles. Em view, soma-se um caso:
+`atualizavel` e `upd` verdadeiros sem `security_invoker` ligado em `opcoes`
+(`=false` ou `=off` conta como ausente) grava como o dono, e a policy da tabela
+de baixo não barra. A trigger `BEFORE` da tabela de baixo continua disparando e
+segue valendo como controle; `atualizavel` mede só UPDATE, o INSERT pela view
+se lê na definição dela. Escreva o caminho completo:
 conta comum → `PATCH /rest/v1/profiles?id=eq.<próprio id>` com
 `{"is_admin": true}` → passa a ver o que admin vê. Não é achado: coluna sem
 privilégio efetivo; tabela **com RLS ligada** e nenhuma policy de escrita que

@@ -109,7 +109,7 @@ import json, re, sys
 # inteiro (to, ccEmail, bccList, toRecipients, sendTo, replyTo, chatId, remoteJid…)
 CAMPO = re.compile(r"url|webhook|endpoint|host"
                    r"|^(to|cc|bcc|send_?to|reply_?to)(_?(emails?|recipients?|list|address(es)?))?$"
-                   r"|^(emails?|recipients?|recipient_?phone_?number|chat_?id|channel(_?id)?|phone(_?number)?|number|remote_?jid)$", re.I)
+                   r"|^(emails?|recipients?|recipient_?phone_?number|chat_?id|channel(_?id)?|phone(_?number)?|number|remote_?jid|user(_?id)?)$", re.I)
 URL = re.compile(r"url|webhook|endpoint|host", re.I)
 MARCA = re.compile(r"\$fromAI|\$json|\$input|\$node\[|\$\(\s*[\x27\x22]|(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}")
 def rotulo(x):
@@ -136,8 +136,9 @@ for f in sys.stdin:
         for n in ns:
             if not isinstance(n, dict): continue
             for cam, v in anda(n.get("parameters") or {}, []):
-                # resource locator ({"__rl": true, "value": …}): o nome do campo é o pai
-                campo = cam[-2] if len(cam) > 1 and cam[-1] == "value" else (cam[-1] if cam else "")
+                # resource locator ({"__rl": true, "value": …}) e item de lista ("sendTo": [ … ]):
+                # o nome do campo é o pai
+                campo = cam[-2] if len(cam) > 1 and (cam[-1] == "value" or cam[-1].isdigit()) else (cam[-1] if cam else "")
                 if not (isinstance(v, str) and CAMPO.search(campo)): continue
                 marcas = sorted(set(rotulo(x) for x in MARCA.findall(v)))
                 if not marcas: continue
