@@ -91,7 +91,8 @@ caminho, a opção de config cortada e o status HTTP.
 # o build gera map? Next: productionBrowserSourceMaps. Vite: build.sourcemap, que em
 # 'hidden' grava o .map sem o comentário no .js e publica igual se dist/ sobe inteiro.
 # CRA: gera por padrão, e só GENERATE_SOURCEMAP=false (no script do package.json ou no
-# arquivo de ambiente, que este bloco não abre) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
+# arquivo de ambiente, que este bloco não abre: lá, o env-tem-chave.sh do kit diz se a
+# chave existe sem mostrar o valor, e o valor o dono confirma) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
 find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'webpack.config.*' \
   -o -name package.json \) -exec env LC_ALL=C grep -HanoE \
   "(productionBrowserSourceMaps|sourcemap|devtool|GENERATE_SOURCEMAP)[^,}]{0,24}" {} +
@@ -99,10 +100,20 @@ find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'w
 find dist .next/static build out -name '*.map' 2>/dev/null | python3 -c '
 import json, re, sys
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
-# a chave, a anotação de tipo do TS (apiKey: string = …), =, ==, ===, :, => e !==, e o
-# valor entre aspas (com espaço) ou solto
-K = re.compile(r"((?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\x22]?\s*(?::\s*[A-Za-z_][\w<>\[\]|. ]*?\s*)?(?:[:=>]{1,3}|!==?)\s*)(?:([\x27\x22`])([^\x27\x22`]{8,})|([^\x27\x22`\s,;)]{8,}))", re.I)
+# a chave, a anotação de tipo do TS só antes de = (apiKey: string = …), e os operadores
+# =, ==, ===, !==, :. Sai só a chave, o operador e a máscara: o trecho entre a chave e o
+# operador nunca é impresso. Falso positivo de formulário cai fora: comparação só com
+# valor entre aspas; valor solto só com caractere que identificador não tem (- : / + =),
+# senão é variável; entre aspas, nada com ${ nem com dois espaços (texto de interface)
+K = re.compile(r"(?P<k>(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*)[\x27\x22]?\s*(?::\s*[A-Za-z_][\w.<>\[\]]*(?:\s*\|\s*[A-Za-z_][\w.<>\[\]]*)*\s*(?==))?(?P<op>!==?|={1,3}|:)\s*(?:(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)|(?P<vs>[^\x27\x22`\s,;)]{8,}))", re.I)
 ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
+TIPO = ("undefined", "function", "object", "string", "boolean", "number", "bigint", "symbol")
+def vale(g):
+    if g["vq"] is not None:
+        v = g["vq"]
+        return not ("${" in v or v.count(" ") >= 2 or v.startswith(ref) or v in TIPO)
+    v = g["vs"]
+    return g["op"] in ("=", ":") and re.search(r"[-:/+=]", v) is not None and not v.startswith(ref)
 for f in sys.stdin:
     f = f.strip()
     try: d = json.load(open(f, encoding="utf-8", errors="replace"))
@@ -110,8 +121,7 @@ for f in sys.stdin:
     for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
         for i, l in enumerate((txt or "").splitlines(), 1):
             for g in K.finditer(l):
-                v = g[3] or g[4]
-                if not v.startswith(ref): print(f + " <- " + str(src) + ":" + str(i) + ": " + g[1] + (g[2] or "") + m(v))'
+                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + g["k"] + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))'
 # o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
 # SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
 # content-type JSON, não só 200
