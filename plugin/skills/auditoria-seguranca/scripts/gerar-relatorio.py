@@ -16,7 +16,7 @@ maquina de quem gerou -- vazamento gratuito num PDF que vai pro cliente.
 O --verificar cobra o que o schema promete em prosa e ninguem confere sozinho:
 arquivo existe, linhas cabem nele, trecho foi copiado (nao reescrito de memoria),
 corroborado tem fonte, falso positivo tem motivo, lead a validar tem bloqueio e
-plano, issue cita achado que existe. Sem --raiz ele confere so' o JSON e avisa
+plano, alta/critica acionavel lida tem contraevidencia, issue cita achado que existe. Sem --raiz ele confere so' o JSON e avisa
 que o codigo NAO foi conferido.
 """
 
@@ -140,6 +140,16 @@ COMPLIANCE_CATEGORIA = {
     "A6": ["OWASP-LLM:LLM01:2025", "OWASP-LLM:LLM06:2025", "OWASP:A01:2025",
            "ISO27001:A.8.2", "NIST-CSF:PR.AA", "SOC2:CC6.3"],
 }
+
+# CWE: so' o formato, sem catalogo. Errar o numero e' possivel; inventar "CWE-XSS" ou
+# escrever "cwe79" nao, porque o PDF vai para o cliente e a issue para o GitHub.
+CWE_FORMATO = re.compile(r"CWE-[1-9]\d{0,4}")
+
+# Onde o juiz da Fase 5 tem que ter escrito a contraevidencia: nota que bloqueia ou
+# pede revisao, sobre achado que alguem leu. Em 'padrao' ninguem abriu o arquivo, e
+# nao ha leitura para contestar ainda.
+SEV_COM_CONTRAEVIDENCIA = {"alta", "critica"}
+EVID_COM_CONTRAEVIDENCIA = {"lido", "corroborado"}
 
 VEREDITO = {
     "BLOQUEADO": ("Bloqueado", "#B91C1C"),
@@ -327,7 +337,7 @@ def redigir_segredos(texto):
 # tem a escotilha propria) e o markdown da issue (mascarado em montar_corpo_issue).
 _CAMPOS_ESTRUTURAIS = frozenset({
     "id", "arquivo", "linhas", "linha", "categoria", "severidade", "evidencia", "status", "tipo",
-    "confianca", "compliance", "desde", "redacao", "achados", "trecho", "markdown"})
+    "confianca", "compliance", "cwe", "desde", "redacao", "achados", "trecho", "markdown"})
 
 
 def _redigir_campos(obj, redacoes):
@@ -446,6 +456,51 @@ def erros_compliance(a):
             erros.append(f"achado {ident}: controle {c!r} nao existe em "
                          f"{COMPLIANCE_FRAMEWORKS[fw]}{dica}")
     return erros
+
+
+def erros_campos_juiz(a):
+    """Forma de 'cwe' e 'muda_severidade_se'. Aborta o gerador como o compliance: valor
+    fora do formato nao vira etiqueta no PDF. A presenca da contraevidencia e' regra do
+    --verificar (erros_contraevidencia), nao daqui."""
+    ident = a.get("id", "?")
+    erros = []
+    if "cwe" in a:
+        cwe = a["cwe"]
+        lista = [cwe] if isinstance(cwe, str) else cwe
+        if (not isinstance(lista, list) or not lista
+                or not all(isinstance(c, str) and CWE_FORMATO.fullmatch(c.strip()) for c in lista)):
+            erros.append(f"achado {ident}: 'cwe' deve ser \"CWE-<número>\" ou lista deles "
+                         f"(ex.: \"CWE-639\"), veio {cwe!r}")
+    if "muda_severidade_se" in a:
+        muda = a["muda_severidade_se"]
+        if not (isinstance(muda, list) and all(isinstance(m, str) for m in muda)):
+            erros.append(f"achado {ident}: 'muda_severidade_se' deve ser lista de frases, "
+                         f"veio {type(muda).__name__}")
+    if "contraevidencia" in a and not isinstance(a["contraevidencia"], str):
+        erros.append(f"achado {ident}: 'contraevidencia' deve ser texto, "
+                     f"veio {type(a['contraevidencia']).__name__}")
+    return erros
+
+
+def erros_contraevidencia(a):
+    """Alta ou critica acionavel, lida ou corroborada, sem contraevidencia escrita: o juiz
+    nao registrou o que tentou derrubar, e o veredito fica sem o contraditorio."""
+    sev = str(a.get("severidade", "")).strip().lower()
+    if (sev not in SEV_COM_CONTRAEVIDENCIA or not acionavel(a)
+            or nivel_evidencia(a) not in EVID_COM_CONTRAEVIDENCIA):
+        return []
+    texto = a.get("contraevidencia")
+    if isinstance(texto, str) and texto.strip():
+        return []
+    return [f"achado {a.get('id', '?')}: {sev} {nivel_evidencia(a)} sem 'contraevidencia' — "
+            f"escreva a evidência mais forte contra o achado (o guard, o middleware, a policy "
+            f"que pareceria proteger) e por que ela não o derruba"]
+
+
+def cwes_do_achado(a):
+    cwe = a.get("cwe")
+    lista = [cwe] if isinstance(cwe, str) else (cwe if isinstance(cwe, list) else [])
+    return [str(c).strip() for c in lista if str(c).strip()]
 
 
 def compliance_do_achado(a):
@@ -691,6 +746,29 @@ def condicoes_html(cond):
         tipo = CONDICAO_TIPO.get(str(c.get("tipo", "")).lower(), c.get("tipo", ""))
         partes.append((f"<b>{e(tipo)}:</b> " if tipo else "") + e(c.get("descricao", "")))
     return "; ".join(partes)
+
+
+def etiquetas_html(a):
+    """CWE e controles de compliance do achado numa linha so': as duas sao etiqueta
+    sobre o achado provado, nao mudam a nota."""
+    tags = cwes_do_achado(a) + compliance_do_achado(a)
+    if not tags:
+        return ""
+    return ('<div class="campo arq"><b>Classificação:</b> '
+            + " · ".join(f"<code>{e(t)}</code>" for t in tags) + "</div>")
+
+
+def bloco_juiz(a):
+    """O contraditorio que o juiz da Fase 5 registrou: o que pesa contra o achado e o
+    que mudaria a nota. Fica perto das condicoes porque responde a mesma pergunta."""
+    p = []
+    if str(a.get("contraevidencia") or "").strip():
+        p.append(f'<div class="campo"><b>Contraevidência:</b> {e(a["contraevidencia"])}</div>')
+    muda = [m for m in (a.get("muda_severidade_se") or []) if str(m).strip()]
+    if muda:
+        p.append('<div class="campo"><b>Muda a severidade se:</b><ul class="caminho">'
+                 + "".join(f"<li>{e(m)}</li>" for m in muda) + "</ul></div>")
+    return "".join(p)
 
 
 def bloco_a_validar(a):
@@ -986,6 +1064,7 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
                          f'{e(EVIDENCIA[nivel_evidencia(a)][0].lower())} · confiança '
                          f'<span class="conf">{num(confianca(a))}</span>'
                          + (f' · {e(fonte)}' if fonte else "") + '</div>')
+                p.append(etiquetas_html(a))
                 p.append(f'<div class="campo arq"><b>Local:</b> <code>{local_html(a)}</code></div>')
                 p.append(bloco_caminho(a.get("caminho")))
                 texto, n_red = trecho_redigido(a)
@@ -1001,6 +1080,7 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
                 if a.get("condicoes"):
                     p.append(f'<div class="campo"><b>Condições de explorabilidade:</b> '
                              f'{condicoes_html(a["condicoes"])}</div>')
+                p.append(bloco_juiz(a))
                 if a.get("correcao"):
                     p.append(f'<div class="campo"><b>Correção sugerida:</b> {e(a["correcao"])}</div>')
                 p.append("</div>")
@@ -1098,6 +1178,11 @@ def montar_corpo_issue(iss, achados, redacoes=None):
               f"**Labels:** `security`, `{sev}`"]
     if ctrls:
         linhas.append(f"**Compliance:** {', '.join('`' + c + '`' for c in ctrls)}")
+    cwes = []
+    for a in refs:
+        cwes += [c for c in cwes_do_achado(a) if c not in cwes]
+    if cwes:
+        linhas.append(f"**CWE:** {', '.join('`' + c + '`' for c in cwes)}")
     linhas += ["", "## Problema", "", iss.get("problema", ""), "", "## Evidência", ""]
     for a in refs:
         local = a.get("arquivo", "")
@@ -1111,6 +1196,17 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         if texto:
             linhas += ["", "```", texto.strip(), "```", ""]
             redacoes[0] += n_red
+    # Os achados chegam aqui ja' redigidos pelo montar_html (contraevidencia e
+    # muda_severidade_se sao texto livre e passaram pelo _redigir_campos), e a contagem
+    # ja' foi feita la': redigir de novo so' dobraria o numero do stdout.
+    contra = [(a.get("id", "?"), a["contraevidencia"].strip()) for a in refs
+              if isinstance(a.get("contraevidencia"), str) and a["contraevidencia"].strip()]
+    if contra:
+        linhas += ["", "## Contraevidência", ""] + [f"- {i}: {t}" for i, t in contra]
+    muda = [(a.get("id", "?"), str(m).strip()) for a in refs
+            for m in (a.get("muda_severidade_se") or []) if str(m).strip()]
+    if muda:
+        linhas += ["", "## O que muda a severidade", ""] + [f"- {i}: {t}" for i, t in muda]
     linhas += ["", "## Impacto", "", iss.get("impacto", ""), "",
                "## Correção sugerida", "", iss.get("correcao", ""), "",
                "## Critérios de aceite", ""]
@@ -1194,6 +1290,8 @@ def verificar(dados, raiz=None):
             if not (isinstance(plano, dict) and (plano.get("local") or plano.get("dono"))):
                 erros.append(f"achado {ident}: a_validar sem plano_validacao.local nem .dono")
         erros.extend(erros_compliance(a))
+        erros.extend(erros_campos_juiz(a))
+        erros.extend(erros_contraevidencia(a))
         caminho = a.get("caminho") or []
         if caminho:
             tipos = [str(x.get("tipo", "")).lower() for x in caminho]
@@ -1289,7 +1387,7 @@ def main():
             raise SystemExit(f"achado {ident}: status {st} exige 'motivo'")
         # Sem isso o PDF sai com control ID inventado etiquetado num achado provado;
         # o --verificar e' opcional, esta checagem nao pode ser.
-        comp_erros = erros_compliance(a)
+        comp_erros = erros_compliance(a) + erros_campos_juiz(a)
         if comp_erros:
             raise SystemExit("\n".join(comp_erros))
 
