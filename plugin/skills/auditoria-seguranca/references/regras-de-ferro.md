@@ -83,10 +83,19 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
 - **Quem verifica não é quem achou.** Todo achado `alta` ou `critica` passa por
   um revisor **fresco** (subagent `kit-vamoo:revisor`, read-only) com a instrução de
   refutá-lo: reler cada `arquivo:linha`, procurar o controle que você não viu
-  (middleware, trigger, policy) e devolver `mantido` ou `refutado` com motivo.
-  Só o que sobrevive fica `lido`; o que cai vira `falso_positivo` **com
-  `motivo`, e fica no JSON** — é assim que a auditoria seguinte não repete a
-  discussão. Convicção de quem achou não conta como segunda leitura.
+  (middleware, trigger, policy) e devolver `mantido` ou `refutado` com motivo,
+  mais a `contraevidencia` (o melhor argumento contra e por que não derruba).
+  Quem achou entrega `muda_severidade_se`. **Descartar pede a mesma prova que
+  confirmar:** `refutado` só com uma de três provas — o controle em
+  `arquivo:linha` rodando antes do sink em todos os caminhos; o caminho que não
+  fecha, em `arquivo:linha`; ou o objeto vivo que bloqueia, com a consulta que o
+  mostra. O prompt do juiz pede por nome o veredito com motivo, a
+  `contraevidencia` e a severidade nova quando rebaixa. "O framework cuida", controle em outro
+  caminho, rota irmã segura, "ninguém chama" e "é interno" não refutam. Juiz
+  que discorda só da nota rebaixa a severidade, não apaga o achado. Só o que
+  sobrevive fica `lido`; o que cai vira `falso_positivo` **com `motivo`, e fica
+  no JSON** — é assim que a auditoria seguinte não repete a discussão.
+  Convicção de quem achou não conta como segunda leitura.
 - **Corroborar em produção: ler pode, escrever nunca.** Uma requisição anônima
   ou com o próprio tenant que devolve dado alheio é a melhor evidência que
   existe (foi assim que a MV com 904 linhas apareceu), e vale `corroborado` com

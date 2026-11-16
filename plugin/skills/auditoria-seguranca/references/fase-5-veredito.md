@@ -19,16 +19,53 @@ que não são a severidade:
    ferramenta, o log de produção: `corroborado`, com a fonte nomeada. Depende de
    fato que o repositório não mostra: `status: a_validar`, com `bloqueio` e
    `plano_validacao`.
-3. **Alguém tentou derrubar?** → o juiz. Para cada `alta` e `critica`, um
-   subagent `kit-vamoo:revisor` fresco recebe **só** o achado (id, título, arquivo:linha,
-   caminho, trecho, por_que) e a ordem de refutar: reler cada linha citada,
-   procurar o controle que o autor não viu (middleware, trigger, policy, gate
-   no caller), conferir que a entrada é alcançável pelo ator dito, e devolver
-   `mantido` ou `refutado` com motivo em uma frase. Refutado vira
-   `falso_positivo` com o `motivo` do juiz; mantido segue. O juiz não recebe
-   sua opinião, sua confiança nem os outros achados — isso é o que faz dele
-   uma segunda leitura. Com mais de cinco achados graves, lance os juízes em
-   paralelo, um `kit-vamoo:revisor` por achado, numa mensagem só.
+3. **Alguém tentou derrubar?** → o juiz. Antes de mandar, quem achou preenche
+   `muda_severidade_se`: as condições que, se verdadeiras, mudam a nota ("se a
+   rota exige papel admin no middleware, cai para média"). Para cada `alta` e
+   `critica`, um subagent `kit-vamoo:revisor` fresco recebe **só** o achado (id,
+   título, arquivo:linha, caminho, trecho, por_que, `muda_severidade_se`) e a
+   ordem de refutar: reler cada linha citada, procurar o controle que o autor
+   não viu (middleware, trigger, policy, gate no caller), conferir que a
+   entrada é alcançável pelo ator dito e testar cada condição de
+   `muda_severidade_se`. O juiz não recebe sua opinião, sua confiança nem os
+   outros achados — isso é o que faz dele uma segunda leitura. Com mais de
+   cinco achados graves, lance os juízes em paralelo, um `kit-vamoo:revisor`
+   por achado, numa mensagem só.
+
+   O juiz devolve `mantido` ou `refutado`, com motivo em uma frase, e preenche
+   `contraevidencia`: a evidência mais forte que achou **contra** o achado e
+   por que ela não o derruba. Achado mantido sem `contraevidencia` não foi
+   julgado; foi carimbado. O contrato padrão do `kit-vamoo:revisor` em modo juiz
+   devolve só veredito e motivo: **o prompt do dispatch pede os três campos por
+   nome** (veredito com motivo, `contraevidencia`, severidade nova quando
+   rebaixa) ou eles não voltam.
+
+   **Descartar exige a mesma força que confirmar.** `refutado` só vale com uma
+   destas três provas, cada uma verificável por quem relê:
+
+   - o **controle** que derruba o achado, com `arquivo:linha`, rodando antes do
+     sink em **todos** os caminhos até ele;
+   - o **caminho que não fecha**, com `arquivo:linha`: a rota não está
+     registrada, o sink é parametrizado, a linha citada não diz o que o achado
+     afirma;
+   - o **objeto vivo** que bloqueia (policy, privilégio de coluna, trigger),
+     com a consulta que o mostra e o resultado.
+
+   Um caminho sem o controle basta para o achado ficar de pé. Não refuta:
+
+   - "a lib/o framework já cuida disso", sem a linha onde cuida;
+   - controle que existe, mas em outro caminho até o mesmo sink;
+   - chamada irmã que está segura (a rota vizinha filtra tenant; esta não);
+   - "não achei quem chama" — a rota publicada é chamável por quem a acha;
+   - "é interno" ou "só admin usa", sem o gate que impõe isso no servidor.
+
+   **Juiz que discorda da nota, e não do achado, rebaixa; não apaga.** O
+   achado fica `mantido` com a severidade nova e o motivo citando a condição de
+   `muda_severidade_se` que se confirmou. Rebaixou por uma condição que não
+   estava na lista? Vale igual, desde que o motivo a nomeie com a evidência;
+   e ela entra em `muda_severidade_se`, para a próxima leitura conferir a
+   mesma coisa. Refutado vira `falso_positivo` com o
+   `motivo` do juiz; mantido segue.
 4. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
    do cálculo do veredito, mas continuam no relatório com selo e `motivo`:
    sumir com eles é como a mesma discussão volta na auditoria seguinte.
