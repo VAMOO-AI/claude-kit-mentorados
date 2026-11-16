@@ -11,7 +11,10 @@ O collect emite fatos, não vereditos. Você aplica, nesta ordem:
    como finding, severidade original, com a nota de que a exceção venceu.
 2. **Veredito anterior** em `.context/docs/security/vereditos.md` → falso-positivo
    já julgado não reabre enquanto o trecho julgado for o mesmo (abra o
-   `arquivo:linha`); mudou o código, julgue de novo. Registre novos ali no formato
+   `arquivo:linha`); mudou o código, julgue de novo. Veredito que se apoia num
+   controle (passo 5) cita o `arquivo:linha` dele no "por quê": abra esse
+   também, porque middleware removido não pode deixar o falso-positivo
+   congelado. Registre novos ali no formato
    do `secscan` (fingerprint · veredito · por quê · quem · quando), nunca com
    `nosemgrep` espalhado pelo código.
 3. **Confiança**: `CONFIRMED` quando ferramenta real e heurística concordam;
@@ -36,28 +39,31 @@ diferença não estiver medida, o finding é `nao_medido`, não HIGH por precau�
      collect mais você, e o collect não escreve isso.
    - **O prompt do juiz leva** pilar, título, `arquivo:linha`, `O quê`,
      `Por que dói`, `Reconferir` e o `muda_severidade_se`, mais a ordem de
-     refutar. **Pede pelo nome** os três campos que o `revisor` só devolve
-     quando pedidos: `veredito` (`mantido`/`refutado`) com o motivo,
-     `contraevidencia` (a evidência mais forte contra o finding e por que não
-     o derruba) e `severidade_nova` com a condição que a sustenta, quando
-     discorda só da nota. Não manda sua confiança nem os outros findings.
-   - **`mantido` sem `contraevidencia` não foi julgado**: despache de novo.
-     O texto vai para a linha `Contra` do finding.
+     refutar. **Pede pelo nome** os três campos: `veredito`
+     (`mantido`/`refutado`) com o motivo, que o `revisor` devolve sempre, e
+     os dois que ele só devolve quando pedidos, `contraevidencia` (a
+     evidência mais forte contra o finding e por que não o derruba) e
+     `severidade_nova` com a condição que a sustenta, quando discorda só da
+     nota. Não manda sua confiança nem os outros findings.
+   - **`mantido` sem `contraevidencia` não foi julgado**: despache de novo,
+     uma vez. Voltou sem de novo → o finding fica com a severidade original,
+     `heuristic`, e `Contra — juiz não devolveu contraevidência`. O texto do
+     juiz vai para a linha `Contra` do finding.
    - **`refutado` vira veredito em `.context/docs/security/vereditos.md`**
-     (passo 2), e o "por quê" carrega a prova que o juiz deu: o controle com
-     `arquivo:linha`, o caminho que não fecha com `arquivo:linha`, ou a
-     consulta ao estado vivo com o resultado (pilar 02: policy, `GRANT`,
-     trigger). Refutado sem uma das três volta como mantido. `heuristic`
-     baixa a confiança, não refuta: o grep ter visto sozinho não é prova de
-     que o caminho não fecha.
-   - **Veredito por controle reabre quando o controle muda.** O passo 2 reabre
-     se o trecho do finding mudou; com refutação por controle, abra também o
-     `arquivo:linha` do controle. Middleware removido não pode deixar um
-     falso-positivo congelado.
+     (passo 2), e o "por quê" carrega a prova que o juiz deu, uma das três
+     da fonte, com o `arquivo:linha` ou a consulta e o resultado que ela
+     pede (no pilar 02: policy, `GRANT`, trigger). Controle que não roda em
+     **todos** os caminhos até o sink não é prova. Refutado sem prova volta
+     como mantido. `heuristic` baixa a confiança, não refuta: o grep ter
+     visto sozinho não é prova de que o caminho não fecha. No report, o
+     refutado sai das seções de severidade e vai para uma seção "Refutados
+     pelo juiz", com o motivo; ajuste a contagem do Resumo.
    - **Rebaixado não vai para `vereditos.md`.** Fica no report com a
-     severidade nova, o motivo nomeando a condição de `muda_severidade_se`
-     que se confirmou e o mesmo comando de `Reconferir`: o finding continua
-     de pé, só pesa menos.
+     severidade nova, o mesmo comando de `Reconferir` e a linha `Contra`,
+     que leva também o motivo do rebaixamento: a condição de
+     `muda_severidade_se` que se confirmou, ou outra que o juiz nomeou com a
+     evidência (vale igual). O finding continua de pé, só pesa menos; ajuste
+     a contagem do Resumo.
 
 ### Formato de finding
 
@@ -67,11 +73,12 @@ O quê          — uma linha, factual
 Por que dói    — o dano concreto, não a categoria abstrata
 Como corrigir  — a mudança mínima que resolve
 Reconferir     — $ comando que retorna vazio/0 quando estiver corrigido
-Contra         — a contraevidencia do juiz e por que não derruba (CRITICAL/HIGH)
+Contra         — a contraevidencia do juiz e por que não derruba; rebaixado: + o motivo
 Referência     — OWASP/CWE/doc do fornecedor
 ```
 
-`Contra` só existe em `CRITICAL`/`HIGH` julgado (passo 5). Esta fase escreve o
+`Contra` só existe em finding que passou pelo juiz (passo 5): nasceu
+`CRITICAL`/`HIGH`, e continua lá se o juiz rebaixou. Esta fase escreve o
 report à mão; o `render.mjs` roda na fase Medir, antes do juiz, e não lê nem
 escreve essa linha.
 
