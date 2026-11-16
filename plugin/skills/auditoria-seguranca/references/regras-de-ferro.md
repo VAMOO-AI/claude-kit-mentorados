@@ -86,8 +86,10 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   (middleware, trigger, policy) e devolver `mantido` ou `refutado` com motivo,
   mais a `contraevidencia` (o melhor argumento contra e por que não derruba).
   Quem achou entrega `muda_severidade_se`. **Descartar pede a mesma prova que
-  confirmar:** `refutado` só com o controle nomeado em `arquivo:linha`, rodando
-  antes do sink em todos os caminhos. "O framework cuida", controle em outro
+  confirmar:** `refutado` só com o controle nomeado em `arquivo:linha` rodando
+  antes do sink em todos os caminhos, com o caminho que não fecha em
+  `arquivo:linha`, ou com o objeto vivo que bloqueia e a consulta que o mostra.
+  O prompt do juiz pede esses campos por nome. "O framework cuida", controle em outro
   caminho, rota irmã segura, "ninguém chama" e "é interno" não refutam. Juiz
   que discorda só da nota rebaixa a severidade, não apaga o achado. Só o que
   sobrevive fica `lido`; o que cai vira `falso_positivo` **com `motivo`, e fica

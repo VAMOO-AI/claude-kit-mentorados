@@ -35,12 +35,23 @@ que não são a severidade:
    O juiz devolve `mantido` ou `refutado`, com motivo em uma frase, e preenche
    `contraevidencia`: a evidência mais forte que achou **contra** o achado e
    por que ela não o derruba. Achado mantido sem `contraevidencia` não foi
-   julgado; foi carimbado.
+   julgado; foi carimbado. O contrato padrão do `kit-vamoo:revisor` em modo juiz
+   devolve só veredito e motivo: **o prompt do dispatch pede os três campos por
+   nome** (veredito com motivo, `contraevidencia`, severidade nova quando
+   rebaixa) ou eles não voltam.
 
-   **Descartar exige a mesma força que confirmar.** `refutado` só vale quando o
-   juiz nomeia o controle que derruba o achado, com `arquivo:linha`, e esse
-   controle roda antes do sink em **todos** os caminhos até ele. Um caminho
-   sem o controle basta para o achado ficar de pé. Não refuta:
+   **Descartar exige a mesma força que confirmar.** `refutado` só vale com uma
+   destas três provas, cada uma verificável por quem relê:
+
+   - o **controle** que derruba o achado, com `arquivo:linha`, rodando antes do
+     sink em **todos** os caminhos até ele;
+   - o **caminho que não fecha**, com `arquivo:linha`: a rota não está
+     registrada, o sink é parametrizado, a linha citada não diz o que o achado
+     afirma;
+   - o **objeto vivo** que bloqueia (policy, privilégio de coluna, trigger),
+     com a consulta que o mostra e o resultado.
+
+   Um caminho sem o controle basta para o achado ficar de pé. Não refuta:
 
    - "a lib/o framework já cuida disso", sem a linha onde cuida;
    - controle que existe, mas em outro caminho até o mesmo sink;
@@ -50,7 +61,10 @@ que não são a severidade:
 
    **Juiz que discorda da nota, e não do achado, rebaixa; não apaga.** O
    achado fica `mantido` com a severidade nova e o motivo citando a condição de
-   `muda_severidade_se` que se confirmou. Refutado vira `falso_positivo` com o
+   `muda_severidade_se` que se confirmou. Rebaixou por uma condição que não
+   estava na lista? Vale igual, desde que o motivo a nomeie com a evidência;
+   e ela entra em `muda_severidade_se`, para a próxima leitura conferir a
+   mesma coisa. Refutado vira `falso_positivo` com o
    `motivo` do juiz; mantido segue.
 4. **Isso ainda está de pé?** → `status`. `risco_aceito` e `falso_positivo` saem
    do cálculo do veredito, mas continuam no relatório com selo e `motivo`:

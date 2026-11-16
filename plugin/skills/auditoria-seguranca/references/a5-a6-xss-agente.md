@@ -96,21 +96,47 @@ Para cada tool que **escreve, envia, agenda ou lê dado de outra pessoa**:
   canal de exfiltração: uma instrução escondida numa mensagem manda o agente
   postar o histórico num coletor público (webhook.site e parecidos). No n8n, o
   parâmetro que o modelo preenche aparece como `$fromAI(...)` nos nós de tool;
-  o que vem do lead aparece como `$json` do gatilho.
+  o que vem do lead aparece como `$json` ou `$('Nome do nó')`; no HTTP Request
+  Tool antigo, como placeholder `{nome}` na URL.
 
 ```bash
-# n8n: URL/destino preenchido pelo modelo ou pelo lead, nos workflows exportados
-grep -rnoE '"(url|sendTo|toEmail|to|webhookUrl|endpoint|chatId|phone)"[^,]{0,10}"=[^"]*(\$fromAI|\$json)[^"]{0,60}' \
-  --include='*.json' . | grep -v node_modules
-# código: fetch/axios cujo endereço vem de argumento de tool
-grep -rnE "(fetch|axios|got)\((args|input|params|toolInput|arguments)\.[a-zA-Z_.]*(url|endpoint|webhook|host)" \
+# n8n: campo de destino preenchido pelo modelo ou pelo lead, nos workflows exportados.
+# Lê o JSON e imprime nó, campo, marca e se o host é fixo: nunca o valor, que pode
+# trazer chave na query string
+find . -name '*.json' -not -path '*/node_modules/*' 2>/dev/null | python3 -c '
+import json, re, sys
+CAMPO = re.compile(r"^(url|baseUrl|sendTo|toEmail|to|cc|bcc|webhookUrl|endpoint|host|chatId|phone|number|recipient)$", re.I)
+MARCA = re.compile(r"\$fromAI|\$json|\$\(\x27[^\x27]+\x27\)|\$node\[|(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}")
+def anda(o, cam):
+    if isinstance(o, dict):
+        for k, v in o.items(): yield from anda(v, cam + [k])
+    elif isinstance(o, list):
+        for i, v in enumerate(o): yield from anda(v, cam + [str(i)])
+    else: yield cam, o
+for f in sys.stdin:
+    f = f.strip()
+    try: w = json.load(open(f, encoding="utf-8", errors="replace"))
+    except Exception: continue
+    for n in (w.get("nodes") or []) if isinstance(w, dict) else []:
+        for cam, v in anda(n.get("parameters") or {}, []):
+            if not (isinstance(v, str) and cam and CAMPO.match(cam[-1])): continue
+            marcas = sorted(set("$(…)" if x.startswith("$(") else x for x in MARCA.findall(v)))
+            if not marcas: continue
+            pre = v.lstrip("=").split("{{")[0]
+            host = "host fixo" if re.match(r"https?://[^/@?#{]+/", pre) else "host variável"
+            print(f + ": nó " + repr(n.get("name")) + ": " + ".".join(cam) + ": " + " ".join(marcas) + ": " + host)'
+# código: fetch/axios/got (inclusive .post/.get e template literal) com endereço vindo de
+# argumento de tool
+grep -rniE '(fetch|axios|got|request|http)(\.[a-z]+)?\(`?(\$\{)?(args|input|params|toolInput|arguments)\.[a-zA-Z_.]*(url|endpoint|webhook|host)' \
   --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
 ```
 
 Achado: o destino vem do modelo ou do lead e não há allowlist de host ou de
-destinatário entre a montagem e o envio. Não é achado: host fixo no nó, com só
-o caminho ou o corpo variável e sem dado de outro tenant no corpo; allowlist
-conferida no handler antes do envio.
+destinatário entre a montagem e o envio. Não é achado: host fixo no nó, com a
+`/` logo depois dele (`https://api.x.com/{{ … }}`), só o caminho ou o corpo
+variável e sem dado de outro tenant no corpo; allowlist conferida no handler
+antes do envio. Sem a `/`, o host não é fixo: `https://api.x.com{{ … }}` vira
+`https://api.x.com@coletor.example/` com um valor só.
 
 Comportamento do provedor, do renderizador do WhatsApp ou do modelo que o
 código não mostra → `a_validar`, com o que o dono confere.

@@ -28,6 +28,6 @@ Lido antes de entregar o PDF, como conferência final.
 | `REVOKE UPDATE (is_admin)` na migration e o usuário ainda grava a coluna | Revogar por coluna não anula o `GRANT` da tabela inteira. Confira `has_column_privilege`, não a migration |
 | "Migramos para as chaves novas" e a service_role que vazou ainda funciona | Chave nova não desativa a legada. Sem o painel, é `a_validar` com o plano do dono |
 | "Revogada, deu 401" | 401 tem outras causas. Estado de chave é fato do painel: `a_validar` |
-| Bundle limpo e a senha de admin aparece no `.map` | O `sourcesContent` traz o fonte original, inclusive o que o tree-shaking tirou do `.js` |
+| Bundle limpo e a senha de admin aparece no `.map` | O `sourcesContent` traz o fonte original, inclusive o que o tree-shaking tirou do `.js`, e a busca 4 só acha token de formato conhecido. Rode o bloco do `.map` da A4 |
 | Tool MCP liberada sem aprovação porque "é só leitura" | A hint é declaração de quem escreveu a tool, não autorização |
 | Agente aprovado para "enviar e-mail" manda o histórico para fora | Aprovação presa ao nome da tool, não aos argumentos, e destino sem allowlist |

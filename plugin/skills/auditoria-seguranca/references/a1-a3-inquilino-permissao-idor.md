@@ -136,22 +136,32 @@ ele edita com `auth.updateUser({ data })` e define no cadastro com
 (`raw_app_meta_data`), que só o servidor grava. Decisão de papel, plano ou
 tenant lida do primeiro é decisão que o atacante toma.
 
-Para policy, use o lint que já existe:
+Para policy, comece pelo lint que já existe:
 `bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" 0015`. Ele casa
 por texto no `USING`/`WITH CHECK` (a própria fonte avisa que tem falso
-positivo), então leia cada policy que ele acusar. E ele **só lê policy**: não
-vê função `SECURITY DEFINER`, trigger nem o código do app. O caso que mais
+positivo), então leia cada policy que ele acusar. Ele procura `user_metadata`
+lido do JWT (`auth.jwt()` ou `request.jwt.claims`): policy que faz subquery em
+`auth.users.raw_user_meta_data` não casa, e a primeira consulta abaixo cobre.
+E ele **só lê policy**: não vê função `SECURITY DEFINER`, trigger nem o código
+do app. O caso que mais
 aparece fica justo nessa lacuna — a trigger de cadastro (`handle_new_user` e
 afins) que copia `raw_user_meta_data->>'role'` para `profiles`. A conta nasce
 admin num `signUp`, sem tocar em policy nenhuma.
 
 ```sql
--- função e trigger que leem metadata do usuário (o 0015 não alcança)
+-- policy que lê metadata do usuário por qualquer caminho (inclui o que o 0015 não casa)
+SELECT schemaname, tablename, policyname, cmd
+  FROM pg_policies WHERE qual ~* 'user_meta' OR with_check ~* 'user_meta';
+
+-- função e trigger que leem metadata do usuário (o 0015 não alcança). O CASE cobre a
+-- função SQL com BEGIN ATOMIC, que tem o prosrc vazio, sem chamar pg_get_functiondef
+-- em agregado (que dá erro)
 SELECT n.nspname, p.proname, p.prosecdef AS security_definer
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE n.nspname NOT IN ('pg_catalog','information_schema','auth','storage','extensions',
                          'graphql','graphql_public','realtime','supabase_functions','vault','pgsodium')
-   AND p.prosrc ~* '(raw_user_meta_data|user_metadata)';
+   AND CASE WHEN p.prokind IN ('f','p') THEN pg_get_functiondef(p.oid) ELSE p.prosrc END
+       ~* 'user_meta';
 
 -- o que roda quando uma conta nasce ou muda
 SELECT tgname, tgfoid::regproc AS funcao
@@ -159,9 +169,12 @@ SELECT tgname, tgfoid::regproc AS funcao
 ```
 
 ```bash
-# no app: papel decidido a partir do metadata que o usuário edita
-grep -rnE "user_metadata\??\.(role|roles|papel|is_?admin|admin|plan|plano|tier|tenant|org)" \
-  --include='*.ts' --include='*.tsx' --include='*.js' . | grep -v node_modules
+# no app: papel decidido a partir do metadata que o usuário edita. Pega .role, ?.role,
+# ['role'] e a desestruturação ({ role } = user.user_metadata); leia cada linha
+INC="--include=*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs"
+K='(role|papel|admin|plan|plano|tier|tenant|org)'
+grep -rniE "user_metadata[^;]{0,20}$K" $INC . | grep -v node_modules
+grep -rniE "\{[^}]*$K[^}]*\}[[:space:]]*=[^;]*user_metadata" $INC . | grep -v node_modules
 ```
 
 Achado: o valor lido de `user_metadata` decide acesso, papel, plano ou tenant
@@ -187,27 +200,42 @@ Vale para `INSERT` também: perfil criado pelo próprio cliente já com
 `is_admin = true`, e `upsert` que cai no `ON CONFLICT DO UPDATE`.
 
 ```sql
--- colunas de papel, plano e tenant que quem vem do browser consegue gravar
-SELECT c.table_name, c.column_name,
-       has_column_privilege('authenticated', format('%I.%I', c.table_schema, c.table_name), c.column_name, 'UPDATE') AS upd,
-       has_column_privilege('authenticated', format('%I.%I', c.table_schema, c.table_name), c.column_name, 'INSERT') AS ins
-  FROM information_schema.columns c
- WHERE c.table_schema = 'public'
-   AND c.column_name ~* '(role|papel|admin|plan|plano|tier|tenant|org_id|workspace|owner|credit|saldo)';
+-- colunas de papel, plano, tenant e flag de aprovação que quem vem do browser consegue
+-- gravar, com o estado da RLS da tabela (rls = false com upd/ins = true é o pior caso)
+SELECT c.relname AS tabela, a.attname AS coluna, c.relrowsecurity AS rls,
+       has_column_privilege(r.papel, c.oid, a.attnum, 'UPDATE') AS upd,
+       has_column_privilege(r.papel, c.oid, a.attnum, 'INSERT') AS ins, r.papel
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+ CROSS JOIN (VALUES ('anon'), ('authenticated')) r(papel)
+ WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
+   AND a.attname ~* '(role|papel|admin|plan|plano|tier|tenant|org_id|workspace|owner|credit|saldo|^is_|approved|verified|aprovad)';
 
--- as policies de escrita dessas tabelas e as triggers que poderiam travar a coluna
+-- as policies de escrita que alcançam quem vem do browser (`public` inclui os dois papéis)
 SELECT tablename, policyname, cmd, roles, qual, with_check
-  FROM pg_policies WHERE schemaname = 'public' AND cmd IN ('INSERT','UPDATE','ALL');
-SELECT event_object_table, trigger_name, action_timing, event_manipulation
-  FROM information_schema.triggers WHERE event_object_schema = 'public';
+  FROM pg_policies
+ WHERE schemaname = 'public' AND cmd IN ('INSERT','UPDATE','ALL')
+   AND roles && ARRAY['public','anon','authenticated']::name[];
+
+-- as triggers que poderiam travar a coluna. pg_trigger, não information_schema.triggers:
+-- a view esconde trigger de tabela em que o papel da auditoria só tem SELECT
+SELECT t.tgrelid::regclass AS tabela, t.tgname, t.tgfoid::regproc AS funcao
+  FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND NOT t.tgisinternal;
 ```
+
+Sem acesso ao banco, a `cobertura[]` da A2 diz que papel gravado pelo usuário
+não foi medido no estado vivo, e o que sobrou foi a leitura das migrations.
 
 Achado: coluna sensível com `upd` ou `ins` verdadeiro, policy de escrita que
 deixa o dono passar, e nenhum dos três controles. Escreva o caminho completo:
 conta comum → `PATCH /rest/v1/profiles?id=eq.<próprio id>` com
 `{"is_admin": true}` → passa a ver o que admin vê. Não é achado: coluna sem
-privilégio efetivo, tabela sem policy de escrita para `authenticated`, ou um
-dos três controles cobrindo `INSERT` e `UPDATE`. Corroborar **não** é mandar o
+privilégio efetivo; tabela **com RLS ligada** e nenhuma policy de escrita que
+alcance `anon`, `authenticated` ou `public`; ou um dos três controles cobrindo
+`INSERT` e `UPDATE`. Tabela com RLS desligada e privilégio de escrita é o
+contrário: qualquer um grava qualquer coluna. Corroborar **não** é mandar o
 `PATCH` no banco do cliente (escrever nunca, regra de ferro): é fixture local
 com usuário dummy, ou `a_validar` com o plano.
 
@@ -240,7 +268,9 @@ configura (n8n, Pipedrive, NotificaMe): o servidor **busca** um endereço que o
 usuário escolheu.
 
 ```bash
-grep -rnE "(fetch|axios|got|request|urllib|http\.get)\((req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)" --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
+# fetch(x.url), axios.post(x.url), got.get(x.url) e template literal `${x.url}/…`
+grep -rniE '(fetch|axios|got|request|urllib|requests|http)(\.[a-z]+)?\(`?(\$\{)?(req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)' \
+  --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
 ```
 
 Para cada um: existe allowlist de host ou bloqueio de rede interna
