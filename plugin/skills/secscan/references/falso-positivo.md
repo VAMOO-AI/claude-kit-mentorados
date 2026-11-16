@@ -32,9 +32,10 @@ saíram dessa rodada:
   aceitar o veredito. O controle não está mais lá, ou não cobre mais o caminho do achado
   → julgue o achado de novo. Confira o controle, não o número: a linha pode ter andado
   com o controle intacto. Sem isso, um middleware removido deixa o falso-positivo
-  congelado com o código do achado intacto. A `baseline` lê a mesma tabela: ao mexer
-  nesta regra, mantenha o passo 2 de `baseline/references/fase2-julgar.md` alinhado. O
-  modelo da tabela:
+  congelado com o código do achado intacto. A `baseline` e a `orquestracao` leem a mesma
+  tabela: ao mexer nesta regra, mantenha alinhados o passo 2 de
+  `baseline/references/fase2-julgar.md` e `orquestracao/references/memoria-de-veredito.md`.
+  O modelo da tabela:
 
   ```markdown
   <!-- .context/docs/security/vereditos.md -->
