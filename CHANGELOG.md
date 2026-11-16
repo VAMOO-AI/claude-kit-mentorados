@@ -10,6 +10,22 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.95.1] — 2026-11-16
+
+### Mudado
+
+- `baseline`: o juiz da fase 2 herda o contrato da `auditoria-seguranca`.
+  - `refutado` só com prova, e descartar pede a mesma força que confirmar.
+  - O juiz devolve `contraevidencia` e rebaixa em vez de apagar.
+  - Um veredito por controle reabre quando o controle muda.
+  - O formato de finding ganha a linha `Contra`.
+- `secscan`: um falso-positivo em `vereditos.md` que se apoia num controle (middleware, guard, policy, trigger) cita o `arquivo:linha` desse controle e volta a ser julgado quando o controle some ou deixa de cobrir o caminho. Antes, só reabria quando mudava o código do achado. Mesma regra da `baseline`.
+- `orquestracao`: na memória de veredito, o veredito de falso-positivo também expira quando cai o controle em que se apoia (middleware, guard, policy, trigger). Quem consulta confere o controle citado em `arquivo:linha` antes de aceitar.
+
+### Corrigido
+
+- **`auditoria-seguranca`**: o bloco que varre `.map` não imprime mais o valor de segredo sem aspas e deixou de acusar comparação e texto de formulário; passa a pegar fallback chumbado com `||`/`??`. O bloco do n8n pega destinatários `cc`/`bcc`/`toRecipients`/`replyTo` e não para num JSON inválido ou num arquivo que não abre. A2 cobre view gravável e leitura de `user_metadata` por alias.
+
 ## [0.95.0] — 2026-11-16
 
 ### Adicionado
