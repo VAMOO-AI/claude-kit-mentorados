@@ -126,6 +126,91 @@ precisa impô-la sozinho:
 - **Valor que o cliente nunca mandaria.** Quantidade negativa, zero, acima do
   limite, string onde vai número. A UI constrange o usuário; a API não.
 
+**O papel que o próprio usuário grava.** O caminho mais curto de conta comum a
+admin não passa por bug nenhum: o usuário escreve o próprio papel, e o banco
+acredita. Duas superfícies, ambas em Supabase.
+
+*1. Autorização lida de `user_metadata`.* O `raw_user_meta_data` é do usuário:
+ele edita com `auth.updateUser({ data })` e define no cadastro com
+`signUp({ options: { data } })`. O que ele não edita é o `app_metadata`
+(`raw_app_meta_data`), que só o servidor grava. Decisão de papel, plano ou
+tenant lida do primeiro é decisão que o atacante toma.
+
+Para policy, use o lint que já existe:
+`bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" 0015`. Ele casa
+por texto no `USING`/`WITH CHECK` (a própria fonte avisa que tem falso
+positivo), então leia cada policy que ele acusar. E ele **só lê policy**: não
+vê função `SECURITY DEFINER`, trigger nem o código do app. O caso que mais
+aparece fica justo nessa lacuna — a trigger de cadastro (`handle_new_user` e
+afins) que copia `raw_user_meta_data->>'role'` para `profiles`. A conta nasce
+admin num `signUp`, sem tocar em policy nenhuma.
+
+```sql
+-- função e trigger que leem metadata do usuário (o 0015 não alcança)
+SELECT n.nspname, p.proname, p.prosecdef AS security_definer
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname NOT IN ('pg_catalog','information_schema','auth','storage','extensions',
+                         'graphql','graphql_public','realtime','supabase_functions','vault','pgsodium')
+   AND p.prosrc ~* '(raw_user_meta_data|user_metadata)';
+
+-- o que roda quando uma conta nasce ou muda
+SELECT tgname, tgfoid::regproc AS funcao
+  FROM pg_trigger WHERE tgrelid = 'auth.users'::regclass AND NOT tgisinternal;
+```
+
+```bash
+# no app: papel decidido a partir do metadata que o usuário edita
+grep -rnE "user_metadata\??\.(role|roles|papel|is_?admin|admin|plan|plano|tier|tenant|org)" \
+  --include='*.ts' --include='*.tsx' --include='*.js' . | grep -v node_modules
+```
+
+Achado: o valor lido de `user_metadata` decide acesso, papel, plano ou tenant
+(policy, função, trigger que grava coluna de papel, middleware). Não é achado:
+copiar `full_name` ou `avatar_url` para o perfil; ler `app_metadata`.
+
+*2. Mass assignment pelo PostgREST.* O cliente Supabase faz `PATCH` e `upsert`
+direto na tabela, com as colunas que quiser. RLS decide **linha**, não
+**coluna**: `using (id = auth.uid())` deixa o dono gravar o próprio `is_admin`.
+Faltar `WITH CHECK` não é o defeito em si — sem ele, o Postgres reaplica o
+`USING` à linha nova, e o dono continua dono. O defeito é nada fixar a coluna.
+Três controles fixam, e basta um funcionando:
+
+- `WITH CHECK` que prende a coluna ao valor atual (subquery na própria linha)
+  ou a uma fonte que o usuário não escreve (`app_metadata`, tabela de membros);
+- privilégio por coluna. **Atenção:** `REVOKE UPDATE (is_admin)` não faz nada
+  enquanto existir o `GRANT UPDATE` na tabela inteira, que o Supabase dá por
+  padrão. O que vale é o privilégio efetivo, não o `REVOKE` na migration;
+- trigger `BEFORE INSERT OR UPDATE` que recusa ou reseta a coluna quando quem
+  grava não é o servidor.
+
+Vale para `INSERT` também: perfil criado pelo próprio cliente já com
+`is_admin = true`, e `upsert` que cai no `ON CONFLICT DO UPDATE`.
+
+```sql
+-- colunas de papel, plano e tenant que quem vem do browser consegue gravar
+SELECT c.table_name, c.column_name,
+       has_column_privilege('authenticated', format('%I.%I', c.table_schema, c.table_name), c.column_name, 'UPDATE') AS upd,
+       has_column_privilege('authenticated', format('%I.%I', c.table_schema, c.table_name), c.column_name, 'INSERT') AS ins
+  FROM information_schema.columns c
+ WHERE c.table_schema = 'public'
+   AND c.column_name ~* '(role|papel|admin|plan|plano|tier|tenant|org_id|workspace|owner|credit|saldo)';
+
+-- as policies de escrita dessas tabelas e as triggers que poderiam travar a coluna
+SELECT tablename, policyname, cmd, roles, qual, with_check
+  FROM pg_policies WHERE schemaname = 'public' AND cmd IN ('INSERT','UPDATE','ALL');
+SELECT event_object_table, trigger_name, action_timing, event_manipulation
+  FROM information_schema.triggers WHERE event_object_schema = 'public';
+```
+
+Achado: coluna sensível com `upd` ou `ins` verdadeiro, policy de escrita que
+deixa o dono passar, e nenhum dos três controles. Escreva o caminho completo:
+conta comum → `PATCH /rest/v1/profiles?id=eq.<próprio id>` com
+`{"is_admin": true}` → passa a ver o que admin vê. Não é achado: coluna sem
+privilégio efetivo, tabela sem policy de escrita para `authenticated`, ou um
+dos três controles cobrindo `INSERT` e `UPDATE`. Corroborar **não** é mandar o
+`PATCH` no banco do cliente (escrever nunca, regra de ferro): é fixture local
+com usuário dummy, ou `a_validar` com o plano.
+
 ## A3 — IDOR
 
 **Percorra todos os handlers.** Enumere primeiro, audite depois, e reporte a

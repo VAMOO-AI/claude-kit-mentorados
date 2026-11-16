@@ -79,6 +79,50 @@ for l in open(0, encoding="utf-8", errors="replace"):
 JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
 banco inteiro por cima da RLS.
 
+**Source map publicado entrega o fonte.** O `.map` traz o `sourcesContent`: o código
+original, com comentário, nome de variável e até o trecho que o tree-shaking tirou do
+`.js`. Senha de admin "esquecida" num arquivo de config do front aparece ali inteira. A
+busca 4 já varre os `.map` que estão em `dist/` e `.next/static/`; o que falta é saber se
+o build gera map e se o deploy o serve. Nada aqui imprime valor: sai caminho, a linha de
+config cortada na opção e o status HTTP.
+
+```bash
+# o build gera map? (Next: productionBrowserSourceMaps; Vite: build.sourcemap, que em
+# 'hidden' grava o .map sem o comentário no .js e publica igual se dist/ sobe inteiro)
+LC_ALL=C grep -anoE "(productionBrowserSourceMaps|sourcemap|devtool)[^,}]{0,24}" \
+  next.config.* vite.config.* webpack.config.* 2>/dev/null
+find dist .next/static build out -name '*.map' 2>/dev/null | wc -l
+# o deploy serve? Ler produção pode: só o status do .map que o .js aponta, sem baixar o corpo
+# curl -s https://<dominio>/<caminho>.js | grep -o 'sourceMappingURL=[^ ]*'
+# curl -sI https://<dominio>/<caminho>.js.map | head -1
+```
+
+O map sozinho vai para `hardening[]`. Vira achado quando a busca 4 acha nele um segredo
+que cruza fronteira — e aí o map é o `caminho`, não o achado.
+
+**Chave nova não desliga a velha.** Criar `sb_publishable_…`/`sb_secret_…` não revoga a
+anon e a service_role legadas: as duas famílias funcionam juntas até alguém desativar as
+legadas no painel, num passo separado. E a anon e a service_role são JWTs assinados com o
+segredo JWT legado; por isso o Supabase só deixa revogar esse segredo **depois** de
+desativar as duas. Leia em cadeia, sem comando novo:
+
+- a busca 4 achou `JWT role=anon` no bundle de hoje → o app ainda usa a chave legada, ela
+  está ativa, e o segredo JWT legado **não** foi revogado;
+- o projeto migrou para `sb_publishable_…` e a anon legada sumiu do bundle → isso prova a
+  migração do código, não a desativação. Uma service_role que vazou antes continua valendo
+  até alguém desligar as legadas;
+- segredo JWT legado que nunca foi rotacionado, com uma service_role que já passou por
+  repo, log ou máquina de ex-colaborador → quem tem o segredo forja token de qualquer papel.
+
+**Um 401 no navegador não prova revogação.** A chave pode ter sido trocada só no app, a
+rota pode exigir outro header, a policy pode estar negando por outro motivo. Estado de
+chave e de segredo é fato do painel, não do repo: o achado sai `a_validar`, com o
+`bloqueio` "estado das chaves legadas e do segredo JWT não está no repo" e o
+`plano_validacao` para o dono: abrir *Settings → API Keys* e conferir se as legadas estão
+desativadas, e *JWT Keys* para ver se o segredo legado foi revogado (ou, com o token
+dele, o `GET` de `api-keys/legacy` da Management API devolvendo `enabled: false`). Quem
+roda é o dono, não você.
+
 **Sem build no disco, o build é pergunta, não passo da auditoria.** `npm run build`
 executa o script de build do repo auditado, que esta auditoria trata como código não
 confiável, e grava `dist/` (ou `.next/`) fora de `docs/security-audit/`. Pergunte com o
