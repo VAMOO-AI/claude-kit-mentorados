@@ -143,7 +143,14 @@ COMPLIANCE_CATEGORIA = {
 
 # CWE: so' o formato, sem catalogo. Errar o numero e' possivel; inventar "CWE-XSS" ou
 # escrever "cwe79" nao, porque o PDF vai para o cliente e a issue para o GitHub.
-CWE_FORMATO = re.compile(r"CWE-[1-9]\d{0,4}")
+# [0-9], nao \d: o \d do Python casa digito de qualquer escrita, e "CWE-7٩" passava.
+CWE_FORMATO = re.compile(r"CWE-[1-9][0-9]{0,4}")
+# Contraevidencia que nao diz nada ("nenhuma", "n/a", "-") preenche o campo sem fazer o
+# contraditorio. Abaixo deste tamanho nao cabe "o que pesa contra" e "por que nao derruba".
+CONTRA_MINIMO = 15
+CONTRA_VAZIAS = {"nenhuma", "nenhum", "nada", "n/a", "na", "nao", "não", "-", "--", "—",
+                 "none", "nil", "null", "ok", "sem", "sem contraevidencia",
+                 "sem contraevidência", "nao ha", "não há", "nao se aplica", "não se aplica"}
 
 # Onde o juiz da Fase 5 tem que ter escrito a contraevidencia: nota que bloqueia ou
 # pede revisao, sobre achado que alguem leu. Em 'padrao' ninguem abriu o arquivo, e
@@ -485,16 +492,24 @@ def erros_campos_juiz(a):
 def erros_contraevidencia(a):
     """Alta ou critica acionavel, lida ou corroborada, sem contraevidencia escrita: o juiz
     nao registrou o que tentou derrubar, e o veredito fica sem o contraditorio."""
-    sev = str(a.get("severidade", "")).strip().lower()
+    # Mesma leitura crua do calcular_veredito: a severidade ja' foi validada contra o enum
+    # exato no main, e nenhum dos dois normaliza o que o outro nao normaliza.
+    sev = a.get("severidade")
     if (sev not in SEV_COM_CONTRAEVIDENCIA or not acionavel(a)
             or nivel_evidencia(a) not in EVID_COM_CONTRAEVIDENCIA):
         return []
+    o_que = ("escreva a evidência mais forte contra o achado (o guard, o middleware, a policy "
+             "que pareceria proteger) e por que ela não o derruba")
     texto = a.get("contraevidencia")
-    if isinstance(texto, str) and texto.strip():
-        return []
-    return [f"achado {a.get('id', '?')}: {sev} {nivel_evidencia(a)} sem 'contraevidencia' — "
-            f"escreva a evidência mais forte contra o achado (o guard, o middleware, a policy "
-            f"que pareceria proteger) e por que ela não o derruba"]
+    texto = texto.strip() if isinstance(texto, str) else ""
+    if not texto:
+        return [f"achado {a.get('id', '?')}: {sev} {nivel_evidencia(a)} sem 'contraevidencia' — "
+                f"{o_que}"]
+    nucleo = texto.lower().strip(" .;:!")
+    if nucleo in CONTRA_VAZIAS or len(texto) < CONTRA_MINIMO:
+        return [f"achado {a.get('id', '?')}: 'contraevidencia' {texto!r} não diz nada — {o_que}. "
+                f"Se nada pesa contra, diga o que você procurou e não achou"]
+    return []
 
 
 def cwes_do_achado(a):
@@ -800,8 +815,10 @@ def bloco_a_validar(a):
 def montar_html(d, redacoes=None):
     # lista de um elemento para servir de contador compartilhado com as issues
     redacoes = redacoes if redacoes is not None else [0]
-    d = dict(d, achados=[_redigir_campos(a, redacoes) for a in d.get("achados", [])],
-             issues=[_redigir_campos(i, redacoes) for i in d.get("issues", [])],
+    # A issue recebe o dado cru: montar_corpo_issue redige o que imprime e conta la'.
+    # Redigir aqui tambem contaria o mesmo segredo duas vezes no mesmo destino.
+    achados_crus = d.get("achados", [])
+    d = dict(d, achados=[_redigir_campos(a, redacoes) for a in achados_crus],
              **_redigir_livres(d, redacoes))
     projeto = d.get("projeto", "projeto")
     titulo = f"Relatório de Auditoria de Segurança — {projeto}"
@@ -1145,27 +1162,52 @@ td.arq {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size
     if not issues:
         p.append('<p class="vazio">Nenhuma issue gerada.</p>')
     for i, iss in enumerate(issues, 1):
-        corpo = montar_corpo_issue(iss, todos, redacoes)
+        corpo = montar_corpo_issue(iss, achados_crus, redacoes)
         p.append(f'<div class="issue">--- ISSUE {i} ---\n{e(corpo)}\n--- FIM ISSUE {i} ---</div>')
 
     p.append("</body></html>")
     return "\n".join(p)
 
 
+# Marcador de bloco do markdown no comeco de um paragrafo: heading, citacao, item de lista.
+_BLOCO_MD = re.compile(r"^(#{1,6}|>|[-*+](?=\s)|[0-9]+[.)](?=\s))")
+
+
+def _uma_linha(txt):
+    """Texto livre achatado numa linha so', para nao virar markdown na issue.
+
+    Uma quebra no meio da contraevidencia (ou do problema, do criterio) abria um
+    '## Criterios de aceite' falso ou um '- [x]' marcado que o GitHub mostra como parte
+    do corpo. Achatada, a quebra vira espaco; e o comeco do paragrafo leva escape quando
+    seria marcador de bloco ("## x", "- x", "1. x")."""
+    t = re.sub(r"\s*[\r\n\u2028\u2029]+\s*", " ", str(txt if txt is not None else "")).strip()
+    return _BLOCO_MD.sub(r"\\\1", t)
+
+
 def montar_corpo_issue(iss, achados, redacoes=None):
     """Monta o markdown da issue. Aceita corpo pronto ou monta dos achados citados.
 
-    A issue vai para o GitHub, que e' mais publico que o PDF: o trecho sai daqui
-    pela mesma redacao, e o nivel de evidencia acompanha para quem for corrigir
-    saber se o achado foi lido ou so' sugerido por um padrao.
+    A issue vai para o GitHub, que e' mais publico que o PDF. Esta funcao redige sozinha
+    tudo o que imprime -- campos da issue, titulo, contraevidencia e muda_severidade_se
+    do achado, o trecho e o markdown -- e nao confia em quem chama: um caller novo que
+    passe o achado cru nao vaza nada. Cada segredo conta aqui, como o trecho ja' contava
+    (o mesmo valor no bloco do achado conta de novo la').
     """
     redacoes = redacoes if redacoes is not None else [0]
+
+    def red(txt):
+        texto, n = redigir_segredos(str(txt if txt is not None else ""))
+        redacoes[0] += n
+        return texto
+
+    def linha(txt):
+        return _uma_linha(red(txt))
+
     if iss.get("markdown"):
         # Corpo escrito a mao tambem passa pela mascara: e' o mesmo GitHub, e quem
-        # escreve markdown custom e' justamente quem colou o trecho na unha.
-        texto, n_red = redigir_segredos(iss["markdown"].strip())
-        redacoes[0] += n_red
-        return texto
+        # escreve markdown custom e' justamente quem colou o trecho na unha. Aqui o
+        # markdown e' a intencao, entao as quebras ficam.
+        return red(iss["markdown"].strip())
     idx = {a.get("id"): a for a in achados}
     refs = [idx[i] for i in iss.get("achados", []) if i in idx]
     sev = iss.get("severidade") or (refs[0].get("severidade") if refs else "media")
@@ -1174,8 +1216,8 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         for c in compliance_do_achado(a):
             if c not in ctrls:
                 ctrls.append(c)
-    linhas = [f"**Título:** [Segurança] {iss.get('titulo','')}",
-              f"**Labels:** `security`, `{sev}`"]
+    linhas = [f"**Título:** [Segurança] {linha(iss.get('titulo', ''))}",
+              f"**Labels:** `security`, `{_uma_linha(sev)}`"]
     if ctrls:
         linhas.append(f"**Compliance:** {', '.join('`' + c + '`' for c in ctrls)}")
     cwes = []
@@ -1183,35 +1225,31 @@ def montar_corpo_issue(iss, achados, redacoes=None):
         cwes += [c for c in cwes_do_achado(a) if c not in cwes]
     if cwes:
         linhas.append(f"**CWE:** {', '.join('`' + c + '`' for c in cwes)}")
-    linhas += ["", "## Problema", "", iss.get("problema", ""), "", "## Evidência", ""]
+    linhas += ["", "## Problema", "", linha(iss.get("problema", "")), "", "## Evidência", ""]
     for a in refs:
-        local = a.get("arquivo", "")
+        local = str(a.get("arquivo", ""))
         if a.get("linhas"):
             local += f":{a['linhas']}"
         nivel = EVIDENCIA[nivel_evidencia(a)][0].lower()
-        linhas.append(f"- `{local}` — {a.get('titulo','')} "
+        linhas.append(f"- `{_uma_linha(local)}` — {linha(a.get('titulo', ''))} "
                       f"({nivel}, confiança {num(confianca(a))})")
-        # sem escotilha: o "redacao": false vale para o trecho do PDF, nao para o GitHub
-        texto, n_red = redigir_segredos(a.get("trecho"))
-        if texto:
-            linhas += ["", "```", texto.strip(), "```", ""]
-            redacoes[0] += n_red
-    # Os achados chegam aqui ja' redigidos pelo montar_html (contraevidencia e
-    # muda_severidade_se sao texto livre e passaram pelo _redigir_campos), e a contagem
-    # ja' foi feita la': redigir de novo so' dobraria o numero do stdout.
-    contra = [(a.get("id", "?"), a["contraevidencia"].strip()) for a in refs
+        # sem escotilha: o "redacao": false vale para o trecho do PDF, nao para o GitHub.
+        # O trecho fica com as quebras: dentro da cerca de codigo elas nao viram markdown.
+        if a.get("trecho"):
+            linhas += ["", "```", red(a["trecho"]).strip(), "```", ""]
+    contra = [(a.get("id", "?"), a["contraevidencia"]) for a in refs
               if isinstance(a.get("contraevidencia"), str) and a["contraevidencia"].strip()]
     if contra:
-        linhas += ["", "## Contraevidência", ""] + [f"- {i}: {t}" for i, t in contra]
-    muda = [(a.get("id", "?"), str(m).strip()) for a in refs
+        linhas += ["", "## Contraevidência", ""] + [f"- {i}: {linha(t)}" for i, t in contra]
+    muda = [(a.get("id", "?"), m) for a in refs
             for m in (a.get("muda_severidade_se") or []) if str(m).strip()]
     if muda:
-        linhas += ["", "## O que muda a severidade", ""] + [f"- {i}: {t}" for i, t in muda]
-    linhas += ["", "## Impacto", "", iss.get("impacto", ""), "",
-               "## Correção sugerida", "", iss.get("correcao", ""), "",
+        linhas += ["", "## O que muda a severidade", ""] + [f"- {i}: {linha(t)}" for i, t in muda]
+    linhas += ["", "## Impacto", "", linha(iss.get("impacto", "")), "",
+               "## Correção sugerida", "", linha(iss.get("correcao", "")), "",
                "## Critérios de aceite", ""]
     for c in iss.get("criterios_aceite", []):
-        linhas.append(f"- [ ] {c}")
+        linhas.append(f"- [ ] {linha(c)}")
     return "\n".join(linhas)
 
 
@@ -1375,6 +1413,12 @@ def main():
         if ev is not None and str(ev).strip().lower() not in EVIDENCIA:
             raise SystemExit(f"achado {ident}: evidencia invalida {ev!r} "
                              f"(use: {', '.join(EVIDENCIA)})")
+        # Severidade e' comparada crua no veredito, na cor e no gate da contraevidencia:
+        # "Alta" ou "alta " sairia do calculo sem aviso. Enum exato, como o schema escreve.
+        sev = a.get("severidade")
+        if sev is not None and sev not in SEV:
+            raise SystemExit(f"achado {ident}: severidade invalida {sev!r} "
+                             f"(use, sem acento e minuscula: {', '.join(SEV)})")
         st = a.get("status")
         if st is not None and str(st).strip().lower() not in STATUS_ROTULO:
             raise SystemExit(f"achado {ident}: status invalido {st!r} "

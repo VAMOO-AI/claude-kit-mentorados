@@ -116,7 +116,8 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
 ## Regras dos campos
 
 - **`severidade`**: `critica` · `alta` · `media` · `baixa` · `informativa`. Sem
-  acento e sem maiúscula — a cor e o rótulo do chip saem daí. **Âncoras**, para a
+  acento e sem maiúscula, exatamente assim: `"Alta"` ou `"alta "` **aborta** o
+  gerador, porque o veredito compara o valor cru. A cor e o rótulo do chip saem daí. **Âncoras**, para a
   nota não sair do que o achado parece:
 
   | nível | o que precisa estar demonstrado |
@@ -196,8 +197,10 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
   `critica`, acionável (status `aberto`), com evidência `lido` ou `corroborado`:
   ausente, vazia ou só com espaço, o `--verificar` falha dizendo o que escrever.
   Em `padrao` ninguém abriu o arquivo ainda, e nas severidades menores o campo é
-  opcional — escreva quando houver algo que pareça proteger. Não serve
-  "nenhuma": se nada pesa contra, diga o que você procurou e não achou.
+  opcional — escreva quando houver algo que pareça proteger. Valor vazio de
+  sentido (`"nenhuma"`, `"n/a"`, `"-"`) ou com menos de 15 caracteres também
+  reprova no `--verificar`: se nada pesa contra, diga o que você procurou e não
+  achou.
 - **`muda_severidade_se`** (lista de frases, opcional): as condições que
   subiriam ou baixariam a nota (`"Cai para média se existir soft delete com
   restauração pelo dono"`, `"Sobe para crítica se produção roda com o
@@ -272,6 +275,11 @@ bloqueada por fato externo — o bloqueio é para resolver.
 - **`issues[].achados`** referencia `achados[].id`: o gerador monta a seção de
   evidência com o trecho de cada achado citado. Um achado sem issue é decisão
   consciente (trivial ou já agrupado), não esquecimento.
+- **Quebra de linha na issue montada:** título, `problema`, `impacto`,
+  `correcao`, `criterios_aceite`, `contraevidencia` e `muda_severidade_se` saem
+  numa linha só, com marcador de bloco no começo escapado. Uma quebra no meio do
+  texto abria um `## Critérios de aceite` falso ou um `- [x]` marcado no corpo
+  que o GitHub mostra. O `trecho` mantém as quebras dentro da cerca de código.
 - **`issues[].markdown`** (opcional) sobrescreve a montagem automática quando a
   issue precisa de um texto que o schema não expressa. Também passa pela máscara
   de segredo, e sem escotilha: aqui não há como marcar `redacao: false`.

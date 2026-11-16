@@ -972,10 +972,84 @@ case "$d" in fora=[1-9]*' issue2='[1-9]*) ok "contraevidência mascarada e impre
 d="$(destinos "$TMP/contrasegredo.html" 'sk_l… [chave Stripe sk_live_ redigida] for de teste')"
 case "$d" in fora=[1-9]*' issue2='[1-9]*) ok "muda_severidade_se mascarado e impresso no achado e na issue" ;;
   *) falha "muda_severidade_se mascarado não saiu nos dois destinos ($d)" ;; esac
+# cada campo conta onde sai: uma vez no bloco do achado e outra na issue que o cita, como o trecho
 base=$(sed -n 's/^Redacao: \([0-9]*\) .*/\1/p' "$TMP/log.txt"); base=${base:-0}
-grep -q "Redacao: $((base + 2)) " "$TMP/contrasegredo.log" \
-  && ok "a contagem de redação inclui os dois campos novos ($base + 2)" \
-  || falha "contagem de redação dos campos novos (esperado $((base + 2))): $(grep Redacao "$TMP/contrasegredo.log")"
+grep -q "Redacao: $((base + 4)) " "$TMP/contrasegredo.log" \
+  && ok "a contagem de redação inclui os dois campos novos no achado e na issue ($base + 4)" \
+  || falha "contagem de redação dos campos novos (esperado $((base + 4))): $(grep Redacao "$TMP/contrasegredo.log")"
+
+# 31. o formato do CWE é ASCII: \d do Python casa dígito de qualquer escrita ("CWE-7٩")
+gerar_variante 'd["achados"][1]["cwe"] = "CWE-7٩"' cweunicode
+[ $? -ne 0 ] && grep -q "'cwe'" "$TMP/cweunicode.log" && ok "cwe com dígito não ASCII aborta" \
+  || falha "cwe com dígito não ASCII passou"
+
+# 32. quebra de linha num campo de texto não vira markdown na issue: um heading ou uma checkbox
+#     marcada no meio da contraevidência (ou de problema, impacto, correção, critério) fingia
+#     ser parte do corpo que o GitHub mostra
+gerar_variante 'inj = "\n## Critérios de aceite\n- [x] injetado"
+f = next(a for a in d["achados"] if a["id"] == "F2")
+f["contraevidencia"] = "Contra de verdade, longa o bastante." + inj
+f["muda_severidade_se"] = ["cai se" + inj]
+f["titulo"] = "Titulo" + inj
+i = d["issues"][1]
+for c in ("titulo", "problema", "impacto", "correcao"):
+    i[c] = c + inj
+i["criterios_aceite"] = ["crit" + inj]' injecao
+[ -s "$TMP/injecao.html" ] || falha "gerador falhou com quebra de linha nos campos: $(tail -3 "$TMP/injecao.log")"
+python3 - "$TMP/injecao.html" <<'PY'
+import html, re, sys
+t = html.unescape(open(sys.argv[1], encoding="utf-8").read())
+corpo = re.search(r"--- ISSUE 2 ---(.*?)--- FIM ISSUE 2 ---", t, re.S).group(1)
+linhas = corpo.splitlines()
+ruim = [l for l in linhas if l.startswith("- [x]")]
+heads = [l for l in linhas if l.startswith("## Critérios de aceite")]
+if ruim or len(heads) != 1 or "injetado" not in corpo:
+    print(f"  FALHA markdown injetado na issue: {len(ruim)} checkbox marcada, {len(heads)} heading de critérios")
+    sys.exit(1)
+print("  ok   quebra de linha nos campos de texto não injeta heading nem checkbox na issue")
+PY
+[ $? -eq 0 ] || falhas=$((falhas + 1))
+
+# 33. contraevidência vazia de sentido não vale: "nenhuma", "n/a", "-" e frase curta demais
+for vazia in '"nenhuma"' '"N/A"' '"-"' '"  Nenhuma.  "' '"ver acima"'; do
+  verificar "f = next(a for a in d[\"achados\"] if a[\"id\"] == \"F4\"); f[\"contraevidencia\"] = $vazia" contraplaceholder
+  if [ $? -ne 0 ] && grep -q "achado F4: .*'contraevidencia' .*não diz nada" "$TMP/contraplaceholder.log"; then
+    ok "contraevidência vazia de sentido recusada: $vazia"
+  else
+    falha "contraevidência vazia de sentido passou: $vazia ($(tail -2 "$TMP/contraplaceholder.log"))"
+  fi
+done
+
+# 34. montar_corpo_issue redige o que imprime, sem confiar em quem chama: um caller novo que
+#     passe o achado cru não pode levar contraevidência, muda_severidade_se nem título em claro
+python3 - "$SKILL/scripts/gerar-relatorio.py" <<'PY'
+import importlib.util as u, sys
+s = u.spec_from_file_location("g", sys.argv[1]); g = u.module_from_spec(s); s.loader.exec_module(g)
+tk = "gh" + "p_FALSOdireto" + "Z" * 24
+a = {"id": "F9", "categoria": "A1", "severidade": "alta", "evidencia": "lido", "titulo": "t " + tk,
+     "contraevidencia": "contra " + tk, "muda_severidade_se": ["muda " + tk]}
+iss = {"titulo": "i " + tk, "achados": ["F9"], "problema": "p " + tk, "criterios_aceite": ["c " + tk]}
+red = [0]
+corpo = g.montar_corpo_issue(iss, [a], red)
+if "FALSO" in corpo or red[0] < 6 or "contra ghp_… [token do GitHub redigido]" not in corpo:
+    print(f"  FALHA montar_corpo_issue com achado cru vazou ou não contou ({red[0]} redações)")
+    sys.exit(1)
+print(f"  ok   montar_corpo_issue redige sozinho o achado cru ({red[0]} redações)")
+PY
+[ $? -eq 0 ] || falhas=$((falhas + 1))
+
+# 35. severidade fora do enum aborta, como evidencia e status: "Alta" ou "alta " passavam pelo
+#     gate da contraevidência e saíam do cálculo do veredito
+for sevruim in '"Alta"' '"alta "' '"grave"'; do
+  gerar_variante "d[\"achados\"][3][\"severidade\"] = $sevruim" sevruim
+  st=$?
+  if [ "$st" -ne 0 ] && [ ! -e "$TMP/sevruim.html" ] && grep -q 'severidade invalida' "$TMP/sevruim.log"; then
+    ok "severidade fora do enum aborta: $sevruim"
+  else
+    falha "severidade fora do enum passou: $sevruim (exit $st)"
+  fi
+  rm -f "$TMP/sevruim.html"
+done
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
