@@ -90,23 +90,28 @@ caminho, a opção de config cortada e o status HTTP.
 ```bash
 # o build gera map? Next: productionBrowserSourceMaps. Vite: build.sourcemap, que em
 # 'hidden' grava o .map sem o comentário no .js e publica igual se dist/ sobe inteiro.
-# CRA: gera por padrão, e só GENERATE_SOURCEMAP=false desliga
-LC_ALL=C grep -anoE "(productionBrowserSourceMaps|sourcemap|devtool|GENERATE_SOURCEMAP)[^,}]{0,24}" \
-  next.config.* vite.config.* webpack.config.* .env* package.json 2>/dev/null
+# CRA: gera por padrão, e só GENERATE_SOURCEMAP=false (no script do package.json ou no
+# arquivo de ambiente, que este bloco não abre) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
+find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'webpack.config.*' \
+  -o -name package.json \) -exec env LC_ALL=C grep -HanoE \
+  "(productionBrowserSourceMaps|sourcemap|devtool|GENERATE_SOURCEMAP)[^,}]{0,24}" {} +
 # atribuição a chave de segredo dentro do fonte que o map publica, mascarada
 find dist .next/static build out -name '*.map' 2>/dev/null | python3 -c '
 import json, re, sys
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
-K = re.compile(r"((?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\x22]?\s*[:=>]{1,2}\s*[\x27\x22`]?)([^\x27\x22`\s,;]{8,})", re.I)
+# a chave, a anotação de tipo do TS (apiKey: string = …), =, ==, ===, :, => e !==, e o
+# valor entre aspas (com espaço) ou solto
+K = re.compile(r"((?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\x22]?\s*(?::\s*[A-Za-z_][\w<>\[\]|. ]*?\s*)?(?:[:=>]{1,3}|!==?)\s*)(?:([\x27\x22`])([^\x27\x22`]{8,})|([^\x27\x22`\s,;)]{8,}))", re.I)
 ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
 for f in sys.stdin:
     f = f.strip()
     try: d = json.load(open(f, encoding="utf-8", errors="replace"))
-    except Exception: continue
+    except Exception: print("map ilegível, sem varrer: " + f); continue
     for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
         for i, l in enumerate((txt or "").splitlines(), 1):
             for g in K.finditer(l):
-                if not g[2].startswith(ref): print(f + " <- " + str(src) + ":" + str(i) + ": " + g[1] + m(g[2]))'
+                v = g[3] or g[4]
+                if not v.startswith(ref): print(f + " <- " + str(src) + ":" + str(i) + ": " + g[1] + (g[2] or "") + m(v))'
 # o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
 # SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
 # content-type JSON, não só 200

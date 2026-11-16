@@ -96,17 +96,22 @@ Para cada tool que **escreve, envia, agenda ou lê dado de outra pessoa**:
   canal de exfiltração: uma instrução escondida numa mensagem manda o agente
   postar o histórico num coletor público (webhook.site e parecidos). No n8n, o
   parâmetro que o modelo preenche aparece como `$fromAI(...)` nos nós de tool;
-  o que vem do lead aparece como `$json` ou `$('Nome do nó')`; no HTTP Request
+  o que vem do lead aparece como `$json`, `$input` ou `$('Nome do nó')`; no HTTP Request
   Tool antigo, como placeholder `{nome}` na URL.
 
 ```bash
 # n8n: campo de destino preenchido pelo modelo ou pelo lead, nos workflows exportados.
-# Lê o JSON e imprime nó, campo, marca e se o host é fixo: nunca o valor, que pode
-# trazer chave na query string
+# Lê o JSON (um workflow por arquivo ou a lista do export --all) e imprime nó, campo,
+# marca e se o host é fixo: nunca o valor, que pode trazer chave na query string
 find . -name '*.json' -not -path '*/node_modules/*' 2>/dev/null | python3 -c '
 import json, re, sys
-CAMPO = re.compile(r"^(url|baseUrl|sendTo|toEmail|to|cc|bcc|webhookUrl|endpoint|host|chatId|phone|number|recipient)$", re.I)
-MARCA = re.compile(r"\$fromAI|\$json|\$\(\x27[^\x27]+\x27\)|\$node\[|(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}")
+CAMPO = re.compile(r"url|sendto|email|^to$|^cc$|^bcc$|webhook|endpoint|host|chatid|channelid|phone|number|recipient", re.I)
+URL = re.compile(r"url|webhook|endpoint|host", re.I)
+MARCA = re.compile(r"\$fromAI|\$json|\$input|\$node\[|\$\(\s*[\x27\x22]|(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}")
+def rotulo(x):
+    if x.startswith("$("): return "$(nó)"
+    if x.startswith("{"): return "{placeholder}"
+    return x.rstrip("[")
 def anda(o, cam):
     if isinstance(o, dict):
         for k, v in o.items(): yield from anda(v, cam + [k])
@@ -117,17 +122,24 @@ for f in sys.stdin:
     f = f.strip()
     try: w = json.load(open(f, encoding="utf-8", errors="replace"))
     except Exception: continue
-    for n in (w.get("nodes") or []) if isinstance(w, dict) else []:
-        for cam, v in anda(n.get("parameters") or {}, []):
-            if not (isinstance(v, str) and cam and CAMPO.match(cam[-1])): continue
-            marcas = sorted(set("$(…)" if x.startswith("$(") else x for x in MARCA.findall(v)))
-            if not marcas: continue
-            pre = v.lstrip("=").split("{{")[0]
-            host = "host fixo" if re.match(r"https?://[^/@?#{]+/", pre) else "host variável"
-            print(f + ": nó " + repr(n.get("name")) + ": " + ".".join(cam) + ": " + " ".join(marcas) + ": " + host)'
-# código: fetch/axios/got (inclusive .post/.get e template literal) com endereço vindo de
-# argumento de tool
-grep -rniE '(fetch|axios|got|request|http)(\.[a-z]+)?\(`?(\$\{)?(args|input|params|toolInput|arguments)\.[a-zA-Z_.]*(url|endpoint|webhook|host)' \
+    for wf in (w if isinstance(w, list) else [w]):
+        if not isinstance(wf, dict): continue
+        for n in wf.get("nodes") or []:
+            if not isinstance(n, dict): continue
+            for cam, v in anda(n.get("parameters") or {}, []):
+                # resource locator ({"__rl": true, "value": …}): o nome do campo é o pai
+                campo = cam[-2] if len(cam) > 1 and cam[-1] == "value" else (cam[-1] if cam else "")
+                if not (isinstance(v, str) and CAMPO.search(campo)): continue
+                marcas = sorted(set(rotulo(x) for x in MARCA.findall(v)))
+                if not marcas: continue
+                if URL.search(campo):
+                    pre = v.lstrip("=").split("{{")[0]
+                    alvo = "host fixo" if re.match(r"https?://[^/@?#{]+/", pre) else "host variável"
+                else: alvo = "destinatário variável"
+                print(f + ": nó " + repr(n.get("name")) + ": " + ".".join(cam) + ": " + " ".join(marcas) + ": " + alvo)'
+# código: fetch/axios/got/requests (inclusive .post/.get e template literal) com endereço
+# vindo de argumento de tool
+grep -rniE '(fetch|axios|got|requests|request|urllib|http)(\.[a-z]+){0,2}\(`?(\$\{)?(args|input|params|toolInput|arguments)\.[a-zA-Z_.]*(url|endpoint|webhook|host)' \
   --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
 ```
 

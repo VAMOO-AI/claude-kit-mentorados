@@ -170,11 +170,15 @@ SELECT tgname, tgfoid::regproc AS funcao
 
 ```bash
 # no app: papel decidido a partir do metadata que o usuário edita. Pega .role, ?.role,
-# ['role'] e a desestruturação ({ role } = user.user_metadata); leia cada linha
-INC="--include=*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs"
-K='(role|papel|admin|plan|plano|tier|tenant|org)'
-grep -rniE "user_metadata[^;]{0,20}$K" $INC . | grep -v node_modules
-grep -rniE "\{[^}]*$K[^}]*\}[[:space:]]*=[^;]*user_metadata" $INC . | grep -v node_modules
+# ['role'] e a desestruturação ({ role } = user.user_metadata); leia cada linha.
+# Padrão literal e --include um por um: no zsh, $VAR sem aspas não se divide e $K[...] é
+# subscript, e o grep sai calado
+grep -rniE 'user_metadata[^;]{0,20}(role|papel|admin|plan|plano|tier|tenant|org)' \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
+  | grep -v node_modules
+grep -rniE '\{[^}]*(role|papel|admin|plan|plano|tier|tenant|org)[^}]*\}[[:space:]]*=[^;]*user_metadata' \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
+  | grep -v node_modules
 ```
 
 Achado: o valor lido de `user_metadata` decide acesso, papel, plano ou tenant
@@ -201,14 +205,16 @@ Vale para `INSERT` também: perfil criado pelo próprio cliente já com
 
 ```sql
 -- colunas de papel, plano, tenant e flag de aprovação que quem vem do browser consegue
--- gravar, com o estado da RLS da tabela (rls = false com upd/ins = true é o pior caso)
+-- gravar, com o estado da RLS (rls = false com upd/ins = true é o pior caso). Entra view
+-- (relkind 'v'): view gravável sem security_invoker escreve como o dono, por cima da RLS,
+-- e para ela a coluna rls não diz nada
 SELECT c.relname AS tabela, a.attname AS coluna, c.relrowsecurity AS rls,
        has_column_privilege(r.papel, c.oid, a.attnum, 'UPDATE') AS upd,
        has_column_privilege(r.papel, c.oid, a.attnum, 'INSERT') AS ins, r.papel
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
  CROSS JOIN (VALUES ('anon'), ('authenticated')) r(papel)
- WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
+ WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','f')
    AND a.attname ~* '(role|papel|admin|plan|plano|tier|tenant|org_id|workspace|owner|credit|saldo|^is_|approved|verified|aprovad)';
 
 -- as policies de escrita que alcançam quem vem do browser (`public` inclui os dois papéis)
@@ -219,7 +225,8 @@ SELECT tablename, policyname, cmd, roles, qual, with_check
 
 -- as triggers que poderiam travar a coluna. pg_trigger, não information_schema.triggers:
 -- a view esconde trigger de tabela em que o papel da auditoria só tem SELECT
-SELECT t.tgrelid::regclass AS tabela, t.tgname, t.tgfoid::regproc AS funcao
+-- (só BEFORE trava a coluna: a definição mostra o timing e o evento)
+SELECT t.tgrelid::regclass AS tabela, pg_get_triggerdef(t.oid) AS definicao
   FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
  WHERE n.nspname = 'public' AND NOT t.tgisinternal;
@@ -269,7 +276,7 @@ usuário escolheu.
 
 ```bash
 # fetch(x.url), axios.post(x.url), got.get(x.url) e template literal `${x.url}/…`
-grep -rniE '(fetch|axios|got|request|urllib|requests|http)(\.[a-z]+)?\(`?(\$\{)?(req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)' \
+grep -rniE '(fetch|axios|got|request|urllib|requests|http)(\.[a-z]+){0,2}\(`?(\$\{)?(req\.body|body\.|payload\.|config\.|settings\.|integration\.)[a-zA-Z_.]*(url|webhook|endpoint|callback)' \
   --include='*.ts' --include='*.js' --include='*.py' . | grep -v node_modules
 ```
 
