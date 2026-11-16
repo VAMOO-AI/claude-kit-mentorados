@@ -30,8 +30,7 @@ diferença não estiver medida, o finding é `nao_medido`, não HIGH por precau�
 5. **Juiz** em todo `CRITICAL` e `HIGH`, `heuristic` incluso. O contrato
    (as três provas de `refutado`, a lista do que não refuta, rebaixar em vez
    de apagar) é o da `auditoria-seguranca`, em
-   [fase-5-veredito.md](../../auditoria-seguranca/references/fase-5-veredito.md),
-   pergunta 3; leia lá, não aqui. O que muda por causa do formato da baseline:
+   `skills/auditoria-seguranca/references/fase-5-veredito.md`, pergunta 3; leia lá, não aqui. O que muda por causa do formato da baseline:
 
    - **Antes do dispatch, você escreve `muda_severidade_se`** para o finding:
      as condições que, se verdadeiras, mudam a nota ("se a tabela não tem
