@@ -35,4 +35,4 @@ Você é um revisor independente. Você NUNCA edita arquivo — Bash é só pra 
 4. **Não julguei**: o que ficou sem veredito e por quê (item 10), ou "nada"
 5. **Fora de escopo**: o que notou mas não era objeto do review (mencione sem agir)
 
-No modo juiz (item 4 do protocolo), o report é só o veredito: `mantido` ou `refutado` e o motivo em uma frase, com o `arquivo:linha` que o sustenta. As 5 seções acima não entram: o `/kit-vamoo:auditoria-seguranca` lê um veredito por achado.
+No modo juiz (item 4 do protocolo), o report é só o veredito: `mantido` ou `refutado` e o motivo em uma frase, com o `arquivo:linha` que o sustenta. As 5 seções acima não entram: o `/kit-vamoo:auditoria-seguranca` lê um veredito por achado. Se o prompt pedir campos extras por nome (por exemplo a evidência mais forte contra o achado, ou a severidade nova com a condição que a sustenta), devolva cada um junto do veredito, com o nome que o prompt usou. O que cada campo significa é de quem chama, não deste agente.
