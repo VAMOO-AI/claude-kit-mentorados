@@ -10,6 +10,15 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.95.0] — 2026-11-16
+
+### Adicionado
+
+- **`auditoria-seguranca`**: juiz da Fase 5 só refuta com prova verificável (controle em todos os caminhos, caminho que não fecha ou objeto vivo), rebaixa em vez de apagar e preenche `contraevidencia`; A2 cobre papel lido de `user_metadata` além do lint 0015 e mass assignment pelo PostgREST; A4 cobre source map publicado, chave e segredo JWT legados e trata 401 como `a_validar`; A6 cobre hints MCP, aprovação presa à chamada e egress escolhido pelo modelo.
+- **`revisor`**: no modo juiz, devolve os campos extras que o prompt pedir pelo nome.
+- **`auditoria-seguranca`**: novos campos `contraevidencia`, `muda_severidade_se` e `cwe` em cada achado do `findings.json`. O `--verificar` cobra `contraevidencia` em alta/crítica acionável lida ou corroborada, e `cwe` fora do formato `CWE-<número>` aborta o gerador. O PDF e a issue mostram os três campos, e os dois de texto passam pela redação de segredo. Severidade fora do enum exato agora aborta o gerador, e a issue montada achata as quebras de linha dos campos de texto.
+- **`auditoria-seguranca`**: reference `corroborar-dinamico.md` com o roteiro para chegar a `corroborado` só com leitura. Cobre o IDOR diferencial (próprio, vítima, inexistente; o corpo decide) e a matriz de RLS do Supabase por papel, além de um `scripts/matriz-supabase.sh` que conta linhas com `count=exact`, nunca imprime token e recusa escrita fora de host local.
+
 ## [0.94.0] — 2026-11-11
 
 ### Mudado
