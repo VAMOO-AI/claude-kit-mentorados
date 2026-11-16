@@ -105,8 +105,11 @@ Para cada tool que **escreve, envia, agenda ou lê dado de outra pessoa**:
 # marca e se o host é fixo: nunca o valor, que pode trazer chave na query string
 find . -name '*.json' -not -path '*/node_modules/*' 2>/dev/null | python3 -c '
 import json, re, sys
-# url/webhook/endpoint/host por trecho do nome; os de destinatário, pelo nome inteiro
-CAMPO = re.compile(r"url|webhook|endpoint|host|^(to|cc|bcc|sendto|toemail|email|recipients?|recipientphonenumber|chatid|channelid|channel|phone|phonenumber|phone_number|number)$", re.I)
+# url/webhook/endpoint/host por trecho do nome; destinatário por composição do nome
+# inteiro (to, ccEmail, bccList, toRecipients, sendTo, replyTo, chatId, remoteJid…)
+CAMPO = re.compile(r"url|webhook|endpoint|host"
+                   r"|^(to|cc|bcc|send_?to|reply_?to)(_?(emails?|recipients?|list|address(es)?))?$"
+                   r"|^(emails?|recipients?|recipient_?phone_?number|chat_?id|channel(_?id)?|phone(_?number)?|number|remote_?jid)$", re.I)
 URL = re.compile(r"url|webhook|endpoint|host", re.I)
 MARCA = re.compile(r"\$fromAI|\$json|\$input|\$node\[|\$\(\s*[\x27\x22]|(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}")
 def rotulo(x):
@@ -123,7 +126,9 @@ for f in sys.stdin:
     f = f.strip()
     try: w = json.load(open(f, encoding="utf-8", errors="replace"))
     except Exception:
-        if "\x22nodes\x22" in open(f, encoding="utf-8", errors="replace").read(): print("json ilegível, sem varrer: " + f)
+        try: tem = "\x22nodes\x22" in open(f, encoding="utf-8", errors="replace").read()
+        except OSError: tem = True
+        if tem: print("json ilegível, sem varrer: " + f)
         continue
     for wf in (w if isinstance(w, list) else [w]):
         ns = wf.get("nodes") if isinstance(wf, dict) else None
@@ -137,8 +142,8 @@ for f in sys.stdin:
                 marcas = sorted(set(rotulo(x) for x in MARCA.findall(v)))
                 if not marcas: continue
                 if URL.search(campo):
-                    pre = v.lstrip("=").split("{{")[0]
-                    alvo = "host fixo" if re.match(r"https?://[^/@?#{]+[/?#]", pre) else "host variável"
+                    pre = v.lstrip("=").split("{{")[0].strip()
+                    alvo = "host fixo" if re.match(r"https?://[^/@?#{]+[/?#]", pre, re.I) else "host variável"
                 else: alvo = "destinatário variável"
                 print(f + ": nó " + repr(n.get("name")) + ": " + ".".join(cam) + ": " + " ".join(marcas) + ": " + alvo)'
 # código: fetch/axios/got/requests (inclusive .post/.get e template literal) com endereço
@@ -151,7 +156,7 @@ Achado: o destino vem do modelo ou do lead e não há allowlist de host ou de
 destinatário entre a montagem e o envio. Não é achado: host fixo no nó, com a
 `/`, `?` ou `#` logo depois dele (`https://api.x.com/{{ … }}`), só o caminho ou o corpo
 variável e sem dado de outro tenant no corpo; allowlist conferida no handler
-antes do envio. Sem a `/`, o host não é fixo: `https://api.x.com{{ … }}` vira
+antes do envio. Sem `/`, `?` ou `#`, o host não é fixo: `https://api.x.com{{ … }}` vira
 `https://api.x.com@coletor.example/` com um valor só.
 
 Comportamento do provedor, do renderizador do WhatsApp ou do modelo que o

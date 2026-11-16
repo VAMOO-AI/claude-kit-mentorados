@@ -83,8 +83,9 @@ banco inteiro por cima da RLS.
 original, com comentário, nome de variável e até o trecho que o tree-shaking tirou do
 `.js`. Senha de admin "esquecida" num arquivo de config do front aparece ali inteira. A
 busca 4 varre os `.map` do build, mas só acha token de formato conhecido; senha em texto
-puro não tem formato. O bloco abaixo lê o `sourcesContent` de cada map com a chave da
-busca 3 e sai com o arquivo de origem, a linha, a chave e a máscara. O resto imprime
+puro não tem formato. O bloco abaixo lê o `sourcesContent` de cada map com os nomes de
+chave da busca 3 (os operadores são os de código, sem `=>`) e sai com o arquivo de
+origem, a linha, a chave e a máscara. O resto imprime
 caminho, a opção de config cortada e o status HTTP.
 
 ```bash
@@ -103,25 +104,40 @@ m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
 # a chave, a anotação de tipo do TS só antes de = (apiKey: string = …), e os operadores
 # =, ==, ===, !==, :. Sai só a chave, o operador e a máscara: o trecho entre a chave e o
 # operador nunca é impresso. Falso positivo de formulário cai fora: comparação só com
-# valor entre aspas; valor solto só com caractere que identificador não tem (- : / + =),
-# senão é variável; entre aspas, nada com ${ nem com dois espaços (texto de interface)
-K = re.compile(r"(?P<k>(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*)[\x27\x22]?\s*(?::\s*[A-Za-z_][\w.<>\[\]]*(?:\s*\|\s*[A-Za-z_][\w.<>\[\]]*)*\s*(?==))?(?P<op>!==?|={1,3}|:)\s*(?:(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)|(?P<vs>[^\x27\x22`\s,;)]{8,}))", re.I)
+# valor entre aspas; valor solto só com caractere que identificador não tem (- : / + =)
+# e sem ( de chamada, senão é variável ou expressão; entre aspas, nada com ${ nem com dois espaços (texto de interface).
+# O nome da chave vai do começo do identificador (lastToken, não Token); o que vem depois
+# da palavra só sai inteiro até 16 caracteres, porque pode ser o próprio segredo
+CH = r"(?P<k>[A-Za-z0-9_]{0,24}?(?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]{0,32})"
+TS = r"(?::\s*[A-Za-z_][\w.<>\[\]]*(?:\s*\|\s*[A-Za-z_][\w.<>\[\]]*)*\s*(?==))?"
+K = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>!==?|={1,3}|:)\s*(?:(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)|(?P<vs>[^\x27\x22`\s,;)]{8,}))", re.I)
 ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
 TIPO = ("undefined", "function", "object", "string", "boolean", "number", "bigint", "symbol")
+# o fallback chumbado: apiKey = process.env.X || "valor" e import.meta.env.Y ?? "valor"
+FB = re.compile(CH + r"[\x27\x22]?\s*" + TS + r"(?P<op>=|:)[^;\n]{0,120}?(?:\|\||\?\?)\s*(?P<q>[\x27\x22`])(?P<vq>[^\x27\x22`]{8,})(?P=q)", re.I)
+KW = re.compile(r"api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key", re.I)
+def nome(k):
+    g = KW.search(k); suf = k[g.end():]
+    return k[:g.start()][-16:] + g[0] + (suf if len(suf) <= 16 else suf[:4] + "…")
 def vale(g):
     if g["vq"] is not None:
         v = g["vq"]
         return not ("${" in v or v.count(" ") >= 2 or v.startswith(ref) or v in TIPO)
     v = g["vs"]
-    return g["op"] in ("=", ":") and re.search(r"[-:/+=]", v) is not None and not v.startswith(ref)
+    return g["op"] in ("=", ":") and re.search(r"[-:/+=]", v) is not None and "(" not in v and not v.startswith(ref)
 for f in sys.stdin:
     f = f.strip()
     try: d = json.load(open(f, encoding="utf-8", errors="replace"))
-    except Exception: print("map ilegível, sem varrer: " + f); continue
+    except Exception: d = None
+    if not isinstance(d, dict): print("map ilegível, sem varrer: " + f); continue
     for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
-        for i, l in enumerate((txt or "").splitlines(), 1):
+        for i, l in enumerate((txt if isinstance(txt, str) else "").splitlines(), 1):
             for g in K.finditer(l):
-                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + g["k"] + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))'
+                if vale(g): print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(g["k"]) + " " + g["op"] + " " + (g["q"] or "") + m(g["vq"] or g["vs"]))
+            for g in FB.finditer(l):
+                v = g["vq"]
+                if not ("${" in v or v.count(" ") >= 2):
+                    print(f + " <- " + str(src) + ":" + str(i) + ": " + nome(g["k"]) + " " + g["op"] + " … || " + g["q"] + m(v))'
 # o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
 # SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
 # content-type JSON, não só 200

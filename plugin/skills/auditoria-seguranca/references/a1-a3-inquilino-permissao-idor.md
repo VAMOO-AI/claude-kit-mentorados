@@ -213,7 +213,7 @@ Vale para `INSERT` também: perfil criado pelo próprio cliente já com
 -- gravar. Tabela (tipo r/p): rls = false com upd/ins = true é o pior caso. View (tipo v):
 -- rls não se aplica e o GRANT padrão do Supabase deixa upd = true em quase todas; o que
 -- pesa é atualizavel = true (a view aceita UPDATE na coluna) sem security_invoker=true
--- em opcoes, porque aí ela grava como o dono, por cima da RLS
+-- (ou =on, como foi escrito) em opcoes, porque aí ela grava como o dono, por cima da RLS
 SELECT c.relname AS tabela, c.relkind AS tipo, a.attname AS coluna, c.relrowsecurity AS rls,
        has_column_privilege(r.papel, c.oid, a.attnum, 'UPDATE') AS upd,
        has_column_privilege(r.papel, c.oid, a.attnum, 'INSERT') AS ins, r.papel,
@@ -244,7 +244,9 @@ Sem acesso ao banco, a `cobertura[]` da A2 diz que papel gravado pelo usuário
 não foi medido no estado vivo, e o que sobrou foi a leitura das migrations.
 
 Achado: coluna sensível com `upd` ou `ins` verdadeiro, policy de escrita que
-deixa o dono passar, e nenhum dos três controles. Escreva o caminho completo:
+deixa o dono passar, e nenhum dos três controles. Em view, o achado é
+`atualizavel` e `upd` verdadeiros sem `security_invoker` em `opcoes`: ela grava
+como o dono, e a RLS da tabela de baixo não protege nada. Escreva o caminho completo:
 conta comum → `PATCH /rest/v1/profiles?id=eq.<próprio id>` com
 `{"is_admin": true}` → passa a ver o que admin vê. Não é achado: coluna sem
 privilégio efetivo; tabela **com RLS ligada** e nenhuma policy de escrita que
