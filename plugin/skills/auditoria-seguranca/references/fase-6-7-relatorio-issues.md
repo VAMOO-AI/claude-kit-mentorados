@@ -18,8 +18,9 @@ python3 docs/security-audit/gerar-relatorio.py docs/security-audit/findings.json
 
 O `--verificar` é a regra "trecho copiado, não reescrito de memória" virando
 código: arquivo existe, linhas cabem nele, cada linha do trecho está lá,
-`corroborado` tem `fonte`, `caminho` vai de entrada a sink, issue cita achado
-que existe. Ele **falha alto** —
+`corroborado` tem `fonte`, `caminho` vai de entrada a sink, alta ou crítica
+acionável lida ou corroborada tem `contraevidencia`, issue cita achado que
+existe. Ele **falha alto** —
 corrija o JSON, não o contorne. Rodou sem `--raiz`? A saída diz que o código não
 foi conferido, e isso não é "pronto".
 
@@ -89,8 +90,9 @@ transbordando são defeitos de entrega, não detalhe.
 ## Fase 7 — Issues
 
 Cada achado acionável vira uma issue completa (`[Segurança] <falha>`, labels
-`security` + severidade, problema, evidência com `arquivo:linha`, impacto,
-correção, critérios de aceite verificáveis). O gerador já emite tudo entre
+`security` + severidade, compliance e CWE, problema, evidência com
+`arquivo:linha`, contraevidência e o que muda a severidade quando o achado
+traz, impacto, correção, critérios de aceite verificáveis). O gerador já emite tudo entre
 `--- ISSUE n ---` e `--- FIM ISSUE n ---` a partir do `findings.json`.
 
 Lead `a_validar` **não** vira issue de segurança: vira a pergunta ao dono do
