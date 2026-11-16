@@ -54,7 +54,7 @@ for l in open(0, encoding="utf-8", errors="replace"):
 #    genérico tem \b, senão "risk-…" de classe CSS vira chave. O -a lê binário (.asar) como
 #    texto. Sem build no disco, não rode um: ver abaixo.
 LC_ALL=C grep -arnoE "(sk-(proj|ant|svcacct|admin)-[A-Za-z0-9_-]{16,}|\b[rs]k-[A-Za-z0-9_-]{16,}|[rs]k_(live|test)_[A-Za-z0-9]{16,}|eyJhbGciOi[A-Za-z0-9._-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|SG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}|whsec_[A-Za-z0-9+/=]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{16,}|sb[ps]_[A-Za-z0-9_-]{12,}|shpat_[A-Za-z0-9_-]{12,}|npm_[A-Za-z0-9]{36,}|hf_[A-Za-z0-9]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)" \
-  dist/ .next/static/ 2>/dev/null | python3 -c '
+  dist/ .next/static/ build/ out/ 2>/dev/null | python3 -c '
 import base64, json
 m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
 T = (("sk-proj-", "chave de projeto OpenAI"), ("sk-svcacct-", "chave de conta de serviço OpenAI"),
@@ -78,6 +78,79 @@ for l in open(0, encoding="utf-8", errors="replace"):
 
 JWT com `role=anon` no bundle é a anon key, pública por design; `role=service_role` é o
 banco inteiro por cima da RLS.
+
+**Source map publicado entrega o fonte.** O `.map` traz o `sourcesContent`: o código
+original, com comentário, nome de variável e até o trecho que o tree-shaking tirou do
+`.js`. Senha de admin "esquecida" num arquivo de config do front aparece ali inteira. A
+busca 4 varre os `.map` do build, mas só acha token de formato conhecido; senha em texto
+puro não tem formato. O bloco abaixo lê o `sourcesContent` de cada map com a chave da
+busca 3 e sai com o arquivo de origem, a linha, a chave e a máscara. O resto imprime
+caminho, a opção de config cortada e o status HTTP.
+
+```bash
+# o build gera map? Next: productionBrowserSourceMaps. Vite: build.sourcemap, que em
+# 'hidden' grava o .map sem o comentário no .js e publica igual se dist/ sobe inteiro.
+# CRA: gera por padrão, e só GENERATE_SOURCEMAP=false (no script do package.json ou no
+# arquivo de ambiente, que este bloco não abre) desliga. find em vez de glob: no zsh, glob sem arquivo aborta a linha inteira
+find . -maxdepth 1 \( -name 'next.config.*' -o -name 'vite.config.*' -o -name 'webpack.config.*' \
+  -o -name package.json \) -exec env LC_ALL=C grep -HanoE \
+  "(productionBrowserSourceMaps|sourcemap|devtool|GENERATE_SOURCEMAP)[^,}]{0,24}" {} +
+# atribuição a chave de segredo dentro do fonte que o map publica, mascarada
+find dist .next/static build out -name '*.map' 2>/dev/null | python3 -c '
+import json, re, sys
+m = lambda v: "…" if len(v) <= 12 else v[:4] + "…"
+# a chave, a anotação de tipo do TS (apiKey: string = …), =, ==, ===, :, => e !==, e o
+# valor entre aspas (com espaço) ou solto
+K = re.compile(r"((?:api[_-]?key|secret|token|passw(?:or)?d|pwd|senha|private[_-]?key)[A-Za-z0-9_]*[\x27\x22]?\s*(?::\s*[A-Za-z_][\w<>\[\]|. ]*?\s*)?(?:[:=>]{1,3}|!==?)\s*)(?:([\x27\x22`])([^\x27\x22`]{8,})|([^\x27\x22`\s,;)]{8,}))", re.I)
+ref = ("$", "{", "(", "req.", "process.", "import.meta", "this.", "env.", "os.environ")
+for f in sys.stdin:
+    f = f.strip()
+    try: d = json.load(open(f, encoding="utf-8", errors="replace"))
+    except Exception: print("map ilegível, sem varrer: " + f); continue
+    for src, txt in zip(d.get("sources") or [], d.get("sourcesContent") or []):
+        for i, l in enumerate((txt or "").splitlines(), 1):
+            for g in K.finditer(l):
+                v = g[3] or g[4]
+                if not v.startswith(ref): print(f + " <- " + str(src) + ":" + str(i) + ": " + g[1] + (g[2] or "") + m(v))'
+# o deploy serve? Ler produção pode: só os headers do .map que o .js aponta, sem o corpo.
+# SPA com rewrite devolve 200 em text/html para qualquer caminho: servido é 200 com
+# content-type JSON, não só 200
+# curl -s https://<dominio>/<caminho>.js | grep -o 'sourceMappingURL=[^ ]*'
+# curl -sI https://<dominio>/<caminho>.js.map | grep -iE '^(HTTP|content-type)'
+```
+
+O map sozinho vai para `hardening[]`. Vira achado quando um dos dois blocos acha nele um
+segredo que cruza fronteira — e aí o map é o `caminho`, não o achado.
+
+**Chave nova não desliga a velha.** Criar `sb_publishable_…`/`sb_secret_…` não revoga a
+anon e a service_role legadas: as duas famílias funcionam juntas até alguém desativar as
+legadas no painel, num passo separado. E a anon e a service_role são JWTs assinados com o
+segredo JWT legado; por isso o Supabase só deixa revogar esse segredo **depois** de
+desativar as duas. Leia em cadeia, sem comando novo, e trate cada leitura como
+**indício** do estado, não como prova:
+
+- a busca 4 achou `JWT role=anon` no bundle → o código ainda embute a chave legada. Se o
+  build é o que está no ar, ela tem que estar ativa, e então o segredo JWT legado não foi
+  revogado. Um `dist/` antigo no disco não diz o que está no ar;
+- o projeto migrou para `sb_publishable_…` e a anon legada sumiu do bundle → isso prova a
+  migração do código, não a desativação;
+- **service_role que vazou** (repo, log, máquina de ex-colaborador) → ela é um JWT
+  assinado, não o segredo: dá acesso por cima da RLS até alguém desativar as legadas ou
+  revogar o segredo, mas não deixa forjar token novo;
+- **segredo JWT legado que vazou** (o `JWT_SECRET` do projeto num `.env` versionado,
+  num log, num CI) → quem o tem forja token de qualquer papel e de qualquer usuário, e
+  só a revogação do segredo fecha.
+
+O estado real das três coisas mora no painel, e por isso sai `a_validar`.
+
+**Um 401 no navegador não prova revogação.** A chave pode ter sido trocada só no app, a
+rota pode exigir outro header, a policy pode estar negando por outro motivo. Estado de
+chave e de segredo é fato do painel, não do repo: o achado sai `a_validar`, com o
+`bloqueio` "estado das chaves legadas e do segredo JWT não está no repo" e o
+`plano_validacao` para o dono: abrir *Settings → API Keys* e conferir se as legadas estão
+desativadas, e *JWT Keys* para ver se o segredo legado foi revogado (ou, com o token
+dele, o `GET` de `api-keys/legacy` da Management API devolvendo `enabled: false`). Quem
+roda é o dono, não você.
 
 **Sem build no disco, o build é pergunta, não passo da auditoria.** `npm run build`
 executa o script de build do repo auditado, que esta auditoria trata como código não

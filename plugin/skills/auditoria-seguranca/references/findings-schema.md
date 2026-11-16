@@ -76,7 +76,10 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
       "condicoes": [
         { "tipo": "autenticacao", "descricao": "conta válida de qualquer plano" }
       ],
-      "correcao": "O fix, específico o bastante para virar PR." },
+      "correcao": "O fix, específico o bastante para virar PR.",
+      "contraevidencia": "requireAuth carrega req.user.orgId, o que sugeriria filtro global. Não derruba: nenhuma extensão do Prisma injeta o orgId e esta query não o lê.",
+      "muda_severidade_se": ["Cai para alta se o endpoint exigir papel de admin da plataforma."],
+      "cwe": "CWE-863" },
 
     { "id": "F7", "categoria": "A2", "severidade": "critica",
       "status": "a_validar", "evidencia": "lido",
@@ -113,7 +116,8 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
 ## Regras dos campos
 
 - **`severidade`**: `critica` · `alta` · `media` · `baixa` · `informativa`. Sem
-  acento e sem maiúscula — a cor e o rótulo do chip saem daí. **Âncoras**, para a
+  acento e sem maiúscula, exatamente assim: `"Alta"` ou `"alta "` **aborta** o
+  gerador, porque o veredito compara o valor cru. A cor e o rótulo do chip saem daí. **Âncoras**, para a
   nota não sair do que o achado parece:
 
   | nível | o que precisa estar demonstrado |
@@ -184,6 +188,33 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
   não é lista **abortam** o gerador, com ou sem `--verificar`. Mapa, formatos e
   justificativa de cada controle em `references/compliance-map.md`. É
   rastreabilidade sobre o achado provado: não altera severidade nem veredito.
+- **`contraevidencia`** (texto): a evidência mais forte **contra** o achado e
+  por que ela não o derruba — o guard que parecia cobrir a rota, o middleware que
+  parecia injetar o tenant, a policy que parecia fechar a tabela. É o registro
+  do contraditório: o juiz da Fase 5 confere esse campo, e sem ele o veredito
+  fica com um lado só. Quem lê o PDF vê que alguém tentou derrubar a nota antes
+  de cobrar o conserto. **Obrigatória para o `--verificar`** em achado `alta` ou
+  `critica`, acionável (status `aberto`), com evidência `lido` ou `corroborado`:
+  ausente, vazia ou só com espaço, o `--verificar` falha dizendo o que escrever.
+  Em `padrao` ninguém abriu o arquivo ainda, e nas severidades menores o campo é
+  opcional — escreva quando houver algo que pareça proteger. Valor vazio de
+  sentido (`"nenhuma"`, `"n/a"`, `"-"`) ou com menos de 15 caracteres também
+  reprova no `--verificar`: se nada pesa contra, diga o que você procurou e não
+  achou.
+- **`muda_severidade_se`** (lista de frases, opcional): as condições que
+  subiriam ou baixariam a nota (`"Cai para média se existir soft delete com
+  restauração pelo dono"`, `"Sobe para crítica se produção roda com o
+  default"`). Deixa a severidade discutível pelo fato certo, em vez de por
+  opinião, e diz a quem corrige o que procurar antes de contestar. Valor que
+  não é lista de texto aborta o gerador.
+- **`cwe`** (opcional): `"CWE-<número>"` ou lista deles (`["CWE-798",
+  "CWE-1188"]`). Dá ao leitor técnico o nome padronizado da fraqueza, que é o
+  que ele pesquisa e o que ferramenta de terceiro cruza. Sai no achado, na
+  linha **Classificação** junto dos controles de compliance, e na issue. O
+  gerador confere só o formato, não o catálogo: valor fora de `CWE-<número>`
+  (`"cwe-79"`, `"CWE-XSS"`, lista vazia) **aborta**, com ou sem `--verificar`,
+  como no `compliance`. Como o compliance, é etiqueta: não muda severidade nem
+  veredito.
 - **`desde`**: data da auditoria em que o achado apareceu pela primeira vez,
   quando ele foi carregado de um `findings.json` anterior.
 - **`hardening[]`**: melhoria de defesa em profundidade **sem violação de
@@ -198,12 +229,12 @@ quando ausente (seção vazia sai com aviso explícito, nunca em silêncio).
 - **Redação de segredo**: o gerador mascara **todo campo de texto** do relatório,
   não só o `trecho`. Em `achados[]` e `issues[]`: título, `por_que`, impacto,
   correção, `bloqueio`, `motivo`, `fonte`, `condicoes`, `plano_validacao`,
-  `caminho`, `problema`, `criterios_aceite` e o `markdown` da issue. Nas listas
+  `caminho`, `contraevidencia`, `muda_severidade_se`, `problema`, `criterios_aceite` e o `markdown` da issue. Nas listas
   livres: `pontos_fortes[]` (inclusive a `evidencia`, que ali é texto),
   `pontos_fracos[]`, `hardening[]` (string solta ou objeto) e o `texto` de
   `recomendacoes[]`. Ficam de fora só os campos que o `--verificar` e o cálculo
-  leem (`id`, `arquivo`, `linhas`, `categoria`, `severidade`, `status`, os `achados`
-  citados e afins). Os formatos reconhecidos são os da lista `pads` da Fase 6 do
+  leem (`id`, `arquivo`, `linhas`, `categoria`, `severidade`, `status`, `cwe`, os
+  `achados` citados e afins). Os formatos reconhecidos são os da lista `pads` da Fase 6 do
   `SKILL.md`, a fonte única: chaves e tokens saem com o tipo num rótulo, a senha
   em URL, o default `${var:-valor}`/`${var-valor}` (4 caracteres + `…` acima de 12,
   só `…` até 12) e a atribuição a chave de senha ou segredo, com ou sem aspas.
@@ -244,6 +275,11 @@ bloqueada por fato externo — o bloqueio é para resolver.
 - **`issues[].achados`** referencia `achados[].id`: o gerador monta a seção de
   evidência com o trecho de cada achado citado. Um achado sem issue é decisão
   consciente (trivial ou já agrupado), não esquecimento.
+- **Quebra de linha na issue montada:** título, `problema`, `impacto`,
+  `correcao`, `criterios_aceite`, `contraevidencia` e `muda_severidade_se` saem
+  numa linha só, com marcador de bloco no começo escapado. Uma quebra no meio do
+  texto abria um `## Critérios de aceite` falso ou um `- [x]` marcado no corpo
+  que o GitHub mostra. O `trecho` mantém as quebras dentro da cerca de código.
 - **`issues[].markdown`** (opcional) sobrescreve a montagem automática quando a
   issue precisa de um texto que o schema não expressa. Também passa pela máscara
   de segredo, e sem escotilha: aqui não há como marcar `redacao: false`.
@@ -264,7 +300,8 @@ python3 gerar-relatorio.py findings.json --out ... --html-only   # itera layout 
 O `--verificar` cobra o que este arquivo promete em prosa: `arquivo` existe,
 `linhas` cabem nele, cada linha do `trecho` está lá (anotação `// ...` no fim da
 linha é tolerada; código reescrito de memória não é), `corroborado` tem `fonte`,
-`caminho` vai de `entrada` a `sink`, e toda issue ou recomendação cita achado que
+`caminho` vai de `entrada` a `sink`, alta ou crítica acionável lida ou
+corroborada tem `contraevidencia`, e toda issue ou recomendação cita achado que
 existe. Sem `--raiz` ele confere só as referências e imprime que o código **não**
 foi conferido — não deixe essa linha passar.
 

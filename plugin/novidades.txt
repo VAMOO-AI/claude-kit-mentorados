@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.95.0|A auditoria de segurança agora pega conta comum que vira admin sozinha, chave antiga do Supabase que continua valendo e agente que manda dado para fora; O relatório da auditoria de segurança agora mostra, em cada achado grave, o que pesa contra ele, o que mudaria a nota e o CWE; A auditoria de segurança agora confirma IDOR e RLS com requisições de leitura e uma matriz por papel, sem tocar nos dados do cliente
 0.94.0|O modo sem perguntas agora liga o "Ignorar permissões" de verdade: rode /kit-vamoo:setup --sem-perguntas e só o que não tem volta ainda pede confirmação|setup
 0.93.0|quem trabalha em bypass pode ligar o modo sem perguntas com /kit-vamoo:setup --sem-perguntas, que tira as confirmações de comando do kit (force push fora da main, checkout -f, stash drop) e mantém os bloqueios
 0.92.0|A limpeza de worktree não segura mais o worktree mergeado só pelo cli-latest do supabase ou pelo .last-run.json do Playwright que o e2e local deixa

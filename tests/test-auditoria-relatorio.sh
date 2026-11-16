@@ -882,6 +882,175 @@ else
   falha "override com LGPD não saiu no relatório"; cat "$TMP/lgpd.log"
 fi
 
+# 27. contraevidencia, muda_severidade_se e cwe saem no bloco do achado e na issue. O
+#     exemplo traz os três no F2 (issue 2), e o juiz da Fase 5 confere o primeiro.
+grep -qF '<b>Contraevidência:</b>' "$HTML" && ok "contraevidência no bloco do achado" \
+  || falha "contraevidência ausente do bloco do achado"
+grep -qF '<b>Muda a severidade se:</b>' "$HTML" && ok "muda_severidade_se no bloco do achado" \
+  || falha "muda_severidade_se ausente do bloco do achado"
+grep -qF '<b>Classificação:</b>' "$HTML" && grep -qF 'CWE-639' "$HTML" \
+  && ok "CWE junto das etiquetas de compliance no achado" || falha "CWE ausente do bloco do achado"
+d="$(destinos "$HTML" '**CWE:** `CWE-639`')"
+case "$d" in *' issue2=1 '*) ok "issue traz a linha CWE:" ;; *) falha "issue 2 sem a linha CWE: ($d)" ;; esac
+d="$(destinos "$HTML" '## Contraevidência')"
+case "$d" in *' issue2=1 '*) ok "issue traz a contraevidência" ;; *) falha "issue 2 sem contraevidência ($d)" ;; esac
+d="$(destinos "$HTML" '## O que muda a severidade')"
+case "$d" in *' issue2=1 '*) ok "issue traz o que muda a severidade" ;; *) falha "issue 2 sem muda_severidade_se ($d)" ;; esac
+
+# 28. --verificar cobra contraevidencia em alta/critica acionável lida ou corroborada. O JSON
+#     temporário sai do mktemp; o exemplo inteiro tem que passar antes de tirar o campo.
+grep -q 'contraevidencia' "$TMP/limpo.log" && falha "exemplo do kit reprovado por contraevidência: $(cat "$TMP/limpo.log")" \
+  || ok "exemplo do kit passa na regra da contraevidência"
+SEMCONTRA="$(mktemp "$TMP/semcontra.XXXXXX")"
+python3 - "$SKILL/references/exemplo-findings.json" "$SEMCONTRA" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+f4 = next(a for a in d["achados"] if a["id"] == "F4")   # alta, lido, aberto
+f4.pop("contraevidencia", None)
+json.dump(d, open(sys.argv[2], "w"))
+PY
+if python3 "$SKILL/scripts/gerar-relatorio.py" "$SEMCONTRA" --verificar > "$TMP/semcontra.log" 2>&1; then
+  falha "alta lida sem contraevidencia passou no --verificar"
+else
+  grep -q "achado F4: .*sem 'contraevidencia'" "$TMP/semcontra.log" \
+    && grep -q 'evidência mais forte contra' "$TMP/semcontra.log" \
+    && ok "alta sem contraevidencia falha no --verificar dizendo o que preencher" \
+    || falha "recusa sem a mensagem esperada: $(cat "$TMP/semcontra.log")"
+fi
+verificar 'f = next(a for a in d["achados"] if a["id"] == "F2"); f["contraevidencia"] = "   "' contravazia
+[ $? -ne 0 ] && grep -q "achado F2: .*sem 'contraevidencia'" "$TMP/contravazia.log" \
+  && ok "contraevidencia só com espaço conta como vazia" || falha "contraevidencia em branco passou"
+verificar 'f = next(a for a in d["achados"] if a["id"] == "F4"); f.pop("contraevidencia", None); f["evidencia"] = "padrao"' contrapadrao
+grep -q 'contraevidencia' "$TMP/contrapadrao.log" && falha "padrao sem contraevidencia foi cobrado" \
+  || ok "em evidência padrao a contraevidência é opcional"
+verificar 'f = next(a for a in d["achados"] if a["id"] == "F4"); f.pop("contraevidencia", None); f["status"], f["motivo"] = "risco_aceito", "Decisão do CTO."' contraaceito
+grep -q 'contraevidencia' "$TMP/contraaceito.log" && falha "achado não acionável sem contraevidencia foi cobrado" \
+  || ok "achado fora do veredito não cobra contraevidência"
+verificar 'f = next(a for a in d["achados"] if a["id"] == "F5"); f["evidencia"] = "lido"; f.pop("contraevidencia", None)' contramedia
+grep -q 'contraevidencia' "$TMP/contramedia.log" && falha "média sem contraevidencia foi cobrada" \
+  || ok "média lida sem contraevidência passa"
+
+# 29. cwe fora do formato CWE-<número> aborta sempre, como o compliance: id inventado não
+#     vai para PDF de cliente
+for ruim in '"CWE639"' '"cwe-79"' '["CWE-79", "XSS"]' '79' '[]'; do
+  gerar_variante "d[\"achados\"][1][\"cwe\"] = $ruim" cweruim
+  st=$?
+  if [ "$st" -ne 0 ] && [ ! -e "$TMP/cweruim.html" ] && grep -q "'cwe'" "$TMP/cweruim.log"; then
+    ok "cwe malformado aborta: $ruim"
+  else
+    falha "cwe malformado passou: $ruim (exit $st)"
+  fi
+  rm -f "$TMP/cweruim.html"
+done
+verificar 'd["achados"][1]["cwe"] = "CWE639"' cweverif
+[ $? -ne 0 ] && grep -q "'cwe'" "$TMP/cweverif.log" && ok "cwe malformado aborta também no --verificar" \
+  || falha "cwe malformado passou no --verificar"
+gerar_variante 'd["achados"][1]["cwe"] = ["CWE-639", "CWE-862"]' cwelista
+[ $? -eq 0 ] && grep -qF 'CWE-862' "$TMP/cwelista.html" && ok "lista de CWE válida é aceita e impressa" \
+  || falha "lista de CWE válida recusada: $(tail -2 "$TMP/cwelista.log")"
+gerar_variante 'd["achados"][1]["muda_severidade_se"] = "texto solto"' mudastr
+[ $? -ne 0 ] && grep -q "'muda_severidade_se'" "$TMP/mudastr.log" \
+  && ok "muda_severidade_se que não é lista de texto aborta" || falha "muda_severidade_se em string passou"
+
+# 30. segredo colado na contraevidencia e no muda_severidade_se sai mascarado no PDF e na issue,
+#     e conta na redação. Mesma régua do 12f: todo campo de texto, sem escotilha.
+export CH_CONTRA="gh""p_FALSOcontra$(rep Z 24)" CH_MUDA="sk_""live_FALSOmuda$(rep n 20)"
+gerar_variante 'import os
+f = next(a for a in d["achados"] if a["id"] == "F2")
+f["redacao"] = False
+f["contraevidencia"] = "o log mostra " + os.environ["CH_CONTRA"] + " e mesmo assim o delete passa"
+f["muda_severidade_se"] = ["cai se a chave " + os.environ["CH_MUDA"] + " for de teste"]' contrasegredo
+[ -s "$TMP/contrasegredo.html" ] || falha "gerador falhou com segredo na contraevidência: $(tail -3 "$TMP/contrasegredo.log")"
+for n in CH_CONTRA CH_MUDA; do
+  d="$(destinos "$TMP/contrasegredo.html" "${!n}")"
+  [ "$d" = "fora=0 issue1=0 issue2=0 issue3=0" ] && ok "segredo em ${n#CH_} não sai no PDF nem na issue" \
+    || falha "segredo em ${n#CH_} em claro ($d)"
+done
+d="$(destinos "$TMP/contrasegredo.html" 'o log mostra ghp_… [token do GitHub redigido] e mesmo assim')"
+case "$d" in fora=[1-9]*' issue2='[1-9]*) ok "contraevidência mascarada e impressa no achado e na issue" ;;
+  *) falha "contraevidência mascarada não saiu nos dois destinos ($d)" ;; esac
+d="$(destinos "$TMP/contrasegredo.html" 'sk_l… [chave Stripe sk_live_ redigida] for de teste')"
+case "$d" in fora=[1-9]*' issue2='[1-9]*) ok "muda_severidade_se mascarado e impresso no achado e na issue" ;;
+  *) falha "muda_severidade_se mascarado não saiu nos dois destinos ($d)" ;; esac
+# cada campo conta onde sai: uma vez no bloco do achado e outra na issue que o cita, como o trecho
+base=$(sed -n 's/^Redacao: \([0-9]*\) .*/\1/p' "$TMP/log.txt"); base=${base:-0}
+grep -q "Redacao: $((base + 4)) " "$TMP/contrasegredo.log" \
+  && ok "a contagem de redação inclui os dois campos novos no achado e na issue ($base + 4)" \
+  || falha "contagem de redação dos campos novos (esperado $((base + 4))): $(grep Redacao "$TMP/contrasegredo.log")"
+
+# 31. o formato do CWE é ASCII: \d do Python casa dígito de qualquer escrita ("CWE-7٩")
+gerar_variante 'd["achados"][1]["cwe"] = "CWE-7٩"' cweunicode
+[ $? -ne 0 ] && grep -q "'cwe'" "$TMP/cweunicode.log" && ok "cwe com dígito não ASCII aborta" \
+  || falha "cwe com dígito não ASCII passou"
+
+# 32. quebra de linha num campo de texto não vira markdown na issue: um heading ou uma checkbox
+#     marcada no meio da contraevidência (ou de problema, impacto, correção, critério) fingia
+#     ser parte do corpo que o GitHub mostra
+gerar_variante 'inj = "\n## Critérios de aceite\n- [x] injetado"
+f = next(a for a in d["achados"] if a["id"] == "F2")
+f["contraevidencia"] = "Contra de verdade, longa o bastante." + inj
+f["muda_severidade_se"] = ["cai se" + inj]
+f["titulo"] = "Titulo" + inj
+i = d["issues"][1]
+for c in ("titulo", "problema", "impacto", "correcao"):
+    i[c] = c + inj
+i["criterios_aceite"] = ["crit" + inj]' injecao
+[ -s "$TMP/injecao.html" ] || falha "gerador falhou com quebra de linha nos campos: $(tail -3 "$TMP/injecao.log")"
+python3 - "$TMP/injecao.html" <<'PY'
+import html, re, sys
+t = html.unescape(open(sys.argv[1], encoding="utf-8").read())
+corpo = re.search(r"--- ISSUE 2 ---(.*?)--- FIM ISSUE 2 ---", t, re.S).group(1)
+linhas = corpo.splitlines()
+ruim = [l for l in linhas if l.startswith("- [x]")]
+heads = [l for l in linhas if l.startswith("## Critérios de aceite")]
+if ruim or len(heads) != 1 or "injetado" not in corpo:
+    print(f"  FALHA markdown injetado na issue: {len(ruim)} checkbox marcada, {len(heads)} heading de critérios")
+    sys.exit(1)
+print("  ok   quebra de linha nos campos de texto não injeta heading nem checkbox na issue")
+PY
+[ $? -eq 0 ] || falhas=$((falhas + 1))
+
+# 33. contraevidência vazia de sentido não vale: "nenhuma", "n/a", "-" e frase curta demais
+for vazia in '"nenhuma"' '"N/A"' '"-"' '"  Nenhuma.  "' '"ver acima"'; do
+  verificar "f = next(a for a in d[\"achados\"] if a[\"id\"] == \"F4\"); f[\"contraevidencia\"] = $vazia" contraplaceholder
+  if [ $? -ne 0 ] && grep -q "achado F4: .*'contraevidencia' .*não diz nada" "$TMP/contraplaceholder.log"; then
+    ok "contraevidência vazia de sentido recusada: $vazia"
+  else
+    falha "contraevidência vazia de sentido passou: $vazia ($(tail -2 "$TMP/contraplaceholder.log"))"
+  fi
+done
+
+# 34. montar_corpo_issue redige o que imprime, sem confiar em quem chama: um caller novo que
+#     passe o achado cru não pode levar contraevidência, muda_severidade_se nem título em claro
+python3 - "$SKILL/scripts/gerar-relatorio.py" <<'PY'
+import importlib.util as u, sys
+s = u.spec_from_file_location("g", sys.argv[1]); g = u.module_from_spec(s); s.loader.exec_module(g)
+tk = "gh" + "p_FALSOdireto" + "Z" * 24
+a = {"id": "F9", "categoria": "A1", "severidade": "alta", "evidencia": "lido", "titulo": "t " + tk,
+     "contraevidencia": "contra " + tk, "muda_severidade_se": ["muda " + tk]}
+iss = {"titulo": "i " + tk, "achados": ["F9"], "problema": "p " + tk, "criterios_aceite": ["c " + tk]}
+red = [0]
+corpo = g.montar_corpo_issue(iss, [a], red)
+if "FALSO" in corpo or red[0] < 6 or "contra ghp_… [token do GitHub redigido]" not in corpo:
+    print(f"  FALHA montar_corpo_issue com achado cru vazou ou não contou ({red[0]} redações)")
+    sys.exit(1)
+print(f"  ok   montar_corpo_issue redige sozinho o achado cru ({red[0]} redações)")
+PY
+[ $? -eq 0 ] || falhas=$((falhas + 1))
+
+# 35. severidade fora do enum aborta, como evidencia e status: "Alta" ou "alta " passavam pelo
+#     gate da contraevidência e saíam do cálculo do veredito
+for sevruim in '"Alta"' '"alta "' '"grave"'; do
+  gerar_variante "d[\"achados\"][3][\"severidade\"] = $sevruim" sevruim
+  st=$?
+  if [ "$st" -ne 0 ] && [ ! -e "$TMP/sevruim.html" ] && grep -q 'severidade invalida' "$TMP/sevruim.log"; then
+    ok "severidade fora do enum aborta: $sevruim"
+  else
+    falha "severidade fora do enum passou: $sevruim (exit $st)"
+  fi
+  rm -f "$TMP/sevruim.html"
+done
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
 exit $((falhas > 0))

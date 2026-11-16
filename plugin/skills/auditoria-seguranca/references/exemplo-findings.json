@@ -55,7 +55,10 @@
       "trecho": "const rows = await prisma.sale.groupBy({\n  by: ['productId'],\n  _sum: { amount: true },\n  where: { createdAt: { gte: from, lte: to } },   // sem organizationId\n});",
       "por_que": "Qualquer usuário autenticado, de qualquer organização, recebe a soma de vendas de todos os clientes da plataforma. O filtro de tenant simplesmente não existe nesta query.",
       "impacto": "Vazamento de faturamento entre concorrentes na mesma instância.",
-      "correcao": "Adicionar organizationId: req.user.orgId no where e cobrir com teste que consulta com dois tenants."
+      "correcao": "Adicionar organizationId: req.user.orgId no where e cobrir com teste que consulta com dois tenants.",
+      "contraevidencia": "O plugin de auth carrega req.user.orgId em toda requisição, o que sugeriria um filtro global. Não derruba: o orgId fica no objeto da requisição e nenhuma extensão do Prisma o injeta no where; esta query nunca o lê.",
+      "muda_severidade_se": ["Cai para alta se o endpoint exigir papel de admin da plataforma, que só a equipe interna tem."],
+      "cwe": "CWE-863"
     },
     {
       "id": "F2", "categoria": "A3", "severidade": "critica",
@@ -72,7 +75,10 @@
       "por_que": "requireAuth só prova que existe uma sessão. O ID vem do path e é usado direto no where: um usuário logado apaga o contato de qualquer organização iterando UUIDs conhecidos.",
       "impacto": "Destruição de dados de outros clientes, sem trilha que identifique o autor.",
       "condicoes": "Nenhuma. Basta uma conta válida de qualquer plano.",
-      "correcao": "deleteMany({ where: { id, organizationId: req.user.orgId } }) e responder 404 quando count === 0."
+      "correcao": "deleteMany({ where: { id, organizationId: req.user.orgId } }) e responder 404 quando count === 0.",
+      "contraevidencia": "Os IDs são UUID v4, o que tornaria o alvo difícil de adivinhar. Não derruba: a listagem de contatos compartilhados e os links de convite expõem UUIDs de outras organizações, e a requisição real apagou um registro alheio.",
+      "muda_severidade_se": ["Cai para alta se a única fonte de UUID alheio for um vazamento que exija outro achado.", "Cai para média se existir soft delete com restauração pelo dono do registro."],
+      "cwe": "CWE-639"
     },
     {
       "id": "F3", "categoria": "A4", "severidade": "alta",
@@ -85,7 +91,10 @@
       "redacao": false,
       "por_que": "O default está no repositório: quem não sobrescrever a variável roda em produção com um segredo conhecido, e qualquer pessoa forja um token de admin. Não há validação de startup que rejeite o valor.",
       "impacto": "Comprometimento total da autenticação.",
-      "correcao": "Remover o default e falhar no boot se JWT_SECRET estiver ausente ou for o valor conhecido."
+      "correcao": "Remover o default e falhar no boot se JWT_SECRET estiver ausente ou for o valor conhecido.",
+      "contraevidencia": "O deploy de produção pode definir a variável e nunca usar o default. Não derruba: o repositório não traz nenhuma validação de boot, e o README manda subir com docker-compose up sem citar a variável.",
+      "muda_severidade_se": ["Sobe para crítica se o ambiente de produção estiver confirmado rodando com o default."],
+      "cwe": ["CWE-798", "CWE-1188"]
     },
     {
       "id": "F4", "categoria": "A2", "severidade": "alta",
@@ -100,7 +109,10 @@
         {"tipo": "autenticacao", "descricao": "conta válida de qualquer plano"},
         {"tipo": "configuracao", "descricao": "convites habilitados no workspace (default: sim)"}
       ],
-      "correcao": "Adicionar requireRole('admin') no preHandler e testar 403 com token de usuário comum."
+      "correcao": "Adicionar requireRole('admin') no preHandler e testar 403 com token de usuário comum.",
+      "contraevidencia": "O botão de convite só aparece para admin, então um usuário comum não chegaria ao fluxo. Não derruba: a proteção é só de interface; o handler aceita o POST de qualquer sessão, e o papel vem do corpo da requisição.",
+      "muda_severidade_se": ["Cai para média se o convite com papel admin exigir aprovação de outro admin antes de valer."],
+      "cwe": "CWE-602"
     },
     {
       "id": "F5", "categoria": "A5", "severidade": "media",
@@ -112,7 +124,9 @@
       "por_que": "user.name é livre no cadastro e vai para o corpo HTML sem escape. React protege a aplicação, mas o e-mail não passa por React.",
       "impacto": "HTML injetado no e-mail; em clientes que renderizam, vira phishing com a marca do produto.",
       "condicoes": "Depende do cliente de e-mail do destinatário; a maioria bloqueia script, não bloqueia link forjado.",
-      "correcao": "Escapar as interpolações do template com um helper único e cobrir com teste."
+      "correcao": "Escapar as interpolações do template com um helper único e cobrir com teste.",
+      "muda_severidade_se": ["Sobe para alta se o mesmo template for renderizado no painel web sem passar por React."],
+      "cwe": "CWE-79"
     },
     {
       "id": "F6", "categoria": "A2", "severidade": "critica",
