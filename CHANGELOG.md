@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.95.2] — 2026-11-17
+
+### Corrigido
+
+- `secscan`: o aviso de sincronia do `falso-positivo.md` passa a citar também a `orquestracao/references/memoria-de-veredito.md`, que segue a mesma regra de reabrir veredito.
+
 ## [0.95.1] — 2026-11-16
 
 ### Mudado
