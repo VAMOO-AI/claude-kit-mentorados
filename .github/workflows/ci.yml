@@ -567,10 +567,12 @@ jobs:
           fetch-depth: 0
 
       - name: A suíte roda no macOS (shard ${{ matrix.shard }} de 3)
+        timeout-minutes: 12
         run: |
           fail=0
           for t in $(bash .github/scripts/ci-shard.sh "${{ matrix.shard }}" 3); do
-            if bash "$t" > "/tmp/$(basename "$t").log" 2>&1; then echo "ok   $t"
+            echo "INICIO $(date +%T) $t"
+            if perl -e 'alarm 150; exec @ARGV' bash "$t" > "/tmp/$(basename "$t").log" 2>&1; then echo "ok   $t"
             else echo "::error file=$t::reprovou no macOS"; tail -20 "/tmp/$(basename "$t").log"; fail=1; fi
             # Suíte de guard com modo --codex (F1 do #241) roda também no payload do Codex,
             # no mesmo shard da suíte.
