@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.95.3|Copiar pasta com rsync excluindo o .env não pede mais confirmação no modo sem perguntas
 0.95.2|O aviso de sincronia do secscan agora aponta também a orquestracao
 0.95.1|- Na `baseline`, o juiz que confere os achados graves agora só descarta um achado com prova. Se discordar só da nota, rebaixa em vez de apagar; - secscan: falso-positivo apoiado num middleware ou guard agora reabre se o controle sumir, em vez de ficar congelado; A varredura de source map e de workflows n8n da auditoria ficou mais certeira e não deixa escapar segredo na saída; - O fan-out da orquestracao não aceita mais um falso-positivo antigo cujo middleware ou guard foi removido. O achado volta para ser julgado
 0.95.0|A auditoria de segurança agora pega conta comum que vira admin sozinha, chave antiga do Supabase que continua valendo e agente que manda dado para fora; O relatório da auditoria de segurança agora mostra, em cada achado grave, o que pesa contra ele, o que mudaria a nota e o CWE; A auditoria de segurança agora confirma IDOR e RLS com requisições de leitura e uma matriz por papel, sem tocar nos dados do cliente

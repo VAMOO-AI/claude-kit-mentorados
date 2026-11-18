@@ -510,6 +510,14 @@ fi
 # isento: mandar a service_role PRO Supabase é o uso correto dela. Sobram 13 em 30 dias.
 net_seg=""
 shopt -s nocasematch; [[ $c =~ (curl|wget|nc|ncat|scp|rsync) ]] && net_seg=$(printf '%s' "$c" | grep -oE '\b(curl|wget|nc|ncat|scp|rsync)\b[^;&|]*' 2>/dev/null); shopt -u nocasematch
+# rsync/scp só é rede com destino remoto (`host:caminho`, `user@host:` ou `rsync://`); sem
+# isso é cópia local. E `--exclude[=| ]X` / `--exclude-from` diz o que NÃO vai: o
+# `--exclude .env.local` de cópia de template perguntava em bypass (18/11/2026).
+if [ -n "$net_seg" ]; then
+  net_seg=$(printf '%s\n' "$net_seg" | awk '
+    /^(rsync|scp)([[:space:]]|$)/ && !/rsync:\/\// && !/(^|[[:space:]])[^[:space:]-][^[:space:]:\/]*:/ { next }
+    { print }' | sed -E 's/--exclude-from(=|[[:space:]]+)[^[:space:]]+//g; s/--exclude(=|[[:space:]]+)[^[:space:]]+//g')
+fi
 if [ -n "$net_seg" ] \
    && printf '%s' "$net_seg" | grep -qiE '(\.env\b|\.env\.|id_rsa|id_ed25519|\.ssh/|SERVICE_ROLE|SERVICE_KEY|ANTHROPIC_API_KEY)' \
    && ! printf '%s' "$net_seg" | grep -qiE '\.env\.(example|sample|template)' \

@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.95.3] — 2026-11-18
+
+### Corrigido
+
+- **`check-careful`**: `rsync`/`scp` sem destino remoto e o alvo de `--exclude` deixam de disparar "rede + credencial". Cópia local de template com `--exclude .env.local` perguntava até em bypass no modo sem perguntas.
+
 ## [0.95.2] — 2026-11-17
 
 ### Corrigido
