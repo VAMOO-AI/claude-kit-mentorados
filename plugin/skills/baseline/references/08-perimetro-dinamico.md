@@ -17,15 +17,13 @@ chama.
 |---|---|---|
 | `preview` | ZAP + as seis sondas | Deploy de preview da Vercel **do próprio projeto** (o time de quem audita), listado no contrato |
 | `staging` | ZAP + as seis sondas | Ambiente de staging **do próprio projeto**, listado no contrato |
-| `cliente-autorizado` | sondas só de leitura (tabela abaixo); ZAP ainda não | Autorização por escrito do cliente registrada no `.context` do projeto, com o host no escopo e a data dentro da janela |
+| `cliente-autorizado` | ZAP sem formulário + sondas só de leitura (tabela abaixo) | Autorização por escrito do cliente registrada no `.context` do projeto, com o host no escopo e a data dentro da janela |
 | produção (própria ou de cliente) | nada desta fase | O `curl -sSI` passivo do `08-perimetro.md` continua valendo; o resto, não |
 | qualquer outro host | nada | Pare e diga à pessoa que o alvo está fora da política |
 
 **Em ambiente de cliente nada escreve:** só `GET`, `HEAD` e `OPTIONS`, sem sessão autenticada.
 Sonda que precisa de `POST` ou faz o servidor buscar URL é `não aplicável (alvo de cliente)`. O
-ZAP também: o corte de `POST` do spider foi conferido no fonte, não em execução, então no cliente
-a linha dele é `não aplicável (corte de POST do spider não provado em execução)` até alguém provar
-pelo log de um servidor de teste que só chegou `GET`.
+ZAP roda com o corte de formulário da seção dele, provado pelo log de um servidor de teste.
 
 ### O porteiro: o alvo está no contrato?
 
@@ -92,14 +90,24 @@ errado ou vencido cai no SSO de novo, e todas as linhas ficam `não medido (bypa
 O `zap-baseline.py` roda o spider por um tempo, espera o scan passivo e não lança ataque. O
 spider, porém, segue link por `GET` e, sem configuração, **envia formulário, inclusive `POST`**:
 `spider.processform` e `spider.postform` nascem `true` (`SpiderParam.java` do
-`zaproxy/zap-extensions`). As duas chaves do `-z` desligam isso; em alvo de cliente elas são
-obrigatórias, não dica, e nenhuma sessão vai junto.
+`zaproxy/zap-extensions`). As duas chaves do `-z` desligam isso **só com `--autooff`**: sem ele, o
+script monta um plano do Automation Framework cujo job `spider` ignora o `-config`. Provado em
+20/11/2026 com a 2.17.0 contra um servidor de teste com um `<form method="post">` na raiz:
+
+| Opções | O que chegou no servidor |
+|---|---|
+| nenhuma | 6 `GET` + `POST /excluir` |
+| só `-z` com as duas chaves | 6 `GET` + `POST /excluir` |
+| só `--autooff` | 6 `GET` + `POST /excluir` |
+| `--autooff` + `-z` | 6 `GET`, nenhum `POST` |
+
+Os dois juntos são obrigatórios em qualquer alvo, e nenhuma sessão vai junto. Trocou a imagem,
+refaça a prova antes da primeira rodada em cliente.
 
 ```bash
-ALVO="https://<alvo-do-porteiro>"; TIPO="preview"   # preview | staging (cliente: não roda)
+ALVO="https://<alvo-do-porteiro>"
 HOST="${ALVO#*://}"; HOST="${HOST%%/*}"
 rodar_zap() {
-[ "$TIPO" = cliente-autorizado ] && { echo "ZAP: não aplicável (corte de POST do spider não provado em execução)"; return 0; }
 le_conf() { awk -v k="$1=" '{ sub(/^[ \t]+/, ""); sub(/^export[ \t]+/, "") }
   index($0, k) == 1 { v = substr($0, length(k) + 1); gsub(/^["\047]|["\047]\r?$/, "", v); print v }' \
   "$HOME/.dast-alvo.conf" 2>/dev/null; }
@@ -108,9 +116,9 @@ IMG="ghcr.io/zaproxy/zaproxy:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79
 AUTH=()
 ZAP_AUTH_HEADER_VALUE="$(le_conf VERCEL_BYPASS)"; export ZAP_AUTH_HEADER_VALUE
 [ -n "$ZAP_AUTH_HEADER_VALUE" ] && AUTH=(-e ZAP_AUTH_HEADER=x-vercel-protection-bypass
-  -e ZAP_AUTH_HEADER_VALUE -e "ZAP_AUTH_HEADER_SITE=$HOST")
+  -e ZAP_AUTH_HEADER_VALUE -e "ZAP_AUTH_HEADER_SITE=${HOST%%:*}")
 docker run --rm -v "$OUT:/zap/wrk:rw" "${AUTH[@]}" \
-  "$IMG" zap-baseline.py -t "$ALVO" -m 1 -T 10 -J zap.json -w zap.md \
+  "$IMG" zap-baseline.py -t "$ALVO" -m 1 -T 10 -J zap.json -w zap.md --autooff \
   -z "-config spider.processform=false -config spider.postform=false"
 echo "exit=$?"
 }
@@ -123,13 +131,15 @@ rodar_zap
   Colima só monta `$HOME` no container: com o `-v` apontando para `/tmp`, o ZAP recebe um
   diretório vazio do root e falha com `AccessDeniedException` ao gravar o relatório.
 - `-e NOME` sem valor repassa a variável do shell: o segredo não aparece no `ps` nem no histórico.
-  Sem `VERCEL_BYPASS`, nenhuma das três variáveis vai para o container.
+  Sem `VERCEL_BYPASS`, nenhuma das três variáveis vai para o container. O `ZAP_AUTH_HEADER_SITE`
+  vai sem a porta: com `host:porta` o ZAP não casa o site e manda as requisições sem o header
+  (visto no log do servidor de teste).
 - **Saída:** `0` sem alerta, `1` pelo menos um FAIL, `2` só WARN, `3` erro. Com o padrão, todo
   alerta é WARN.
 
 **"Saiu 0" só vale como limpo se o ZAP viu o alvo.** Antes de escrever o estado, rode o leitor
-abaixo. Ele segue o formato do relatório JSON do ZAP (`site`, `@name`, `alerts`, `riskcode`) e
-ainda não foi testado contra um relatório real: se a primeira rodada não bater, ajuste e diga.
+abaixo. Ele lê o relatório JSON do ZAP (`site`, `@name`, `alerts`, `riskcode`), conferido contra
+o relatório da rodada de prova.
 
 ```bash
 python3 -I - "$OUT/zap.json" "$HOST" <<'PY'
@@ -277,7 +287,7 @@ do secscan:
 | `N achado(s)` | a leitura acima fechou em achado | `nao_conforme` |
 | `nenhum problema identificado` | a sonda rodou, o controle passou e nada fechou | `conforme` |
 | `não medido (<motivo>)` | sem rota, preview protegido, controle falhou, ZAP sem o host, Docker ausente | `nao_medido` com o motivo |
-| `não aplicável (<motivo>)` | alvo de cliente para o ZAP e as sondas 5 e 6, sem GraphQL | fora da contagem, com o motivo |
+| `não aplicável (<motivo>)` | alvo de cliente para as sondas 5 e 6, sem GraphQL | fora da contagem, com o motivo |
 
 Cada achado sai no formato de finding da baseline (`fase2-julgar.md`), com pilar `08`, a sonda
 como `Reconferir` e o `HIGH` passando pelo juiz. O que vai em evidência é a requisição nomeada
