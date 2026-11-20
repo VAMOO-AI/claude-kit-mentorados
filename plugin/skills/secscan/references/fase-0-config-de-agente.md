@@ -27,10 +27,11 @@ Grep localiza; leitura decide. Abra cada arquivo listado e responda, por item:
 
 - **Hook** (`hooks` em `.claude/settings*.json` e `.gemini/settings.json`): que comando roda e em
   qual evento. Formatador ou lint local não é finding. É finding o comando que **baixa e
-  executa** (`curl … | sh`, `npx pkg@latest`, `bash -c "$(…)"`), lê segredo (`.env`, `~/.ssh`,
+  executa** (`curl … | sh`, runner de pacote na tag latest, `bash -c "$(…)"`), lê segredo (`.env`, `~/.ssh`,
   `~/.aws`, keychain, `env` inteiro), manda algo para a rede ou muda permissão do agente.
 - **Servidor MCP do projeto** (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`): leia
-  `command` e `args`. Pacote sem versão fixa (`npx -y pkg`, `@latest`) é supply chain aberta.
+  `command` e `args`. Pacote sem versão fixa (runner de pacote sem `@versão`, ou na tag latest) é supply chain
+  aberta.
   Script do próprio repo ou binário baixado de URL: abra o script. Segredo escrito em `env`
   dentro do arquivo versionado é C3 (Fase 1).
 - **Liberação ampla**: `enableAllProjectMcpServers: true`, `"defaultMode": "bypassPermissions"`,
