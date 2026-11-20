@@ -113,7 +113,7 @@ rodar `npx skills@1.7.4 find` ou `add` (versão, comandos, como pesar e apresent
 ## O que faz uma skill rotear de verdade
 
 **Leia [references/rotear.md](references/rotear.md)** antes de criar, consertar ou julgar
-se uma skill roteia.
+se uma skill roteia, e antes de escrever ou enxugar o corpo dela.
 
 ## Não gere skill — ainda
 
@@ -170,5 +170,6 @@ o cenário: a skill do projeto se testa à mão.
 - [ ] `name` do frontmatter == nome da pasta (minúsculo, com hífen)
 - [ ] `description` diz QUANDO usar, com as suas palavras, e cabe em 500 chars
 - [ ] O corpo ensina algo que você teria que repetir — e você já repetiu
+- [ ] Nenhuma frase do corpo é no-op (o modelo já faria aquilo sem ela)
 - [ ] O scan continua dentro do teto (8 skills / 2.000 chars)
 - [ ] A linha do porquê está em `.context/docs/skills.md` (ou `docs/skills.md`)
