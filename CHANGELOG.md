@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.96.0] — 2026-11-20
+
+### Adicionado
+
+- **`verificacao`**: seção "Bug difícil" e `references/diagnostico-de-bug.md` (loop vermelho já rodado antes da hipótese, redução, 3 a 5 hipóteses com previsão, log com tag, regressão na costura certa, limpeza). Adaptado da `diagnosing-bugs` do mattpocock/skills (MIT).
+
+### Mudado
+
+- **`revisor`** (item 12) e **`executor`**: teste tautológico, preso à implementação e mock dentro do sistema viram finding; RLS e migration são a exceção.
+- **`skills-projeto`**: `references/rotear.md` com as regras do corpo da skill (no-op, alvo no lugar da proibição, palavra-âncora, o ambiente é a fonte, critério checável) e a linha do no-op no checklist.
+
 ## [0.95.3] — 2026-11-18
 
 ### Corrigido
