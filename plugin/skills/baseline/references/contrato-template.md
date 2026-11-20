@@ -92,6 +92,17 @@ trazer valor de segredo para o contexto.
 
 **Autorizações extras concedidas:** <nenhuma>
 
+## Alvos dinâmicos
+
+Só estes hosts recebem a fase dinâmica (`08-perimetro-dinamico.md`). `*` vale um
+trecho de nome de host. Produção não entra. `cliente-autorizado` exige
+`.context/docs/security/autorizacao-dast.md` com o host no escopo e a janela.
+
+| Host ou padrão | Tipo | Dono | Data |
+|---|---|---|---|
+| `<projeto>-*-<time>.vercel.app` | preview | <nome> | <YYYY-MM-DD> |
+| `staging.<dominio>` | staging | <nome> | <YYYY-MM-DD> |
+
 ## Histórico
 
 | Data | O que mudou | Quem |

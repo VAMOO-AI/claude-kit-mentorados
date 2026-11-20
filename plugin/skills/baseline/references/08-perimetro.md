@@ -105,6 +105,11 @@ gh repo list <org> --json name,visibility --limit 200 | python3 -c \
 `200` em `/version` ou em `/actuator/health` é achado. `403`/`404` é o esperado
 para quem vem de fora.
 
+Estes comandos ficam no `curl -sSI` e no status. Scan do ZAP, bypass de
+middleware, CORS refletido, CSRF e URL interna em fetch mandam requisição de
+verdade: são a fase dinâmica, com política de alvo própria
+(`08-perimetro-dinamico.md`), e não rodam em produção.
+
 ## Armadilhas
 
 | Sintoma | Causa real |

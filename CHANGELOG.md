@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.98.0] — 2026-11-20
+
+### Adicionado
+
+- **`baseline`**: fase dinâmica opcional do pilar 08 (`08-perimetro-dinamico.md`). ZAP baseline passivo com imagem fixada por digest, mais seis sondas com requisição (bypass de middleware, source map, CORS, GraphQL, CSRF, URL interna). Só contra preview/staging do próprio projeto listado no contrato, ou contra cliente com autorização escrita no `.context` (só leitura, ZAP sem envio de formulário). Produção fica fora. O contrato ganha `## Alvos dinâmicos`; o strix fica documentado como passo posterior.
+
 ## [0.97.0] — 2026-11-20
 
 ### Adicionado

@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.98.0|A baseline agora testa o preview rodando (ZAP passivo e seis sondas) só contra alvo listado no contrato, nunca em produção
 0.97.0|O secscan passou a olhar hook e MCP versionados no repo, corrida em cupom e crédito, upload, GitHub Actions e `getSession()` no servidor do Next
 0.96.0|Bug difícil agora tem roteiro na verificacao: primeiro um comando que reproduz o erro, depois as hipóteses
 0.95.3|Copiar pasta com rsync excluindo o .env não pede mais confirmação no modo sem perguntas
