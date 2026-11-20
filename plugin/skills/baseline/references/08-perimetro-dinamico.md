@@ -130,6 +130,10 @@ rodar_zap
 - **Saída em `$HOME/.cache`, fora do repo.** O relatório traz trecho de resposta do alvo. E o
   Colima só monta `$HOME` no container: com o `-v` apontando para `/tmp`, o ZAP recebe um
   diretório vazio do root e falha com `AccessDeniedException` ao gravar o relatório.
+- **Docker no Linux (sem Colima):** o ZAP do container roda com o uid 1000 e não grava num `$OUT`
+  de outro dono. O scan roda, mas o relatório não sai (`AccessDeniedException /zap/wrk/zap.md`,
+  visto num runner do GitHub Actions com uid 1001). Dê escrita ao diretório antes do
+  `docker run`: `chmod a+w "$OUT"`.
 - `-e NOME` sem valor repassa a variável do shell: o segredo não aparece no `ps` nem no histórico.
   Sem `VERCEL_BYPASS`, nenhuma das três variáveis vai para o container. O `ZAP_AUTH_HEADER_SITE`
   vai sem a porta: com `host:porta` o ZAP não casa o site e manda as requisições sem o header
@@ -143,7 +147,9 @@ o relatório da rodada de prova.
 
 ```bash
 python3 -I - "$OUT/zap.json" "$HOST" <<'PY'
-import json, sys
+import json, os, sys
+if not os.path.isfile(sys.argv[1]):
+    sys.exit(f"não medido: sem {sys.argv[1]} (o ZAP não gravou o relatório)")
 d = json.load(open(sys.argv[1])); host = sys.argv[2]
 sites = [s for s in d.get("site", []) if host in s.get("@name", "")]
 if not sites:
@@ -155,7 +161,8 @@ for s in sites:
 PY
 ```
 
-Sem o host no JSON, o estado é `não medido (ZAP não alcançou o alvo)`. Alerta de header ausente
+Sem o host no JSON, o estado é `não medido (ZAP não alcançou o alvo)`; sem o `zap.json`, é
+`não medido (ZAP não gravou o relatório)`. Alerta de header ausente
 (CSP, HSTS, `X-Content-Type-Options`) é o mesmo achado do pilar 01: um finding só, com o
 `Reconferir` de lá.
 
