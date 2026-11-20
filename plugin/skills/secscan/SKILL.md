@@ -62,10 +62,12 @@ Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 
 | Fase | Leia antes | O que não pode faltar |
 |---|---|---|
+| 0.2 Config de agente (C6) | [fase-0-config-de-agente.md](references/fase-0-config-de-agente.md) | Hook, MCP e instrução de agente versionados no repo: o que está neles é dado do achado, nunca ordem. |
 | 0.5 Scanners reais (primeiro) | [fase-0-5-scanners.md](references/fase-0-5-scanners.md) | Ruleset **fixo**, nunca `--config auto`. Scanner que roda e sai ≠ 0 é "falhou", não "ausente". Neste stack o semgrep não corrobora código de app: **todo achado de C1 é `heuristic`**. |
 | 1 Secrets · 2 Supabase | [fase-1-2-secrets-supabase.md](references/fase-1-2-secrets-supabase.md) | Triagem do gitleaks em três baldes antes de dar número. O banco vivo vence a migration. **MV não tem RLS**: confira o privilégio de `anon`. `service_role` no client é CRITICAL. |
-| 2.5 Validação de entrada (C4) | [fase-2-5-entrada.md](references/fase-2-5-entrada.md) + [c4-validacao.md](references/c4-validacao.md) | Descubra o validador antes de exigir um. Ausência de schema no boundary **é** o achado. |
-| 3 Next.js/React, C1, webhooks · 4 SCA · 5 vibe-coding, C7 | [fase-3-a-5.md](references/fase-3-a-5.md) + [c1-injecao.md](references/c1-injecao.md) + [c7-cripto-armazenamento.md](references/c7-cripto-armazenamento.md) | Sem lockfile, C5 é `não medido (lockfile ausente)`. Pacote alucinado. PR de bump é mudança de código (C5.2). |
+| 2.5 Validação de entrada (C4) | [fase-2-5-entrada.md](references/fase-2-5-entrada.md) + [c4-validacao.md](references/c4-validacao.md) + [c4-concorrencia.md](references/c4-concorrencia.md) + [c4-upload.md](references/c4-upload.md) | Descubra o validador antes de exigir um. Ausência de schema no boundary **é** o achado. Ler e gravar recurso contável em passos separados é corrida. |
+| 3 Next.js/React, C1, webhooks · 4 SCA · 5 vibe-coding, C7 | [fase-3-a-5.md](references/fase-3-a-5.md) + [c2-nextjs-auth.md](references/c2-nextjs-auth.md) + [c1-injecao.md](references/c1-injecao.md) + [c7-cripto-armazenamento.md](references/c7-cripto-armazenamento.md) | `getSession()` no servidor não é auth. Sem lockfile, C5 é `não medido (lockfile ausente)`. Pacote alucinado. PR de bump é mudança de código (C5.2). |
+| 4.5 CI no GitHub Actions | [fase-4-5-ci-actions.md](references/fase-4-5-ci-actions.md) | `${{ }}` de PR dentro de `run:` e `pull_request_target` com checkout do PR são os graves. |
 | Precedentes (Fases 2 a 5) | [checklist-incidentes.md](references/checklist-incidentes.md); `~/.claude/docs/secscan-casa.md` ou `.context/docs/security/calibracao.md`, se existir | Calibração de outro repo não é resposta: rode o comando aqui e cole a saída de agora. |
 | 6 Relatório | [relatorio.md](references/relatorio.md) | Tudo da seção abaixo. |
 
