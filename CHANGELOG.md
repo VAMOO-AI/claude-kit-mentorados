@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.98.1] — 2026-11-20
+
+### Corrigido
+
+- **`baseline`**: fase dinâmica com nota do mount do ZAP em Docker no Linux (`chmod a+w "$OUT"`); o leitor do `zap.json` sai `não medido` quando o relatório não foi gravado.
+
 ## [0.98.0] — 2026-11-20
 
 ### Adicionado
