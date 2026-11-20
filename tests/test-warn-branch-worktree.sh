@@ -139,7 +139,8 @@ check  "1 commit\(s\) atrás"                     "branch atrasada lida do cwd d
 # O inverso: o processo no repo atrasado, o payload num repo em dia.
 calado "PWD no repo atrasado, cwd do payload num repo em dia: calado"   "$(roda_em "$CLONE" "$WORK")"
 # O dispatcher (session-start.sh) entrega o cwd em KIT_SESSAO_CWD, e ele vale sobre o stdin.
-OUT="$(cd "$CLONE" && printf '{}' | KIT_SESSAO_CWD="$WORK" HOME="$FAKE_HOME" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"
+# Com KIT_SESSAO_CWD o script não lê o stdin: o payload vai por `< <(…)`, não por pipe.
+OUT="$(cd "$CLONE" && KIT_SESSAO_CWD="$WORK" HOME="$FAKE_HOME" PATH="$BIN:$PATH" bash "$SCRIPT" < <(printf '{}') 2>&1)"
 check  "1 commit\(s\) atrás"                     "KIT_SESSAO_CWD do dispatcher: lê o repo dele, sem payload" "$OUT"
 # Payload sem cwd (ou sem node): cai no CLAUDE_PROJECT_DIR, como antes.
 OUT="$(cd "$TMP" && printf '{}' | HOME="$FAKE_HOME" CLAUDE_PROJECT_DIR="$WORK" PATH="$BIN:$PATH" bash "$SCRIPT" 2>&1)"

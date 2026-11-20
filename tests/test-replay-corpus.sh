@@ -29,16 +29,16 @@ PY
 echo "== base e head iguais =="
 out="$(bash "$S" --base-dir "$T/base" --head-dir "$T/head" --corpus "$T/corpus.jsonl" 2>&1)"; rc=$?
 check "sai 0 (rc=$rc)" "$([ "$rc" = 0 ] && echo ok || { printf '%s\n' "$out" >&2; echo fail; })"
-check "diz 0 divergências" "$(printf '%s' "$out" | grep -q '0 divergências' && echo ok || echo fail)"
-check "conta os 4 comandos" "$(printf '%s' "$out" | grep -q 'replay: 4 comandos' && echo ok || echo fail)"
+check "diz 0 divergências" "$(grep -q '0 divergências' <<< "$out" && echo ok || echo fail)"
+check "conta os 4 comandos" "$(grep -q 'replay: 4 comandos' <<< "$out" && echo ok || echo fail)"
 check "nenhum comando do corpus foi executado" "$([ ! -e "$MARCA" ] && echo ok || echo fail)"
 
 echo "== divergência plantada no head =="
 printf '#!/usr/bin/env bash\ncat >/dev/null\necho "plantado" >&2\nexit 2\n' > "$T/head/hooks/check-careful.sh"
 out="$(bash "$S" --base-dir "$T/base" --head-dir "$T/head" --corpus "$T/corpus.jsonl" --fires "$T/fires.tsv" 2>&1)"; rc=$?
 check "sai 1 (rc=$rc)" "$([ "$rc" = 1 ] && echo ok || { printf '%s\n' "$out" >&2; echo fail; })"
-check "lista 'passa → bloqueia' para o echo ok" "$(printf '%s' "$out" | grep -qF 'passa → bloqueia  echo ok' && echo ok || echo fail)"
-check "pede a seção ## Divergências do replay" "$(printf '%s' "$out" | grep -qF '## Divergências do replay' && echo ok || echo fail)"
+check "lista 'passa → bloqueia' para o echo ok" "$(grep -qF 'passa → bloqueia  echo ok' <<< "$out" && echo ok || echo fail)"
+check "pede a seção ## Divergências do replay" "$(grep -qF '## Divergências do replay' <<< "$out" && echo ok || echo fail)"
 check "--fires grava base, head e comando" "$(grep -qxF "$(printf 'passa\tbloqueia\techo ok')" "$T/fires.tsv" 2>/dev/null && echo ok || echo fail)"
 
 echo "== corpo do PR =="
@@ -47,11 +47,11 @@ printf 'Resumo.\n\n## Divergências do replay\nO check-careful passa a bloquear 
 bash "$S" --base-dir "$T/base" --head-dir "$T/head" --corpus "$T/corpus.jsonl" --corpo-pr "$T/corpo-sem.md" >/dev/null 2>&1; rc=$?
 check "corpo sem a seção: continua 1 (rc=$rc)" "$([ "$rc" = 1 ] && echo ok || echo fail)"
 out="$(bash "$S" --base-dir "$T/base" --head-dir "$T/head" --corpus "$T/corpus.jsonl" --corpo-pr "$T/corpo-com.md" 2>&1)"; rc=$?
-check "corpo com a seção: sai 0 com aviso (rc=$rc)" "$([ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'declara as divergências' && echo ok || echo fail)"
+check "corpo com a seção: sai 0 com aviso (rc=$rc)" "$([ "$rc" = 0 ] && grep -q 'declara as divergências' <<< "$out" && echo ok || echo fail)"
 
 echo "== sem base: só a contagem do head =="
 out="$(bash "$S" --head-dir "$T/base" --corpus "$T/corpus.jsonl" 2>&1)"; rc=$?
-check "sai 0 e conta por decisão (rc=$rc)" "$([ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^replay: 4 comandos · head: ' && echo ok || echo fail)"
+check "sai 0 e conta por decisão (rc=$rc)" "$([ "$rc" = 0 ] && grep -q '^replay: 4 comandos · head: ' <<< "$out" && echo ok || echo fail)"
 
 echo "== erros de uso =="
 bash "$S" --base ref-que-nao-existe-xyz --corpus "$T/corpus.jsonl" >/dev/null 2>&1; rc=$?

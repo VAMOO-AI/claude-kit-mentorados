@@ -118,7 +118,9 @@ echo "- [Memória prj-c](prj-c.md) — gancho REESCRITO no curto" >> "$MEM/MEMOR
 bash "$SCRIPT" "$MEM" --cap "$CAP" --apply >/dev/null 2>&1
 n="$(cat "$MEM/MEMORY.md" "$MEM/MEMORY-completo.md" | grep -c '(prj-c.md)')"
 check "prj-c aparece uma vez só" "$n" "1"
-cat "$MEM/MEMORY.md" "$MEM/MEMORY-completo.md" | grep -q 'REESCRITO no curto' && ok "venceu a versão do MEMORY.md" || falha "venceu a versão do completo"
+# grep nos dois arquivos, não `cat A B | grep -q`: achando no 1º, o grep sai e o cat toma
+# SIGPIPE ao escrever o 2º; com `pipefail` o ok vira falha.
+grep -q 'REESCRITO no curto' "$MEM/MEMORY.md" "$MEM/MEMORY-completo.md" && ok "venceu a versão do MEMORY.md" || falha "venceu a versão do completo"
 
 echo "== tudo cabe: sem linha fixa, completo removido =="
 bash "$SCRIPT" "$MEM" --cap 100000 --apply >"$TMP/grande.log" 2>&1

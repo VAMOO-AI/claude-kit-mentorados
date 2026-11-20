@@ -136,8 +136,11 @@ rm -f "${TMPDIR:-/tmp}/.careful-bypass-$SP_SID"
 # O marcador de verdade: ~/.claude/kit-vamoo/sem-perguntas, lido do HOME.
 HOME_SP=$(mktemp -d); mkdir -p "$HOME_SP/.claude/kit-vamoo"; : > "$HOME_SP/.claude/kit-vamoo/sem-perguntas"
 marca_decide() { # marca_decide <home> <comando> <modo>
-  CMD="$2" CWD="$CLONE" MODO="$3" node -e 'const e=process.env; process.stdout.write(JSON.stringify({cwd:e.CWD,permission_mode:e.MODO,tool_input:{command:e.CMD}}))' \
-    | HOME="$1" CHECK_CAREFUL_SEM_PERGUNTAS="" bash "$HOOK" 2>/dev/null | grep -q '"permissionDecision":"ask"' && echo ask || echo pass
+  # Captura antes de procurar: com `hook | grep -q` e `pipefail`, o grep sai no primeiro match
+  # e a escrita seguinte do hook toma SIGPIPE (o ask vira pass).
+  local out; out="$(CMD="$2" CWD="$CLONE" MODO="$3" node -e 'const e=process.env; process.stdout.write(JSON.stringify({cwd:e.CWD,permission_mode:e.MODO,tool_input:{command:e.CMD}}))' \
+    | HOME="$1" CHECK_CAREFUL_SEM_PERGUNTAS="" bash "$HOOK" 2>/dev/null)"
+  grep -q '"permissionDecision":"ask"' <<< "$out" && echo ask || echo pass
 }
 ef_check pass "$(marca_decide "$HOME_SP" 'git add -A' auto)" "com o marcador no HOME, git add -A não pergunta"
 ef_check ask  "$(marca_decide "$HOME_SP" 'psql -c "drop table x;"' bypassPermissions)" "com o marcador no HOME, DROP TABLE pergunta em bypass"
@@ -156,7 +159,7 @@ aviso_out() { # aviso_out <session_id>
 }
 SID_TESTE="teste-aviso-$$"
 rm -f "${TMPDIR:-/tmp}/.careful-bypass-$SID_TESTE"
-if aviso_out "$SID_TESTE" | grep -q 'bypassPermissions: o check-careful está DESLIGADO'; then
+if grep -q 'bypassPermissions: o check-careful está DESLIGADO' <<< "$(aviso_out "$SID_TESTE")"; then
   printf '  ok    1º comando da sessão avisa que o hook está desarmado\n'
 else
   printf '  FALHA 1º comando da sessão avisa que o hook está desarmado\n'; falhas=$((falhas+1))

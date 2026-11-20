@@ -60,17 +60,17 @@ PY
 cmp_() { node "$S/layout-snapshot.mjs" --compare "$@" 2>&1; }
 if [ -f "$S/layout-snapshot.mjs" ]; then
   out=$(cmp_ "$TMP/a.json" "$TMP/igual.json"); rc=$?
-  [ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^0 diferenças (3 caixas'; check "mesma página: 0 diferenças, sai 0" $?
+  [ "$rc" = 0 ] && grep -q '^0 diferenças (3 caixas' <<< "$out"; check "mesma página: 0 diferenças, sai 0" $?
   out=$(cmp_ "$TMP/a.json" "$TMP/1px.json"); rc=$?
   [ "$rc" = 0 ]; check "1px dentro da tolerância padrão: sai 0" $?
   out=$(cmp_ "$TMP/a.json" "$TMP/1px.json" --tol 0); rc=$?
-  [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'mudou.*top 120→121'; check "--tol 0 acusa o 1px e sai 1" $?
+  [ "$rc" = 1 ] && grep -q 'mudou.*top 120→121' <<< "$out"; check "--tol 0 acusa o 1px e sai 1" $?
   out=$(cmp_ "$TMP/a.json" "$TMP/bloco.json"); rc=$?
-  [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'altura da página  2000 → 2150' \
-    && printf '%s' "$out" | grep -q '^novo    SECTION' && printf '%s' "$out" | grep -q 'mudou   IMG'
+  [ "$rc" = 1 ] && grep -q 'altura da página  2000 → 2150' <<< "$out" \
+    && grep -q '^novo    SECTION' <<< "$out" && grep -q 'mudou   IMG' <<< "$out"
   check "bloco de 150px inserido: altura, caixa nova e caixa que desceu, sai 1" $?
   out=$(cmp_ "$TMP/a.json" "$TMP/sumiu.json"); rc=$?
-  [ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^sumiu   IMG'; check "caixa que sumiu é acusada, sai 1" $?
+  [ "$rc" = 1 ] && grep -q '^sumiu   IMG' <<< "$out"; check "caixa que sumiu é acusada, sai 1" $?
 else
   check "layout-snapshot.mjs existe para o --compare" 1
 fi

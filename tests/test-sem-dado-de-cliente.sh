@@ -158,10 +158,10 @@ espera 'discord.com/api/webhook' "webhook do Discord com token"
 espera 'hooks.slack.com/services' "webhook do Slack com token"
 espera '?token=xxxxxxxx' "token literal na query"
 linha_site=$(grep -n 'Passa (site público)' "$FIX/a.md" | cut -d: -f1)
-if printf '%s' "$saida" | grep -qF "a.md:$linha_site:"; then printf '  FALHA o site público vamooai.com.br foi barrado\n'; falhas=$((falhas+1)); else printf '  ok    o site público vamooai.com.br passa\n'; fi
+if grep -qF "a.md:$linha_site:" <<< "$saida"; then printf '  FALHA o site público vamooai.com.br foi barrado\n'; falhas=$((falhas+1)); else printf '  ok    o site público vamooai.com.br passa\n'; fi
 for alvo in 'subdomínio interno' 'e-mail'; do
   l=$(grep -n "Reprova ($alvo)" "$FIX/a.md" | cut -d: -f1)
-  if printf '%s' "$saida" | grep -qF "a.md:$l:"; then printf '  ok    %s do domínio continua reprovando\n' "$alvo"; else printf '  FALHA %s do domínio passou\n' "$alvo"; falhas=$((falhas+1)); fi
+  if grep -qF "a.md:$l:" <<< "$saida"; then printf '  ok    %s do domínio continua reprovando\n' "$alvo"; else printf '  FALHA %s do domínio passou\n' "$alvo"; falhas=$((falhas+1)); fi
 done
 n=$(printf '%s\n' "$saida" | grep -c 'FALHA')
 [ "$n" = 12 ] && printf '  ok    exatamente 12 achados (DDD 00, placeholders, docs, env e o site público passam)\n' \

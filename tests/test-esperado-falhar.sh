@@ -53,7 +53,7 @@ echo "falhas=$falhas pendentes=$pendentes"
 EOF
 printf 'test-falsa.sh\tlistado e ainda falha\ntest-falsa.sh\tlistado e já passa\ntest-falsa.sh --codex\tlistado só no codex\n' > "$TMP/fila.txt"
 out="$(LIB="$RAIZ/tests/lib-esperado-falhar.sh" ESPERADO_FALHAR="$TMP/fila.txt" bash "$TMP/test-falsa.sh")"
-tem() { printf '%s\n' "$out" | grep -qF -- "$2" && ok "$1" || falha "$1 (faltou: $2)"; }
+tem() { grep -qF -- "$2" <<< "$out" && ok "$1" || falha "$1 (faltou: $2)"; }
 tem "listado que falha sai como pendente"       "PEND. listado e ainda falha"
 tem "listado que passa reprova como órfã"       "ÓRFÃ  listado e já passa"
 tem "fora da lista e passa é ok"                "ok    fora da lista e passa"

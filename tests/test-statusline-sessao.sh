@@ -50,7 +50,7 @@ render() { TP="${1:-}" node -e 'process.stdout.write(JSON.stringify({transcript_
 render_com() { TP="${1:-}" TOK="${2:-}" node -e 'const t=process.env.TOK; process.stdout.write(JSON.stringify({transcript_path:process.env.TP||undefined,workspace:{current_dir:process.env.HOME},context_window:{current_usage:t?{input_tokens:+t}:null}}))' \
     | node "$SL" 2>>"$TMP/err"; }
 sem_cor() { sed 's/\x1b\[[0-9;]*m//g'; }
-tem() { printf '%s' "$1" | sem_cor | grep -qF -- "$2"; }
+tem() { grep -qF -- "$2" <<< "$(sem_cor <<< "$1")"; }
 # Cor de um segmento: o código ANSI colado no texto ("ctx:160k"). A cor é o que a régua diz,
 # e o sem_cor apaga exatamente isso — por isso se testa a saída crua.
 ESC=$(printf '\033')

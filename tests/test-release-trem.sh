@@ -88,11 +88,13 @@ check "o branch release/0.3.0 nasce de origin/main" "$(git -C "$R/clone" merge-b
 check "os três PRs entraram por merge" "$(for n in 11 12 13; do git -C "$R/clone" merge-base --is-ancestor "$(git -C "$R/origin.git" rev-parse "refs/pull/$n/head")" release/0.3.0 || exit 1; done && echo ok || echo fail)"
 check "a versão é 0.3.0 nos cinco lugares (test-versao-changelog real)" "$(bash "$W/tests/test-versao-changelog.sh" "$W" >/dev/null 2>&1 && grep -q '"version": "0.3.0"' "$W/plugin/.claude-plugin/plugin.json" && echo ok || echo fail)"
 bloco="$(bash "$W/.github/scripts/changelog-bloco.sh" 0.3.0 "$W/CHANGELOG.md")"
-check "o bloco da 0.3.0 começa em '### '" "$(printf '%s\n' "$bloco" | head -1 | grep -q '^### ' && echo ok || echo fail)"
-check "um '### Adicionado' só, com o onze e o treze" "$([ "$(printf '%s\n' "$bloco" | grep -c '^### Adicionado')" = 1 ] && printf '%s\n' "$bloco" | grep -q 'onze\*\*: novo' && printf '%s\n' "$bloco" | grep -q 'treze também' && echo ok || echo fail)"
-check "PR só com bullets cai em '### Mudado'" "$(printf '%s\n' "$bloco" | awk '/^### Mudado/{m=1;next} /^### /{m=0} m' | grep -q 'doze muda' && echo ok || echo fail)"
-check "'### Corrigido' veio do #11" "$(printf '%s\n' "$bloco" | awk '/^### Corrigido/{m=1;next} /^### /{m=0} m' | grep -q 'onze conserta' && echo ok || echo fail)"
-check "nada de fora da seção (rodapé, '## Teste', novidades) entra no CHANGELOG" "$(printf '%s\n' "$bloco" | grep -q 'Generated\|não é changelog\|Agora tem' && echo fail || echo ok)"
+# `grep -q`/`head` leem de here-string, não de pipe: saindo no primeiro match, o printf toma
+# SIGPIPE e, com `pipefail`, o ok vira fail às vezes (o kit do time viu isso no Linux).
+check "o bloco da 0.3.0 começa em '### '" "$(grep -q '^### ' <<< "$(head -1 <<< "$bloco")" && echo ok || echo fail)"
+check "um '### Adicionado' só, com o onze e o treze" "$([ "$(grep -c '^### Adicionado' <<< "$bloco")" = 1 ] && grep -q 'onze\*\*: novo' <<< "$bloco" && grep -q 'treze também' <<< "$bloco" && echo ok || echo fail)"
+check "PR só com bullets cai em '### Mudado'" "$(grep -q 'doze muda' <<< "$(awk '/^### Mudado/{m=1;next} /^### /{m=0} m' <<< "$bloco")" && echo ok || echo fail)"
+check "'### Corrigido' veio do #11" "$(grep -q 'onze conserta' <<< "$(awk '/^### Corrigido/{m=1;next} /^### /{m=0} m' <<< "$bloco")" && echo ok || echo fail)"
+check "nada de fora da seção (rodapé, '## Teste', novidades) entra no CHANGELOG" "$(grep -q 'Generated\|não é changelog\|Agora tem' <<< "$bloco" && echo fail || echo ok)"
 check "o cabeçalho tem a data e fica acima da 0.2.0" "$(grep '^## \[' "$W/CHANGELOG.md" | head -2 | tr '\n' ' ' | grep -q '^## \[0.3.0\] — 2026-10-24 ## \[0.2.0\]' && echo ok || echo fail)"
 topo="$(grep -v '^#' "$W/plugin/novidades.txt" | head -1)"
 check "novidades: 0.3.0 no topo, PRs juntos, '|' do texto trocado e setup no 3º campo" "$([ "$topo" = '0.3.0|Agora tem o onze; o doze / mudou|setup' ] && echo ok || { echo "        veio: $topo" >&2; echo fail; })"
@@ -100,7 +102,7 @@ check "nada foi enviado ao origin (main igual e sem branch release)" "$([ "$(git
 check "o worktree ficou limpo, com o bump commitado" "$([ -z "$(git -C "$W" status --porcelain)" ] && git -C "$W" log -1 --format=%s | grep -q '^chore(release): 0.3.0 (#11 #12 #13)' && echo ok || echo fail)"
 corpo="$(git -C "$W" rev-parse --git-dir)/release-trem-0.3.0.md"
 check "o corpo do PR lista os PRs e o --fechar de reserva" "$(grep -q '^- #12 (feat: doze)' "$corpo" && grep -q 'release-trem.sh --fechar' "$corpo" && echo ok || echo fail)"
-check "a saída diz que nada foi enviado e mostra o push" "$(printf '%s\n' "$out" | grep -q 'Nada foi enviado' && printf '%s\n' "$out" | grep -q 'push -u origin release/0.3.0' && echo ok || echo fail)"
+check "a saída diz que nada foi enviado e mostra o push" "$(grep -q 'Nada foi enviado' <<< "$out" && grep -q 'push -u origin release/0.3.0' <<< "$out" && echo ok || echo fail)"
 
 echo "== conflito no segundo PR =="
 R="$T/b"; novo_repo "$R"
@@ -110,7 +112,7 @@ pr 22 OPEN "feat: 22" "$(printf '## Para o CHANGELOG\n- 22\n\n## Para o novidade
 out="$(cd "$R/clone" && bash "$S" 0.3.0 21 22 2>&1)"; rc=$?
 W="$R/clone/.claude/worktrees/release-0.3.0"
 check "para com exit 3" "$([ "$rc" = 3 ] && echo ok || echo fail)"
-check "diz o PR e o arquivo do conflito" "$(printf '%s\n' "$out" | grep -q 'conflito ao juntar o #22' && printf '%s\n' "$out" | grep -q '^  x.txt' && echo ok || echo fail)"
+check "diz o PR e o arquivo do conflito" "$(grep -q 'conflito ao juntar o #22' <<< "$out" && grep -q '^  x.txt' <<< "$out" && echo ok || echo fail)"
 check "o merge foi abortado e a versão não subiu" "$([ ! -f "$(git -C "$W" rev-parse --git-dir)/MERGE_HEAD" ] && grep -q '"0.2.0"' "$W/plugin/.claude-plugin/plugin.json" && echo ok || echo fail)"
 
 echo "== recusas antes de criar qualquer coisa =="
@@ -118,14 +120,14 @@ R="$T/c"; novo_repo "$R"
 ramo_pr "$R" 31 trinta.txt 31
 pr 31 OPEN "feat: 31" "$(printf 'Só resumo, sem seção.\n\n## Para o novidades\n31\n')"
 out="$(cd "$R/clone" && bash "$S" 0.3.0 31 2>&1)"; rc=$?
-check "PR sem '## Para o CHANGELOG': sai 1 e diz qual" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q "#31 não tem a seção '## Para o CHANGELOG'" && echo ok || echo fail)"
+check "PR sem '## Para o CHANGELOG': sai 1 e diz qual" "$([ "$rc" = 1 ] && grep -q "#31 não tem a seção '## Para o CHANGELOG'" <<< "$out" && echo ok || echo fail)"
 check "e não cria worktree nem branch" "$([ ! -e "$R/clone/.claude/worktrees/release-0.3.0" ] && ! git -C "$R/clone" show-ref -q --verify refs/heads/release/0.3.0 && echo ok || echo fail)"
 pr 31 CLOSED "feat: 31" "$(printf '## Para o CHANGELOG\n- 31\n')"
 out="$(cd "$R/clone" && bash "$S" 0.3.0 31 2>&1)"; rc=$?
-check "PR fechado é recusado" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q '#31 está CLOSED' && echo ok || echo fail)"
+check "PR fechado é recusado" "$([ "$rc" = 1 ] && grep -q '#31 está CLOSED' <<< "$out" && echo ok || echo fail)"
 pr 31 OPEN "feat: 31" "$(printf '## Para o CHANGELOG\n- 31\n\n## Para o novidades\n31\n')"
 out="$(cd "$R/clone" && bash "$S" 0.2.0 31 2>&1)"; rc=$?
-check "versão que não passa da main (0.2.0) é recusada" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'maior que a da main (0.2.0)' && echo ok || echo fail)"
+check "versão que não passa da main (0.2.0) é recusada" "$([ "$rc" = 1 ] && grep -q 'maior que a da main (0.2.0)' <<< "$out" && echo ok || echo fail)"
 out="$(cd "$R/clone" && bash "$S" 0.3 31 2>&1)"; rc=$?
 check "versão fora de x.y.z sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
 
@@ -138,19 +140,19 @@ out="$(cd "$R/clone" && bash "$S" --fechar 40 2>&1)"; rc=$?
 check "sai 0 (rc=$rc)" "$([ "$rc" = 0 ] && echo ok || { printf '%s\n' "$out" | tail -5 >&2; echo fail; })"
 check "fecha o #41 com --delete-branch e o comentário do release" "$(grep -qF "gh pr close 41 --delete-branch --comment Entrou no release 0.3.0 (#40)." "$FIX/gh.log" && echo ok || echo fail)"
 check "fecha o #43 também" "$(grep -q '^gh pr close 43 --delete-branch' "$FIX/gh.log" && echo ok || echo fail)"
-check "pula o #42, que já estava fechado" "$(grep -q 'pr close 42' "$FIX/gh.log" && echo fail || printf '%s\n' "$out" | grep -q '#42 já está CLOSED' && echo ok || echo fail)"
+check "pula o #42, que já estava fechado" "$(grep -q 'pr close 42' "$FIX/gh.log" && echo fail || grep -q '#42 já está CLOSED' <<< "$out" && echo ok || echo fail)"
 check "não toca em #n fora do formato '- #n ('" "$(grep -q ' 99' "$FIX/gh.log" && echo fail || echo ok)"
 out="$(cd "$R/clone" && bash "$S" --fechar 40 2>&1)"; rc=$?
 check "rodar de novo é seguro: sai 0 sem fechar nada" "$([ "$rc" = 0 ] && [ "$(grep -c 'pr close' "$FIX/gh.log")" = 2 ] && echo ok || echo fail)"
 pr 50 OPEN "release: 0.4.0" "$(printf -- '- #51 (feat: d)\n')"; pr 51 OPEN "feat: d" "x"
 out="$(cd "$R/clone" && bash "$S" --fechar 50 2>&1)"; rc=$?
-check "release ainda não mergeado: sai 1 e não fecha nada" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não MERGED' && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
+check "release ainda não mergeado: sai 1 e não fecha nada" "$([ "$rc" = 1 ] && grep -q 'não MERGED' <<< "$out" && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
 pr 60 MERGED "feat: não é release" "$(printf -- '- #51 (feat: d)\n')"
 out="$(cd "$R/clone" && bash "$S" --fechar 60 2>&1)"; rc=$?
-check "PR que não é 'release: x.y.z' é recusado" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não é um release' && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
+check "PR que não é 'release: x.y.z' é recusado" "$([ "$rc" = 1 ] && grep -q 'não é um release' <<< "$out" && ! grep -q 'pr close 51' "$FIX/gh.log" && echo ok || echo fail)"
 pr 70 MERGED "release: 0.5.0" "$(printf -- '- #71 (feat: e)\n')"; pr 71 OPEN "feat: e" "x"; : > "$FIX/nao-fecha-71"
 out="$(cd "$R/clone" && bash "$S" --fechar 70 2>&1)"; rc=$?
-check "close que falha: sai 1 e diz qual" "$([ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q 'não fechei: #71' && echo ok || echo fail)"
+check "close que falha: sai 1 e diz qual" "$([ "$rc" = 1 ] && grep -q 'não fechei: #71' <<< "$out" && echo ok || echo fail)"
 out="$(cd "$R/clone" && bash "$S" --fechar abc 2>&1)"; rc=$?
 check "--fechar sem número sai 2" "$([ "$rc" = 2 ] && echo ok || echo fail)"
 
