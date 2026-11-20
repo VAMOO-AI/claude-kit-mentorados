@@ -4,9 +4,9 @@ description: >-
   Casos de verificação end-to-end aprendidos em produção: testar TODOS os ramos,
   rodar TODOS os runners, pegar o erro REAL de prod antes do repro, inspecionar
   a UI. Use antes de declarar "pronto" em fix com ramos, mudança de UI, erro de
-  prod mascarado, pasta com múltiplos runners, e ANTES de qualquer disparo que
-  chega numa pessoa (mensagem, e-mail, cobrança, webhook). Gatilhos: "pronto",
-  "verificar", "testar antes de entregar", "dry-run", "pode disparar?".
+  prod mascarado, bug difícil, pasta com múltiplos runners, e ANTES de qualquer
+  disparo que chega numa pessoa (mensagem, e-mail, cobrança, webhook). Gatilhos:
+  "pronto", "verificar", "debug", "testar antes de entregar", "dry-run", "pode disparar?".
 ---
 
 # Verificação e2e — casos de produção
@@ -40,6 +40,16 @@ fronteira RSC, então erro server→client de Next "passa"). O erro real aponta
 arquivo:linha na hora; horas de eliminação não. No caso RSC ("Functions cannot be passed
 directly to Client Components", digest constante), leia
 [`references/rsc-client-boundary.md`](references/rsc-client-boundary.md).
+
+## Bug difícil → um loop vermelho antes da hipótese
+
+Bug que não se explica no primeiro olhar, regressão de desempenho ou falha intermitente: antes
+de ler código para montar teoria, tenha **um comando já rodado** que fica vermelho com o
+sintoma exato que a pessoa relatou, em segundos e com o mesmo veredito toda vez. Só então:
+reduza o caso ao mínimo, escreva 3 a 5 hipóteses que dizem o que preveem e mostre à pessoa,
+instrumente uma variável por vez com log marcado (`[DEBUG-a4f2]`, que sai por grep), e
+escreva o teste de regressão antes do fix. As formas de montar o loop, o caso intermitente e o
+checklist de limpeza: [`references/diagnostico-de-bug.md`](references/diagnostico-de-bug.md).
 
 ## Mudança que toca UI → inspeção visual
 
