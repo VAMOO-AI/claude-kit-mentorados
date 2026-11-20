@@ -114,6 +114,8 @@ App em produção. **READ-ONLY é iron rule** — mesma regra do `secscan`.
 > endpoint de terceiro. As únicas escritas permitidas são os artefatos da
 > auditoria: `findings.json`, o report, o contrato e o registro de vereditos
 > (`.context/docs/security/vereditos.md`).
+> Requisição além do `curl -sSI` do pilar 08 é a fase dinâmica: só quando
+> pedida, nunca em produção, alvo pela política de `08-perimetro-dinamico.md`.
 
 Quatro fases. Aplicar correção é **fora** deste modo — vai pro modo CONSTRUIR,
 com contexto de regressão.
@@ -162,6 +164,7 @@ Contrato · Como implementar · Como provar · Armadilhas.
 | 06 | Observabilidade | `references/06-observabilidade.md` | error tracking, log estruturado, alerta, auditoria |
 | 07 | Segredos | `references/07-segredos.md` | inventário, scan de HEAD+histórico, rotação, exceções |
 | 08 | Perímetro | `references/08-perimetro.md` | inventário de hosts, headers na borda, painel interno, versão exposta |
+| 08+ | Fase dinâmica | `references/08-perimetro-dinamico.md` | ZAP passivo + sondas com requisição; opcional |
 
 O contrato por projeto: `references/contrato-template.md`.
 
