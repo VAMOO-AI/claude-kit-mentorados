@@ -41,6 +41,12 @@ Achados a caçar:
   campos permitidos; o atacante manda `role`, `owner_id`, `is_admin` junto e o ORM grava.
   Lista explícita no boundary, nunca spread do body. **Comece pelas functions do servidor**:
   no navegador a RLS ainda barra coluna de outro tenant; com `service_role`, nada barra.
+- **Merge profundo de input (prototype pollution)**, primo do mass assignment:
+  `_.merge`/`defaultsDeep`/`_.set`, `deepmerge` ou merge recursivo caseiro aplicado ao JSON do
+  request deixa `__proto__` e `constructor.prototype` mudarem todo objeto do processo, inclusive
+  a flag que outra checagem lê. `grep -rnE '_\.(merge|defaultsDeep|set)\(|deepmerge|mergeDeep' src app supabase/functions`;
+  o finding exige o input do request chegando ao merge. Correção: schema `.strict()` no boundary
+  e `structuredClone` para copiar. *(Origem: `elementalsouls/Claude-BugHunter`, MIT.)*
 - **Confusão de tipo**: query string entrega string, multipart entrega string **ou array**,
   JSON entrega o que o cliente quiser. `Number("abc")` vira NaN calado, `"9" > "10"` é
   `true`, `?id=1&id=2` vira `["1","2"]`, e `"false"`/`"0"` são truthy. Schema com

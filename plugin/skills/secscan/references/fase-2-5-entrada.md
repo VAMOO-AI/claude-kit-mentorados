@@ -21,8 +21,11 @@ exercita o boundary conta.
 
 Os boundaries a caçar (server action e form, fila, webhook de automação, valor que decide
 dinheiro/permissão/identidade, policy permissiva sem constraint, identidade sem
-normalização, limite de entrada, mass assignment, confusão de tipo) estão em
-[references/c4-validacao.md](c4-validacao.md), com o veredito de cada um: leia
+normalização, limite de entrada, mass assignment, merge profundo, confusão de tipo) estão em
+[references/c4-validacao.md](c4-validacao.md). Corrida entre ler e gravar recurso contável e
+webhook sem idempotência estão em [references/c4-concorrencia.md](c4-concorrencia.md); upload
+(tipo, tamanho, quem serve o arquivo) em [references/c4-upload.md](c4-upload.md). Cada um traz o
+veredito: leia
 ao avaliar C4.
 
 Levantamento: estes três imprimem o **gap**, não o inventário.
