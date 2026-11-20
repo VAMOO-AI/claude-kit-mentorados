@@ -17,13 +17,15 @@ chama.
 |---|---|---|
 | `preview` | ZAP + as seis sondas | Deploy de preview da Vercel **do próprio projeto** (o time de quem audita), listado no contrato |
 | `staging` | ZAP + as seis sondas | Ambiente de staging **do próprio projeto**, listado no contrato |
-| `cliente-autorizado` | ZAP sem sessão + sondas só de leitura (tabela abaixo) | Autorização por escrito do cliente registrada no `.context` do projeto, com o host no escopo e a data dentro da janela |
+| `cliente-autorizado` | sondas só de leitura (tabela abaixo); ZAP ainda não | Autorização por escrito do cliente registrada no `.context` do projeto, com o host no escopo e a data dentro da janela |
 | produção (própria ou de cliente) | nada desta fase | O `curl -sSI` passivo do `08-perimetro.md` continua valendo; o resto, não |
 | qualquer outro host | nada | Pare e diga à pessoa que o alvo está fora da política |
 
-**Em ambiente de cliente nada escreve:** só `GET`, `HEAD` e `OPTIONS`, sem sessão autenticada, e
-o spider do ZAP com formulário desligado. Sonda que precisa de `POST` ou faz o servidor buscar
-URL é `não aplicável (alvo de cliente)`.
+**Em ambiente de cliente nada escreve:** só `GET`, `HEAD` e `OPTIONS`, sem sessão autenticada.
+Sonda que precisa de `POST` ou faz o servidor buscar URL é `não aplicável (alvo de cliente)`. O
+ZAP também: o corte de `POST` do spider foi conferido no fonte, não em execução, então no cliente
+a linha dele é `não aplicável (corte de POST do spider não provado em execução)` até alguém provar
+pelo log de um servidor de teste que só chegou `GET`.
 
 ### O porteiro: o alvo está no contrato?
 
@@ -61,24 +63,29 @@ Depois do tipo, a prova de que o alvo é do próprio projeto ou está autorizado
 Preview com Deployment Protection devolve `401` ou redireciona para `vercel.com`. O ZAP varre
 essa tela, sai `0` e o relatório parece limpo: é o falso limpo mais provável desta fase.
 
-```bash
-curl -q -sS -o /dev/null --max-redirs 0 --max-time 20 \
-  -w 'http=%{http_code} destino=%{redirect_url}\n' "$ALVO/"
-```
-
-`401`, ou destino em `vercel.com`, e sem bypass: **todas as linhas** ficam
-`não medido (preview protegido)`. O bypass é o segredo de "Protection Bypass for Automation" do
-projeto, enviado no header `x-vercel-protection-bypass`. Ele não entra na conversa nem na linha
-de comando: quem audita grava num arquivo fora do repo e os comandos leem de lá.
+O bypass é o segredo de "Protection Bypass for Automation" do projeto, enviado no header
+`x-vercel-protection-bypass`. Ele não entra na conversa nem na linha de comando: quem audita grava
+num arquivo fora do repo (`$HOME/.dast-alvo.conf`, `chmod 600`, `NOME=valor`, chaves
+`VERCEL_BYPASS` e, só para preview/staging, `SESSAO_COOKIE` de um usuário de teste) e os comandos
+leem de lá. O check abaixo pede a raiz sem e com o bypass:
 
 ```bash
-# $HOME/.dast-alvo.conf, chmod 600, NOME=valor. Chaves usadas aqui:
-#   VERCEL_BYPASS=   segredo de bypass do preview (opcional)
-#   SESSAO_COOKIE=   cookie de sessão de um usuário DE TESTE, só preview/staging (CSRF)
+ALVO="https://<alvo-do-porteiro>"
 le_conf() { awk -v k="$1=" '{ sub(/^[ \t]+/, ""); sub(/^export[ \t]+/, "") }
   index($0, k) == 1 { v = substr($0, length(k) + 1); gsub(/^["\047]|["\047]\r?$/, "", v); print v }' \
   "$HOME/.dast-alvo.conf" 2>/dev/null; }
+CAB="$(mktemp)"; chmod 600 "$CAB"; B="$(le_conf VERCEL_BYPASS)"
+[ -n "$B" ] && printf 'header = "x-vercel-protection-bypass: %s"\n' "$B" > "$CAB"
+curl -q -sS -o /dev/null --max-redirs 0 --max-time 20 \
+  -w 'sem bypass: http=%{http_code} destino=%{redirect_url}\n' "$ALVO/"
+[ -s "$CAB" ] && curl -q -sS -o /dev/null --max-redirs 0 --max-time 20 -K "$CAB" \
+  -w 'com bypass: http=%{http_code} destino=%{redirect_url}\n' "$ALVO/"
+rm -f "$CAB"
 ```
+
+`401`, ou destino em `vercel.com`, sem bypass e sem `VERCEL_BYPASS`: **todas as linhas** ficam
+`não medido (preview protegido)`. Com bypass, a linha "com bypass" tem que dar `2xx`; segredo
+errado ou vencido cai no SSO de novo, e todas as linhas ficam `não medido (bypass recusado)`.
 
 ## ZAP baseline (scan passivo)
 
@@ -89,13 +96,25 @@ spider, porém, segue link por `GET` e, sem configuração, **envia formulário,
 obrigatórias, não dica, e nenhuma sessão vai junto.
 
 ```bash
+ALVO="https://<alvo-do-porteiro>"; TIPO="preview"   # preview | staging (cliente: não roda)
+HOST="${ALVO#*://}"; HOST="${HOST%%/*}"
+rodar_zap() {
+[ "$TIPO" = cliente-autorizado ] && { echo "ZAP: não aplicável (corte de POST do spider não provado em execução)"; return 0; }
+le_conf() { awk -v k="$1=" '{ sub(/^[ \t]+/, ""); sub(/^export[ \t]+/, "") }
+  index($0, k) == 1 { v = substr($0, length(k) + 1); gsub(/^["\047]|["\047]\r?$/, "", v); print v }' \
+  "$HOME/.dast-alvo.conf" 2>/dev/null; }
 OUT="$HOME/.cache/baseline-$(basename "$PWD")/dinamico"; mkdir -p "$OUT"
 IMG="ghcr.io/zaproxy/zaproxy:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af"
-ZAP_AUTH_HEADER_VALUE="$(le_conf VERCEL_BYPASS)" docker run --rm -v "$OUT:/zap/wrk:rw" \
-  -e ZAP_AUTH_HEADER=x-vercel-protection-bypass -e ZAP_AUTH_HEADER_VALUE -e ZAP_AUTH_HEADER_SITE="$HOST" \
+AUTH=()
+ZAP_AUTH_HEADER_VALUE="$(le_conf VERCEL_BYPASS)"; export ZAP_AUTH_HEADER_VALUE
+[ -n "$ZAP_AUTH_HEADER_VALUE" ] && AUTH=(-e ZAP_AUTH_HEADER=x-vercel-protection-bypass
+  -e ZAP_AUTH_HEADER_VALUE -e "ZAP_AUTH_HEADER_SITE=$HOST")
+docker run --rm -v "$OUT:/zap/wrk:rw" "${AUTH[@]}" \
   "$IMG" zap-baseline.py -t "$ALVO" -m 1 -T 10 -J zap.json -w zap.md \
   -z "-config spider.processform=false -config spider.postform=false"
 echo "exit=$?"
+}
+rodar_zap
 ```
 
 - **Imagem por digest, nunca `stable` nem `latest`.** Para atualizar: pegue o digest da tag de
@@ -104,11 +123,13 @@ echo "exit=$?"
   Colima só monta `$HOME` no container: com o `-v` apontando para `/tmp`, o ZAP recebe um
   diretório vazio do root e falha com `AccessDeniedException` ao gravar o relatório.
 - `-e NOME` sem valor repassa a variável do shell: o segredo não aparece no `ps` nem no histórico.
-  Sem `VERCEL_BYPASS`, o valor vai vazio e o ZAP não manda o header.
+  Sem `VERCEL_BYPASS`, nenhuma das três variáveis vai para o container.
 - **Saída:** `0` sem alerta, `1` pelo menos um FAIL, `2` só WARN, `3` erro. Com o padrão, todo
   alerta é WARN.
 
-**"Saiu 0" só vale como limpo se o ZAP viu o alvo.** Antes de escrever o estado:
+**"Saiu 0" só vale como limpo se o ZAP viu o alvo.** Antes de escrever o estado, rode o leitor
+abaixo. Ele segue o formato do relatório JSON do ZAP (`site`, `@name`, `alerts`, `riskcode`) e
+ainda não foi testado contra um relatório real: se a primeira rodada não bater, ajuste e diga.
 
 ```bash
 python3 -I - "$OUT/zap.json" "$HOST" <<'PY'
@@ -256,7 +277,7 @@ do secscan:
 | `N achado(s)` | a leitura acima fechou em achado | `nao_conforme` |
 | `nenhum problema identificado` | a sonda rodou, o controle passou e nada fechou | `conforme` |
 | `não medido (<motivo>)` | sem rota, preview protegido, controle falhou, ZAP sem o host, Docker ausente | `nao_medido` com o motivo |
-| `não aplicável (<motivo>)` | alvo de cliente para as sondas 5 e 6, sem GraphQL | fora da contagem, com o motivo |
+| `não aplicável (<motivo>)` | alvo de cliente para o ZAP e as sondas 5 e 6, sem GraphQL | fora da contagem, com o motivo |
 
 Cada achado sai no formato de finding da baseline (`fase2-julgar.md`), com pilar `08`, a sonda
 como `Reconferir` e o `HIGH` passando pelo juiz. O que vai em evidência é a requisição nomeada
