@@ -25,7 +25,9 @@ trap '[ -n "$SPID" ] && kill "$SPID" 2>/dev/null; rm -rf "$TMP"' EXIT
 
 falhas=0
 decide() { # decide <payload-json> [PATH]
-  printf '%s' "$1" | PATH="${2:-$PATH}" bash "$HOOK" >/dev/null 2>&1
+  # Payload por `< <(printf …)`, não por pipe: sem node no PATH o hook sai sem ler o stdin, o
+  # printf pode tomar SIGPIPE e, com `pipefail`, o 2 do hook vira 141 às vezes.
+  PATH="${2:-$PATH}" bash "$HOOK" < <(printf '%s' "$1") >/dev/null 2>&1
   [ $? -eq 2 ] && echo block || echo pass
 }
 check() { # check <esperado> <descrição> <payload> [PATH]

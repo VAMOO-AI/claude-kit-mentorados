@@ -45,7 +45,7 @@ sessao c aaaaaaaa-0000-0000-0000-000000000004 claude-vscode  /proj/c 0 202609230
 
 echo "== --comparar respeita o --cwd =="
 out="$(python3 "$PY" --comparar --cwd /proj/a 2>&1)"
-check "mostra o terminal de /proj/a"           "$(printf '%s' "$out" | grep -Eq '^aaaaaaaa +cli ' && printf '%s' "$out" | grep >/dev/null '/proj/a' && echo ok || echo fail)"
+check "mostra o terminal de /proj/a"           "$(grep -Eq '^aaaaaaaa +cli ' <<< "$out" && printf '%s' "$out" | grep >/dev/null '/proj/a' && echo ok || echo fail)"
 check "não traz o terminal de /proj/b"         "$(printf '%s' "$out" | grep >/dev/null '/proj/b' && echo fail || echo ok)"
 check "sem aviso de diretórios diferentes"     "$(printf '%s' "$out" | grep >/dev/null 'diretórios diferentes' && echo fail || echo ok)"
 
@@ -59,7 +59,7 @@ check "diz que só achou uma superfície"        "$(printf '%s' "$out" | grep >/
 
 echo "== entrypoint fora da lista conhecida também aparece =="
 out="$(python3 "$PY" --comparar --cwd /proj/c 2>&1)"
-check "a sessão do vscode é mostrada"          "$(printf '%s' "$out" | grep -Eq '^aaaaaaaa +claude-vscode ' && echo ok || echo fail)"
+check "a sessão do vscode é mostrada"          "$(grep -Eq '^aaaaaaaa +claude-vscode ' <<< "$out" && echo ok || echo fail)"
 
 echo "== --comparar num diretório sem sessão =="
 out="$(python3 "$PY" --comparar --cwd /proj/nada 2>&1)"; rc=$?
@@ -67,12 +67,12 @@ check "sai com erro e nomeia o diretório"      "$([ "$rc" != 0 ] && printf '%s'
 
 echo "== lista de tools ausente não é zero =="
 out="$(python3 "$PY" aaaaaaaa-0000-0000-0000-000000000002 2>&1)"
-check "sem lista registrada: tools=?"          "$(printf '%s' "$out" | grep -Eq 'tools= *\?' && echo ok || echo fail)"
-check "e não tools=0"                          "$(printf '%s' "$out" | grep -Eq 'tools= *0 ' && echo fail || echo ok)"
+check "sem lista registrada: tools=?"          "$(grep -Eq 'tools= *\?' <<< "$out" && echo ok || echo fail)"
+check "e não tools=0"                          "$(grep -Eq 'tools= *0 ' <<< "$out" && echo fail || echo ok)"
 out="$(python3 "$PY" aaaaaaaa-0000-0000-0000-000000000003 2>&1)"
-check "com lista: conta as 3 tools"            "$(printf '%s' "$out" | grep -Eq 'tools= *3 ' && echo ok || echo fail)"
-check "e os 2 servidores"                      "$(printf '%s' "$out" | grep -Eq 'servidores= *2 ' && echo ok || echo fail)"
-check "nascimento vem do usage"                "$(printf '%s' "$out" | grep -Eq 'nascimento= *20010' && echo ok || echo fail)"
+check "com lista: conta as 3 tools"            "$(grep -Eq 'tools= *3 ' <<< "$out" && echo ok || echo fail)"
+check "e os 2 servidores"                      "$(grep -Eq 'servidores= *2 ' <<< "$out" && echo ok || echo fail)"
+check "nascimento vem do usage"                "$(grep -Eq 'nascimento= *20010' <<< "$out" && echo ok || echo fail)"
 
 echo
 if [ "$falhas" -eq 0 ]; then echo "tudo verde"; else echo "$falhas falha(s)"; exit 1; fi

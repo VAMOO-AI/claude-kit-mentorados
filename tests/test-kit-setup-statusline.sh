@@ -69,15 +69,17 @@ roda_setup "$F" --dry-run --statusline painel
 
 echo "== o wrapper =="
 P='{"session_id":"s1","model":{"display_name":"Opus 5.5"},"workspace":{"current_dir":"/tmp"},"cost":{"total_cost_usd":1.2,"total_duration_ms":60000}}'
-saida="$(cd "$TMP" && printf '%s' "$P" | HOME="$A" bash "$A/.claude/statusline-command.sh")"
+# Payload por `< <(printf …)`, não por pipe: o .js quebrado sai sem ler o stdin, o printf pode
+# tomar SIGPIPE e, com `pipefail`, o rc 0 do wrapper vira 141 às vezes.
+saida="$(cd "$TMP" && HOME="$A" bash "$A/.claude/statusline-command.sh" < <(printf '%s' "$P"))"
 case "$saida" in *"Opus 5.5"*) ok "o stdin chega ao .js (painel mostra o modelo)" ;; *) falha "saída sem o modelo: $saida" ;; esac
 [ "$(printf '%s\n' "$saida" | wc -l | tr -d ' ')" -gt 1 ] && ok "sem modo gravado, painel (mais de uma linha)" || falha "sem modo gravado saiu uma linha só"
 
-saida="$(cd "$TMP" && printf '%s' "$P" | HOME="$B" bash "$B/.claude/statusline-command.sh")"
+saida="$(cd "$TMP" && HOME="$B" bash "$B/.claude/statusline-command.sh" < <(printf '%s' "$P"))"
 [ "$(printf '%s\n' "$saida" | wc -l | tr -d ' ')" -eq 1 ] && ok "modo curto gravado: uma linha" || falha "modo curto saiu $(printf '%s\n' "$saida" | wc -l) linhas"
 
 printf 'process.exit(3)\n' > "$A/.claude/scripts/statusline.js"
-saida="$(printf '%s' "$P" | HOME="$A" bash "$A/.claude/statusline-command.sh" 2>&1)"; rc=$?
+saida="$(HOME="$A" bash "$A/.claude/statusline-command.sh" < <(printf '%s' "$P") 2>&1)"; rc=$?
 [ "$saida" = "[statusline]" ] && [ "$rc" -eq 0 ] && ok "node quebrado: mostra [statusline] e sai 0" || falha "node quebrado: rc=$rc saída='$saida'"
 
 echo

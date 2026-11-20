@@ -234,7 +234,7 @@ for manifesto in 'skill/vamoo-verificacao' 'nucleo=plugin'; do
 done
 reset; semeia 1.1.0; echo 'nucleo=plugin' > "$FAKE_HOME/.claude/.team-manifest"
 saida="$(KIT_VAMOO_HOOKS=1 roda)"
-check "KIT_VAMOO_HOOKS=1 religa o aviso na máquina do time" "$(printf '%s' "$saida" | grep -q '1.1.0 → 1.4.0' && echo ok || echo fail)"
+check "KIT_VAMOO_HOOKS=1 religa o aviso na máquina do time" "$(grep -q '1.1.0 → 1.4.0' <<< "$saida" && echo ok || echo fail)"
 
 echo "== o hook está mesmo pendurado no SessionStart =="
 # Caminho errado no hooks.json é no-op silencioso: o Claude Code não reclama, e o
