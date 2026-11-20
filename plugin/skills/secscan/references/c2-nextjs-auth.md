@@ -3,8 +3,9 @@
 ## Next.js e Supabase Auth: onde a checagem some (Fase 3)
 
 > Ponto de partida: skills `hunt-*` de `elementalsouls/Claude-BugHunter` (MIT), destiladas em
-> checklist defensivo para este stack. Só a parte estática: teste com requisição contra o app
-> rodando fica fora deste scan (read-only, só o workspace local).
+> checklist defensivo para este stack. Só a parte estática: o teste com requisição das mesmas
+> classes (middleware, source map, CORS, GraphQL, CSRF, URL interna) é a fase dinâmica da
+> `baseline`, em `skills/baseline/references/08-perimetro-dinamico.md`.
 
 Sem `next` no `package.json`, os itens de Next são `não aplicável`; os de Supabase Auth valem
 para todo código de servidor que usa `@supabase/ssr` ou `@supabase/supabase-js`.

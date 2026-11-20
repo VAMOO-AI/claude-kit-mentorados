@@ -28,7 +28,8 @@ skill volta ao contexto, e os comandos daqui foram calibrados contra falso posit
 - **Zero findings ≠ seguro.** Relatório limpo só diz que ESTE scan, com as ferramentas
   disponíveis, neste escopo, não achou nada. O relatório TEM que dizer isso.
 - **Só o workspace local.** Nunca cutucar endpoint externo/deployado. Ler doc oficial
-  (OWASP/CWE) para embasar um fix é permitido.
+  (OWASP/CWE) para embasar um fix é permitido. Pedido de teste contra o app rodando é a fase
+  dinâmica da `baseline` (`08-perimetro-dinamico.md`), com política de alvo própria.
 - **Ferramentas reais primeiro, heurística confirma (modelo CONFIRMED).** Rode `semgrep`,
   `gitleaks`, `npm/pnpm audit`, `osv-scanner` ANTES de confiar em grep. Achado é `CONFIRMED`
   quando ferramenta real e heurística concordam **ou** quando um teste do próprio projeto
