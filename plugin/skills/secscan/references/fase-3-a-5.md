@@ -8,6 +8,10 @@
 - Query de lista sem limite/paginação → DoS (e o teto de 1.000 linhas do Supabase cortando calado).
 - CORS `Access-Control-Allow-Origin: *` em endpoint autenticado.
 
+Next.js e Supabase Auth em detalhe (`getSession()` no servidor, middleware como única barreira,
+Server Action, CSRF em route handler, URL montada com `Host`, cache com dado de usuário, prop
+de Server Component): [references/c2-nextjs-auth.md](c2-nextjs-auth.md), lido nesta fase.
+
 A validação de entrada (C4) tem fase própria, a 2.5.
 
 ### C1 — Injeção
@@ -99,6 +103,9 @@ testes verdes dos dois lados, lockfile revisado e commitado, ou quando o CI inst
 `npm install`. Não é detalhe: é a via de supply chain que a Fase 4 não vê, porque na hora
 do scan a versão nova já está instalada. No modo pedagógico, o caso contado passo a passo
 está em [`docs/seguranca.md`](https://github.com/VAMOO-AI/claude-kit-mentorados/blob/main/docs/seguranca.md#atualizar-dependência-também-é-mudança-de-código).
+
+Workflows do GitHub Actions (expressão no `run:`, `pull_request_target`, action sem pin,
+permissão do token) são a Fase 4.5: [references/fase-4-5-ci-actions.md](fase-4-5-ci-actions.md).
 
 ## Fase 5 — Heurísticas de "vibe-coding"
 

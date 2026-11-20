@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.97.0] — 2026-11-20
+
+### Adicionado
+
+- **`secscan`**: Fase 0.2 (config de agente versionada no repo auditado), Fase 4.5 (GitHub Actions), referências de concorrência e de upload na C4 e de Next.js com Supabase Auth na Fase 3; merge profundo (prototype pollution) na C4. A prova mínima do relatório passa a exigir essas checagens.
+
 ## [0.96.0] — 2026-11-20
 
 ### Adicionado
