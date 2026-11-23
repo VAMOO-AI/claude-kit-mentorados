@@ -10,6 +10,21 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.99.0] — 2026-11-22
+
+### Adicionado
+
+- **`worktrees`**: seção "Quando o `EnterWorktree` ou o `ExitWorktree` recusa", com a causa e o procedimento de cada recusa (19 em 7 dias de transcript, todas de procedimento).
+
+### Mudado
+
+- **`executor`**: roda em `model: sonnet` (antes herdava o modelo da sessão). O `revisor` não muda.
+- **`orquestracao`**: subagent de busca, leitura ou lote mecânico vai com `model` menor no dispatch; revisão adversarial fica no modelo da sessão.
+
+### Corrigido
+
+- **`check-careful` no modo sem perguntas**: `rm -r` em `~/.cache`, no cache do bun e em pasta temporária deixa de perguntar; em pasta sem git o projeto passa a ser a pasta em que a sessão abriu; e a regra de rede + credencial só vale para comando de rede em posição de comando, não para `curl` citado em teste, corpo de PR ou mensagem. Medido: 10 de 11 perguntas em bypass eram falso positivo.
+
 ## [0.98.1] — 2026-11-20
 
 ### Corrigido

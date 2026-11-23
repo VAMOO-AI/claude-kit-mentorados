@@ -36,6 +36,13 @@ for f in "$DIR"/*.md; do
     ""|low|medium|high|xhigh|max) ok "$n effort válido (${e:-herda da sessão})" ;;
     *) falha "$n effort '$e' fora de low|medium|high|xhigh|max" ;;
   esac
+  # `model`: alias, ID completo ou `inherit` (https://code.claude.com/docs/en/sub-agents.md,
+  # "Choose a model", lido em 22/11/2026). Valor fora disso não vira erro visível.
+  m="$(campo "$f" model)"
+  case "$m" in
+    ""|inherit|sonnet|opus|haiku|fable|claude-*) ok "$n model válido (${m:-herda da sessão})" ;;
+    *) falha "$n model '$m' fora de sonnet|opus|haiku|fable|inherit|claude-<id>" ;;
+  esac
 done
 
 for a in revisor executor; do
@@ -45,6 +52,19 @@ for a in revisor executor; do
   [ "$(campo "$f" effort)" = medium ] && ok "plugin/agents/$a.md effort: medium" \
     || falha "plugin/agents/$a.md effort: medium (tem '$(campo "$f" effort)')"
 done
+
+# Modelo (22/11/2026): subagente sem `model:` roda no modelo da sessão, e em 7 dias 98% das
+# requisições de subagente saíram no modelo mais caro (3.983 de 4.070). O `executor` (lote de
+# implementação com scope contract) fixa `sonnet`; o `revisor` segue sem `model`, no modelo da
+# sessão, porque revisão adversarial é onde o modelo maior paga.
+[ "$(campo "$DIR/executor.md" model)" = sonnet ] && ok "plugin/agents/executor.md model: sonnet" \
+  || falha "plugin/agents/executor.md model: sonnet (tem '$(campo "$DIR/executor.md" model)')"
+[ -z "$(campo "$DIR/revisor.md" model)" ] && ok "plugin/agents/revisor.md sem model: herda o da sessão" \
+  || falha "plugin/agents/revisor.md sem model: herda o da sessão (tem '$(campo "$DIR/revisor.md" model)')"
+ORQ="$RAIZ/plugin/skills/orquestracao/SKILL.md"
+grep -qE '`model` menor' "$ORQ" && grep -qE 'revisão adversarial fica no modelo da sessão' "$ORQ" \
+  && ok "orquestracao: diz que modelo vai em cada tipo de dispatch" \
+  || falha "orquestracao: diz que modelo vai em cada tipo de dispatch"
 
 # O subagentes.md não chega ao contexto do subagente (é lido pela conversa principal): o que
 # o revisor precisa em todo review mora no plugin/agents/revisor.md. O executor abre PR, então
