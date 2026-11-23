@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.100.0|Limpar o cache do yarn ou de um app em Library/Caches deixou de pedir confirmação no modo sem perguntas
 0.99.0|No modo sem perguntas, limpar cache ou pasta temporária e citar um curl num texto não pedem mais confirmação; O executor dos lotes de implementação passa a rodar no Sonnet, e a revisão continua no modelo da sua sessão; A skill de worktrees agora diz o que fazer quando entrar ou sair de um worktree é recusado
 0.98.1|A fase dinâmica da baseline agora explica o relatório do ZAP que não sai em Docker no Linux
 0.98.0|A baseline agora testa o preview rodando (ZAP passivo e seis sondas) só contra alvo listado no contrato, nunca em produção

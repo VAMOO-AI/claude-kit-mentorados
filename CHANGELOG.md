@@ -10,6 +10,13 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.100.0] — 2026-11-23
+
+### Corrigido
+
+- **`check-careful`**: no modo sem perguntas, apagar o cache do yarn berry e o conteúdo de `~/Library/Caches` não pergunta mais (medição: o que sobrou do replay dos 10 comandos reais). A pasta `~/Library/Caches` inteira continua perguntando.
+- **CI**: `tests/test-pre-bash.sh` não depende mais do marcador `sem-perguntas` da máquina; teto do job `windows` sobe para 20 min.
+
 ## [0.99.0] — 2026-11-22
 
 ### Adicionado
