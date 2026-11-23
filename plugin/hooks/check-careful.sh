@@ -246,7 +246,9 @@ alvo_cache_ou_tmp() {
   h="$(norm_caminho "${HOME:-}")"
   if [ -n "$h" ] && [ "$h" != "/" ]; then
     case "$a" in
-      "$h"/.cache/*|"$h"/Library/Caches/*) return 0 ;;
+      # [Ll]/[Cc]: no Windows o norm_caminho põe o caminho em minúsculas, e o Library/Caches é o
+      # único nome da lista com maiúscula (o macOS também casa as duas grafias).
+      "$h"/.cache/*|"$h"/[Ll]ibrary/[Cc]aches/*) return 0 ;;
       "$h"/.bun/install/cache|"$h"/.bun/install/cache/*) return 0 ;;
       "$h"/.yarn/berry/cache|"$h"/.yarn/berry/cache/*) return 0 ;;
     esac
