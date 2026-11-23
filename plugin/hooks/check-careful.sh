@@ -53,7 +53,8 @@
 # ~/.claude/kit-vamoo/sem-perguntas, trabalha em bypass por padrão e pediu para não ser
 # parado no que é rotina ou tem volta. Com o marcador o hook pergunta só o gravíssimo, e
 # pergunta em QUALQUER modo, bypass incluso (aí o `ask` atravessar o bypass é o que se quer):
-#   • `rm -r` cujo alvo sai do projeto, é o projeto inteiro ou o `.git` dele;
+#   • `rm -r` cujo alvo sai do projeto, é o projeto inteiro ou o `.git` dele (cache e
+#     temporário não contam como "fora": ver a recalibração de 22/11 abaixo);
 #   • DROP/TRUNCATE sendo executado;
 #   • `supabase db reset` no banco remoto;
 #   • `gh repo delete` (a regra `ask` que cobria saiu junto com as outras de comando);
@@ -62,6 +63,21 @@
 # (CREATE/ALTER TABLE), `git add` amplo, `.env` citado e `rm -r` de pasta de dentro do
 # projeto. CAREFUL_ON=1 traz o hook inteiro de volta também aqui. A suíte liga e desliga o
 # modo por CHECK_CAREFUL_SEM_PERGUNTAS (1/0), sem depender do ~/.claude de quem roda.
+#
+#   22/11/2026 — recalibração do modo pelo decisoes.tsv de uma máquina: de 12/11 a 21/11
+#   foram 11 perguntas em bypass e 10 eram falso positivo. Só no modo, o resto não mudou:
+#     • `rm -r` em `$HOME/.cache/…`, em `~/.bun/install/cache` e em pasta temporária
+#       (`/tmp`, `/var/folders`, o valor de `$TMPDIR`) passa, também quando o alvo é relativo
+#       e o `cd` do próprio comando levou para lá (5 dos 10, com o caso abaixo);
+#     • cwd sem git: o projeto é a pasta em que a sessão abriu (`CLAUDE_PROJECT_DIR`), e
+#       não a subpasta em que o shell está. `cd <pai> && rm -rf <subpasta>` era lido como
+#       "apagar o projeto inteiro";
+#     • rede + credencial só conta com o comando de rede em POSIÇÃO DE COMANDO (5 dos 10):
+#       `curl -d @.env` citado numa lista de casos de teste (`for cmd in '…'`), em corpo de
+#       PR ou de commit por heredoc e em mensagem entre aspas não manda nada. Continua
+#       valendo dentro de `$( )`, depois de `if`/`do`/`then`, com variável ou caminho na
+#       frente, e em qualquer ponto do trecho quando quem roda é `bash -c`, `sh`, `eval`,
+#       `xargs`, `ssh`, `sudo`, `env`. Aspa sem par volta para a regra antiga (o comando inteiro).
 #
 # Todo caso tem teste em tests/test-check-careful.sh — rode antes de commitar.
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" 2>/dev/null && pwd)/hookjson.js"
@@ -194,7 +210,7 @@ raizes_projeto() {
   [ -n "$RAIZES_OK" ] && return 0
   RAIZES_OK=1
   [ -n "$cwd" ] || return 0
-  local top pre logico comum
+  local top pre logico comum proj
   top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
   if [ -n "$top" ]; then
     RAIZES="$(norm_caminho "$top")"
@@ -206,10 +222,34 @@ raizes_projeto() {
     case "$comum" in */.git) RAIZES="$RAIZES"$'\n'"$(norm_caminho "${comum%/.git}")" ;; esac
   else
     top="$(norm_caminho "$cwd")"
+    # Sem git, o shell pode estar numa subpasta da pasta em que a sessão abriu
+    # (CLAUDE_PROJECT_DIR). O projeto é ela: a subpasta é pasta de dentro, e apagá-la não é
+    # "apagar o projeto inteiro". Sessão aberta no HOME ou em `/` não entra.
+    proj="$(norm_caminho "${CLAUDE_PROJECT_DIR:-}")"
+    if [ -n "$proj" ] && [ "$proj" != "/" ] && [ "$proj" != "$(norm_caminho "$HOME")" ]; then
+      case "$top" in "$proj"/*) top="$proj" ;; esac
+    fi
     [ "$top" != "$(norm_caminho "$HOME")" ] && [ "$top" != "/" ] && RAIZES="$top"
   fi
 }
-alvo_fora_do_projeto() { # 0 = pergunta; 1 = dentro do projeto (ou não dá para provar)
+# Cache e temporário (22/11/2026): regenerável ou descartável por definição, então sair do
+# projeto para lá não pergunta. Recebe o caminho absoluto já normalizado e sem `..`. A lista
+# é curta de propósito: `~/.cache` (XDG), o cache do bun e as pastas temporárias. Outro cache
+# (`~/Library/Caches`, `~/.yarn/berry/cache`) segue perguntando até ter medição.
+alvo_cache_ou_tmp() {
+  local a="$1" h t
+  case "$a" in /tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) return 0 ;; esac
+  h="$(norm_caminho "${HOME:-}")"
+  if [ -n "$h" ] && [ "$h" != "/" ]; then
+    case "$a" in "$h"/.cache/*|"$h"/.bun/install/cache|"$h"/.bun/install/cache/*) return 0 ;; esac
+  fi
+  t="$(norm_caminho "${TMPDIR:-}")"
+  if [ -n "$t" ] && [ "$t" != "/" ] && [ "$t" != "$h" ]; then
+    case "$a" in "$t"/*) return 0 ;; esac
+  fi
+  return 1
+}
+alvo_fora_do_projeto() { # 0 = pergunta; 1 = dentro do projeto, cache/temporário (ou não dá para provar)
   local a r dentro=0
   a="$(desaspa "$1")"; a="${a//\\//}"
   case "$a" in
@@ -229,6 +269,7 @@ alvo_fora_do_projeto() { # 0 = pergunta; 1 = dentro do projeto (ou não dá para
   a="${a%/\*}"; a="${a//\/.\//\/}"
   while [ "${a%/.}" != "$a" ]; do a="${a%/.}"; done
   a="$(norm_caminho "$a")"
+  alvo_cache_ou_tmp "$a" && return 1
   case "$a" in */.git) return 0 ;; esac
   raizes_projeto
   while IFS= read -r r; do
@@ -509,7 +550,71 @@ fi
 # segmento. E o destino "dono" da credencial (a própria API do Supabase/n8n/GitHub) é
 # isento: mandar a service_role PRO Supabase é o uso correto dela. Sobram 13 em 30 dias.
 net_seg=""
+if [ "$so_grave" = 1 ]; then
+  # Modo sem perguntas (22/11/2026): só o comando de rede em posição de comando. O awk tira o
+  # corpo de heredoc (fica quando quem o lê é um shell: `bash <<EOF`, `<<EOF | sh`), corta os
+  # trechos em `;`, `&`, `|`, quebra de linha, `( )`, `$(` e crase FORA de aspas, e devolve o
+  # trecho a partir do comando de rede. Lançador que roda o que vem depois (bash -c, eval,
+  # xargs, ssh, sudo, env…) é procurado em qualquer ponto do trecho. Aspa sem par no fim quer
+  # dizer que o recorte pode ter errado: aí vale a regra antiga, no texto inteiro.
+  [[ $c =~ (curl|wget|nc|ncat|scp|rsync) ]] && net_seg=$(printf '%s\n' "$c" | awk '
+    function em_qualquer_ponto(s,   ini, r, k) {
+      while (match(s, /(^|[^A-Za-z0-9_])(curl|wget|ncat|nc|scp|rsync)([^A-Za-z0-9_]|$)/)) {
+        ini = RSTART; if (substr(s, ini, 1) !~ /[a-z]/) ini++
+        r = substr(s, ini); k = match(r, /[;&|]/); if (k) r = substr(r, 1, k - 1)
+        print r
+        s = substr(s, ini + 2)
+      }
+    }
+    function avalia(s,   ant, w) {
+      do {
+        ant = s
+        sub(/^[ \t]+/, "", s)
+        sub(/^[{!][ \t]+/, "", s)
+        sub(/^(then|do|else|elif|if|while|until|time|rtk|command|nohup|exec)[ \t]+/, "", s)
+        sub(/^[A-Za-z_][A-Za-z0-9_]*=("[^"]*"|\047[^\047]*\047|[^ \t]*)[ \t]+/, "", s)
+      } while (s != ant)
+      w = s; sub(/[ \t].*$/, "", w); sub(/^.*\//, "", w)
+      if (w ~ /^(curl|wget|ncat|nc|scp|rsync)$/) { sub(/^[^ \t]*\//, "", s); print s }
+      else if (w ~ /^(bash|sh|zsh|dash|eval|xargs|ssh|sudo|env|nice|timeout|watch|parallel|find|docker|su)$/) em_qualquer_ponto(s)
+    }
+    function fecha() { if (seg ~ /[^ \t]/) avalia(seg); seg = "" }
+    function varre(linha,   i, n, ch, px) {
+      n = length(linha)
+      for (i = 1; i <= n; i++) {
+        ch = substr(linha, i, 1); px = substr(linha, i + 1, 1)
+        if (q == "s") { if (ch == "\047") q = ""; seg = seg (ch == "\n" ? " " : ch); continue }
+        if (ch == "\\") { seg = seg (px == "\n" ? " " : ch px); i++; continue }
+        if (ch == "`" || (ch == "$" && px == "(")) { fecha(); if (ch == "$") i++; continue }
+        if (q == "d") { if (ch == "\"") q = ""; seg = seg (ch == "\n" ? " " : ch); continue }
+        if (ch == "\047") { q = "s"; seg = seg ch; continue }
+        if (ch == "\"") { q = "d"; seg = seg ch; continue }
+        if (ch == ";" || ch == "|" || ch == "&" || ch == "\n" || ch == "(" || ch == ")") { fecha(); continue }
+        seg = seg ch
+      }
+    }
+    BEGIN { inhd = 0; dash = 0; q = ""; seg = ""; nl = 0 }
+    inhd && !fica {
+      l = $0; if (dash) sub(/^\t+/, "", l)
+      if (l == tag || l == tag";" || l == tag")" || l == tag")\"" || l == tag"\"") { inhd = 0; varre(substr(l, length(tag) + 1) "\n") }
+      next
+    }
+    {
+      if (inhd) { l = $0; if (dash) sub(/^\t+/, "", l); if (l == tag) { inhd = 0; fica = 0; next } }
+      todo[++nl] = $0
+      varre($0 "\n")
+      if (inhd) next
+      l = $0; gsub(/<<</, "", l)
+      if (match(l, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_.-]*[\047"]?/)) {
+        t = substr(l, RSTART, RLENGTH); dash = (t ~ /^<<-/)
+        gsub(/^<<-?[ \t]*|[\047"]/, "", t); tag = t; inhd = 1
+        fica = (l ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(bash|sh|zsh|dash|ssh)([ \t][^;&|]*)?<</ || l ~ /<<[^|]*\|[ \t]*(sudo[ \t]+)?(bash|sh|zsh|dash|ssh)([ \t]|$)/)
+      }
+    }
+    END { fecha(); if (q != "") for (i = 1; i <= nl; i++) em_qualquer_ponto(todo[i]) }' 2>/dev/null)
+else
 shopt -s nocasematch; [[ $c =~ (curl|wget|nc|ncat|scp|rsync) ]] && net_seg=$(printf '%s' "$c" | grep -oE '\b(curl|wget|nc|ncat|scp|rsync)\b[^;&|]*' 2>/dev/null); shopt -u nocasematch
+fi
 # rsync/scp só é rede com destino remoto (`host:caminho`, `user@host:` ou `rsync://`); sem
 # isso é cópia local. E `--exclude[=| ]X` / `--exclude-from` diz o que NÃO vai: o
 # `--exclude .env.local` de cópia de template perguntava em bypass (18/11/2026).
