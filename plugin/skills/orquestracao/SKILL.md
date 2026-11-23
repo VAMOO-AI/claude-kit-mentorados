@@ -25,6 +25,9 @@ Depois de uma compactação só o começo desta skill volta ao contexto: leia o 
 - Qual subagente: lote de implementação despachado → agente `executor` do kit
   (`subagent_type: kit-vamoo:executor`); review → `revisor` (`kit-vamoo:revisor`). Os dois
   rodam em `effort: medium`.
+- Qual modelo: subagent de busca, leitura ou lote mecânico vai com `model` menor no dispatch
+  (`model: "sonnet"` ou `"haiku"` na chamada, que vence o frontmatter); o `executor` já fixa
+  `sonnet`; revisão adversarial fica no modelo da sessão (o `revisor` não fixa `model`).
 - Onda manual, com barreira entre lotes, só com 429/529 medido: o runner já segura o pico.
 - Auditoria ou review multi-área com juiz adversarial: o workflow `audit-multidim` (o plugin
   entrega, como `/kit-vamoo:audit-multidim`) só roda com pedido explícito da pessoa
