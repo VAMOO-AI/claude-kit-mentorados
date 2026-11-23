@@ -68,7 +68,10 @@
 #   foram 11 perguntas em bypass e 10 eram falso positivo. Só no modo, o resto não mudou:
 #     • `rm -r` em `$HOME/.cache/…`, em `~/.bun/install/cache` e em pasta temporária
 #       (`/tmp`, `/var/folders`, o valor de `$TMPDIR`) passa, também quando o alvo é relativo
-#       e o `cd` do próprio comando levou para lá (5 dos 10, com o caso abaixo);
+#       e o `cd` do próprio comando levou para lá (5 dos 10, com o caso abaixo). 23/11: a
+#       medição (9 dos 10 comandos do replay passaram na 0.99.0, o que sobrou era isto) somou
+#       `~/.yarn/berry/cache` (a pasta e o que tem dentro) e `~/Library/Caches/<algo>` (só
+#       o que está dentro; a pasta `~/Library/Caches` inteira segue perguntando);
 #     • cwd sem git: o projeto é a pasta em que a sessão abriu (`CLAUDE_PROJECT_DIR`), e
 #       não a subpasta em que o shell está. `cd <pai> && rm -rf <subpasta>` era lido como
 #       "apagar o projeto inteiro";
@@ -234,14 +237,21 @@ raizes_projeto() {
 }
 # Cache e temporário (22/11/2026): regenerável ou descartável por definição, então sair do
 # projeto para lá não pergunta. Recebe o caminho absoluto já normalizado e sem `..`. A lista
-# é curta de propósito: `~/.cache` (XDG), o cache do bun e as pastas temporárias. Outro cache
-# (`~/Library/Caches`, `~/.yarn/berry/cache`) segue perguntando até ter medição.
+# é curta de propósito: `~/.cache` e `~/Library/Caches` (só o que está dentro, a pasta inteira
+# pergunta), o cache do bun e o do yarn berry (a pasta e o que está dentro) e as pastas
+# temporárias. Outro cache segue perguntando até ter medição.
 alvo_cache_ou_tmp() {
   local a="$1" h t
   case "$a" in /tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*) return 0 ;; esac
   h="$(norm_caminho "${HOME:-}")"
   if [ -n "$h" ] && [ "$h" != "/" ]; then
-    case "$a" in "$h"/.cache/*|"$h"/.bun/install/cache|"$h"/.bun/install/cache/*) return 0 ;; esac
+    case "$a" in
+      # [Ll]/[Cc]: no Windows o norm_caminho põe o caminho em minúsculas, e o Library/Caches é o
+      # único nome da lista com maiúscula (o macOS também casa as duas grafias).
+      "$h"/.cache/*|"$h"/[Ll]ibrary/[Cc]aches/*) return 0 ;;
+      "$h"/.bun/install/cache|"$h"/.bun/install/cache/*) return 0 ;;
+      "$h"/.yarn/berry/cache|"$h"/.yarn/berry/cache/*) return 0 ;;
+    esac
   fi
   t="$(norm_caminho "${TMPDIR:-}")"
   if [ -n "$t" ] && [ "$t" != "/" ] && [ "$t" != "$h" ]; then

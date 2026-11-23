@@ -586,7 +586,9 @@ jobs:
   # node do runner, como na máquina de quem instala.
   windows:
     runs-on: windows-latest
-    timeout-minutes: 15
+    # Era 15. Medido em 23/11/2026 (gh run view, main): 13min02 no release 0.99.0 e 12min43 em
+    # 20/11, contra 8min41 no run anterior; com a suíte crescendo 15 min não sobra folga.
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
