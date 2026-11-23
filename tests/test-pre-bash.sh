@@ -12,6 +12,7 @@
 #
 # Uso: bash tests/test-pre-bash.sh [caminho-do-dispatcher]
 set -uo pipefail
+export CHECK_CAREFUL_SEM_PERGUNTAS=0   # o marcador da máquina de quem roda não muda a suíte
 HOOK="${1:-$(cd "$(dirname "$0")/.." && pwd)/plugin/hooks/pre-bash.sh}"
 [ -f "$HOOK" ] || { echo "dispatcher não encontrado: $HOOK"; exit 2; }
 command -v node >/dev/null 2>&1 || { echo "node é pré-requisito do kit"; exit 2; }

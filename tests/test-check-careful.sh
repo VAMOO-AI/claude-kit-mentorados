@@ -128,6 +128,20 @@ check pass "[$M] rm -rf em \"\$HOME/.cache\" entre aspas (caso real)" 'rm -rf "$
 check pass "[$M] rm -rf em ~/.cache"                     'rm -rf ~/.cache/puppeteer'              "$REPO_GIT" "$M"
 check pass "[$M] rm -rf do cache do bun (caso real)"     'rm -rf ~/.bun/install/cache'            "$REPO_GIT" "$M"
 check pass "[$M] rm -rf de pasta dentro do cache do bun" 'rm -rf ~/.bun/install/cache/react@19'   "$REPO_GIT" "$M"
+# 23/11/2026: a medição fechou a lista. No replay dos 10 comandos reais que tinham perguntado,
+# o que sobrou tinha estes dois caminhos: ~/.yarn/berry/cache (a pasta e o que tem dentro,
+# como o do bun) e o que está DENTRO de ~/Library/Caches (a pasta inteira segue perguntando).
+check pass "[$M] rm -rf do cache do yarn berry"          'rm -rf ~/.yarn/berry/cache'             "$REPO_GIT" "$M"
+check pass "[$M] rm -rf dentro do cache do yarn berry"   'rm -rf $HOME/.yarn/berry/cache/algo'    "$REPO_GIT" "$M"
+check pass "[$M] rm -rf de app em ~/Library/Caches"      'rm -rf ~/Library/Caches/com.exemplo.app' "$REPO_GIT" "$M"
+check pass "[$M] rm -rf em ~/Library/Caches com espaço no nome" 'rm -rf "$HOME/Library/Caches/x y"' "$REPO_GIT" "$M"
+check ask  "[$M] rm -rf do ~/Library inteiro"            'rm -rf ~/Library'                       "$REPO_GIT" "$M"
+check ask  "[$M] rm -rf da pasta ~/Library/Caches inteira" 'rm -rf ~/Library/Caches'             "$REPO_GIT" "$M"
+check ask  "[$M] rm -rf do ~/.yarn inteiro"              'rm -rf ~/.yarn'                         "$REPO_GIT" "$M"
+check ask  "[$M] rm -rf do ~/.yarn/berry, acima do cache" 'rm -rf ~/.yarn/berry'                  "$REPO_GIT" "$M"
+check ask  "[$M] pasta de nome parecido com Library/Caches" 'rm -rf ~/Library/CachesFalso/x'      "$REPO_GIT" "$M"
+check ask  "[$M] saindo de Library/Caches com .."        'rm -rf ~/Library/Caches/../Preferences' "$REPO_GIT" "$M"
+check ask  "[$M] Library/Caches junto com alvo de fora do projeto" 'rm -rf ~/Library/Caches/x ~/PROJETOS/cliente' "$REPO_GIT" "$M"
 check pass "[$M] cd para o temporário e rm -r relativo (caso real)" 'cd /private/tmp/claude-501/sessao/scratchpad && python3 -c "print(1)" && rm -r mapa/wf sum.py && ls mapa' "$REPO_GIT" "$M"
 check ask  "[$M] rm -rf do ~/.bun inteiro"               'rm -rf ~/.bun'                          "$REPO_GIT" "$M"
 check ask  "[$M] rm -rf do install do bun, acima do cache" 'rm -rf ~/.bun/install'                "$REPO_GIT" "$M"
