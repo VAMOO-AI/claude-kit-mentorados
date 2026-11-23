@@ -54,6 +54,25 @@ worktree, só troca para outro do mesmo repo sob `.claude/worktrees/`. Precisa d
 e o trabalho anterior já está pusheado ou mergeado: `git checkout -b <nova> origin/main` no
 worktree que você já tem.
 
+## Quando o `EnterWorktree` ou o `ExitWorktree` recusa
+
+Medido em 7 dias de transcript (22/11/2026): 19 recusas, todas de procedimento.
+
+- `EnterWorktree`, *"not in a git repository"*: a tool olha a pasta atual do shell, não o
+  `path`, e um `cd` anterior (scratchpad, pasta sem git) ficou valendo. Um Bash só com
+  `cd <repo>` e chame de novo.
+- `EnterWorktree`, *"would not give this agent write access"*: subagente isolado num worktree
+  não troca para outro. Edite a cópia do arquivo no seu; quem orquestra despacha um agente por
+  worktree.
+- `EnterWorktree`, *"is the current working directory"*: você já está nele. Siga.
+- `ExitWorktree` `remove`, *"now on another branch, which has N commits"*: é o fluxo do kit
+  (`git checkout -b feat/x` no worktree e commit), e o `remove` simples sempre recusa aí. Com a
+  prova de "Limpeza no fim", chame já com `discard_changes: true`; sem ela, `action: "keep"`.
+- `ExitWorktree` `remove`, *"has N uncommitted file"* ou *"N commit on worktree-…"*: trabalho
+  sem commit ou sem push. Commite e suba, ou `keep`.
+- `ExitWorktree`, *"no active EnterWorktree session"*: worktree de outra sessão ou do
+  `git worktree add`. Sai com `git worktree remove <wt>` a partir do clone, com a mesma prova.
+
 ## Base velha
 
 - O squash do GitHub não apaga arquivo que só existe na `main`. Diff de PR é de **três
