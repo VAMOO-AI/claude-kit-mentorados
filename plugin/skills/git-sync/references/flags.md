@@ -60,6 +60,15 @@ O aviso de branch sem upstream conta os commits que **nenhuma ref do origin** te
 estão à frente de `origin/<default>`: branch nova sem commit próprio não vira "N commits que
 nunca foram ao GitHub".
 
+**Clone com refspec estreito** (`git clone --single-branch`, ou `remote.origin.fetch` só da
+`main`): o fetch não atualiza as outras `origin/*` e o `--prune` não as limpa, então uma
+`origin/<b>` local pode ser branch que o GitHub já apagou. O cabeçalho ganha uma linha
+`refspec:` e a lista de branches vivas vem do `git ls-remote`. A cópia velha sai como "cópia
+local velha" com `git branch -rd origin/<b>`, nunca com `git push origin --delete`, e some das
+branches ativas do modo time e do aviso "já existe no GitHub". Sem rede, o `--delete` sai com
+"sem confirmar no GitHub". Para voltar a buscar todas: `git config remote.origin.fetch
+'+refs/heads/*:refs/remotes/origin/*'`.
+
 ## Base de trabalho e canal
 
 A default do GitHub nem sempre é onde o trabalho entra. No kit, o `origin/HEAD` é o `stable`
