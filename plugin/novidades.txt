@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.103.3|A limpeza de worktrees passou a reconhecer como mergeada a branch que entrou na main quando a branch padrão do GitHub é um canal que anda atrás dela
 0.103.2|O git-sync passou a comparar com a main quando a branch padrão do GitHub é um canal que anda atrás dela
 0.103.1|O git-sync parou de mandar publicar de novo branch que já entrou num release
 0.103.0|A auditoria agora confere rate limit rota por rota, segredo de automação compartilhado entre integrações e os cabeçalhos de isolamento, robots.txt e security.txt
