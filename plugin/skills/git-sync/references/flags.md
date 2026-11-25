@@ -43,6 +43,24 @@ ele faz para você decidir qual flag passar.
 4. **Branches fora do `[gone]`** (remoto vivo ou nunca pushada), com a mesma prova e só a local.
    O `git push origin --delete <b>` sai impresso para você decidir.
 
+**Trem de release** (o do repositório do kit, ou fluxo igual): o PR de feature não é
+mergeado, e sim fechado depois que o release dele entra. Ele conta como PR mergeado nos três
+lugares, o aviso "NUNCA foi ao GitHub", o dry-run e o `-D` do apply, só com três coisas juntas:
+
+- um PR fechado sem merge com esta head;
+- um PR **MERGED** na mesma base que contém o head dele (`commits/<sha>/pulls` do GitHub);
+- o git confirmando que o head do fechado é ancestral do head do release, buscado em
+  `refs/pull/<release>/head`.
+
+O texto do PR ("Entrou no release…") não prova nada. PR fechado fora de release continua
+"sem PR", e tip que avançou depois do head continua preservado. A saída diz "PR #n fechado
+pelo trem e entregue no release #r".
+
+O aviso de branch sem upstream conta os commits que **nenhuma ref do origin** tem, não os que
+estão à frente de `origin/<default>`. Num repo cuja default do GitHub é um canal atrasado (no
+kit, `origin/HEAD` é o `stable` e o trabalho entra na `main`), branch nova sem commit próprio
+deixou de virar "N commits que nunca foram ao GitHub".
+
 Branch sem commit próprio (tip igual a `origin/<default>` ou na linha first-parent dela) nunca
 conta como mergeada: é sessão recém-aberta. Sem PR, sem head para conferir, head indisponível ou sem `gh` nem token
 da API, a branch fica. Remoto nunca é apagado.

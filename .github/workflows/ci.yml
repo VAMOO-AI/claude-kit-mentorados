@@ -97,6 +97,9 @@ jobs:
       - name: O cleanup do git-sync aceita o tip atrás do head do PR e só chama de "avançou" o que avançou
         run: bash tests/test-git-sync-cleanup-head-pr.sh
 
+      - name: O git-sync reconhece branch entregue pelo trem de release e não conta contra o stable
+        run: bash tests/test-git-sync-release-trem.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 

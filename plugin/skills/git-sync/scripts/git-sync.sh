@@ -598,15 +598,37 @@ rest_get() {   # <caminho> [chave=valor ...] — corpo JSON no stdout; falha = s
     | curl -fsS -G -H @- ${args[@]+"${args[@]}"} "https://api.github.com/repos/$REST_SLUG/$p" 2>/dev/null
 }
 # Resposta que não é lista (erro, credencial ruim) não vira "sem PR": sai vazio com status 1.
-json_pr_mergeado() {   # stdin: lista de pulls → "número<TAB>head.sha" do primeiro mergeado
+json_pr_mergeado() {   # stdin: lista de pulls → "número<TAB>head.sha<TAB>base" do primeiro mergeado
   if [[ "$JSON_TOOL" == jq ]]; then
-    jq -er 'if type=="array" then ([.[]|select(.merged_at!=null)][0] // {}) | "\(.number // "")\t\(.head.sha // "")" else error end' 2>/dev/null
+    jq -er 'if type=="array" then ([.[]|select(.merged_at!=null)][0] // {}) | "\(.number // "")\t\(.head.sha // "")\t\(.base.ref // "")" else error end' 2>/dev/null
   else
     python3 -c 'import json,sys
 d=json.load(sys.stdin)
 if not isinstance(d,list): sys.exit(1)
 m=[p for p in d if p.get("merged_at")]
-print("%s\t%s"%(m[0]["number"],m[0]["head"]["sha"]) if m else "\t")' 2>/dev/null
+print("%s\t%s\t%s"%(m[0]["number"],m[0]["head"]["sha"],(m[0].get("base") or {}).get("ref","")) if m else "\t\t")' 2>/dev/null
+  fi
+}
+json_pr_fechado() {   # stdin: lista de pulls → "número<TAB>head.sha<TAB>base" do primeiro fechado sem merge
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er 'if type=="array" then ([.[]|select(.merged_at==null and .state=="closed")][0] // {}) | "\(.number // "")\t\(.head.sha // "")\t\(.base.ref // "")" else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+m=[p for p in d if not p.get("merged_at") and p.get("state")=="closed"]
+print("%s\t%s\t%s"%(m[0]["number"],m[0]["head"]["sha"],(m[0].get("base") or {}).get("ref","")) if m else "\t\t")' 2>/dev/null
+  fi
+}
+json_pr_release() {   # <base>; stdin: commits/<sha>/pulls → "número<TAB>head.sha" do primeiro mergeado nessa base
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er --arg b "$1" 'if type=="array" then ([.[]|select(.merged_at!=null and .base.ref==$b)][0] // {}) | "\(.number // "")\t\(.head.sha // "")" else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+m=[p for p in d if p.get("merged_at") and (p.get("base") or {}).get("ref")==sys.argv[1]]
+print("%s\t%s"%(m[0]["number"],m[0]["head"]["sha"]) if m else "\t")' "$1" 2>/dev/null
   fi
 }
 json_prs_abertos() {   # stdin: lista de pulls → "  #n título (branch, autor)"
@@ -634,21 +656,77 @@ detectar_backend_pr() {
   return 0
 }
 
-# PR mergeado com esta head → "número<TAB>headRefOid"; "<TAB>" quando o backend respondeu
-# e não há; status 1 quando não há como perguntar ou a consulta falhou.
+# gh que ignore o template do --jq (fake de teste, versão antiga) devolve campos por espaço.
+tab_de_espaco() { if [[ "$1" != *$'\t'* ]]; then printf '%s' "${1// /$'\t'}"; else printf '%s' "$1"; fi; }
+campo() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '{print $k}'; }   # <linha TAB> <n>
+
+# PR com esta head que entregou o trabalho → "número<TAB>headRefOid<TAB>release<TAB>base", sempre
+# 4 campos: release vazio = PR mergeado; preenchido = PR fechado que entrou nesse release (abaixo).
+# Número vazio quando o backend respondeu e não há; status 1 quando não há como perguntar ou a
+# consulta falhou.
 pr_mergeado_consulta() {   # <branch>
-  local b="$1" line
+  local b="$1" line corpo=""
   case "$PR_BACKEND" in
     gh)
-      line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
-           --jq '.[0] | "\(.number // "")\t\(.headRefOid // "")"' 2>/dev/null)" || return 1
-      # gh que ignore o template (fake de teste, versão antiga) devolve "número sha"
-      [[ "$line" != *$'\t'* && "$line" == *" "* ]] && line="${line/ /$'\t'}"
-      printf '%s' "${line:-$'\t'}" ;;
+      line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid,baseRefName \
+           --jq '.[0] | "\(.number // "")\t\(.headRefOid // "")\t\(.baseRefName // "")"' 2>/dev/null)" || return 1
+      line="$(tab_de_espaco "$line")" ;;
     rest)
-      rest_get pulls state=closed "head=${REST_SLUG%%/*}:$b" per_page=10 | json_pr_mergeado || return 1 ;;
+      corpo="$(rest_get pulls state=closed "head=${REST_SLUG%%/*}:$b" per_page=10)" || return 1
+      line="$(printf '%s' "$corpo" | json_pr_mergeado)" || return 1 ;;
     *) return 1 ;;
   esac
+  if [[ -n "$(campo "$line" 1)" ]]; then
+    printf '%s\t%s\t\t%s' "$(campo "$line" 1)" "$(campo "$line" 2)" "$(campo "$line" 3)"
+    return 0
+  fi
+  pr_trem_consulta "$b" "$corpo"
+}
+
+# Trem de release (o scripts/release-trem.sh do kit-vamoo, ou qualquer fluxo igual): o PR de
+# feature nunca é mergeado. O release junta pull/<n>/head com merge --no-ff num branch próprio,
+# o PR do release entra por squash e um workflow FECHA o PR de feature e apaga a remota. Em
+# 25/11/2026, no kit, 4 branches nesse estado saíram "NUNCA foi ao GitHub — publique", e o push
+# recriaria as remotas que o workflow apaga de propósito.
+# A prova são três fatos juntos, nunca o texto do PR (o comentário "Entrou no release" e a lista
+# do corpo são texto livre): (1) PR fechado sem merge com esta head; (2) PR MERGED na mesma base
+# que contém o head dele, pelo commits/<sha>/pulls do GitHub (o endpoint do workflow do kit);
+# (3) no git, o head do fechado é ancestral do head do release, buscado em refs/pull/<r>/head
+# sem gravar ref. Fechado sem release (PR abandonado) continua "sem PR". Quem chama ainda
+# confere o tip contra o head do PR fechado (relacao_head_pr): commit depois do release é trabalho.
+pr_trem_consulta() {   # <branch> [corpo REST da lista de pulls desta head]
+  local b="$1" corpo="${2:-}" line p h base rel r rsha
+  case "$PR_BACKEND" in
+    gh)
+      line="$(gh pr list --state closed --head "$b" --limit 5 --json number,headRefOid,baseRefName,mergedAt \
+           --jq '[.[]|select((.mergedAt // "") == "")][0] // {} | "\(.number // "")\t\(.headRefOid // "")\t\(.baseRefName // "")"' 2>/dev/null)" || return 1
+      line="$(tab_de_espaco "$line")" ;;
+    rest) line="$(printf '%s' "$corpo" | json_pr_fechado)" || return 1 ;;
+    *) return 1 ;;
+  esac
+  p="$(campo "$line" 1)"; h="$(campo "$line" 2)"; base="$(campo "$line" 3)"
+  # base vai para um filtro do jq: só nome de branch comum
+  if ! [[ "$p" =~ ^[0-9]+$ && "$h" =~ ^[0-9a-f]{40,64}$ && "$base" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    printf '\t\t\t'; return 0
+  fi
+  local slug="$REST_SLUG"
+  [[ -n "$slug" ]] || slug='{owner}/{repo}'   # placeholder do gh api: o repo que o gh resolve
+  case "$PR_BACKEND" in
+    gh)
+      rel="$(gh api "repos/$slug/commits/$h/pulls" \
+           --jq "[.[]|select(.merged_at != null and .base.ref == \"$base\")][0] // {} | \"\(.number // \"\")\t\(.head.sha // \"\")\"" 2>/dev/null)" || return 1
+      rel="$(tab_de_espaco "$rel")" ;;
+    rest) rel="$(rest_get "commits/$h/pulls" | json_pr_release "$base")" || return 1 ;;
+  esac
+  r="$(campo "$rel" 1)"; rsha="$(campo "$rel" 2)"
+  if [[ "$r" =~ ^[0-9]+$ && "$rsha" =~ ^[0-9a-f]{40,64}$ ]]; then
+    git cat-file -e "$rsha^{commit}" 2>/dev/null || GIT_TERMINAL_PROMPT=0 git fetch -q --no-tags \
+      --no-write-fetch-head origin "refs/pull/$r/head" >/dev/null 2>&1 || true
+    if git cat-file -e "$h^{commit}" 2>/dev/null && git merge-base --is-ancestor "$h" "$rsha" 2>/dev/null; then
+      printf '%s\t%s\t%s\t%s' "$p" "$h" "$r" "$base"; return 0
+    fi
+  fi
+  printf '\t\t\t'
 }
 
 # O head do PR contra o tip local — a única decisão de "o PR levou tudo?" do script.
@@ -675,12 +753,18 @@ relacao_head_pr() {   # <tip> <head-do-PR> <número-do-PR>
 }
 # Texto da relação: prova (igual|contido) e motivo de preservar (o resto), sem o "!".
 prova_head_pr() { if [[ "$1" == contido ]]; then printf 'tip contido no head do PR'; else printf 'head == tip'; fi; }
-motivo_head_pr() {   # <relação> <número-do-PR>
+# Como o PR entregou: "PR #n merged" ou, pelo trem de release, o fechado e o release que o levou.
+rotulo_pr() {   # <número-do-PR> [número-do-release]
+  if [[ -n "${2:-}" ]]; then printf 'PR #%s fechado pelo trem e entregue no release #%s' "$1" "$2"
+  else printf 'PR #%s merged' "$1"; fi
+}
+motivo_head_pr() {   # <relação> <número-do-PR> [número-do-release]
+  local rot; rot="$(rotulo_pr "$2" "${3:-}")"
   case "$1" in
-    avancou)      printf 'PR #%s merged, mas o tip avançou depois do head do PR' "$2" ;;
-    divergiu)     printf 'PR #%s merged, mas o tip divergiu do head do PR' "$2" ;;
-    indisponivel) printf 'PR #%s merged, mas o head do PR está indisponível (refs/pull/%s/head não veio do origin)' "$2" "$2" ;;
-    *)            printf 'PR #%s merged sem head para conferir' "$2" ;;
+    avancou)      printf '%s, mas o tip avançou depois do head do PR' "$rot" ;;
+    divergiu)     printf '%s, mas o tip divergiu do head do PR' "$rot" ;;
+    indisponivel) printf '%s, mas o head do PR está indisponível (refs/pull/%s/head não veio do origin)' "$rot" "$2" ;;
+    *)            printf '%s sem head para conferir' "$rot" ;;
   esac
 }
 
@@ -697,17 +781,20 @@ if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; f
 # (PR mergeado cuja head bate com o tip), com consulta própria: o cache daquele decide
 # -D e não deve servir a um aviso. Só dispara nesse ramo, uma vez por branch.
 #
-# Devolve no stdout: "<numero-do-PR>" quando provado; "" quando o backend (gh ou API)
-# respondeu e não há PR; "?" quando não há como perguntar. Vazio e "?" são coisas
-# diferentes — o terceiro não autoriza afirmar nem que foi nem que não foi.
+# Devolve no stdout: "<numero-do-PR><TAB><release><TAB><base>" quando provado (release vazio =
+# PR mergeado); "" quando o backend (gh ou API) respondeu e não há PR; "?" quando não há como
+# perguntar. Vazio e "?" são coisas diferentes — o terceiro não autoriza afirmar nem que foi
+# nem que não foi.
 pr_merged_desta_head() {   # <branch> <tip>
   local b="$1" tip="$2" line n oid
   line="$(pr_mergeado_consulta "$b")" || { printf '?'; return; }
-  n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
+  n="$(campo "$line" 1)"; oid="$(campo "$line" 2)"
   # tip à frente ou divergente = continuou commitando depois do merge, e aí o trabalho novo
   # de fato não subiu
   if [[ -n "$n" ]]; then
-    case "$(relacao_head_pr "$tip" "$oid" "$n")" in igual|contido) printf '%s' "$n"; return ;; esac
+    case "$(relacao_head_pr "$tip" "$oid" "$n")" in
+      igual|contido) printf '%s\t%s\t%s' "$n" "$(campo "$line" 3)" "$(campo "$line" 4)"; return ;;
+    esac
   fi
   printf ''
 }
@@ -720,13 +807,24 @@ while IFS='|' read -r lb lup ltrack; do
     if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1; then
       WARNINGS+=("branch local '$lb' NÃO trackeia origin/$lb, que já existe no GitHub — outra pessoa pode estar nela. Ligue o upstream antes de commitar: git branch --set-upstream-to=origin/$lb $lb")
     else
-      lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
+      # Commits que nenhuma ref do origin tem, e não "à frente da default": a default do
+      # GitHub pode ser um canal que anda atrás de onde o trabalho entra (no kit, origin/HEAD é
+      # o stable e os PRs vão para a main), e aí branch nova sem commit próprio virava "N
+      # commits que NUNCA foram ao GitHub". Squash merge ainda deixa os commits da branch fora
+      # de todo origin/*: a prova do PR abaixo continua valendo.
+      lb_ahead="$(git rev-list --count "$lb" --not --remotes=origin 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
         # Com --no-pr a conta não foi resolvida lá em cima; a prova precisa dela.
         resolver_conta_gh; detectar_backend_pr
         _pr="$(pr_merged_desta_head "$lb" "$(git rev-parse "refs/heads/$lb" 2>/dev/null || true)")"
         if [[ -n "$_pr" && "$_pr" != "?" ]]; then
-          WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $ORIGIN_DEFAULT pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          _rel_n="$(campo "$_pr" 2)"; _base="$(campo "$_pr" 3)"; _pr="$(campo "$_pr" 1)"
+          _onde="${_base:+origin/$_base}"; _onde="${_onde:-$ORIGIN_DEFAULT}"
+          if [[ -n "$_rel_n" ]]; then
+            WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $_onde pelo release #$_rel_n (o PR #$_pr desta head foi fechado pelo trem de release, que apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          else
+            WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $_onde pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          fi
         elif [[ "$_pr" == "?" ]]; then
           WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s), sem upstream e sem origin/$lb. Sem gh nem token da API que enxerguem o repo não dá para saber se já mergeou — squash apaga a remota e deixa este mesmo estado. Confira o PR antes de pushar.")
         else
@@ -1056,17 +1154,18 @@ trap '[[ -n "$MERGED_PR_CACHE" ]] && rm -f "$MERGED_PR_CACHE"' EXIT
 merged_pr_lookup() {
   # template com XXXXXX: `mktemp -t <prefixo>` é forma do macOS e o GNU coreutils recusa
   [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp "${TMPDIR:-/tmp}/gitsync-pr.XXXXXX")"
-  local b="$1" hit line="" n="" oid=""
-  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3; found=1; exit} END{if(!found) exit 1}' \
+  local b="$1" hit line="" n="" oid="" rel=""
+  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3 "\t" $4; found=1; exit} END{if(!found) exit 1}' \
          "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
   if [[ "$GH_CLEANUP_OK" -eq 1 ]] && line="$(pr_mergeado_consulta "$b")"; then
-    n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
+    n="$(campo "$line" 1)"; oid="$(campo "$line" 2)"; rel="$(campo "$line" 3)"
   fi
-  printf '%s\t%s\t%s\n' "$b" "$n" "$oid" >> "$MERGED_PR_CACHE"
-  printf '%s\t%s' "$n" "$oid"
+  printf '%s\t%s\t%s\t%s\n' "$b" "$n" "$oid" "$rel" >> "$MERGED_PR_CACHE"
+  printf '%s\t%s\t%s' "$n" "$oid" "$rel"
 }
 merged_pr_num() { merged_pr_lookup "$1" | cut -f1; }
 merged_pr_oid() { merged_pr_lookup "$1" | cut -f2; }
+merged_pr_rel() { merged_pr_lookup "$1" | cut -f3; }   # release do trem; vazio = PR mergeado
 
 GH_CLEANUP_OK=0
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
@@ -1095,11 +1194,12 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         # sem push, só existe nesta branch. Mesma prova do passo (3): tip igual ao head do
         # PR ou contido nele (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
           case "$_rel" in
-            igual|contido) echo "  $b — SQUASH de PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D" ;;
-            *)             echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+            igual|contido) echo "  $b — SQUASH de $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel") → candidata a -D" ;;
+            *)             echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
@@ -1126,6 +1226,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       [[ -z "$b" || "$b" == "$DEFAULT_BRANCH" || "$track" == "[gone]" ]] && continue
       printf '%s\n' "$_checked" | grep -qxF "$b" && continue
       _pr="$(merged_pr_num "$b")"
+      _r="$(merged_pr_rel "$b")"
       [[ -n "$_pr" ]] || continue
       _listadas=1
       _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
@@ -1134,9 +1235,9 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         && _remoto=" (remoto ainda existe: git push origin --delete $b)"
       case "$_rel" in
         igual|contido)
-          echo "  $b — PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D$_remoto"
+          echo "  $b — $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel") → candidata a -D$_remoto"
           MERGED_ALIVE+=("$b") ;;
-        *) echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada$_remoto" ;;
+        *) echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada$_remoto" ;;
       esac
     done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads)
     [[ "$_listadas" -eq 0 ]] && echo "  (none)"
@@ -1167,14 +1268,15 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       echo "  $b — (sem prova de PR — nem gh nem token da API)"
     else
       _pr="$(merged_pr_num "$b")"
+      _r="$(merged_pr_rel "$b")"
       if [[ -n "$_pr" ]]; then
         _rel="$(relacao_head_pr "$_tip" "$(merged_pr_oid "$b")" "$_pr")"
         case "$_rel" in
-          igual)    echo "  $b — PR #$_pr merged, head == tip → git push origin --delete $b" ;;
-          contido)  echo "  $b — PR #$_pr merged, remota contida no head do PR → git push origin --delete $b" ;;
-          avancou)  echo "  $b — ! PR #$_pr merged, mas a remota avançou depois do head do PR: preservada" ;;
-          divergiu) echo "  $b — ! PR #$_pr merged, mas a remota divergiu do head do PR: preservada" ;;
-          *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+          igual)    echo "  $b — $(rotulo_pr "$_pr" "$_r"), head == tip → git push origin --delete $b" ;;
+          contido)  echo "  $b — $(rotulo_pr "$_pr" "$_r"), remota contida no head do PR → git push origin --delete $b" ;;
+          avancou)  echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota avançou depois do head do PR: preservada" ;;
+          divergiu) echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota divergiu do head do PR: preservada" ;;
+          *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada" ;;
         esac
       else
         echo "  $b — ! sem PR merged (aberto, fechado ou nunca aberto): confira antes de apagar"
@@ -1215,11 +1317,12 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
         _pr="$(merged_pr_num "$wt_branch")"
+        _r="$(merged_pr_rel "$wt_branch")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)" "$(merged_pr_oid "$wt_branch")" "$_pr")"
           case "$_rel" in
-            igual|contido) nota=" [squash: PR #$_pr merged, $(prova_head_pr "$_rel")]" ;;
-            *)             reason="$(motivo_head_pr "$_rel" "$_pr")" ;;
+            igual|contido) nota=" [squash: $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel")]" ;;
+            *)             reason="$(motivo_head_pr "$_rel" "$_pr" "$_r")" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
@@ -1282,17 +1385,18 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         # tip é o head dele ou está contido nele, senão o -D leva junto o commit feito depois
         # do merge. A decisão é a mesma do dry-run (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
           case "$_rel" in
             igual|contido)
               if git branch -D "$b" >/dev/null 2>&1; then
-                echo "  deleted branch $b (-D — squash de PR #$_pr merged, $(prova_head_pr "$_rel"))"
+                echo "  deleted branch $b (-D — squash de $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel"))"
               else
                 echo "  skip $b (-D falhou)"
               fi ;;
-            avancou) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — commit sem cópia no GitHub)" ;;
-            *)       echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — não deleto no escuro)" ;;
+            avancou) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r") — commit sem cópia no GitHub)" ;;
+            *)       echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r") — não deleto no escuro)" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
@@ -1312,13 +1416,14 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           continue
         fi
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
         case "$_rel" in
           igual|contido) ;;
-          *) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr"))"; continue ;;
+          *) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r"))"; continue ;;
         esac
         if git branch -D "$b" >/dev/null 2>&1; then
-          echo "  deleted branch $b (-D — PR #$_pr merged, $(prova_head_pr "$_rel"))"
+          echo "  deleted branch $b (-D — $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel"))"
         else
           echo "  skip $b (-D falhou)"
         fi
