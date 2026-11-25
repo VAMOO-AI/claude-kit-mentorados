@@ -1,4 +1,4 @@
-# whatsapp-inbox-stack — thread picada, sessão que cai e entrega (#10 a #12)
+# whatsapp-inbox-stack — thread picada, sessão que cai e entrega (#10 a #12, #21 a #23)
 
 Lido no passo 3 do SKILL.md, antes de mexer em status de sessão, webhook do provider, confirmação de entrega ou retentativa de aviso.
 
@@ -17,6 +17,7 @@ Correto: assinar o evento `connection` do provider e escrever status + timestamp
 **Estado que você não reconhece não escreve nada.** Um `desconectado` falso dispara alerta e queima a credibilidade dele; guarde o valor cru no log de eventos e ajuste o mapa quando vir o primeiro evento real. Estado `hibernated` (sessão pausada com credenciais preservadas) conta como não-entregando.
 
 **b) 2xx do provider ≠ mensagem entregue.** `POST /send/text` respondendo 200 só diz que o provider ACEITOU — vários enfileiram internamente. Sem assinar `messages_update` você nunca sabe se chegou. Sintoma de diagnóstico: rode um `group by status` na tabela de mensagens; se **nada jamais avançou de `sent`**, você está cego (num caso real eram centenas de mensagens, zero confirmações, e uma pendência aberta esperando um humano confirmar por telefone se o vendedor recebeu).
+Semântica do check na tela: ✓ quando o provider aceitou (`accepted`, ~3 s), ✓✓ na entrega, azul na leitura. Mostrar relógio até a entrega deixa "enviando" por ~1 min (depende do celular de quem recebe) com a mensagem já no WhatsApp. "Respondida" no SLA conta só com entrega confirmada. O parser que move esse estado é o #21.
 
 **c) A armadilha de LIGAR a assinatura.** Duas, e as duas mordem:
 - `POST /webhook` em modo simples **substitui** o webhook único. Mandar `events:["connection","messages_update"]` derruba `messages` e para a ingestão de lead inteira. Sempre **read-then-write**: `GET /webhook` primeiro, depois POST com a UNIÃO dos eventos atuais mais os novos, mesma url, preservando `excludeMessages`.
@@ -26,7 +27,17 @@ Correto: assinar o evento `connection` do provider e escrever status + timestamp
 Motivo real da queda (`lastDisconnectReason`) e escada de reconexão: `n8n-workflow-agent/references/uazapi.md` § Queda e reconexão (`/kit-vamoo:n8n-workflow-agent`).
 Diagnóstico de saúde da sessão: **a prova é o inbound**, nunca o outbound. Uma mensagem recebida só entra com socket conectado; `sent` não prova nada (ver b).
 
-**Runbook — ligar a assinatura sem derrubar a ingestão** (validado em produção):
+**Desenho preferido: dois destinos, um por trabalho.** Em vez de um webhook único com a união dos eventos, crie dois com `action:"add"`, um de cada vez, com `GET /webhook` antes e depois:
+
+```jsonc
+{ "action":"add", "enabled":true, "url":"<inbound>", "events":["messages"],
+  "excludeMessages":["wasSentByApi"] }          // o inbound não recebe o eco da própria API
+{ "action":"add", "enabled":true, "url":"<ack>", "events":["messages_update"] }  // sem filtro: o ACK recebe tudo
+```
+
+Com isso as confirmações de entrega das mensagens enviadas pela API chegam (✓✓ funcionando em produção num inbox real). Em endereços separados, ACK nunca vira mensagem; se os dois eventos forem ao **mesmo** endereço, descarte pelo tipo do **EVENTO**, nunca por "tipo contém `message`" (um `isInboundMessageEvent` assim transforma ACK em mensagem fantasma).
+
+**Runbook — alternativa: um webhook só, ligando a assinatura sem derrubar a ingestão** (validado em produção):
 
 ```bash
 TOKEN='<token DA INSTÂNCIA>'   # não é o Admin Token: /webhook recusa o admin com 401
@@ -42,18 +53,56 @@ curl -s -X POST "$HOST/webhook" -H "token: $TOKEN" \
   "id": "<id do passo 1>", "action": "update", "enabled": true,
   "url": "<a MESMA url do passo 1>",
   "events": ["messages", "connection", "messages_update"],
-  "excludeMessages": ["wasSentByApi","isGroupYes"],
+  "excludeMessages": ["wasSentByApi"],
   "addUrlEvents": false, "addUrlTypesMessages": false }' | jq
 
 # 3) CONFERIR que messages continua lá e que não nasceu webhook duplicado
 curl -s "$HOST/webhook" -H "token: $TOKEN" | jq '.[] | {id, events, url}'
 ```
 
+**`isGroupYes` só entra no `excludeMessages` quando o projeto não atende grupo** (agente de IA 1:1). Num inbox que atende grupo, ele derruba a mensagem de grupo **sem erro nenhum**.
+
 Com `action:"update"` + `id` o registro é preservado; é o modo simples (sem `action`) que substitui e derruba `messages`. Um 401 aborta antes de tocar na config — falha de token não quebra nada.
 
-**Aberto, não resolvido:** `excludeMessages:["wasSentByApi"]` pode filtrar também os `messages_update` das mensagens que a própria API enviou — que são exatamente as que interessam para confirmação de entrega. A doc não diz. Ligue e meça: se em um dia não chegar nenhum `messages_update`, tire `wasSentByApi` do filtro (o loop-guard da rota já protege contra o eco). `connection` não é mensagem e não sofre esse filtro.
+**Contornado (não provado):** `excludeMessages:["wasSentByApi"]` poderia filtrar também os `messages_update` das mensagens que a própria API enviou, que são as que interessam para a entrega. Se o filtro age ou não sobre o `messages_update` continua sem resposta na doc, e com os dois destinos acima não importa mais. No webhook único, ligue e meça: se em um dia não chegar nenhum `messages_update`, tire `wasSentByApi` do filtro (o loop-guard da rota protege contra o eco). `connection` não é mensagem e não sofre esse filtro.
 
 **Depois de ligar, não conclua nada pelo silêncio.** `connection` só dispara em TRANSIÇÃO de estado — sessão estável não emite nada, e isso é sucesso, não falha. A primeira prova real chega na próxima queda.
+
+### #21 — O `messages_update` real não tem `message`, e o ACK fica preso em "aceito"
+**Bug real:** o handler de ACK lia `body.status` e `body.messageId`. Esses campos não existem no `messages_update` da UAZAPI, o código lançava em todo ACK, e **nenhuma mensagem saiu de `accepted` por ~3 meses**. Ninguém percebeu porque o envio funcionava.
+
+Forma real do evento:
+- vem em `body.event` (objeto) ou `body.data`. Concatenar como string vira `'[object Object]'`;
+- os ids vêm em **`event.MessageIDs` (array: um recibo cobre várias mensagens)**, com fallback `event.messageid`/`messageId`/`id`;
+- o estado vem em `event.Type` (fallback `type`, `status`, `body.state`, `body.ack`);
+- **o id chega com prefixo `numero:`**: canonize com `id.split(':').pop()` para casar com o `provider_message_id` gravado no envio;
+- a instância se identifica por `body.owner` (o número), não por `instanceId`.
+
+Mapa de estados que funciona:
+```js
+{ sent:'sent', server_ack:'accepted', pending:'accepted', delivered:'delivered',
+  delivery_ack:'delivered', read:'read', played:'read', error:'failed', failed:'failed',
+  accepted:'accepted', '1':'accepted', '2':'sent', '3':'delivered', '4':'read' }
+```
+- `Retry`, `Sender`, `Inactive` e afins não movem a entrega: devolva `skip`, mas **responda 200** mesmo assim (no n8n, um IF desvia; sem item o `Respond` não roda).
+- Timestamp em segundos: `n < 1e12 ? n*1000 : n`.
+- **Prova:** depois de ligar, rode o `group by status` do #11b de novo. Precisa aparecer `delivered`/`read`. Ficar só em `accepted` quer dizer que o parser está errado.
+
+### #22 — Envio para grupo fica em "Enviando" para sempre
+**Bug real:** em grupo, a UAZAPI manda `messages_update` com `Type: "GroupReceipts"` e o estado de cada participante em `event.Receipts[].state` (`Delivered`/`Read`). O mapa do #21 não conhecia `GroupReceipts`, descartava, e toda mensagem para grupo ficava em "Enviando".
+
+```js
+if (String(rawStatus).toLowerCase() === 'groupreceipts') {
+  const states = (ev.Receipts ?? ev.receipts ?? []).map(r => String(r?.state || '').toLowerCase());
+  rawStatus = states.some(s => ['delivered','read','played'].includes(s)) ? 'delivered' : '';
+}
+```
+- Grupo **para em `delivered`**: "lida" exigiria saber que todos leram, e o recibo traz só quem respondeu.
+- **Prova:** código ensaiado contra 5 retornos reais de produção, todos viraram `delivered`.
+
+### #23 — O token da instância vem dentro do webhook
+O payload da UAZAPI traz `body.token`, que autoriza `/send/*` naquele número. Quem grava o payload cru (`raw_payload`, `message_acks`, log de eventos) guarda uma credencial de envio.
+- **Conserto:** `const { token: _t, ...rawSafe } = body;` antes de gravar ou repassar.
 
 ### #12 — Queda longa estoura o teto de retentativa, e os avisos NÃO voltam sozinhos
 Todo sistema de aviso sério tem retentativa com teto (por exemplo, 5 tentativas com backoff crescente). O que ninguém percebe até acontecer: **uma queda mais longa que teto × backoff consome todas as tentativas e deixa o aviso morto em `failed` para sempre**. Quando a sessão volta, ele não sai — saiu da fila.
