@@ -66,10 +66,10 @@ Fonte: [Embedded Signup](https://developers.facebook.com/documentation/business-
 
 ## Coexistência (app WhatsApp Business + Cloud API no mesmo número)
 
-- Ativa com `featureType: "whatsapp_business_app_onboarding"` (na v5 vem ligado). O cliente precisa do app Business 2.24.17 ou superior.
+- Ativa com `featureType: "whatsapp_business_app_onboarding"` (na v5 vem ligado). O cliente precisa do app Business 2.24.17 ou superior; você precisa de session logging no Embedded Signup.
 - **Não funciona na API:** grupos (não sincronizam), ligações, catálogo, status, listas de transmissão (ficam só leitura), mensagem temporária, visualização única e localização ao vivo nos 1:1.
 - Dispositivos vinculados caem no onboarding (até 4 companions depois). Throughput fixo de 20 msg/s no número.
-- Histórico: até ~6 meses, e você tem **24h** depois do onboarding para sincronizar contatos e histórico, senão o cliente refaz o fluxo. Ver #28 para importar sem acionar nada.
+- Histórico: a doc diz "6 meses" na tabela e "180 dias" na seção de histórico (grupos fora). Você tem **24h** depois do onboarding para sincronizar contatos e histórico, senão o cliente refaz o fluxo. Ver #28 para importar sem acionar nada.
 - O que o cliente manda pelo app continua grátis e não mexe na janela da API.
 - Desligar é no app do cliente (Settings → Account → Business Platform). O Deregister da API não vale.
 - Brasil: a doc não cita país. **Não verificado.**
