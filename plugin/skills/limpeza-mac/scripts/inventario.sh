@@ -14,6 +14,7 @@
 #   builds.tsv     dias-sem-uso  kb  path   (node_modules e .next)
 #   pocos.tsv      kb  path   (caches conhecidos; kb "timeout" = du não voltou em POCO_TIMEOUT s)
 # estado: ativa(Nh) | merged(ancestral) | merged(PR#N) | pushed(+N) | LOCAL(+N)[track] | sem-origin
+#         | canal (worktree no origin/HEAD que anda atrás da main: nunca sai)
 set -uo pipefail
 [ "$(uname -s)" = Darwin ] || { echo "limpeza-mac: só macOS (aqui: $(uname -s)); nada feito"; exit 0; }
 OUT="${1:?uso: inventario.sh <dir-do-plano> [raiz ...]}"; shift
@@ -45,10 +46,34 @@ while read -r r; do
     git -C "$r" remote set-head origin --auto >/dev/null 2>&1 ) &
 done < "$OUT/repos.txt"; wait
 
+# Base de trabalho: a default do GitHub nem sempre é onde o trabalho entra. No kit, o
+# origin/HEAD é o `stable` (o canal do marketplace) e todo PR vai para a main: medido contra o
+# stable, nada entregue saía merged, e a branch local `stable` saía merged(ancestral) e levava
+# `branch -D` (25/11/2026). origin/HEAD = X ancestral de origin/main (ou master) → a base é a
+# main e X é canal, que nunca entra no plano. `git config git-sync.defaultBranch <b>` no repo
+# fixa a base, como no git-sync.
 default_de() {
-  local r="$1" d
-  d=$(git -C "$r" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) && { echo "$d"; return; }
+  local r="$1" d w
+  d=$(git -C "$r" config --get git-sync.defaultBranch 2>/dev/null)
+  if [ -n "$d" ] && git -C "$r" rev-parse -q --verify "origin/$d" >/dev/null; then echo "origin/$d"; return; fi
+  d=$(git -C "$r" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [ -n "$d" ]; then
+    # atalho: canal = ancestral da main ou master, sem ler a config do repo no GitHub; rever se um repo usar outro nome de base
+    for w in origin/main origin/master; do
+      [ "$d" = "$w" ] && break
+      git -C "$r" rev-parse -q --verify "$w" >/dev/null && git -C "$r" merge-base --is-ancestor "$d" "$w" 2>/dev/null \
+        && { echo "$w"; return; }
+    done
+    echo "$d"; return
+  fi
   for d in origin/main origin/master; do git -C "$r" rev-parse -q --verify "$d" >/dev/null && { echo "$d"; return; }; done
+}
+# O origin/HEAD quando ele não é a base: protegido como ela
+canal_de() { # canal_de <repo> <default>
+  local h
+  h=$(git -C "$1" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) || return 0
+  [ -n "$h" ] && [ "$h" != "$2" ] && echo "${h#origin/}"
+  return 0
 }
 slug_de() { git -C "$1" remote get-url origin 2>/dev/null | sed -E 's#.*github.com[:/]##; s#\.git$##'; }
 
@@ -77,7 +102,7 @@ estado_de() { # estado_de <repo> <branch> <default> <slug>
 
 : > "$OUT/worktrees.tsv"; : > "$OUT/branches.tsv"
 while read -r r; do
-  def=$(default_de "$r"); slug=$(slug_de "$r")
+  def=$(default_de "$r"); canal=$(canal_de "$r" "$def"); slug=$(slug_de "$r")
   # worktrees secundárias (a primeira do porcelain é o clone principal)
   git -C "$r" worktree list --porcelain | awk 'BEGIN{RS=""} NR>1 {
       p=""; b=""; l="";
@@ -106,7 +131,9 @@ while read -r r; do
     idx=$(git -C "$p" rev-parse --git-path index 2>/dev/null)
     case "$idx" in /*) ;; *) idx="$p/$idx";; esac
     idade=$(( (AGORA - $(mtime "$idx")) / 3600 ))
-    if [ "$b" = "-" ]; then
+    if [ -n "$canal" ] && [ "$b" = "$canal" ]; then
+      est=canal
+    elif [ "$b" = "-" ]; then
       # detached só sai se o HEAD já está no default; squash fica para decisão à mão
       est=detached
       [ -n "$def" ] && git -C "$r" merge-base --is-ancestor "$sha" "$def" 2>/dev/null && est="merged(ancestral)"
@@ -115,7 +142,7 @@ while read -r r; do
     fi
     # branch recém-criada também é ancestral do default: worktree mexida nas últimas 24h é
     # sessão em andamento, não lixo mergeado
-    [ "$idade" -lt 24 ] && est="ativa(${idade}h)"
+    [ "$idade" -lt 24 ] && [ "$est" != canal ] && est="ativa(${idade}h)"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$r" "$b" "$p" "$sha" "$dirty" "$est" "$l"
   done >> "$OUT/worktrees.tsv"
 
@@ -123,6 +150,7 @@ while read -r r; do
   git -C "$r" for-each-ref --format='%(refname:short)' refs/heads | while read -r b; do
     printf '%s\n' "$emwt" | grep -qxF "$b" && continue
     case "$b" in main|master|develop|dev|staging|production) continue;; esac
+    [ -n "$canal" ] && [ "$b" = "$canal" ] && continue
     printf '%s\t%s\t%s\t%s\n' "$r" "$b" "$(git -C "$r" rev-parse "refs/heads/$b")" "$(estado_de "$r" "$b" "$def" "$slug")"
   done >> "$OUT/branches.tsv"
 done < "$OUT/repos.txt"
