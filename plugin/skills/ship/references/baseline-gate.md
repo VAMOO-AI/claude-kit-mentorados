@@ -28,6 +28,10 @@ jq -r '.findings[] | select(.severity=="CRITICAL" or .severity=="HIGH")
 jq -r '.coverage[] | select(.status=="nao_medido") | "\(.pilar) \(.check): \(.reason)"' /tmp/ship-baseline-<repo>-<sha>/findings.json
 ```
 
+Com o `origin/HEAD` num canal que anda atrás da `main` (no kit, o `stable`), o collect mede
+contra a `main` e diz isso no stderr; `git config git-sync.defaultBranch <b>` fixa outra base, e
+uma base explícita (`--diff origin/stable`) é usada como veio.
+
 Sem `origin/HEAD` o collect sai 3 dizendo que a base não resolve: `git remote set-head origin
 --auto`, ou passe `origin/main` (`origin/master`, se for a padrão). Com exit 3 não há
 `findings.json`, e os dois jq só acusam arquivo ausente.

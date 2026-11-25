@@ -50,6 +50,31 @@ if [ $is_project -eq 0 ]; then
   exit 3
 fi
 
+# --diff origin/HEAD quer dizer "a base do repo", e o gate do /ship passa assim. Mas a default
+# do GitHub nem sempre é onde o trabalho entra: no kit, o origin/HEAD é o `stable` (o canal do
+# marketplace) e todo PR vai para a main. Medido contra o stable, o range levava tudo o que a
+# main andou desde ele, e o PR era bloqueado por arquivo que não era dele (25/11/2026, o mesmo
+# defeito do git-sync e do worktree-gc). origin/HEAD = X ancestral de origin/main (ou master)
+# → a base é a main. `git config git-sync.defaultBranch <b>` fixa a base. Base explícita
+# (origin/stable, um sha) é usada como veio.
+if [ "$DIFF_BASE" = origin/HEAD ]; then
+  _b="$(git config --get git-sync.defaultBranch 2>/dev/null)"
+  if [ -n "$_b" ]; then
+    git rev-parse --verify -q "refs/remotes/origin/$_b" >/dev/null && DIFF_BASE="origin/$_b"
+  else
+    _h="$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null)"
+    # atalho: canal = ancestral da main ou master, sem ler a config do repo no GitHub; rever se um repo usar outro nome de base
+    for _w in origin/main origin/master; do
+      [ -n "$_h" ] && [ "$_h" != "$_w" ] || break
+      if git rev-parse --verify -q "$_w" >/dev/null && git merge-base --is-ancestor "$_h" "$_w" 2>/dev/null; then
+        echo "baseline: --diff origin/HEAD mede contra $_w (origin/HEAD = ${_h#origin/}, ancestral de $_w: o trabalho entra na ${_w#origin/}; outra base: git config git-sync.defaultBranch <branch>)" >&2
+        DIFF_BASE="$_w"; break
+      fi
+    done
+  fi
+  unset _b _h _w
+fi
+
 # Base do --diff que não resolve não é diff vazio. O `git diff` falharia calado, o escopo
 # sairia vazio e todo check "mediria" nada: o gate aprovava assim (exit 0, 0 findings).
 if [ -n "$DIFF_BASE" ] && ! git rev-parse --verify --quiet "${DIFF_BASE}^{commit}" >/dev/null 2>&1; then

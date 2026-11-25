@@ -138,6 +138,9 @@ jobs:
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
         run: bash tests/test-limpeza-mac.sh
 
+      - name: O gate do baseline e a limpeza-mac medem contra a main quando a default do GitHub é um canal atrás dela
+        run: bash tests/test-canal-baseline-limpeza.sh
+
       - name: A medição da geo-ia avisa no relatório e no log quando uma IA falta na rodada
         run: bash tests/test-geo-ia.sh
 
