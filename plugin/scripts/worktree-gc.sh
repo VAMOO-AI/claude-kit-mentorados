@@ -2,8 +2,9 @@
 # worktree-gc.sh — coleta-de-lixo de git worktrees.
 #
 # Remove worktrees em .claude/worktrees/ cuja branch JÁ FOI MERGEADA (ancestral da branch
-# padrão do origin OU squash-merge provado pelo PR, via gh ou API REST), e que estejam
-# LIMPOS (sem mudança não-commitada). Nunca toca: clone principal, branch padrão/main/master, worktree
+# padrão do origin — a main, quando o origin/HEAD é um canal atrás dela — OU squash-merge
+# provado pelo PR, via gh ou API REST), e que estejam
+# LIMPOS (sem mudança não-commitada). Nunca toca: clone principal, branch padrão/canal/main/master, worktree
 # sujo, arquivo ignorado de valor (env diferente do clone principal, repo aninhado, ou
 # qualquer ignorado fora da lista de cache/build), branch ou detached sem commit
 # próprio (sessão recém-aberta), ou o worktree de onde o script roda (use ExitWorktree
@@ -94,8 +95,34 @@ padrao_do_origin() {
   [ -n "$d" ] && git -C "$PRIMARY" rev-parse --verify -q "refs/remotes/origin/$d" >/dev/null || d=""
   printf '%s' "$d"
 }
-DEF="$(padrao_do_origin)"
+# Base de trabalho: a default do GitHub nem sempre é onde o trabalho entra. No kit, o
+# origin/HEAD é o `stable` (o canal do marketplace) e todo PR vai para a main: medido contra
+# o stable, tudo saía "NÃO mergeada" (25/11/2026, o mesmo defeito que o git-sync corrigiu no
+# 0.103.2). origin/HEAD = X ancestral de origin/main (ou master) → a base é a main e X vira
+# canal, protegido como ela. `git config git-sync.defaultBranch <b>` fixa a base e desliga a
+# detecção, como no git-sync.
+CANAL=""
+DEF="$(git -C "$PRIMARY" config --get git-sync.defaultBranch 2>/dev/null)"
+if [ -n "$DEF" ]; then
+  git -C "$PRIMARY" rev-parse --verify -q "refs/remotes/origin/$DEF" >/dev/null || DEF=""
+else
+  DEF="$(padrao_do_origin)"
+  # atalho: canal = ancestral da main ou master, sem ler a config do repo no GitHub; rever se um repo usar outro nome de base
+  if [ -n "$DEF" ]; then
+    for _w in main master; do
+      [ "$DEF" = "$_w" ] && break
+      if git -C "$PRIMARY" rev-parse --verify -q "refs/remotes/origin/$_w" >/dev/null \
+         && git -C "$PRIMARY" merge-base --is-ancestor "origin/$DEF" "origin/$_w" 2>/dev/null; then
+        CANAL="$DEF"; DEF="$_w"; break
+      fi
+    done
+    unset _w
+  fi
+fi
 ORIGIN_DEF="origin/$DEF"
+eh_base_ou_canal() { [ "$1" = "$DEF" ] || { [ -n "$CANAL" ] && [ "$1" = "$CANAL" ]; }; }
+[ -n "$CANAL" ] && [ "$VERIFICAR" = 0 ] \
+  && echo "  base: $DEF (origin/HEAD = $CANAL, ancestral de origin/$DEF: o trabalho entra na $DEF e $CANAL fica protegida; outra base: git config git-sync.defaultBranch <branch>)"
 SEM_PADRAO="branch padrão do origin desconhecida (sem origin/HEAD, 'git remote show origin' e gh sem resposta) — rode 'git remote set-head origin --auto'"
 
 # Prova de PR pela API REST, portada do git-sync: serve quando a conta ativa do gh não
@@ -337,7 +364,7 @@ if [ "$VERIFICAR" = 1 ]; then
   branch="$(git -C "$ALVO" symbolic-ref -q --short HEAD 2>/dev/null)"
   tip="$(git -C "$ALVO" rev-parse --verify -q HEAD 2>/dev/null)"
   protegida=0; case "$branch" in main|master) protegida=1 ;; esac
-  [ -n "$DEF" ] && [ "$branch" = "$DEF" ] && protegida=1
+  [ -n "$DEF" ] && [ -n "$branch" ] && eh_base_ou_canal "$branch" && protegida=1
   [ "$protegida" = 1 ] && add "branch '$branch' (nunca removida)"
   [ -z "$(git -C "$ALVO" status --porcelain 2>/dev/null)" ] || add "SUJO (mudança não-commitada)"
   ignorado_de_valor "$ALVO" && add "$IGN_MOTIVO"
@@ -372,8 +399,8 @@ while IFS= read -r line; do
 
       # trava 1: nunca o clone principal
       if [ "$p" = "$PRIMARY" ]; then path=""; branch=""; continue; fi
-      # trava 2: nunca a branch padrão, main ou master
-      if [ "$branch" = "main" ] || [ "$branch" = "master" ] || [ "$branch" = "$DEF" ]; then
+      # trava 2: nunca a branch padrão, o canal, main ou master
+      if [ "$branch" = "main" ] || [ "$branch" = "master" ] || eh_base_ou_canal "$branch"; then
         echo "  ⏭️  $p  → branch '$branch' (mantido)"; skipped=$((skipped+1)); path=""; branch=""; continue
       fi
       # detached (EnterWorktree cria assim): lixo se limpo e o HEAD é commit já contido
