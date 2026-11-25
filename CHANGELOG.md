@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.3] — 2026-11-25
+
+### Corrigido
+
+- **`worktree-gc`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), a base passa a ser a `main`. Antes, toda branch já entregue saía "NÃO mergeada" e o `--verificar` da skill `worktrees` dizia keep para tudo. O canal nunca é removido, e `git config git-sync.defaultBranch <b>` fixa outra base.
+
 ## [0.103.2] — 2026-11-25
 
 ### Corrigido
