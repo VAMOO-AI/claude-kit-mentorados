@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.101.0] — 2026-11-24
+
+### Adicionado
+
+- **`whatsapp-inbox-stack`**: `references/tela-viva.md` e o passo 7 ("Tela que se move sem refazer a página"), com os gotchas #15 a #19: broadcast é canal aberto (payload só com ids), aviso incremental no lugar de `router.refresh()` (0 RSC por aviso), toda mutação tem que avisar, URL assinada estável (11 MB a menos por refresh) e nada lento na abertura. Fecha com o roteiro de medição A/B entre deploys.
+- **`whatsapp-inbox-stack`**: gotcha #20 em `providers.md`: Chatwoot até a v4.14 manda áudio opus como `audio/opus`, a Meta recusa com `131053`, e a saída é mp3.
+
+### Mudado
+
+- **`whatsapp-inbox-stack`**: o gotcha #6 faz o self-heal de mídia por broadcast publicado pelo servidor, só com ids, e a tela relê. `postgres_changes` custa polling do WAL mesmo sem ninguém olhando (medido: 33% do tempo do banco; −97% ao trocar), e a tabela sai da publicação `supabase_realtime`.
+
 ## [0.100.0] — 2026-11-23
 
 ### Corrigido
