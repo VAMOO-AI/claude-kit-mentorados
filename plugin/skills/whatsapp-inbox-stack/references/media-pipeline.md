@@ -122,8 +122,9 @@ async function signInboxMediaUrls(messages: Msg[]): Promise<void> {
   for (const m of messages) if (m.media_url && byPath.has(m.media_url)) m.media_url = byPath.get(m.media_url)!;
 }
 // listMessages: const msgs = ...; await signInboxMediaUrls(msgs); return msgs;
-// IMPORTANTE: chamar em TODO reload, inclusive o disparado por realtime (senão msg
-// nova entra com path cru e o <audio src> quebra).
+// IMPORTANTE: toda linha que chega à tela passa por aqui, inclusive a relida por aviso
+// (senão msg nova entra com path cru e o <audio src> quebra). No cliente, não troque a URL
+// que já está em uso para o mesmo path: URL assinada nova é download novo (gotcha #18).
 ```
 
 ## 5. Render dispatcher (despacha o balão por content_type)
@@ -148,10 +149,25 @@ on conflict (id) do update set allowed_mime_types = excluded.allowed_mime_types;
 create policy inbox_media_auth_read on storage.objects
   for select to authenticated using (bucket_id = 'inbox-media');
 ```
-Realtime self-heal: garanta a tabela de mensagens na publication com UPDATE:
+Self-heal por broadcast do servidor (gotcha #6). Depois do UPDATE do `media_url`, a edge (ou um
+nó HTTP do n8n) publica só ids, pelo endpoint REST do Realtime:
+```ts
+// mesmo nome de canal que a tela assina, derivado da mesma chave (gotcha #15)
+await fetch(`${SUPABASE_URL}/realtime/v1/api/broadcast`, {
+  method: 'POST',
+  headers: { apikey: SERVICE_ROLE_KEY, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ messages: [{
+    topic: `inbox:${inboxId}`, event: 'mudou',
+    payload: { conversa_id: conversaId, ids: [messageId] },  // só identificadores
+  }] }),
+}).catch(() => {});  // aviso é best-effort: a reconciliação periódica cobre a perda
+```
+A tela assina ``supabase.channel(`inbox:${inboxId}`).on('broadcast', { event: 'mudou' }, …)``,
+valida cada id como uuid e relê essas linhas pelo banco. Sem `postgres_changes`, a tabela sai da
+publicação (o polling do WAL é o custo que o #6 mede):
 ```sql
--- confere: select pubinsert,pubupdate from pg_publication where pubname='supabase_realtime';
-alter publication supabase_realtime add table <agente>_messages;  -- se faltar
+-- confere: select * from pg_publication_tables where pubname='supabase_realtime';
+alter publication supabase_realtime drop table <agente>_messages;  -- se estiver lá
 ```
 
 ## 7. verify_jwt durável no CI (gotcha #3)
