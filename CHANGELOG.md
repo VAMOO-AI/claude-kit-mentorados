@@ -10,6 +10,24 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.102.0] — 2026-11-24
+
+### Adicionado
+
+- **`whatsapp-inbox-stack`**: gotchas #21 a #29 da UAZAPI em produção: ACK real (`messages_update` com `MessageIDs`, prefixo `numero:`, mapa de estados), `GroupReceipts` em grupo, `token` dentro do webhook, não lidas que acompanham o celular, corridas do eco `fromMe`, `@lid` não é telefone, webhook sem reenvio (200 antes, retentativa própria), importação de histórico sem acionar nada e remetente de alerta que não cai para outro número. Três references novas (`contagem-e-eco`, `inbound-uazapi`, `historico`) e `preflight-audio` (movido do SKILL.md).
+- **`whatsapp-inbox-stack`**: coluna C (API própria como cérebro) na tabela de arquiteturas; edição de mensagem, participantes de grupo e provisionamento de número no `providers.md`.
+- **`baseline`**: `scripts/quem-entra.py` no pilar 03 pergunta quem vira membro antes do RLS de cada tabela: cadastro, confirmação e senha do `[auth]` do `config.toml` (sem o arquivo, `não medido`), papel lido de `user_metadata` em trigger, função, policy e app, policy `autenticado = membro`, trigger que cria a linha de acesso com papel padrão, helper sem `ativo`, identidade pelo e-mail do JWT, HMAC sem janela, segredo em query string, cota contada em tabela da sessão, guard abaixo de `loading.tsx`, escrita que não confere a linha e cookie longo. Lê o estado efetivo das migrations.
+- **`baseline`**: `scripts/sonda-auth-viva.sh`, só GET/HEAD: cadastro e auto-confirmação pelo `/auth/v1/settings`, senha mínima pela Management API, CSP na borda e status real das rotas protegidas.
+- **`secscan`** e **`auditoria-seguranca`**: rodam o `quem-entra.py`; o cadastro do painel vai para o relatório como `não medido` com o comando do dono, nunca "fechado".
+
+### Corrigido
+
+- **`whatsapp-inbox-stack`**: #5 dizia que a URL de mídia da UAZAPI vem "utilizável por mais tempo"; ela é `.enc` (criptografada), resolve-se por `/message/download` com `return_link:true`. O pipeline de mídia passa a bifurcar por provider (UAZAPI não transcoda; #2, #8 e #9 não se aplicam).
+- **`whatsapp-inbox-stack`**: o runbook do #11c não manda mais `isGroupYes` (derruba grupo sem erro), e o "aberto, não resolvido" do `wasSentByApi` virou "contornado" com o desenho de dois webhooks.
+- **`n8n-workflow-agent`**: `uazapi.md` dizia que `isGroupYes` era "quase sempre desejável"; agora diz que é só para agente 1:1 e nunca para inbox que atende grupo (a mensagem some sem erro).
+- **`auditoria-seguranca`**: o grep de metadata não casava `raw_user_meta_data` e só lia `*.ts`; o trigger de cadastro em `.sql` passava em branco sem acesso ao banco.
+- **`baseline`**: a CSP declarada em `middleware`/`proxy` (nonce do Next) era dada como ausente.
+
 ## [0.101.0] — 2026-11-24
 
 ### Adicionado

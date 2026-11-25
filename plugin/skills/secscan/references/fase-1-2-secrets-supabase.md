@@ -48,6 +48,29 @@ A migration diz o que alguém quis; o banco diz o que vale. Os dois divergem com
 (um `GRANT` posterior desfaz um `REVOKE` antigo, uma função recriada à mão perde o
 `search_path`): quando der para consultar o banco, ele é a autoridade e o grep é só o
 localizador.
+### Quem vira membro (antes do RLS de cada tabela)
+
+RLS certa em todas as tabelas não basta se qualquer pessoa vira "autenticado" e o predicado
+lê isso como "é da equipe". Rode, e leia cada linha que ele acusar:
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/quem-entra.py" --root .
+```
+
+Ele cruza o bloco `[auth]` do `config.toml` (cadastro, confirmação, senha mínima) com o estado
+efetivo das migrations: trigger de cadastro que copia `raw_user_meta_data->>'role'`, policy com
+`auth.role() = 'authenticated'` / `<getter>() is not null`, trigger que cria a linha de acesso
+com papel padrão, helper de papel sem `ativo`, identidade pelo e-mail do JWT. Também acusa no
+código: HMAC sem janela, segredo em query string, cota contada em tabela que o usuário grava,
+guard de rota abaixo de `loading.tsx` e escrita que não confere a linha afetada. A tabela dos
+checks e a sonda viva estão no pilar 03 da baseline (`skills/baseline/references/03-auth.md`, "Quem vira membro").
+
+O `config.toml` é do ambiente local; produção é o painel, e o secscan não chama endpoint. Por
+isso a linha do cadastro vai para o relatório como **`não medido (estado do painel)`** com o
+comando para o dono rodar, mesmo quando o `config.toml` diz `enable_signup = true`:
+`curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: <anon>" | jq '{disable_signup, mailer_autoconfirm}'`.
+Sem `config.toml` e sem essa leitura, nunca escreva que o cadastro está fechado.
+
 Caça:
 - **RLS desligada** numa tabela, ou tabela pública **sem policy** pra `anon`/`authenticated` → qualquer um com a chave `anon` lê/escreve tudo.
 - **Materialized view legível por `anon`/`authenticated`** → vazamento que a RLS não cobre, porque **MV não tem RLS**. É o achado que passa despercebido justamente em projeto com RLS impecável: quem confere RLS e vê tudo verde para de olhar.

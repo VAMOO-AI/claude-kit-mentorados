@@ -13,6 +13,8 @@ allowed-tools:
   - 'Bash(python3 docs/security-audit/gerar-relatorio.py *)'
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh *)'
+  - 'Bash(python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/quem-entra.py" *)'
+  - 'Bash(python3 -I ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/quem-entra.py *)'
 ---
 
 # auditoria-seguranca — 6 categorias, PDF e issues
@@ -73,7 +75,7 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
 | Passo | Leia antes | O que não pode faltar |
 |---|---|---|
 | Fase 0 — stack, ferramentas, auditoria anterior, óbvios | [references/fase-0-stack.md](references/fase-0-stack.md) | O mecanismo de isolamento (RLS, middleware, filtro manual, nenhum) é a pergunta central da A1. Cada ferramenta vira linha em `ferramentas[]`; `gitleaks` ausente é a A4 sem histórico. `findings.json` anterior é insumo: cada achado antigo recebe destino relendo o código atual. |
-| A1 inquilino · A2 permissão no navegador · A3 IDOR | [references/a1-a3-inquilino-permissao-idor.md](references/a1-a3-inquilino-permissao-idor.md) | **Materialized view não tem RLS. Nunca.** Consulte o estado vivo, não a migration. A2 é cruzamento gate do front × handler; autenticação não é autorização; check-then-act é uma operação só no banco. A3 percorre todos os handlers (razão lidos/total) e cobre URL vinda do request (SSRF). |
+| A1 inquilino · A2 permissão no navegador · A3 IDOR | [references/a1-a3-inquilino-permissao-idor.md](references/a1-a3-inquilino-permissao-idor.md) | **Antes de isolar um inquilino do outro, pergunte quem vira inquilino** (`quem-entra.py`: cadastro do painel, papel do metadata, `autenticado = membro`). **Materialized view não tem RLS. Nunca.** Consulte o estado vivo, não a migration. A2 é cruzamento gate do front × handler; autenticação não é autorização; check-then-act é uma operação só no banco. A3 percorre todos os handlers (razão lidos/total) e cobre URL vinda do request (SSRF). |
 | A4 chaves expostas | [references/a4-chaves-expostas.md](references/a4-chaves-expostas.md) | Rode o bloco como está: ele sai com `arquivo:linha`, nome, tipo e só a máscara. Sem build no disco, pergunte antes de `npm run build`; sem o ok, a `cobertura[]` da A4 sai `parcial`. Default público é achado mesmo sobrescrito em produção. |
 | A5 XSS · A6 agente de IA | [references/a5-a6-xss-agente.md](references/a5-a6-xss-agente.md) | HTML fora do framework (e-mail, PDF, bot, webhook) é o ponto cego. **Prompt de guard-rail não é fronteira de segurança**: A6 é o handler da tool, com que identidade roda e o que re-checa. |
 | Corroborar — de `lido` para `corroborado` | [references/corroborar-dinamico.md](references/corroborar-dinamico.md) | IDOR diferencial em três requisições de leitura (próprio, vítima, inexistente): o corpo decide, não o status. Matriz de RLS com `count=exact` por papel; escrita só em Supabase local. `fonte` nomeia a requisição, nunca o token. |
