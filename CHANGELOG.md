@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.4] — 2026-11-25
+
+### Corrigido
+
+- **`baseline`** e **`limpeza-mac`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), os dois passam a medir contra a `main`. O gate do ship (`collect.sh --diff origin/HEAD`) deixou de bloquear o PR por arquivo que já estava na `main`. A limpeza-mac reconhece como mergeado o que entrou na `main` e não apaga mais a branch nem o worktree do canal: antes, o `aplicar.sh` dava `branch -D stable`. `git config git-sync.defaultBranch <b>` fixa outra base.
+
 ## [0.103.3] — 2026-11-25
 
 ### Corrigido
