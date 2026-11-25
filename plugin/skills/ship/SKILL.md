@@ -49,7 +49,7 @@ no outro.
 ```bash
 pwd; git remote -v; git status; git branch --show-current; git rev-parse --show-toplevel
 cat .context/docs/deploy.md 2>/dev/null && echo "== TEM_DEPLOY_MD ==" || echo "== SEM_DEPLOY_MD (derive dos arquivos do projeto) =="
-git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/base-de-trabalho.sh"   # a base dos diffs: a main, quando o origin/HEAD é um canal atrás dela
 gh auth status; gh repo view --json nameWithOwner
 test -f tsconfig.json && echo "TEM_TS"
 test -f package.json && grep -E '"(lint|test|build|format:check)"' package.json || true
@@ -112,9 +112,9 @@ vai antes do merge (§3).
 Decide o diff, não a existência de `supabase/`. Rode depois do commit:
 
 ```bash
-git diff --name-only origin/HEAD...HEAD | /usr/bin/grep -q '^supabase/functions/' && echo TOCA_EDGE_FUNCTIONS
-git diff --name-only --diff-filter=A origin/HEAD...HEAD | /usr/bin/grep -qE '^(supabase/migrations|src/sql)/.*\.sql$' && echo TEM_MIGRATION_NOVA
-# sem origin/HEAD ("ambiguous argument"): troque por origin/main
+B=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/base-de-trabalho.sh") || exit 1   # origin/main, mesmo com o origin/HEAD no stable
+git diff --name-only "$B"...HEAD | /usr/bin/grep -q '^supabase/functions/' && echo TOCA_EDGE_FUNCTIONS
+git diff --name-only --diff-filter=A "$B"...HEAD | /usr/bin/grep -qE '^(supabase/migrations|src/sql)/.*\.sql$' && echo TEM_MIGRATION_NOVA
 ```
 
 Com um flag, o deploy do Supabase é desta ship ("PR aberto" não é fim); sem nenhum, N/A. **Leia

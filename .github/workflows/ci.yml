@@ -133,6 +133,9 @@ jobs:
       - name: O worktree-gc mede contra a main quando a default do GitHub é um canal atrás dela
         run: bash tests/test-worktree-gc-base-de-trabalho.sh
 
+      - name: A base dos diffs do ship é a main quando a default do GitHub é um canal atrás dela
+        run: bash tests/test-base-de-trabalho.sh
+
       - name: A limpeza-mac só apaga worktree, branch e build seguros por construção, e sai limpa fora do macOS
         # Aqui é Ubuntu: o teste põe um `uname` de mentira que responde Darwin, e um que
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.

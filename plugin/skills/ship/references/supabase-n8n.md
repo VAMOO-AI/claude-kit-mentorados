@@ -54,7 +54,8 @@ CONCURRENTLY, DROP/RENAME só depois do deploy que parou de usar, e a ordem sche
 ## 3c. Edge functions (cada function que o PR mudou)
 
 ```bash
-git diff --name-only origin/HEAD...HEAD | /usr/bin/grep '^supabase/functions/' | cut -d/ -f3 | sort -u   # sem origin/HEAD: origin/main
+B=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/base-de-trabalho.sh") || exit 1   # origin/main, mesmo com o origin/HEAD no stable
+git diff --name-only "$B"...HEAD | /usr/bin/grep '^supabase/functions/' | cut -d/ -f3 | sort -u
 supabase functions deploy <nome> --project-ref "$PROJECT_REF"                   # com config.toml: respeita [functions.<nome>] verify_jwt
 supabase functions deploy <nome> --project-ref "$PROJECT_REF" --no-verify-jwt   # SÓ sem config.toml: webhook público exige o flag a cada deploy
 ```
