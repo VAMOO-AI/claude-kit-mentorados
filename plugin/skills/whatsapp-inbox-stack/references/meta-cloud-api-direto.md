@@ -20,13 +20,15 @@ Fonte: [Partners overview](https://developers.facebook.com/documentation/busines
 | | NotificaMe | Tech Provider direto |
 |---|---|---|
 | Para começar | Nada: o canal já existe | App Meta + Business Verification + App Review + Access Verification |
-| Cobrança da Meta | Tipo de parceiro e repasse do NotificaMe: **não verificado** (confira na [lista oficial de parceiros](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/whatsapp-business-platform-partners) e peça por escrito) | Cada cliente cadastra cartão na Meta e paga por mensagem |
-| Coexistência | Oferece por padrão (relato de uso em 2026-11-25, sem doc pública lida) | Pelo Embedded Signup, com as limitações abaixo |
+| Cobrança | Mensalidade do NotificaMe; as mensagens a Meta cobra à parte, pela tabela normal | Só a Meta, por mensagem, pela mesma tabela |
+| Coexistência | Oferece por padrão e funciona no Brasil | Pelo Embedded Signup, com as limitações abaixo |
 | Clientes novos | Sem teto seu | 10 contas por 7 dias; 200 com o processo completo |
 | Mídia inbound | Proxy `/media` do NotificaMe (#5) | Graph API com o token do cliente |
 | n8n | Node NotificaMe (só outbound) + HTTP cru | HTTP direto na Graph API |
 
-**Quando compensa sair:** volume de clientes em que a mensalidade por canal pesa mais que o custo de manter App Review, Embedded Signup e token por cliente; ou onboarding com a sua marca dentro do app. **Quando não compensa:** PME que não quer cadastrar cartão na Meta. Tech Provider não tem como bancar a cobrança dela.
+Fonte das linhas do NotificaMe: uso em produção (2026-11-25).
+
+**A conta da mensagem é a mesma nos dois caminhos.** A diferença de custo é só a mensalidade do NotificaMe contra o seu trabalho de manter App Review, Embedded Signup, token por cliente e o webhook direto. **Compensa sair** quando a soma das mensalidades passa desse custo, ou quando você quer o onboarding com a sua marca dentro do app. **Não compensa** com poucos números: o NotificaMe já entrega canal, proxy de mídia e coexistência prontos.
 
 ## Virar Tech Provider: o caminho
 
@@ -72,7 +74,7 @@ Fonte: [Embedded Signup](https://developers.facebook.com/documentation/business-
 - Histórico: a doc diz "6 meses" na tabela e "180 dias" na seção de histórico (grupos fora). Você tem **24h** depois do onboarding para sincronizar contatos e histórico, senão o cliente refaz o fluxo. Ver #28 para importar sem acionar nada.
 - O que o cliente manda pelo app continua grátis e não mexe na janela da API.
 - Desligar é no app do cliente (Settings → Account → Business Platform). O Deregister da API não vale.
-- Brasil: a doc não cita país. **Não verificado.**
+- Brasil: funciona (uso em produção via NotificaMe, 2026-11-25). A doc da Meta não cita país.
 
 Fonte: [Onboarding de usuários do app Business](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users).
 
