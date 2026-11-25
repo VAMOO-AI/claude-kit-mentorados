@@ -528,6 +528,33 @@ if want 07; then
   fi
 fi
 
+# ─────────────────────────────────────────── rotas do Next (01 · 04 · 08)
+# Rota por rota: rate limit em route handler, segredo de máquina compartilhado entre famílias,
+# COOP/CORP onde os headers são declarados, robots.txt e security.txt. Agregado: fora do --diff.
+if want 01 || want 04 || want 08; then
+  if global_check; then
+    if command -v python3 >/dev/null 2>&1; then
+      rn="$(python3 -I "$SK/scripts/rotas-next.py" --root "$ROOT" 2>/dev/null)"; rn_rc=$?
+      if [ $rn_rc -ne 0 ]; then
+        add_coverage 04 rotas_next nao_medido python3 "rotas-next.py saiu $rn_rc"
+      else
+        while IFS=$'\t' read -r tipo p a b c d e; do
+          want "$p" || continue
+          case "$tipo" in
+            ACHADO) add_finding "$p" "$a" heuristic "$d" "$c" "$e" \
+                      "python3 -I $SK/scripts/rotas-next.py --root . | grep -w $b" "pilar $p · rotas do Next" ;;
+            COBERTURA) add_coverage "$p" "$a" "$b" rotas-next "$c" ;;
+          esac
+        done <<< "$rn"
+      fi
+    else
+      add_coverage 04 rotas_next nao_medido python3 "python3 ausente: rate limit por rota, COOP/CORP e robots/security.txt não medidos"
+    fi
+  else
+    add_coverage 04 rotas_next nao_medido rotas-next "agregado do projeto: não roda no --diff"
+  fi
+fi
+
 # ─────────────────────────────────────────── montar findings.json
 # INVARIANTE 2 — medição ausente nunca é veredito limpo.
 # Não basta ter rodado: é preciso ter MEDIDO. Um alvo onde todo check saiu

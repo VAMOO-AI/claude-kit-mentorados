@@ -31,6 +31,10 @@ auditoria e a empresa cai pelo painel do lado.
       banco, fila e estado de pool é dado de reconhecimento.
 - [ ] **Repositório privado por padrão**, e a visibilidade é conferida — não
       lembrada. Repo público é decisão, com dono e data.
+- [ ] **`/robots.txt` e `/.well-known/security.txt` são servidos** (200,
+      `text/plain`), não capturados pelo middleware que manda tudo para o
+      login. App interno: `Disallow: /`. O `security.txt` (RFC 9116) leva
+      `Contact:` e `Expires:`.
 - [ ] **Autenticação tem limite de tentativa na borda** (ver pilar `04`, seção de
       força bruta).
 
@@ -92,7 +96,9 @@ curl -s "https://crt.sh/?q=%25.<dominio>&output=json" | python3 -c \
 # 2. cada host: headers, banner e versão (rode a lista inteira, não um host)
 for h in app.<dominio> n8n.<outro-dominio> painel.<dominio>; do
   echo "== $h"; curl -sSI "https://$h" \
-    | grep -iE 'strict-transport|content-security-policy|x-frame|x-content-type|referrer-policy|permissions-policy|server:|x-powered-by'
+    | grep -iE 'strict-transport|content-security-policy|cross-origin-(opener|resource)-policy|x-frame|x-content-type|referrer-policy|permissions-policy|server:|x-powered-by'
+  for a in /robots.txt /.well-known/security.txt; do   # 307 para o login = o middleware capturou
+    curl -s -o /dev/null -w "  $a %{http_code} %{content_type}\n" "https://$h$a"; done
 done
 
 # 3. a origem está alcançável por fora da borda? (cabeçalho da CDN ausente = passou direto)

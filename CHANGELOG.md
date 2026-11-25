@@ -10,6 +10,17 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.0] — 2026-11-24
+
+### Adicionado
+
+- **`baseline`**: `scripts/rotas-next.py` mede rota por rota: rate limit em route handler do Next (público com token, busca, escrita ou chamada paga; com sessão, busca e lote), lendo o middleware/proxy para saber o que é público; segredo de máquina de entrada que autentica rotas de duas ou mais famílias; COOP/CORP e HSTS sem preload; `robots.txt` e `security.txt` ausentes.
+- **`baseline`**: `sonda-auth-viva.sh` lê COOP, CORP e HSTS na borda e confere se `robots.txt` e `security.txt` são servidos ou caem no redirect do login.
+
+### Corrigido
+
+- **`baseline`**: o check de rate limit do pilar 04 saía "medido" com um único 429 em qualquer lugar do projeto; agora cada route handler é medido.
+
 ## [0.102.0] — 2026-11-24
 
 ### Adicionado
