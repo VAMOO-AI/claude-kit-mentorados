@@ -49,7 +49,7 @@ Webhook/callback externo (n8n, NotificaMe, Chatwoot, Google) chama a edge **sem 
 1. **Caminho crítico (sync):** download via proxy NotificaMe → upload do **original** (`.ogg`) → responde `{ ok, path, deferred: true }`. **NUNCA** transcodificar antes do upload/resposta.
 2. **Background (`EdgeRuntime.waitUntil`):** re-baixa do Storage (libera buffer do request) → transcode→mp3 → upload `.mp3` → `PATCH media_url` via service_role (`inbound_id` ou `provider_message_id`) → Whisper → `PATCH` transcrição.
 3. **n8n node `Ingerir Mídia`:** body inclui `inbound_id` do Brain Query; `timeout: 300000` (só cobre download+upload); `neverError: true` + `onError: continueRegularOutput`.
-4. **Front:** realtime em `<agente>_messages` com UPDATE (gotcha #6) troca `.ogg`→`.mp3` sem refresh manual. Chrome toca `.ogg`; Safari precisa do `.mp3` do background.
+4. **Front:** depois do `PATCH media_url`, o background publica o broadcast só com o id da mensagem (gotcha #6), e a tela relê a linha e troca `.ogg`→`.mp3` sem refresh manual. Chrome toca `.ogg`; Safari precisa do `.mp3` do background.
 5. **Mensagens antigas com `media_url` NULL:** irrecuperáveis (lookaside Meta expirou em ~2min). Só reenvio do cliente.
 
 **Anti-pattern:** threshold de bytes (`if size > X defer`) — 1min de voz cabe em ~120KB e ainda OOMa no sync. Regra: **todo áudio opus = fast path + background**, sem exceção por tamanho.
@@ -60,10 +60,12 @@ O webhook entrega `contents[0].fileUrl` = URL **lookaside da Meta** (`lookaside.
 - **Janela de ~2min** = baixe na hora do webhook, não depois. Áudios NULL no banco = ingestão falhou na janela (irrecuperável, mídia expirou).
 - UAZAPI: a URL de mídia vem utilizável por mais tempo, mas re-hospede igual (não dependa da origem).
 
-### #6 — Bucket privado: assinar on-read + RLS + realtime self-heal
+### #6 — Bucket privado: assinar on-read + RLS + self-heal por broadcast do servidor
 - Bucket **privado**, mime allowlist incluindo `audio/mpeg`. `media_url` guarda o PATH, não URL pública.
-- Front assina no read: `storage.from(bucket).createSignedUrls(paths, 3600)`. RLS `authenticated SELECT` no bucket habilita o usuário logado a assinar (anon não — e dá "Object not found", que parece 404 mas é RLS).
-- **Self-heal:** a edge faz INSERT (media_url=lookaside/null) e DEPOIS UPDATE (media_url=path). O front só corrige a URL velha se o realtime publicar **UPDATE** (não só INSERT). Garanta a tabela na publication `supabase_realtime` com update=true; senão o áudio fica quebrado até refresh manual.
+- Front assina no read: `storage.from(bucket).createSignedUrls(paths, 3600)`. RLS `authenticated SELECT` no bucket habilita o usuário logado a assinar (anon não — e dá "Object not found", que parece 404 mas é RLS). A URL assinada que a tela já tem não se troca a cada releitura (#18 em [tela-viva.md](tela-viva.md)).
+- **Self-heal:** a edge faz INSERT (media_url=lookaside/null) e DEPOIS UPDATE (media_url=path, depois `.mp3`). A tela só sai da URL velha se alguém avisar. Depois do UPDATE, o servidor (edge ou n8n) publica um **broadcast só com ids** no canal da caixa, e a tela relê essas linhas pelo banco, onde a RLS decide. Chamada pronta em `references/media-pipeline.md` §6; regras do canal no #15 de [tela-viva.md](tela-viva.md).
+- **Bug real do caminho óbvio:** assinar `postgres_changes` na tabela (tabela na publicação `supabase_realtime` com UPDATE) faz o Realtime consultar o WAL em polling, mesmo sem ninguém olhando a tela. Medido num CRM em produção (24/11/2026): ~2 chamadas/s e 33% do tempo de execução do banco. Trocar por broadcast publicado pelo servidor e tirar a tabela da publicação derrubou o polling em 97% nos primeiros 11 min, e depois a zero.
+- **Regra:** `postgres_changes` só com volume baixo, sabendo que ele custa polling do WAL o tempo todo. O padrão é broadcast do servidor + releitura.
 
 ### #7 — n8n: skip guard derruba mídia sem legenda
 O guard comum `if(!phone || !text) skip` mata áudio/foto (que vêm com `text` vazio). Troque por `if(!phone || (!text && !mediaUrl)) skip`. Rotule mídia sem legenda (`content='🎤 Áudio'`) pra nunca gravar balão vazio.

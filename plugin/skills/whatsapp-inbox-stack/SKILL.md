@@ -22,13 +22,17 @@ Pra construir/editar o WORKFLOW n8n em si (Code Node, API, layout, UAZAPI/Notifi
 - Edge: importe via `npm:ogg-opus-decoder@x`, **NÃO** `https://esm.sh/...` (o deploy passa, o runtime quebra; #2). Use `decoder.decodeFile(opus)`, não `decode()` sem `flush()` (áudio corta no final; #8).
 - `supabase functions deploy` **religa verify_jwt=ON**: funções públicas com `--no-verify-jwt` no CI ou `verify_jwt=false` no `config.toml`, nunca o toggle do dashboard (#3).
 - NotificaMe: NÃO baixe a `fileUrl` lookaside direta (401, expira em ~2min); baixe pelo proxy `/media` na hora do webhook (#5).
-- Bucket **privado**, `media_url` guarda o PATH, o front assina no read; realtime publica UPDATE (#6). Skip guard: `if(!phone || (!text && !mediaUrl)) skip` (#7).
+- Bucket **privado**, `media_url` guarda o PATH, o front assina no read. Depois do UPDATE, o servidor publica broadcast só com ids e a tela relê; `postgres_changes` custa polling do WAL mesmo sem ninguém olhando (#6). Skip guard: `if(!phone || (!text && !mediaUrl)) skip` (#7).
 - CSP precisa de `media-src 'self' data: https: blob:` no header E no meta. Foto OK ≠ áudio OK; `fetch 200` não prova que o `<audio>` toca (#1).
 - `POST /webhook` do UAZAPI: sempre **read-then-write** com `action:"update"` + `id`; o modo simples substitui e derruba `messages`. Early-return pelo EVENTO, não pelo status reconhecido (#11).
 - **Nunca `/instance/disconnect` como tentativa de conserto** — apaga as credenciais e força QR novo. Saúde da sessão: **a prova é o inbound**, nunca o outbound (#11).
 - **Não zere em bloco** os avisos órfãos: cheque o dono ATUAL antes de reenviar (#12).
 - **Propriedade de canal decide quem RESPONDE, nunca quem GRAVA.** Ordem: gravar inbound → resolver dono → decidir envio; handoff é `UPDATE` explícito, sem TTL (#13).
 - `sender.name`/`agent_name` é a conta do token, não a pessoa: quem falou sai do `inbox_id`. **`user` conta**; nota interna (`private: true`) não é contato (#14).
+- **Broadcast é canal aberto** (sem RLS, chave no bundle): payload só com ids, quem recebe valida uuid e busca no banco; mesmo nome de canal nas duas pontas (#15).
+- **Nada de `router.refresh()` por aviso:** o aviso diz o que mudou, a lista e o painel releem só o citado por GET, com coalescência e eco da própria aba ignorado (#16).
+- **Aviso incremental exige que toda mutação avise** (leitura, atribuição, resolução, as da app e as do provider): liste todas antes de tirar o refresh (#17).
+- **Não reassine mídia que a tela já mostra:** URL assinada nova é download novo; troque só se o arquivo mudou, se venceu com o player parado ou se falhou (#18).
 
 ## Fluxo
 
@@ -56,7 +60,7 @@ Provider webhook (NotificaMe/UAZAPI)
         → edge: baixa o binário (proxy, NÃO a lookaside direta — gotcha #5)
         → edge: upload do ORIGINAL pro bucket PRIVADO → devolve o PATH (rápido — gotcha #9)
         → edge (background waitUntil): áudio ogg/opus → MP3 + Whisper + PATCH media_url (gotcha #2, #9)
-  → n8n: UPDATE media_url = path (path pode ser .ogg no 1º beat; realtime troca pra .mp3 depois)
+  → n8n: UPDATE media_url = path (path pode ser .ogg no 1º beat; .mp3 depois, avisado por broadcast só de ids, gotcha #6)
   → front: listMessages ASSINA o path no read (signed URL) → <audio>/<img>
 ```
 
@@ -68,7 +72,7 @@ Gotchas de mídia (títulos completos na reference):
 - #3 — `verify_jwt` reseta pra ON a cada deploy
 - #4 — WhatsApp voz = Ogg/Opus (ver #2). Foto = jpg ok. Sticker = webp animado.
 - #5 — NotificaMe mídia inbound: NÃO baixe a `fileUrl` direta
-- #6 — Bucket privado: assinar on-read + RLS + realtime self-heal
+- #6 — Bucket privado: assinar on-read + RLS + self-heal por broadcast do servidor
 - #7 — n8n: skip guard derruba mídia sem legenda
 - #8 — Decoder bufferiza o tail → áudio CORTA no final: use `decodeFile`, não `decode`
 - #9 — Áudio longo (~1min+): OOM na edge se transcodificar no caminho crítico
@@ -107,4 +111,16 @@ resposta, o item 6 fica em aberto e "pronto" não sai.
 
 ### 6. Providers, reação e nota interna
 
-**Leia [references/providers.md](references/providers.md)** antes de escolher provider, mandar áudio de saída (NotificaMe `/v1` com `type:'file'`; o `/v2` com `voice:true` não tem fonte) ou renderizar reação/nota interna.
+**Leia [references/providers.md](references/providers.md)** antes de escolher provider, mandar áudio de saída (NotificaMe `/v1` com `type:'file'`; o `/v2` com `voice:true` não tem fonte) ou renderizar reação/nota interna:
+- #20 — Chatwoot até a v4.14 manda áudio ogg/opus como `audio/opus`, e a Meta recusa (`131053`): áudio de saída em mp3
+
+### 7. Tela que se move sem refazer a página
+
+**Leia [references/tela-viva.md](references/tela-viva.md)** antes de mexer em Realtime, aviso, lista ou URL assinada de mídia:
+- #15 — Broadcast do Realtime é canal aberto
+- #16 — `router.refresh()` por aviso é o custo dominante
+- #17 — Aviso incremental só funciona se toda mudança avisar
+- #18 — URL assinada nova é arquivo novo para o navegador
+- #19 — Nada lento no caminho da abertura
+
+A reference fecha com o "como medir": A/B intercalado entre URLs de deploy e dois navegadores parados comparados com o banco.
