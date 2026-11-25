@@ -121,6 +121,25 @@ if ! git fetch --prune origin 2>&1; then
   FETCH_OK=0
   echo "WARN: fetch failed — continuing with last-known remote refs"
 fi
+# Refspec estreito (clone --single-branch, ou fetch só da main): o fetch não traz as outras
+# branches e o --prune não limpa as cópias delas. origin/<b> local pode ser uma branch que o
+# GitHub apagou há semanas, e o relatório mandava `git push origin --delete` numa ref que não
+# existe (25/11/2026, no clone do kit). Com refspec estreito, a lista viva vem do ls-remote.
+REFSPEC_TODAS=0
+git config --get-all remote.origin.fetch 2>/dev/null | grep -qxF '+refs/heads/*:refs/remotes/origin/*' && REFSPEC_TODAS=1
+VIVAS=""; VIVAS_OK=1
+if [[ "$REFSPEC_TODAS" -eq 0 ]]; then
+  VIVAS="$(GIT_TERMINAL_PROMPT=0 git ls-remote --heads origin 2>/dev/null | sed -n 's#^[0-9a-f]*[[:space:]]*refs/heads/##p')" || VIVAS_OK=0
+  [[ "$FETCH_OK" -eq 1 ]] || VIVAS_OK=0
+  echo "refspec:  $(git config --get-all remote.origin.fetch 2>/dev/null | tr '\n' ' ')— o fetch não atualiza as outras origin/*; a lista de branches vivas vem do ls-remote$([[ "$VIVAS_OK" -eq 1 ]] || printf ' (falhou: nenhuma confirmada)')"
+fi
+# 0 = existe no GitHub (ou o refspec mantém a cópia em dia) · 1 = cópia local velha · 2 = não deu para conferir
+remota_viva() {
+  [[ "$REFSPEC_TODAS" -eq 1 ]] && return 0
+  [[ "$VIVAS_OK" -eq 1 ]] || return 2
+  printf '%s\n' "$VIVAS" | grep -qxF -- "$1" && return 0
+  return 1
+}
 hr
 
 # Precedência: --default-branch > git config git-sync.defaultBranch > origin/HEAD > main/master.
@@ -831,7 +850,8 @@ while IFS='|' read -r lb lup ltrack; do
   [[ -z "$lb" ]] && continue
   if [[ -z "$lup" ]]; then
     # sem upstream — o loop de checkouts não avalia isso, então vale para toda branch local
-    if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1; then
+    if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1 \
+       && { remota_viva "$lb"; [[ $? -ne 1 ]]; }; then
       WARNINGS+=("branch local '$lb' NÃO trackeia origin/$lb, que já existe no GitHub — outra pessoa pode estar nela. Ligue o upstream antes de commitar: git branch --set-upstream-to=origin/$lb $lb")
     else
       # Commits que nenhuma ref do origin tem, e não "à frente da default": a default do
@@ -1115,6 +1135,13 @@ if [[ "$TEAM" -eq 1 ]]; then
           printf "  %-34s %-17s %-20s %s\n", $1, $3, $4, rest
         }' \
     | awk 'NR<=25' || true)"
+  # refspec estreito: origin/<b> que o GitHub apagou não é branch ativa
+  if [[ "$REFSPEC_TODAS" -eq 0 && "$VIVAS_OK" -eq 1 && -n "$ACTIVE_BR" ]]; then
+    ACTIVE_BR="$(printf '%s\n' "$ACTIVE_BR" | while IFS= read -r _l; do
+      _rb="$(printf '%s' "$_l" | awk '{print $1}')"
+      if remota_viva "${_rb#origin/}"; then printf '%s\n' "$_l"; fi
+    done)"
+  fi
   if [[ -n "$ACTIVE_BR" ]]; then printf '%s\n' "$ACTIVE_BR"; else echo "  (nenhuma)"; fi
   echo
 
@@ -1258,8 +1285,13 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       _listadas=1
       _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
       _remoto=""
-      git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1 \
-        && _remoto=" (remoto ainda existe: git push origin --delete $b)"
+      if git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1; then
+        _viva=0; remota_viva "$b" || _viva=$?
+        case "$_viva" in
+          0) _remoto=" (remoto ainda existe: git push origin --delete $b)" ;;
+          2) _remoto=" (origin/$b local, sem confirmar no GitHub: git push origin --delete $b)" ;;
+        esac
+      fi
       case "$_rel" in
         igual|contido)
           echo "  $b — $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel") → candidata a -D$_remoto"
@@ -1288,9 +1320,15 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
     [[ -n "$_autores" ]] || _autores="$(git log -1 --format='%an <%ae>' "$rb" 2>/dev/null)"
     [[ "$_autores" == "$_eu" ]] || continue
     _listadas=1
+    _viva=0; remota_viva "$b" || _viva=$?   # set -e: o status sai pelo ||
+    if [[ "$_viva" -eq 1 ]]; then
+      echo "  $b — origin/$b é cópia local velha: o GitHub já não tem essa branch, e o fetch deste clone não a atualiza → git branch -rd origin/$b"
+      continue
+    fi
+    _nc=""; [[ "$_viva" -eq 2 ]] && _nc=" (sem confirmar no GitHub que ela ainda existe)"
     _tip="$(git rev-parse "$rb" 2>/dev/null || true)"
     if git merge-base --is-ancestor "$rb" "$ORIGIN_DEFAULT" 2>/dev/null; then
-      echo "  $b — já contida em $ORIGIN_DEFAULT → git push origin --delete $b"
+      echo "  $b — já contida em $ORIGIN_DEFAULT → git push origin --delete $b$_nc"
     elif [[ "$GH_CLEANUP_OK" -ne 1 ]]; then
       echo "  $b — (sem prova de PR — nem gh nem token da API)"
     else
@@ -1299,8 +1337,8 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       if [[ -n "$_pr" ]]; then
         _rel="$(relacao_head_pr "$_tip" "$(merged_pr_oid "$b")" "$_pr")"
         case "$_rel" in
-          igual)    echo "  $b — $(rotulo_pr "$_pr" "$_r"), head == tip → git push origin --delete $b" ;;
-          contido)  echo "  $b — $(rotulo_pr "$_pr" "$_r"), remota contida no head do PR → git push origin --delete $b" ;;
+          igual)    echo "  $b — $(rotulo_pr "$_pr" "$_r"), head == tip → git push origin --delete $b$_nc" ;;
+          contido)  echo "  $b — $(rotulo_pr "$_pr" "$_r"), remota contida no head do PR → git push origin --delete $b$_nc" ;;
           avancou)  echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota avançou depois do head do PR: preservada" ;;
           divergiu) echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota divergiu do head do PR: preservada" ;;
           *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada" ;;

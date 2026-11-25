@@ -103,6 +103,9 @@ jobs:
       - name: O git-sync mede contra a main quando a default do GitHub é um canal atrás dela, e protege o canal
         run: bash tests/test-git-sync-base-de-trabalho.sh
 
+      - name: O git-sync não manda apagar no GitHub a branch que só sobrou como cópia local num clone de refspec estreito
+        run: bash tests/test-git-sync-ref-remota-velha.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 
