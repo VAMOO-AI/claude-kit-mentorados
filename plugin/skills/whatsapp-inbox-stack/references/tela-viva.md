@@ -9,6 +9,10 @@ Broadcast não passa por RLS. A chave `publishable` que assina o canal vai no bu
 - **Payload só com identificadores** (`conversa_id`, `ids` de mensagem, tipo do aviso). Acrescentar nome, telefone ou texto publica conversa de cliente na internet.
 - **Quem recebe desconfia:** confere o formato (uuid) de cada id antes de buscar e busca no banco, onde a RLS decide o que volta. Um aviso forjado vira, no máximo, uma releitura a mais.
 - **Um canal por caixa ou inbox**, com o nome derivado da mesma chave nas duas pontas (`inbox:<id>` no servidor e na tela). Divergir não dá erro: a tela só nunca mais atualiza. Monte o nome numa função compartilhada, não em dois literais.
+- **`supabase.channel(nome)` devolve o canal que já existe** com o mesmo topic (o cliente compara `c.topic === 'realtime:'+nome`, conferido no `realtime-js` 2.112), e `.on()` num canal já subscrito **lança** (`cannot add postgres_changes callbacks for … after subscribe()`). A árvore React cai inteira ("Application error: a client-side exception has occurred") e o motivo só aparece no console.
+  - Gatilhos: dois componentes montados juntos (Drawer `keepMounted`) e o refresh de token re-rodando o efeito enquanto o `removeChannel` anterior espera o ack.
+  - **Não resolva com sufixo no nome** (`useId` é estável por instância, e um sufixo por assinatura muda o topic): a entrega do broadcast é por topic, então o canal com sufixo deixa de receber o que o servidor publica no nome-base (conclusão pelo desenho do Realtime, não testada contra o servidor; teste antes de adotar sufixo).
+  - **Conserto que respeita "mesmo nome nas duas pontas":** **um** canal por topic no cliente, compartilhado entre os consumidores por um registro de módulo com contagem de referências. O último consumidor a sair faz o `removeChannel`; quem entra com o canal já subscrito só registra o seu handler no registro (nunca chama `.on()` depois do `subscribe()`).
 - Precisa de payload com dado de verdade? O caminho é Realtime Authorization (canal privado, com policy em `realtime.messages`), não esconder o nome do canal.
 
 ### #16 — `router.refresh()` por aviso é o custo dominante

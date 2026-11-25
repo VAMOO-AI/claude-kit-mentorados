@@ -1,4 +1,4 @@
-# whatsapp-inbox-stack — dono do canal e prova de contato (#13 e #14)
+# whatsapp-inbox-stack — dono do canal e prova de contato (#13, #14 e #29)
 
 Lido no passo 4 do SKILL.md, antes de mexer em pausa/handoff IA-humano ou em relatório de quem falou com o lead.
 
@@ -20,3 +20,10 @@ Vale para arquitetura A com um inbox por vendedor (o padrão quando cada um tem 
 **b) `sender.name` / `agent_name` é a conta do token, não a pessoa.** Quando o espelho outbound do n8n posta a mensagem do vendedor no Chatwoot, ela entra com `sender.type: "user"` e o nome do dono do **token de API** — todas as mensagens do time estavam atribuídas ao mesmo agente. Quem falou de verdade só se descobre pelo **`inbox_id` da conversa** (`GET /accounts/{acc}/conversations/{id}`). Relatório de produtividade por agente montado nesse campo dá 100% para uma pessoa e zero para o time — e o número não parece errado, parece um vendedor muito dedicado.
 
 **Filtro de quem conta:** descartar `sender.type === 'user'` achando que "user" é robô apaga justamente o que sai por API, que é quase tudo. Descarte `contact` (é o lead) e `agent_bot` (é a IA); **`user` conta**. E nota interna (`private: true`) **não** é contato: ninguém do lado de lá recebe — quem inclui nota na definição de "falamos com ele" marca como atendido quem só foi comentado.
+
+### #29 — O alerta não cai para outro número
+**Bug real:** o seletor de remetente de alerta passava ao próximo telefone conectado quando o número de alerta estava fora do ar. O número de operação era o **WhatsApp pessoal de um advogado diante dos clientes**: se o remetente de alerta caísse, o aviso da queda sairia pelo número pessoal dele.
+
+**Conserto:** havendo um telefone marcado como remetente de alerta, **só ele serve**. Fora do ar ou sem credencial, o alerta **não sai**, o motivo vai para o log e a queda segue registrada na notificação do app. O fallback para "o primeiro conectado" só vale sem número marcado.
+- **Custo aceito:** com o remetente fora, o aviso dessa queda só aparece no app.
+- **Ponte com o #13:** número pessoal ligado ao inbox = **a IA só lê** (memória, prioridade, sinalização). Qualquer coisa que gere texto e possa enviar (resposta automática, agente, chatbot nativo do provider, workflow que chame `/send`) exige confirmação explícita do dono antes de ligar nesse número.

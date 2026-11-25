@@ -174,7 +174,7 @@ curl -X GET https://<inst>.uazapi.com/webhook -H "token: $TOKEN" > /tmp/webhook-
 | Flag | Efeito |
 |---|---|
 | `wasSentByApi` | **Não dispara webhook pra mensagens enviadas pela própria API** (suprime echo de `fromMe=true`). Use no webhook do agente IA pra ele não receber as próprias respostas. |
-| `isGroupYes` | Suprime mensagens de grupos `@g.us`. Quase sempre desejável. |
+| `isGroupYes` | Suprime mensagens de grupos `@g.us`. Desejável em agente de IA 1:1. **Nunca** em inbox que atende grupo: a mensagem de grupo some sem erro. |
 
 **Pro mirror Chatwoot espelhar `outgoing` da IA**, o webhook do mirror precisa **NÃO** ter `wasSentByApi` (caso contrário não recebe `fromMe=true` da resposta da IA, e o admin não vê no Chatwoot o que a IA respondeu). Configure separadamente do webhook principal do agente, no painel UAZAPI ou via `POST /webhook` com `action:"add"`.
 
