@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.1] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: o aviso "NUNCA foi ao GitHub" e o cleanup reconhecem a branch entregue pelo trem de release: PR fechado cujo head está num PR de release mergeado na mesma base, confirmado no git. O apply passa a apagar essa sobra com `-D`. O aviso conta os commits que nenhuma ref do origin tem, e não os à frente de `origin/HEAD`, que pode ser um canal atrasado como o `stable`.
+
 ## [0.103.0] — 2026-11-24
 
 ### Adicionado
