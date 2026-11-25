@@ -54,6 +54,8 @@ Nesta ordem:
    [ -n "$VERCEL_TOKEN" ] || { echo "<VAR_DO_TOKEN> ausente" >&2; exit 1; }
    ORG=$(jq -r .orgId "$CLONE/.vercel/project.json")
    PROJECT=$(jq -r .projectId "$CLONE/.vercel/project.json")
+   # a branch padrão do GitHub, de propósito: produção segue o que foi promovido. Não troque
+   # pela base-de-trabalho.sh, que devolve a main quando o origin/HEAD é um canal atrás dela
    REF=$(git -C "$CLONE" symbolic-ref --quiet --short refs/remotes/origin/HEAD || true)
    REF=${REF#origin/}
    [ -n "$REF" ] || { echo "sem origin/HEAD: git remote set-head origin --auto" >&2; exit 1; }
