@@ -5,6 +5,9 @@
 # do próprio projeto (mesma classe do `curl -sSI` passivo do pilar 08). Não substitui a fase
 # dinâmica, e não testa signup de verdade: senha mínima só sai pela Management API.
 #
+# Com APP_URL, também lê na borda CSP, COOP, CORP e HSTS (preload), e se robots.txt e
+# /.well-known/security.txt são servidos ou caem no redirect do login.
+#
 # Por que existe: o config.toml é do ambiente local. Em dois pentests de 11/2026 o cadastro
 # estava aberto no PAINEL, um projeto nem tinha config.toml, e nenhuma skill olhava o painel.
 # E um guard de rota que "redireciona" respondia 200 com meta-refresh: a leitura do código
@@ -83,6 +86,22 @@ if [ -n "$APP_URL" ]; then
   if [ "${csp:-0}" -gt 0 ]; then echo "VEREDITO CSP presente em /"
   elif [ "${csp_ro:-0}" -gt 0 ]; then echo "VEREDITO CSP só em Report-Only em / (não bloqueia)"
   else echo "VEREDITO CSP AUSENTE em /"; fi
+  curl -sSI --max-time 15 "$APP/" 2>/dev/null > "$TMP/h.txt"
+  for h in cross-origin-opener-policy cross-origin-resource-policy; do
+    grep -qi "^$h:" "$TMP/h.txt" && echo "VEREDITO $h presente" || echo "VEREDITO $h AUSENTE em /"
+  done
+  if grep -qi '^strict-transport-security:' "$TMP/h.txt"; then
+    grep -i '^strict-transport-security:' "$TMP/h.txt" | grep -qi preload \
+      && echo "VEREDITO HSTS com preload" || echo "VEREDITO HSTS sem preload"
+  else echo "VEREDITO HSTS AUSENTE em /"; fi
+  # robots.txt e security.txt: servidos de verdade, ou o middleware manda para o login?
+  for arq in /robots.txt /.well-known/security.txt; do
+    res="$(curl -sS -o "$TMP/arq.txt" -w '%{http_code} %{content_type} %{redirect_url}' --max-time 15 --max-redirs 0 \
+            "$APP$arq" 2>/dev/null)"
+    st="${res%% *}"
+    if [ "$st" = "200" ] && echo "$res" | grep -qi 'text/plain'; then echo "VEREDITO $arq servido (200 text/plain)"
+    else echo "VEREDITO $arq NÃO servido ($res): ausente ou capturado pelo middleware"; fi
+  done
   # Sem sessão, o middleware costuma responder 307 antes da página: o 200 com meta-refresh de
   # guard depois do flush só aparece com uma sessão que passa o middleware e não passa a página.
   quem="sem sessão"; CK=()

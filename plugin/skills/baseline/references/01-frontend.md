@@ -18,6 +18,11 @@ não é ofuscação e ofuscação não é segurança. O objetivo aqui não é es
 - [ ] Cinco headers acompanham a CSP: `X-Content-Type-Options`,
       `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,
       `Strict-Transport-Security`.
+- [ ] **Isolamento entre origens:** `Cross-Origin-Opener-Policy: same-origin`
+      (ou `same-origin-allow-popups` se o login abre popup de OAuth) e
+      `Cross-Origin-Resource-Policy: same-origin`. HSTS com `preload` só depois
+      de HTTPS em todos os subdomínios. O `rotas-next.py` acusa a falta onde os
+      headers são declarados; a borda real, o `sonda-auth-viva.sh`.
 - [ ] **Se a CSP existe em dois lugares (header e `<meta>`), um teste trava a
       divergência.** A política efetiva é a *interseção* das duas — divergir
       quebra em produção sem quebrar em dev.
