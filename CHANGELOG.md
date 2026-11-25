@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.2] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), a base passa a ser a `main`. Isso vale para ahead/behind, o aviso "atrás de", o modo time, o cleanup e o `--voltar-main`. O canal fica protegido como a base: nunca é candidato a cleanup nem a `--delete`. Para fixar outra base, use `git config git-sync.defaultBranch <b>`.
+
 ## [0.103.1] — 2026-11-25
 
 ### Corrigido

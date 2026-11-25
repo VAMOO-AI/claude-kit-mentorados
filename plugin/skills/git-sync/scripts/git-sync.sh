@@ -123,9 +123,36 @@ if ! git fetch --prune origin 2>&1; then
 fi
 hr
 
+# Precedência: --default-branch > git config git-sync.defaultBranch > origin/HEAD > main/master.
+#
+# A default do GitHub nem sempre é onde o trabalho entra. No kit, o origin/HEAD é o `stable`,
+# o canal que o marketplace do mentorado segue e que só anda por promoção, e todo PR vai para a
+# `main`. Medido contra o stable, o relatório errava tudo: branch mergeada na main saía "não
+# mergeado em origin/stable", branch atrás da main não avisava e o --voltar-main levava o clone
+# para o canal. Com o origin/HEAD = X ancestral de origin/main (ou master), a base passa a ser a
+# main e X vira CANAL: protegido como a default (nunca candidato a cleanup nem a --delete,
+# nunca "atrás de origin/main"). X à frente da main (git flow, develop) continua a default.
+# atalho: "canal" = ancestral da main no momento do fetch; se o stable um dia divergir, a base volta a ser ele, e o cabeçalho mostra o motivo; rever se aparecer repo com canal que diverge de propósito
+CANAL_BRANCH=""
+DEFAULT_NOTA=""
+[[ -n "$DEFAULT_BRANCH" ]] || DEFAULT_BRANCH="$(git config --get git-sync.defaultBranch 2>/dev/null || true)"
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+  if [[ -n "$DEFAULT_BRANCH" ]]; then
+    for _w in main master; do
+      [[ "$DEFAULT_BRANCH" == "$_w" ]] && break
+      if git rev-parse --verify -q "refs/remotes/origin/$_w" >/dev/null 2>&1 \
+         && git merge-base --is-ancestor "origin/$DEFAULT_BRANCH" "origin/$_w" 2>/dev/null; then
+        CANAL_BRANCH="$DEFAULT_BRANCH"; DEFAULT_BRANCH="$_w"
+        DEFAULT_NOTA=" — origin/HEAD = $CANAL_BRANCH, ancestral de origin/$_w: o trabalho entra na $_w e $CANAL_BRANCH fica protegida (outra base: git config git-sync.defaultBranch <branch>)"
+        break
+      fi
+    done
+    unset _w
+  fi
 fi
+# base ou canal: as duas ficam fora de cleanup, de --delete e do aviso "atrás de"
+eh_base_ou_canal() { [[ "$1" == "$DEFAULT_BRANCH" || ( -n "$CANAL_BRANCH" && "$1" == "$CANAL_BRANCH" ) ]]; }
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   if git rev-parse --verify origin/main >/dev/null 2>&1; then
     DEFAULT_BRANCH=main
@@ -141,7 +168,7 @@ if ! git rev-parse --verify "$ORIGIN_DEFAULT" >/dev/null 2>&1; then
   exit 1
 fi
 DEFAULT_SHA="$(git rev-parse --short "$ORIGIN_DEFAULT")"
-echo "default:  $DEFAULT_BRANCH ($DEFAULT_SHA = $ORIGIN_DEFAULT)"
+echo "default:  $DEFAULT_BRANCH ($DEFAULT_SHA = $ORIGIN_DEFAULT)$DEFAULT_NOTA"
 
 # Team auto-detect: >=2 autores distintos em origin/<default> nos últimos 30 dias.
 # Conta por NOME, não por e-mail: uma pessoa só que commita ora do e-mail pessoal, ora do
@@ -432,7 +459,7 @@ for wt in "${WT_PATHS[@]}"; do
     # 1) feature branch ficou para trás da default → conflito futuro no PR
     # O 'risco de conflito' só sai no modo time e só para o checkout de onde o script
     # roda; para os outros, o aviso diz como ver o risco daquela branch.
-    if [[ "$branch" != "$DEFAULT_BRANCH" && "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
+    if ! eh_base_ou_canal "$branch" && [[ "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
       if [[ "$TEAM" -eq 1 && "$wt" == "$ROOT" ]]; then
         _risco="o 'risco de conflito' abaixo"
       else
@@ -457,7 +484,7 @@ for wt in "${WT_PATHS[@]}"; do
       WARNINGS+=("$branch ($wt): upstream sumiu do remoto (branch gone) — candidata a cleanup (--cleanup-dry-run), não continue trabalhando nela.")
     fi
     # 6) editando direto na default compartilhada
-    if [[ "$branch" == "$DEFAULT_BRANCH" && "$dirty_flag" == "DIRTY" ]]; then
+    if eh_base_ou_canal "$branch" && [[ "$dirty_flag" == "DIRTY" ]]; then
       WARNINGS+=("$branch ($wt): alterações não commitadas direto na branch compartilhada — mova para 'feat/<escopo>' antes de continuar.")
     fi
   fi
@@ -1223,7 +1250,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
     _listadas=0
     _checked="$(git worktree list --porcelain | awk '/^branch /{sub(/^branch refs\/heads\//,""); print}')"
     while IFS='|' read -r b track; do
-      [[ -z "$b" || "$b" == "$DEFAULT_BRANCH" || "$track" == "[gone]" ]] && continue
+      { [[ -z "$b" || "$track" == "[gone]" ]] || eh_base_ou_canal "$b"; } && continue
       printf '%s\n' "$_checked" | grep -qxF "$b" && continue
       _pr="$(merged_pr_num "$b")"
       _r="$(merged_pr_rel "$b")"
@@ -1255,7 +1282,7 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   _listadas=0
   while IFS= read -r rb; do
     b="${rb#origin/}"
-    [[ -z "$b" || "$rb" == "origin" || "$b" == "HEAD" || "$b" == "$DEFAULT_BRANCH" ]] && continue
+    { [[ -z "$b" || "$rb" == "origin" || "$b" == "HEAD" ]] || eh_base_ou_canal "$b"; } && continue
     git show-ref --verify --quiet "refs/heads/$b" && continue
     _autores="$(git log --no-merges --format='%an <%ae>' "$ORIGIN_DEFAULT..$rb" 2>/dev/null | sort -u)"
     [[ -n "$_autores" ]] || _autores="$(git log -1 --format='%an <%ae>' "$rb" 2>/dev/null)"
@@ -1298,6 +1325,8 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       reason=""; nota=""; STALE_PID=""
       if [[ "$wt_branch" == "HEAD" ]]; then
         reason="detached HEAD — avaliar manualmente"
+      elif eh_base_ou_canal "$wt_branch"; then
+        reason="$wt_branch é a base ou o canal do repo — nunca candidata"
       elif is_locked "$wt" && ! lock_is_stale "$wt"; then
         reason="locked (sessão viva)"
       elif [[ "$CWD_OK" -ne 1 ]]; then
@@ -1438,13 +1467,13 @@ fi
 
 echo "### summary"
 if [[ "$CLEANUP_DRY" -eq 0 ]]; then
-  _nb="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -cvxF "$DEFAULT_BRANCH" || true)"
+  _nb="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -cvxF -e "$DEFAULT_BRANCH" ${CANAL_BRANCH:+-e "$CANAL_BRANCH"} || true)"
   _nw=$(( ${#WT_PATHS[@]} - 1 ))
   if [[ "${_nb:-0}" -gt 0 || "$_nw" -gt 0 ]]; then
-    echo "cleanup: ${_nb:-0} branch(es) local(is) além da $DEFAULT_BRANCH e $_nw worktree(s) — rode --cleanup-dry-run para ver o que já mergeou"
+    echo "cleanup: ${_nb:-0} branch(es) local(is) além da $DEFAULT_BRANCH${CANAL_BRANCH:+ e da $CANAL_BRANCH} e $_nw worktree(s) — rode --cleanup-dry-run para ver o que já mergeou"
   fi
 fi
-echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA"
+echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA${CANAL_BRANCH:+ canal=$CANAL_BRANCH}"
 echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} avisos=${#WARNINGS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
 echo "voltar_main=$VOLTAR_MAIN retorno=$RETURN_ACTION"
 echo "status_only=$STATUS_ONLY team=$TEAM cleanup_dry=$CLEANUP_DRY cleanup_apply=$CLEANUP_APPLY"
