@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.5] — 2026-11-25
+
+### Corrigido
+
+- **`ship`**: os diffs que decidem o deploy do Supabase (`TOCA_EDGE_FUNCTIONS`, `TEM_MIGRATION_NOVA` e a lista de functions da §3c) medem contra a `main` quando o `origin/HEAD` é um canal atrás dela (no kit, o `stable`). Antes, pegavam tudo o que a `main` andou desde o canal, e a ship mandava deployar function que o PR não tocou. O novo `plugin/scripts/base-de-trabalho.sh` resolve a base com a mesma regra do git-sync, e o deploy da Vercel continua na branch padrão do GitHub.
+
 ## [0.103.4] — 2026-11-25
 
 ### Corrigido
