@@ -10,6 +10,12 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.103.6] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: num clone com refspec estreito (`clone --single-branch`, ou fetch só da `main`), a cópia local de uma branch que o GitHub já apagou deixou de ser tratada como viva. Antes, o relatório mandava `git push origin --delete` numa ref que não existe e a listava como ativa no modo time. Agora a lista viva vem do `git ls-remote`, e a cópia velha sai com `git branch -rd origin/<b>`.
+
 ## [0.103.5] — 2026-11-25
 
 ### Corrigido
