@@ -21,6 +21,23 @@ segurança.
       decoração.
 - [ ] Logout e expiração limpam estado local; sessão expirada não vira request
       anônima silenciosa.
+- [ ] **Cadastro do Auth fechado, ou conta nova nasce sem poder.** Sem tela de
+      cadastro no app, o `POST /auth/v1/signup` com a chave anon continua
+      aberto se o painel deixar. Ou o painel fecha (`disable_signup`), ou toda
+      conta nova nasce com papel mínimo e `ativo = false` até alguém liberar.
+- [ ] **Papel nunca vem de `user_metadata`.** O usuário escreve esse campo no
+      `signUp` e no `updateUser`. Papel, plano e tenant saem de `app_metadata`
+      ou de uma tabela que só o servidor grava, inclusive no trigger de cadastro.
+- [ ] **Autenticado ≠ membro.** Nenhuma policy de dado interno aceita
+      `auth.role() = 'authenticated'`, `auth.uid() is not null` ou
+      `<getter>() is not null` sozinho. O predicado prova vínculo (perfil ativo
+      e aprovado, ficha de equipe, liberação do módulo), e a linha que prova o
+      vínculo não nasce sozinha por trigger com papel padrão.
+- [ ] **Todo helper de papel confere conta ativa**, não só o de admin.
+- [ ] **E-mail só identifica se foi confirmado.** Com auto-confirmação, o
+      e-mail do JWT é o que a pessoa digitou: autorização por e-mail ou domínio
+      exige confirmação ligada e `email_confirmed_at`.
+- [ ] Senha mínima e requisitos do **painel** iguais aos da tela.
 
 ## Como implementar
 
@@ -130,6 +147,44 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-gate.txt --saida 
 O bloco `--- capturado ---` do `--saida` é a prova que vai no report, sem token e
 sem linha de produção.
 
+### Quem vira membro
+
+A pergunta que vem antes de "o corretor A vê a carteira do B?" é "quem consegue
+virar corretor?". Dois pentests de sistemas com RLS correta em todas as tabelas
+acharam o mesmo caminho: cadastro aberto no painel, mais um predicado que lê
+"tem sessão" como "é da equipe", ou um trigger que copia o papel do metadata. O
+`collect.sh` roda o `quem-entra.py` no pilar 03; para ler sozinho:
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/quem-entra.py" --root .
+```
+
+Ele lê o estado **efetivo** das migrations (a última definição de cada função,
+policy e trigger vence, na ordem do arquivo) e emite uma linha por fato:
+
+| Check | O que acusa |
+|---|---|
+| `auth_signup_aberto`, `auth_sem_confirmacao`, `auth_senha_curta` | bloco `[auth]` do `config.toml`. Sem o arquivo, sai `nao_medido` dizendo que o estado mora no painel |
+| `papel_do_metadata` | função, trigger ou policy que decide papel por `raw_user_meta_data` / `user_metadata` |
+| `autoprovisao_cadastro`, `autoprovisao_acesso` | o que roda quando a conta nasce, com o papel padrão; trigger que cria a linha que uma policy usa como prova de vínculo |
+| `autenticado_e_membro` | policy efetiva com predicado de existência. HIGH quando escreve e o cadastro está aberto ou não foi medido |
+| `papel_sem_conta_ativa` | helper `is_*`/`sou_*`/`eh_*` que lê o perfil sem olhar `ativo` |
+| `identidade_por_email` | `auth.jwt()->>'email'` sem `email_confirmed_at` |
+| `hmac_sem_janela`, `segredo_na_query`, `cota_em_tabela_do_usuario`, `guard_depois_do_stream`, `escrita_sem_conferir`, `cookie_longo` | as armadilhas da tabela abaixo |
+
+A config do `config.toml` vale para o ambiente local. O que vale em produção é o
+painel. O `sonda-auth-viva.sh` lê o mesmo que o atacante, só com GET:
+
+```bash
+# a anon é pública; o PAT é opcional e só serve para ler a senha mínima
+SUPABASE_URL='https://<ref>.supabase.co' SUPABASE_ANON_KEY='<anon>' APP_URL='https://<app>' \
+  bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/sonda-auth-viva.sh" /admin /api/diag
+# VEREDITO cadastro ABERTO (disable_signup=false) → com autenticado_e_membro acima, é o achado alto
+```
+
+Sem o painel lido, o cadastro é `não medido`, nunca "fechado". Calar foi o que
+deixou passar uma conta `admin` criada por `signUp`.
+
 Estático, como apoio:
 
 ```bash
@@ -154,3 +209,11 @@ comando — e responde para o dado, não para o componente.
 | Usuário sem perfil entra e vê o app quebrado | Faltou fail-closed em perfil ausente. Autenticado ≠ autorizado |
 | Componente escondido mas request disparada | Gate resolvido depois da montagem. O `useEffect` do filho já buscou |
 | Permissão só muda com deploy | Papel e permissão hardcoded no front. Permissão granular pertence a tabela |
+| Conta criada pela API entra como admin, e o app nem tem tela de cadastro | Signup aberto no painel e o trigger de cadastro copia `raw_user_meta_data->>'role'` |
+| RLS impecável e um estranho lê a carteira inteira | O predicado é `auth.role() = 'authenticated'` ou `is_membro()` sem `ativo`. Correto para funcionário, e o cadastro estava aberto |
+| Policy exige ficha e a ficha aparece sozinha | Trigger de auto-provisão cria a linha com papel padrão no `else`. A prova de vínculo virou prova de existência |
+| `email @suaempresa.com` vira "da casa" sem convite | Auto-confirmação ligada: o e-mail do JWT é o que a pessoa digitou |
+| Conta desativada continua gravando por até 1 h | Só o helper de admin confere `ativo`; o JWT segue válido |
+| `/admin` "redireciona" e o monitor diz 200 | `loading.tsx` acima da página: o shell sai antes do `redirect()`, que vira meta-refresh |
+| Cota de IA esgota sem ninguém perguntar nada | O freio conta linhas de uma tabela que a sessão insere direto pelo PostgREST |
+| Grep acusa o que a migration seguinte já corrigiu | Lida a primeira definição, não a efetiva. Vale a última, e o banco vivo vence as duas |

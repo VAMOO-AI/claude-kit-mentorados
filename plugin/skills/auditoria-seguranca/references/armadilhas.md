@@ -25,6 +25,11 @@ Lido antes de entregar o PDF, como conferência final.
 | Juiz refutou com "o framework já trata" e o achado volta em produção | Refutação sem `arquivo:linha` do controle, ou com o controle num caminho só. Descartar pede a mesma prova que confirmar |
 | `alta` virou `falso_positivo` quando o juiz só achou a nota exagerada | Discordar da severidade não apaga o achado: rebaixe, com a condição de `muda_severidade_se` que se confirmou |
 | Lint `0015` limpo e a conta nasce admin no cadastro | O lint só lê policy. A trigger de signup copia `raw_user_meta_data` para a coluna de papel |
+| A1 "isolamento por dono" medido e um estranho entra como funcionário | Você mediu dono contra dono e não perguntou quem vira dono: signup aberto no painel + predicado `autenticado = membro` (`quem-entra.py`) |
+| Grep de `user_metadata` limpo e o trigger em `.sql` copia o papel | O grep era só de `*.ts`, e `user_metadata` não casa `raw_user_meta_data`. Use `user_meta_?data` e leia as migrations |
+| Achado citado na migration baseline e o time mostra que já trocou | Você leu a primeira definição. Vale a última (`quem-entra.py` lê o efetivo) e, com banco, `pg_policies` |
+| HMAC listado como ponto forte e o pentest faz replay | Comparação em tempo constante não é janela. Sem timestamp e nonce na assinatura, ela vale para sempre |
+| Escrita negada "passou" no script de carga | O PostgREST responde 204 quando a RLS filtra todas as linhas. Conte (`count=exact`) ou peça a linha de volta |
 | `REVOKE UPDATE (is_admin)` na migration e o usuário ainda grava a coluna | Revogar por coluna não anula o `GRANT` da tabela inteira. Confira `has_column_privilege`, não a migration |
 | "Migramos para as chaves novas" e a service_role que vazou ainda funciona | Chave nova não desativa a legada. Sem o painel, é `a_validar` com o plano do dono |
 | "Revogada, deu 401" | 401 tem outras causas. Estado de chave é fato do painel: `a_validar` |
