@@ -31,6 +31,7 @@ instância do projeto está lá.
 | Enviar N mensagens/balões, fan-out, debounce, pausa Redis, anti-loop, dedup, keep-alive 24h | [references/messaging-patterns.md](references/messaging-patterns.md) |
 | UAZAPI (alertas internos, mídia, uptime watcher) | [references/uazapi.md](references/uazapi.md) |
 | NotificaMe (templates client-facing, status callbacks) | [references/notificame.md](references/notificame.md) |
+| Meta Cloud API direta (Tech Provider): envio pela Graph API, Embedded Signup, preço por mensagem | `whatsapp-inbox-stack/references/meta-cloud-api-direto.md` (`/kit-vamoo:whatsapp-inbox-stack`) |
 | Chatwoot (espelho, labels, transferência, webhooks) | [references/chatwoot.md](references/chatwoot.md) |
 | Pipedrive (deals, stages via n8n) | [references/pipedrive.md](references/pipedrive.md) |
 | Pipeline de dispatch, estágios do cliente, resumo diário, follow-up | [references/pipelines.md](references/pipelines.md) |

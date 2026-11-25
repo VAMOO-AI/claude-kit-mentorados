@@ -180,7 +180,9 @@ const messages = [
 ];
 ```
 
-Acionado em horários estratégicos (ex.: 8h e 18h BRT). Propósito: manter janela gratuita Meta WhatsApp (24h) ativa enquanto não há interação orgânica. Antes de cada envio, confira `nao_contatar` (`guardrails-ia.md`) e se o dono do canal ainda é a IA (`/kit-vamoo:whatsapp-inbox-stack` #13).
+Acionado em horários estratégicos (ex.: 8h e 18h BRT). Propósito: **provocar uma resposta do lead** enquanto a janela de 24h ainda está aberta, para não depender de template pago depois. Antes de cada envio, confira `nao_contatar` (`guardrails-ia.md`) e se o dono do canal ainda é a IA (`/kit-vamoo:whatsapp-inbox-stack` #13).
+
+**O envio em si não estende a janela** (Cloud API, via NotificaMe ou direta): ela só abre e renova com mensagem ou ligação do usuário. Sem resposta, a janela fecha no horário de sempre. E não é grátis: desde 2026-10-01 a mensagem livre dentro da janela conta como service (1.000 grátis por número por mês) e utility dentro da janela é cobrada. Fonte e detalhe: `whatsapp-inbox-stack/references/meta-cloud-api-direto.md` § Preço. UAZAPI não tem janela (`uazapi.md`), então keep-alive lá não tem esse propósito.
 
 ---
 

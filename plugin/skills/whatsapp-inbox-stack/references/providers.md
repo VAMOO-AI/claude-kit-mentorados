@@ -4,6 +4,7 @@ Lido no passo 6 do SKILL.md, antes de escolher provider, mandar áudio de saída
 
 ## Providers (resumo)
 - **NotificaMe** (oficial/Meta): templates client-facing, status callbacks, áudio de saída como `file` (linha abaixo). Inbound mídia via proxy /media (#5). Node oficial só tem OUTBOUND — download de mídia e reação NÃO existem no node, é HTTP cru.
+- **Meta Cloud API direta (você como Tech Provider):** sem intermediário, mas com App Review, Embedded Signup, token por cliente e o cliente pagando a Meta no cartão dele. Comparação com o NotificaMe, coexistência, preço por mensagem e limite por portfólio: [meta-cloud-api-direto.md](meta-cloud-api-direto.md).
 - **UAZAPI** (não-oficial): alertas internos, mídia, mais permissivo. Ver `n8n-workflow-agent/references/uazapi.md` (`/kit-vamoo:n8n-workflow-agent`). Mídia inbound: `.enc` resolvido por `/message/download` (#5). Sessão, ACK e grupo: #11, #21 a #23. Não lidas e eco: #24 e #25. `@lid` e retentativa do webhook: #26 e #27. Histórico: #28.
   - **Editar mensagem enviada:** `POST /message/edit`, só texto, até 15 min depois do envio. Fora do prazo a opção some. O banco só muda se o provider aceitar. A bolha mostra "editada".
   - **Participantes de grupo:** `/group/updateParticipants`, resultado por pessoa (privacidade devolve 403 explicável). Exige que o número da conversa seja admin do grupo.

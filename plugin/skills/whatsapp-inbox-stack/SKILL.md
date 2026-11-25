@@ -115,7 +115,7 @@ Código verificado (edge, signing, render, CSP, bucket SQL, backfill, probes): `
 
 ### 6. Providers, reação e nota interna
 
-**Leia [references/providers.md](references/providers.md)** antes de escolher provider, editar mensagem, mexer em participantes de grupo, provisionar número, mandar áudio de saída (NotificaMe `/v1` com `type:'file'`; o `/v2` com `voice:true` não tem fonte) ou renderizar reação/nota interna:
+**Leia [references/providers.md](references/providers.md)** antes de escolher provider ou Cloud API, editar mensagem, mexer em participantes de grupo, provisionar número, mandar áudio de saída (NotificaMe `/v1` com `type:'file'`; o `/v2` com `voice:true` não tem fonte) ou renderizar reação/nota interna:
 - #20 — Chatwoot até a v4.14 manda áudio ogg/opus como `audio/opus`, e a Meta recusa (`131053`): áudio de saída em mp3
 
 ### 7. Tela que se move sem refazer a página
