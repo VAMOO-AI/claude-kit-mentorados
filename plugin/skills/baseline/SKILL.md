@@ -158,7 +158,7 @@ Contrato · Como implementar · Como provar · Armadilhas.
 |---|---|---|---|
 | 01 | Frontend / bundle | `references/01-frontend.md` | sourcemap, `VITE_`/`NEXT_PUBLIC_`, CSP + headers, orçamento de bundle |
 | 02 | Banco / RLS | `references/02-banco.md` | RLS, policy, `SECURITY DEFINER`, view, grant, storage |
-| 03 | Auth / permissão | `references/03-auth.md` | sessão, MFA, RBAC, gate de rota **e sua contrapartida** |
+| 03 | Auth / permissão | `references/03-auth.md` | sessão, MFA, RBAC, gate de rota **e sua contrapartida**; quem entra |
 | 04 | Limites / abuso | `references/04-limites.md` | rate limit, quota de LLM, webhook secret, `verify_jwt` |
 | 05 | Carga / cache | `references/05-carga.md` | paginação, cache em 3 camadas, índice, gargalo, balanceamento |
 | 06 | Observabilidade | `references/06-observabilidade.md` | error tracking, log estruturado, alerta, auditoria |

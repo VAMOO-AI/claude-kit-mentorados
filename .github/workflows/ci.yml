@@ -318,6 +318,9 @@ jobs:
       - name: O pilar 04 da baseline reconhece isCronAuthorized como guard e acusa a edge function aberta
         run: bash tests/test-baseline-edge-auth.sh
 
+      - name: O pilar 03 da baseline acusa quem vira membro (cadastro aberto, papel do metadata, autenticado = membro) pelo estado efetivo das migrations
+        run: bash tests/test-baseline-quem-entra.sh
+
       - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh
 

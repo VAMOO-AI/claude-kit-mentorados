@@ -173,10 +173,10 @@ SELECT tgname, tgfoid::regproc AS funcao
 # ['role'] e a desestruturação ({ role } = user.user_metadata); leia cada linha.
 # Padrão literal e --include um por um: no zsh, $VAR sem aspas não se divide e $K[...] é
 # subscript, e o grep sai calado
-grep -rniE 'user_metadata[^;]{0,20}(role|papel|admin|plan|plano|tier|tenant|org)' \
+grep -rniE 'user_meta_?data[^;]{0,40}(role|papel|admin|plan|plano|tier|tenant|org)' \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
   | grep -v node_modules
-grep -rniE '\{[^}]*(role|papel|admin|plan|plano|tier|tenant|org)[^}]*\}[[:space:]]*=[^;]*user_metadata' \
+grep -rniE '\{[^}]*(role|papel|admin|plan|plano|tier|tenant|org)[^}]*\}[[:space:]]*=[^;]*user_meta_?data' \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
   | grep -v node_modules
 # o que os dois acima não alcançam (desestruturação em várias linhas, alias
@@ -185,6 +185,22 @@ grep -rnc 'user_metadata' \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' --include='*.cjs' . \
   | grep -v -e node_modules -e ':0$'
 ```
+
+Sem acesso ao banco, as três consultas acima não rodam, e o grep do app não lê `.sql`: o
+trigger de cadastro passa em branco (`user_metadata` não casa com `raw_user_meta_data`, por isso
+o `_?` acima). O fallback lê o estado efetivo das migrations (a última definição vence) e já
+cruza o resto da pergunta "quem vira membro": `config.toml` do Auth, predicado
+`auth.role() = 'authenticated'` / `<getter>() is not null`, trigger que cria a linha de acesso,
+helper de papel sem `ativo`, identidade pelo e-mail do JWT.
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/quem-entra.py" --root .
+```
+
+O cadastro do painel não está no repo: sem o `GET /auth/v1/settings` lido pelo dono
+(`sonda-auth-viva.sh`, pilar 03 da baseline), o achado de cadastro é `a_validar` com esse
+comando como plano, nunca "fechado". Na A1, isolar inquilino de inquilino não responde quem
+consegue **virar** inquilino: pergunte isso primeiro.
 
 Achado: o valor lido de `user_metadata` decide acesso, papel, plano ou tenant
 (policy, função, trigger que grava coluna de papel, middleware). Não é achado:

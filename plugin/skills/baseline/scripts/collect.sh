@@ -166,7 +166,9 @@ if want 01; then
   # CSP e headers (agregado do projeto)
   if global_check; then
   csp_src=""
-  for f in vercel.json next.config.js next.config.mjs next.config.ts public/_headers netlify.toml index.html; do
+  # middleware/proxy: a CSP com nonce do Next nasce lá, não no next.config
+  for f in vercel.json next.config.js next.config.mjs next.config.ts public/_headers netlify.toml index.html \
+           middleware.ts middleware.js src/middleware.ts src/middleware.js proxy.ts src/proxy.ts; do
     [ -f "$f" ] && grep -qi 'content-security-policy' "$f" 2>/dev/null && csp_src="$csp_src $f"
   done
   if [ -n "$csp_src" ]; then
@@ -300,6 +302,31 @@ if want 03; then
   fi
   add_coverage 03 fail_open medido grep ""
   add_coverage 03 gate_vs_rls nao_medido curl "exige token de papel restrito — teste manual, ver pilar 03"
+
+  # Quem vira membro: cadastro do Auth, papel vindo do metadata, predicado "autenticado =
+  # membro", trigger que cria a linha de acesso, HMAC sem janela, cota em tabela do usuário.
+  # Estado efetivo das migrations (a última definição vence). Agregado do projeto: fora do --diff.
+  if global_check; then
+    if command -v python3 >/dev/null 2>&1; then
+      qe="$(python3 -I "$SK/scripts/quem-entra.py" --root "$ROOT" 2>/dev/null)"; qe_rc=$?
+      if [ $qe_rc -ne 0 ]; then
+        add_coverage 03 quem_entra nao_medido python3 "quem-entra.py saiu $qe_rc"
+      else
+        while IFS=$'\t' read -r tipo a b c d e; do
+          case "$tipo" in
+            ACHADO) add_finding 03 "$a" heuristic "$d" "$c" "$e" \
+                      "python3 -I $SK/scripts/quem-entra.py --root . | grep -w $b" \
+                      "pilar 03 · quem vira membro" ;;
+            COBERTURA) add_coverage 03 "$a" "$b" quem-entra "$c" ;;
+          esac
+        done <<< "$qe"
+      fi
+    else
+      add_coverage 03 quem_entra nao_medido python3 "python3 ausente: cadastro, predicados e triggers não medidos"
+    fi
+  else
+    add_coverage 03 quem_entra nao_medido quem-entra "agregado do projeto: não roda no --diff"
+  fi
 fi
 
 # ─────────────────────────────────────────── 04 · limites
