@@ -317,6 +317,9 @@ jobs:
       - name: A matriz de RLS da auditoria conta por papel, não vaza token e só escreve em host local
         run: bash tests/test-auditoria-matriz.sh
 
+      - name: A família de funções da auditoria acusa a irmã que não confere o dono
+        run: bash tests/test-auditoria-familias.sh
+
       - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade, separa FALHOU de AUSENTE e varre a árvore com o gitleaks
         run: bash tests/test-secscan-ferramentas.sh
 

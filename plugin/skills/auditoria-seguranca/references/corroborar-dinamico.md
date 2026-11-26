@@ -75,6 +75,46 @@ anotação diz o que faltou.
 Escrita (`PUT`, `PATCH`, `DELETE` com o id da vítima) não se testa no cliente. Se o achado é de
 escrita, a leitura diferencial prova o alcance do id, e o efeito vai para a matriz local abaixo.
 
+**Por que não, mesmo "só para provar".** Num pentest de 11/2026 a escrita em produção provou os
+dois P1 e deixou rastro que nenhum papel do app apagava. Ficaram registros de teste que só o
+mantenedor arquiva, registros órfãos que só admin remove e o `atualizado_por` da conta de teste
+gravado nos registros reais, sem volta. O desfazer exigia ser dono, e a limpeza virou uma lista
+de pedidos ao cliente. O efeito de escrita vai para o Supabase local, com os mesmos papéis.
+
+## O ator que mede o horizontal: papel amplo, escopo vazio
+
+A matriz anon × A × B mede inquilino contra inquilino. O furo horizontal (A3, família de ações)
+precisa de um quarto ator: **C, com o mesmo papel do dono e nenhum vínculo**. C não tem carteira,
+não tem registro atribuído e não está em setor nenhum. Para C, a checagem de vínculo é a única
+barreira: o papel deixa passar, e se a função esqueceu o dono, C escreve. Conta de teste com
+carteira cheia ou admin esconde exatamente esse caso, porque tudo que ela toca já é dela.
+
+No seed local: crie C como A e B são criados, dê a ele o papel de escrita (o mesmo de A) e não o
+ligue a nenhuma linha. Rode a família de funções que o `familias-rpc.py` listou como
+`MATRIZ`, uma por verbo, contra o registro de A:
+
+```bash
+# Local apenas. C_JWT de usuario-c, ID_DE_A uma linha do seed que pertence a A.
+# --max-redirs 0 e host local: a mesma trava da matriz.
+rpc_local() { # rpc_local <função> <corpo json>; recusa host que não seja local
+  case "$SB" in http://127.0.0.1:*|http://localhost:*|http://\[::1\]:*) ;;
+    *) echo "host não local ($SB): recusado, nada foi enviado" >&2; return 2;; esac
+  [ -n "$C_JWT" ] || { echo "C_JWT vazio: nada foi enviado" >&2; return 1; }
+  printf '%s' "$2" |
+    curl -q -sS --noproxy '*' --max-redirs 0 -o /dev/null -w "$1 http=%{http_code}\n" \
+      -H "apikey: $ANON_LOCAL" -H "Authorization: Bearer $C_JWT" \
+      -H 'Content-Type: application/json' --data-binary @- "$SB/rest/v1/rpc/$1"
+}
+for fn in cartao_editar cartao_transferir; do   # os nomes que o familias-rpc imprimiu
+  rpc_local "$fn" "$(printf '{"p_id":"%s"}' "$ID_DE_A")"
+done
+```
+
+O que decide é o **estado depois**, não o status (função que engole o erro devolve 200). Releia a
+linha como A (`responsavel`, `atualizado_por`) entre uma chamada e outra e rode `supabase db reset`
+antes da próxima família. Em `fonte`: `"local, migrations do commit abc1234: C (papel X, carteira
+vazia) chamou <função> no registro de A; responsavel passou de A para C"`.
+
 ## Matriz de RLS do Supabase
 
 Papéis **anon, A, B** (e **admin**, se o app tiver) × **tabela** × **operação**. A e B são
