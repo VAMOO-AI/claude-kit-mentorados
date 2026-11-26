@@ -116,7 +116,7 @@ def params_de(assinatura):
     return nomes
 
 
-def analisa(corpo, params, booleanas):
+def analisa(corpo, params, booleanas, helper_dono):
     b = sem_comentario(corpo).lower()
     escreve = set()
     for m in re.finditer(r"\b(?:update(?:\s+only)?|insert\s+into|delete\s+from|merge\s+into)\s+"
@@ -147,8 +147,10 @@ def analisa(corpo, params, booleanas):
         if nome in booleanas or PREFIXO_HELPER.match(nome):
             helpers.add(nome)
             argumentos = re.findall(r"[a-z_][a-z0-9_]*", m.group(2))
-            if any(a in params for a in argumentos):
-                dono = True   # helper por objeto: pode_editar(p_id)
+            # helper por objeto, pode_editar(p_id): só conta se ele mesmo olha o chamador.
+            # perfil_ativo(p_para) valida o destino e não diz nada sobre quem chamou
+            if nome in helper_dono and any(a in params for a in argumentos):
+                dono = True
     cita_chamador = bool(re.search(CALLER, b)) or len(tokens) > 1
     return escreve, dono, helpers, cita_chamador
 
@@ -174,8 +176,10 @@ RE_DEFAULT = re.compile(r"alter\s+default\s+privileges[^;]*?\b(grant|revoke)\s+(
                         r"[^;]*?\b(?:to|from)\b([^;]*);", re.I | re.S)
 PAPEIS_BROWSER = re.compile(r"\b(anon|authenticated|public)\b", re.I)
 
-# primeiro passe: quem devolve boolean é candidato a helper de checagem
+# primeiro passe: quem devolve boolean é candidato a helper de checagem, e o que cita o
+# chamador no corpo pode servir de checagem de dono
 booleanas = set()
+helper_dono = set()
 textos = {}
 for arq in lidos:
     try:
@@ -186,7 +190,14 @@ for arq in lidos:
     for m in RE_CRIA.finditer(textos[arq]):
         trecho = textos[arq][m.end():m.end() + 800]
         if re.search(r"\)\s*returns\s+(boolean|bool)\b", trecho, re.I):
-            booleanas.add(nome_curto(m.group(2))[1])
+            nome_b = nome_curto(m.group(2))[1]
+            booleanas.add(nome_b)
+            prox = RE_CRIA.search(textos[arq], m.end())
+            corpo_b, _ = corpo_de(textos[arq][m.end():prox.start() if prox else len(textos[arq])])
+            if re.search(CALLER, corpo_b, re.I):
+                helper_dono.add(nome_b)
+            else:
+                helper_dono.discard(nome_b)
 
 for arq in lidos:
     t = textos.get(arq, "")
@@ -218,7 +229,7 @@ for arq in lidos:
             if not corpo:
                 continue
             params = params_de(assinatura)
-            escreve, dono, helpers, cita = analisa(corpo, params, booleanas)
+            escreve, dono, helpers, cita = analisa(corpo, params, booleanas, helper_dono)
             anterior = FUNCS.get(nome)
             exposto = anterior["exposto"] if anterior else expor_padrao
             FUNCS[nome] = {"onde": f"{arq}:{t.count(chr(10), 0, pos) + 1}", "escreve": escreve,
@@ -247,6 +258,7 @@ for nome, f in FUNCS.items():
         familias.setdefault(tab, []).append(nome)
 
 sn = lambda v: "sim" if v else "nao"
+gestao_nome = lambda n: any(ELEVADO.search(h) for h in FUNCS[n]["helpers"])
 for tab in sorted(familias):
     for nome in sorted(familias[tab]):
         f = FUNCS[nome]
@@ -261,9 +273,10 @@ for tab in sorted(familias):
         continue
     com_dono = [n for n in membros if FUNCS[n]["dono"]]
     com_guarda = [n for n in membros if FUNCS[n]["dono"] or FUNCS[n]["helpers"]]
-    # helper que uma irmã usa como alternativa ao dono ("dono OU gestão"), ou com nome de papel
-    # elevado: função que só passa por ele é ação de gestão, e não precisa conferir dono
-    elevados = set().union(*[FUNCS[n]["helpers"] for n in com_dono]) if com_dono else set()
+    # helper com nome de papel elevado (admin, gestão): função que só passa por ele é ação de
+    # gestão e não precisa conferir dono. Só pelo nome: juntar os helpers das irmãs corretas
+    # tornaria "elevado" o filtro de papel amplo que elas também chamam (pode_escrever)
+    gestao = lambda n: any(ELEVADO.search(h) for h in FUNCS[n]["helpers"])
     for nome in sorted(membros):
         f = FUNCS[nome]
         if not f["exposto"] or (nome, tab) in acusadas:
@@ -276,7 +289,7 @@ for tab in sorted(familias):
                                           f"({irmas}); {nome} não faz nenhum dos dois. Exposta ao papel do browser "
                                           f"(definer={sn(f['definer'])}). Abra a função e copie a checagem da irmã.")]))
             acusadas.add((nome, tab))
-        elif not f["dono"] and com_dono and not any(h in elevados or ELEVADO.search(h) for h in f["helpers"]):
+        elif not f["dono"] and com_dono and not gestao(nome):
             irmas = ", ".join(sorted(com_dono))
             verbo = "confere" if len(com_dono) == 1 else "conferem"
             SAIDA.append("\t".join(["ACHADO", "HIGH", "familia_sem_dono", f["onde"],
@@ -286,6 +299,21 @@ for tab in sorted(familias):
                                           "mesmo papel, registro de outra pessoa. Verbo que muda o dono "
                                           "(transferir, atribuir, assumir) e upsert são os suspeitos de sempre.")]))
             acusadas.add((nome, tab))
+
+for tab in sorted(familias):
+    membros = familias[tab]
+    expostos = [n for n in membros if FUNCS[n]["exposto"]]
+    if len(membros) < 2 or any(FUNCS[n]["dono"] for n in membros) or not expostos \
+            or all(FUNCS[n]["helpers"] and gestao_nome(n) for n in expostos) \
+            or any((n, tab) in acusadas for n in membros):
+        continue
+    SAIDA.append("\t".join(["ACHADO", "LOW", "familia_toda_sem_dono", FUNCS[expostos[0]]["onde"],
+                            limpa(f"Nenhuma das {len(membros)} funções que escrevem em {tab} confere dono ou escopo"),
+                            limpa(f"{', '.join(sorted(membros))} só checam papel ou nada. Pode estar certo (tabela "
+                                  "de gestão, ou o escopo é de todo o papel), ou o vínculo (carteira, setor) é "
+                                  "conferido por funções que escrevem em outra tabela. Este script compara só "
+                                  "dentro da mesma tabela: monte a matriz à mão com as funções que recebem o "
+                                  "mesmo identificador (p_cliente, p_crm) e veja se alguma confere o vínculo.")]))
 
 for nome, f in sorted(FUNCS.items()):
     if f["exposto"] and f["definer"] and f["escreve"] and not f["cita"] and not f["helpers"] \

@@ -46,11 +46,30 @@ $$;
 create or replace function public.pode_escrever() returns boolean
 language sql stable as $$ select true $$;
 
+create or replace function public.perfil_ativo(p_perfil uuid) returns boolean
+language sql stable as $$ select exists (select 1 from perfis where id = p_perfil and ativo) $$;
+
+-- família em que ninguém confere dono: o escopo (carteira) mora noutra tabela
+create table metas (id uuid primary key, cliente bigint, valor numeric);
+create or replace function public.meta_editar(p_cliente bigint, p_valor numeric) returns void
+language plpgsql security definer as $$
+begin
+  if not pode_escrever() then raise exception 'sem permissão'; end if;
+  update metas set valor = p_valor where cliente = p_cliente;
+end $$;
+create or replace function public.meta_marcar(p_cliente bigint) returns void
+language plpgsql security definer as $$
+begin
+  if not pode_escrever() then raise exception 'sem permissão'; end if;
+  update metas set valor = 0 where cliente = p_cliente;
+end $$;
+
 -- irmã correta: confere o dono numa condição
 create or replace function public.cartao_editar(p_id uuid, p_estado text) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_eu uuid := auth.uid();
 begin
+  if not pode_escrever() then raise exception 'sem permissão'; end if;
   if not exists (select 1 from cartoes where id = p_id and responsavel = v_eu) and not eh_gestao() then
     raise exception 'Só o responsável edita';
   end if;
@@ -62,7 +81,7 @@ create or replace function public.cartao_transferir(p_id uuid, p_para uuid) retu
 language plpgsql security definer set search_path = public as $$
 begin
   if not pode_escrever() then raise exception 'sem permissão'; end if;
-  if p_para is null then raise exception 'destino inválido'; end if;
+  if p_para is null or not perfil_ativo(p_para) then raise exception 'destino inválido'; end if;
   update cartoes set responsavel = p_para, atualizado_por = auth.uid() where id = p_id;
   return json_build_object('ok', true);
 end $$;
@@ -102,6 +121,10 @@ python3 -I "$FR" --root "$V" > "$TMP/v.out" 2>&1; rc=$?
 [ $rc -eq 0 ] && ok "exit 0 no projeto vulnerável" || falha "exit $rc no vulnerável: $(cat "$TMP/v.out")"
 acha "$TMP/v.out" familia_sem_dono cartao_transferir \
   && ok "transferir sem dono, com irmã que confere, é acusado" || falha "transferir não acusado: $(cat "$TMP/v.out")"
+acha "$TMP/v.out" familia_toda_sem_dono metas \
+  && ok "família em que nenhuma função confere dono sai como aviso" || falha "família toda sem dono calou"
+grep "$(printf '\tcartao_transferir\t')" "$TMP/v.out" | grep -q 'dono=nao' \
+  && ok "helper do destino (perfil_ativo(p_para)) não conta como dono" || falha "helper do destino contou como dono"
 acha "$TMP/v.out" familia_sem_checagem registro_salvar \
   && ok "salvar sem checagem nenhuma, com irmã que checa, é acusado" || falha "salvar não acusado"
 grep -q "$(printf 'ACHADO.*\tcartao_editar escreve')" "$TMP/v.out" && falha "editar (correto) foi acusado" || ok "irmã correta não é acusada"

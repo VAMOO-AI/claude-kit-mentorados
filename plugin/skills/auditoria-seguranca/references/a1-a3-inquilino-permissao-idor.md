@@ -119,7 +119,7 @@ não proteção.
 (`/me`, `/eu`, `/sessao`, `/whoami`, o getter de papel do layout) e todo lugar
 que **decide** papel (middleware, helper SQL, claim). Se um lê `profiles` e o
 outro lê o claim do JWT, uma tabela legada ou um cache, eles divergem. Num pentest
-de 11/2026, três endpoints diziam `csm` e um dizia `leitor`, sempre. O front
+de 11/2026, três endpoints diziam o papel de escrita e um dizia "leitor", sempre. O front
 escondia a escrita que o servidor aceitava, e a auditoria que lesse esse endpoint
 registrava o papel errado. A fonte única é a correção. Sem dado vivo para ver a
 divergência, o caso é `a_validar`, com a comparação das duas respostas como plano.
@@ -370,11 +370,26 @@ python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/familias-rp
 ```
 
 Ele imprime a matriz (`MATRIZ`) e acusa (`ACHADO`) a função que não confere o
-chamador quando uma irmã confere. Quem só passa por helper de gestão ("dono OU
-gestão" na irmã) não é acusado. Cada linha entra como `padrao` até você abrir a
-função. O chamador que aparece só no `SET` (`atualizado_por = auth.uid()`) carimba
-quem fez e não confere nada. A `COBERTURA` vai para a `cobertura[]` da A3. Nas
-rotas do app, monte a mesma matriz à mão a partir de `/tmp/handlers.txt`.
+chamador quando uma irmã confere. Cada linha entra como `padrao` até você abrir a
+função. Como ele decide:
+
+- **conta como dono**: o chamador (`auth.uid()`, `auth.jwt()` ou variável tirada
+  deles) numa condição `IF`/`WHEN`/`WHERE`, ou um helper booleano chamado com
+  parâmetro da função **cujo corpo cita o chamador** (`pode_editar(p_id)`);
+- **não conta**: o chamador só no `SET` (`atualizado_por = auth.uid()` carimba quem
+  fez), e helper que valida o destino (`perfil_ativo(p_para)`) sem olhar quem chamou;
+- **não é acusada**: função que só passa por helper com nome de gestão (`admin`,
+  `gestao`, `gestor`), que é ação de gestão. O filtro de papel amplo
+  (`pode_escrever()`) não isenta nada.
+
+**O limite do script: ele compara dentro da mesma tabela.** No pentest de 11/2026,
+quem conferia a carteira (editar cliente, registrar cancelamento) escrevia em
+outras tabelas, e as funções do registro financeiro só checavam papel. Para esse
+formato o script devolve `familia_toda_sem_dono` (aviso `LOW`) e não acusa uma
+função específica. Nesse caso, monte a matriz à mão com as funções que recebem o
+mesmo identificador (`p_cliente`, `p_crm`) e veja quem confere o vínculo. A
+`COBERTURA` vai para a `cobertura[]` da A3. Nas rotas do app, monte a mesma matriz
+a partir de `/tmp/handlers.txt`.
 
 Os verbos em que a checagem costuma faltar, para ler primeiro em cada família:
 
