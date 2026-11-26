@@ -7,6 +7,7 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.104.0|A auditoria de segurança agora compara as funções que escrevem na mesma tabela e aponta a que esqueceu de conferir o dono, o furo que deixa um colega tomar o registro de outro mesmo quando ninguém vira admin; A baseline agora cobra cookie de sessão com `__Host-` e CSRF de verdade, não só `SameSite`
 0.103.6|O git-sync parou de mandar apagar no GitHub uma branch que só sobrou como cópia local num clone que busca só a main
 0.103.5|O ship passou a decidir o deploy do Supabase só pelo que o PR mudou, mesmo quando a branch padrão do GitHub é um canal atrás da main
 0.103.4|O gate de segurança do ship e a limpeza do Mac passaram a comparar com a main quando a branch padrão do GitHub é um canal atrás dela, e a limpeza não apaga mais a branch desse canal
