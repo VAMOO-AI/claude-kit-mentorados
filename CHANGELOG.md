@@ -10,6 +10,18 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.104.0] — 2026-11-26
+
+### auditoria-seguranca
+
+- A3 mede o eixo horizontal: função SQL exposta e ação de gateway contam como handler, e o novo `familias-rpc.py` acusa a função de escrita que não confere o dono quando uma irmã da mesma tabela confere.
+- A1 ganha o oráculo por ordem de checagem; A2 ganha duas fontes de identidade, escopo do papel leitor e sessão entre apps irmãos.
+- Corroboração com o ator de papel amplo e escopo vazio, só local; 11 armadilhas novas.
+
+### baseline
+
+- Pilar 03 cobre fonte única de papel, cookie de sessão com `__Host-`, sessão que não vale em app irmão e CSRF com `Origin` estrito e `application/json`.
+
 ## [0.103.6] — 2026-11-25
 
 ### Corrigido
