@@ -38,6 +38,20 @@ segurança.
       e-mail do JWT é o que a pessoa digitou: autorização por e-mail ou domínio
       exige confirmação ligada e `email_confirmed_at`.
 - [ ] Senha mínima e requisitos do **painel** iguais aos da tela.
+- [ ] **Uma fonte só para o papel.** Todo endpoint que responde "quem sou eu"
+      (`/me`, sessão, layout) e todo lugar que decide papel leem a mesma
+      fonte. Duas fontes divergem, e o front esconde o que o servidor aceita.
+- [ ] **Cookie de sessão própria com prefixo `__Host-`** (`Secure`, `Path=/`,
+      sem `Domain`). Sem o prefixo, qualquer subdomínio do mesmo domínio
+      planta ou lê a sessão. `SameSite` não ajuda: subdomínio irmão é o mesmo
+      site. Renomear desloga todo mundo; marque a janela.
+- [ ] **Sessão de um app não autentica outro.** Apps irmãos que dividem a
+      tabela de sessões ou o segredo de assinatura conferem o host (ou a
+      audiência) do token.
+- [ ] **Mutação com cookie confere `Origin` de forma estrita** e só aceita
+      `application/json`. `text/plain` não dispara preflight, e cair para o
+      `Referer` quando falta `Origin` aceita `Referer` forjado. Com app em vários
+      subdomínios, some um token anti-CSRF (duplo-submit).
 
 ## Como implementar
 
@@ -147,6 +161,23 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-gate.txt --saida 
 O bloco `--- capturado ---` do `--saida` é a prova que vai no report, sem token e
 sem linha de produção.
 
+### Sessão e CSRF (só leitura)
+
+Os dois primeiros comandos só leem o `Set-Cookie` da resposta de login de uma
+conta de teste e o que a API aceita, sem mudar nada. Troque `<host>` e a rota.
+
+```bash
+# atributos do cookie de sessão: o nome tem que começar com __Host-, e sem Domain=
+curl -sS -o /dev/null -D - "https://<host>/login" | grep -i '^set-cookie' | sed -E 's/=[^;]*/=<valor>/'
+# a mutação aceita text/plain? Rode em ambiente local ou de teste, sem cookie: só o
+# status importa (415 é o certo; 401/403 aceitou o tipo e barrou pela sessão)
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: text/plain' \
+  --data '{}' "http://localhost:3000/api/<rota de escrita>"
+```
+
+O teste do `Origin` e do `Referer` forjados manda uma mutação com sessão: só
+em ambiente local ou de teste, nunca em produção.
+
 ### Quem vira membro
 
 A pergunta que vem antes de "o corretor A vê a carteira do B?" é "quem consegue
@@ -217,3 +248,6 @@ comando — e responde para o dado, não para o componente.
 | `/admin` "redireciona" e o monitor diz 200 | `loading.tsx` acima da página: o shell sai antes do `redirect()`, que vira meta-refresh |
 | Cota de IA esgota sem ninguém perguntar nada | O freio conta linhas de uma tabela que a sessão insere direto pelo PostgREST |
 | Grep acusa o que a migration seguinte já corrigiu | Lida a primeira definição, não a efetiva. Vale a última, e o banco vivo vence as duas |
+| Front esconde a escrita e o servidor aceita | `/me` lê uma fonte de papel e o middleware outra. Uma fonte só |
+| `SameSite=lax` e a sessão vaza para outro app da casa | Subdomínio irmão é o mesmo site. Cookie sem `__Host-` e sessão aceita no outro host |
+| `Origin` forjado é recusado e o CSRF passa mesmo assim | A checagem cai para o `Referer` quando falta `Origin`, e a API aceita `text/plain` |
