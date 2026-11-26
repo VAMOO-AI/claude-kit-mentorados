@@ -71,6 +71,12 @@ na cobertura da A1:
   de resposta. O atacante não lê o registro; ele descobre que existe e o que
   contém. Exige predicado confidencial concreto ("existe cliente com este CNPJ")
   e distinção observável — variação genérica de resposta não é achado.
+  Um caso que se repete: endpoint genérico de escrita (`/atualizar`, `/inserir`, `/query`,
+  tabela e coluna vindas do body) que valida a allowlist **antes** do papel. "Coluna não
+  permitida em X", depois "atualização não permitida em X" e por fim "seu papel não
+  permite" são três mensagens, e com elas o leitor monta o schema coluna por coluna sem
+  permissão nenhuma. A ordem certa é papel, depois tabela, depois coluna, com uma
+  mensagem só para quem não passa no papel.
 - **Chave sem tenant.** Cache, índice de busca, nome de arquivo no storage,
   chave de deduplicação, `upsert` por `slug`: dois tenants colidindo na mesma
   chave lógica leem ou sobrescrevem um ao outro mesmo com a tabela de origem
@@ -108,6 +114,44 @@ recomeçar o inventário.
 
 Autenticação não é autorização: `requireAuth` num endpoint de admin é achado,
 não proteção.
+
+**Duas fontes para "quem sou eu".** Liste todo endpoint que responde identidade
+(`/me`, `/eu`, `/sessao`, `/whoami`, o getter de papel do layout) e todo lugar
+que **decide** papel (middleware, helper SQL, claim). Se um lê `profiles` e o
+outro lê o claim do JWT, uma tabela legada ou um cache, eles divergem. Num pentest
+de 11/2026, três endpoints diziam o papel de escrita e um dizia "leitor", sempre. O front
+escondia a escrita que o servidor aceitava, e a auditoria que lesse esse endpoint
+registrava o papel errado. A fonte única é a correção. Sem dado vivo para ver a
+divergência, o caso é `a_validar`, com a comparação das duas respostas como plano.
+
+**O papel "somente leitura" que lê tudo, e o que escreve.** Para cada papel
+declarado como restrito (`leitor`, `viewer`, `readonly`), responda por escrito:
+
+- **O que ele lê.** Endpoint genérico de consulta (`/query`, `select` com tabela
+  vinda do request) costuma devolver o mesmo para todos os papéis. "Leitor" sem
+  partição por setor ou carteira lê a base inteira: telefone, e-mail, valor de
+  contrato e a lista de admins por `papel`, que já é lista de alvo para phishing.
+  Severidade pelo dado que sai, não pelo nome do papel.
+- **O que ele escreve.** Liste as funções e rotas de escrita que o papel alcança
+  (as RPC expostas da A3 entram aqui). Leitor que cria registro é achado se a
+  criação muda o que outra pessoa vê ou recebe. Criar sem conseguir apagar o
+  próprio registro (registro órfão, que só admin remove) vai para `hardening[]`.
+
+**Sessão que vale em outro app.** O secscan cobre CSRF em route handler
+(`c2-nextjs-auth.md`); daqui sai só o que vira achado quando há **apps irmãos no
+mesmo domínio**. `SameSite` protege de outro site, e o subdomínio irmão é o
+mesmo site. Leia o `Set-Cookie` (nome, `Domain`, `Path`) e a tabela de sessões:
+
+- cookie sem o prefixo `__Host-` (ou com `Domain=` do domínio pai) é enviado e pode
+  ser **plantado** por qualquer subdomínio;
+- tabela de sessão compartilhada entre apps faz o token de um autenticar no outro;
+- mutação que aceita `text/plain` não dispara preflight; checagem que cai para o
+  `Referer` quando falta `Origin` aceita `Referer` forjado; sem token anti-CSRF.
+
+Achado só com a cadeia fechada: sessão aceita em outro host **e** um subdomínio
+que o atacante alcança, ou mutação sem `Origin` estrito com cookie enviado
+cross-subdomínio. `SameSite=lax` sozinho, com tudo o mais certo, é `hardening[]`.
+Quantos subdomínios existem e quem os mantém é fato fora do repo: `a_validar`.
 
 **A permissão que mora na ordem dos passos.** O frontend também define a
 sequência (pagou → liberou; pediu código → validou → agiu), e o servidor
@@ -277,8 +321,96 @@ com usuário dummy, ou `a_validar` com o plano.
 
 ## A3 — IDOR
 
+**Três eixos, medidos separados.** *Vertical*: conta comum vira admin (A2).
+*Entre inquilinos*: o tenant A lê o B (A1). *Horizontal dentro do inquilino*:
+mesmo papel, registro de outra pessoa (o card do colega, o cliente da carteira
+alheia). O horizontal é o que mais escapa, porque a conta de teste costuma ser
+admin ou dona de tudo. Num pentest de 11/2026 nenhuma conta virou admin, e mesmo
+assim uma conta comum tomou 20 registros de colegas em 9 segundos. A cobertura da
+A3 diz os três, e o horizontal é medido **por ação de escrita**, não por leitura.
+
 **Percorra todos os handlers.** Enumere primeiro, audite depois, e reporte a
-razão lidos/total.
+razão lidos/total. **Handler não é só rota.** O denominador soma três coisas:
+
+1. as rotas do app (grep abaixo; em Next, o `baseline/scripts/rotas-next.py`);
+2. as **funções SQL expostas** ao papel do browser. Toda função em `public` é uma
+   rota `POST /rest/v1/rpc/<nome>`, e em `SECURITY DEFINER` ela roda por cima da RLS;
+3. as **ações de um gateway genérico** (`/api/rpc/[nome]`, `rpc(nomeDoBody)`): ele
+   conta como uma rota e pode esconder centenas de ações. Ache e conte o que ele despacha.
+
+```bash
+# gateway: rpc chamada com nome em variável, não em literal (o template literal o secscan C1 já pega)
+grep -rnE "\.rpc\([[:space:]]*[A-Za-z_][A-Za-z0-9_.]*[[:space:]]*[,)]" \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' . | grep -v node_modules
+```
+
+```sql
+-- estado vivo: funções que o browser executa, se escrevem e se olham quem chamou
+SELECT p.proname, p.prosecdef AS definer,
+       has_function_privilege('anon',          p.oid, 'EXECUTE') AS anon,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated,
+       pg_get_functiondef(p.oid) ~* '\m(update|insert\s+into|delete\s+from|merge\s+into)\M' AS escreve,
+       pg_get_functiondef(p.oid) ~* 'auth\.(uid|jwt)\(\)|request\.jwt' AS cita_chamador
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' AND p.prokind = 'f'
+ ORDER BY 5 DESC, 1;
+```
+
+**Família de ações: o achado é a irmã que destoa.** Agrupe rotas e funções pelo
+recurso em que **escrevem** e monte a matriz verbo × confere dono × confere
+escopo (carteira, setor, equipe) × confere papel. Os dois P1 do pentest de 11/2026
+eram uma célula vazia ao lado de células certas: editar, mover e descartar
+recusavam "é de outro responsável", e transferir aceitava. No outro recurso,
+apagar exigia gestão, e editar, marcar e salvar não exigiam vínculo nenhum. A
+correção era copiar a checagem da vizinha. Sem banco, o script lê a última
+definição de cada função nas migrations e faz essa comparação:
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/familias-rpc.py" --root .
+```
+
+Ele imprime a matriz (`MATRIZ`) e acusa (`ACHADO`) a função que não confere o
+chamador quando uma irmã confere. Cada linha entra como `padrao` até você abrir a
+função. Como ele decide:
+
+- **conta como dono**: o chamador (`auth.uid()`, `auth.jwt()` ou variável tirada
+  deles) numa condição `IF`/`WHEN`/`WHERE`, ou um helper booleano chamado com
+  parâmetro da função **cujo corpo cita o chamador** (`pode_editar(p_id)`);
+- **não conta**: o chamador só no `SET` (`atualizado_por = auth.uid()` carimba quem
+  fez), e helper que valida o destino (`perfil_ativo(p_para)`) sem olhar quem chamou;
+- **não é acusada**: função que só passa por helper com nome de gestão (`admin`,
+  `gestao`, `gestor`), que é ação de gestão. O filtro de papel amplo
+  (`pode_escrever()`) não isenta nada.
+
+**O limite do script: ele compara dentro da mesma tabela.** No pentest de 11/2026,
+quem conferia a carteira (editar cliente, registrar cancelamento) escrevia em
+outras tabelas, e as funções do registro financeiro só checavam papel. Para esse
+formato o script devolve `familia_toda_sem_dono` (aviso `LOW`) e não acusa uma
+função específica. Nesse caso, monte a matriz à mão com as funções que recebem o
+mesmo identificador (`p_cliente`, `p_crm`) e veja quem confere o vínculo. A
+`COBERTURA` vai para a `cobertura[]` da A3. Nas rotas do app, monte a mesma matriz
+a partir de `/tmp/handlers.txt`.
+
+Os verbos em que a checagem costuma faltar, para ler primeiro em cada família:
+
+- **Muda o dono**: transferir, atribuir, reatribuir, assumir, delegar. Depois de
+  tomar o registro, o atacante passa a ser o dono, e as irmãs corretas passam a
+  liberar tudo. Esse verbo é a chave das outras ações. Confira também o
+  **destino**: inativo, fora do tenant ou **admin** (esconder o registro na fila
+  de quem não olha) tem que ser recusado pelo servidor.
+- **Upsert / salvar**: no ramo de criação não existe linha para conferir dono, e
+  o check fica só no ramo de edição. Salvar em cliente de outra carteira cria o
+  registro do zero.
+- **Desfazer / restaurar**: se o desfazer exige ser dono e o tomar não exige, o
+  dano não tem volta pelo app. O dono original recebe de volta um registro morto.
+- **Marcar / alternar flag** que alimenta bônus, comissão, conversão ou fila:
+  dano financeiro sem vazar um byte. Severidade pelo que a flag paga, não pelo
+  "é só um booleano".
+
+**Volume é severidade.** Ação horizontal sem rate limit e com listagem paginada
+(o quadro inteiro numa página) vira sequestro em lote. Anote quantas chamadas por
+segundo o código permite e quantos registros a listagem entrega: isso vai em
+`impacto`. O limite em si é o pilar 04 da `baseline`.
 
 ```bash
 grep -rnE "(app|router|fastify)\.(get|post|put|patch|delete)\(|@(Get|Post|Put|Patch|Delete)\(|def (get|post|put|patch|delete)|path\(" \
