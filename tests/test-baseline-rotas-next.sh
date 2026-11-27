@@ -130,6 +130,9 @@ grep "segredo_compartilhado" "$TMP/a.tsv" | grep -q "IA_API_KEY" && falha "token
 grep "segredo_compartilhado" "$TMP/a.tsv" | grep -q "INTEGRACAO_CHAVES" && falha "mapa de chaves acusado" || ok "mapa de chaves por integração fica de fora"
 tem "$TMP/a.tsv" 01 LOW headers_isolamento && ok "COOP/CORP ausentes acusados" || falha "COOP/CORP ausentes passaram"
 tem "$TMP/a.tsv" 01 INFO hsts_sem_preload && ok "HSTS sem preload acusado" || falha "HSTS sem preload passou"
+# includeSubDomains (e o preload, que o exige) tranca no navegador o subdomínio sem TLS válido:
+# o achado tem que mandar conferir o TLS de cada subdomínio antes, não só "ligue e envie".
+grep "hsts_sem_preload" "$TMP/a.tsv" | grep -q "TLS válido na 443" && ok "achado de HSTS manda conferir o TLS dos subdomínios antes" || falha "achado de HSTS receita includeSubDomains/preload sem conferir o TLS dos subdomínios"
 tem "$TMP/a.tsv" 08 LOW robots_txt && ok "robots.txt ausente acusado" || falha "robots.txt ausente passou"
 tem "$TMP/a.tsv" 08 INFO security_txt && ok "security.txt ausente acusado" || falha "security.txt ausente passou"
 
