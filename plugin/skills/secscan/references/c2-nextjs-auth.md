@@ -98,5 +98,20 @@ grep -nE 'remotePatterns|domains|hostname|dangerouslyAllowSVG' next.config.* 2>/
 grep -rniE 'x-forwarded-for|x-real-ip|trust proxy' src app supabase/functions 2>/dev/null
 grep -rnE "addEventListener\(['\"]message['\"]|postMessage\(" src app 2>/dev/null
 grep -rnE "unstable_cache|['\"]use cache['\"]|revalidate(Path|Tag)?\(" src app 2>/dev/null
-grep -rnE 'export (async )?function GET' -A15 src/app app 2>/dev/null | grep -E '\.(insert|update|delete|upsert|rpc)\('
+grep -rnE 'export (const|async function|function) GET\b' -A15 src/app app 2>/dev/null | grep -E '\.(insert|update|delete|upsert|rpc)\('
+grep -rnE "searchParams\.(set|get)\(['\"](callbackUrl|next|redirect(To)?|returnTo)['\"]" src app 2>/dev/null
+find src lib -iname '*rate*limit*' -not -path '*/node_modules/*' 2>/dev/null
 ```
+- **Mutação em GET**: o grep também casa `export const GET = wrapper(...)`, que o de antes
+  perdia quando toda rota do projeto passa por um wrapper.
+- **Parâmetro de retorno** (`callbackUrl`, `next`, `returnTo`): `get` sem validar que é
+  caminho relativo do próprio site é open redirect (`MEDIUM`). `set` sem `get` em lugar nenhum
+  é parâmetro órfão: o login não volta para onde o usuário estava (`LOW`).
+- **Rate limit com contador em memória.** `new Map()` ou `LRUCache` num arquivo de limite, sem
+  KV, Redis nem tabela, vale por instância: em serverless o limite real é o configurado vezes
+  o número de instâncias, e zera no cold start. O critério "lê `x-forwarded-for` como vem" não
+  basta: pergunte também se o contador é compartilhado (`rate_limit_em_memoria` no
+  `rotas-next.py` da baseline). `LOW` a `MEDIUM`.
+- **Erro de guard engolido.** Rota com guard que lança erro tipado e `catch` que devolve 500
+  ou sucesso: o 403 some. Não aparece em busca por "rota sem guard", porque o guard está lá
+  (`autherror_engolido` no `rotas-next.py`). `MEDIUM`.

@@ -55,6 +55,42 @@ Dedup por `select` antes do `insert` repete a janela de cima: a chave tem que se
 banco. Fluxo do n8n: o nó que grava usa `on conflict`, ou o fluxo consulta num nó e grava em
 outro? O segundo é o achado.
 
+### Token de uso único: código, link e refresh
+
+Código de autorização, link de reset ou de convite, OTP e refresh token valem uma vez. O
+consumo é a mesma corrida: ler "ainda não usado" e marcar depois deixa N requisições juntas
+passarem.
+
+```bash
+grep -rniE 'used_at|consumed|revoked_at|redeemed|usado_em|nonce|otp|refresh_?token|auth_?code' src app supabase/functions --include='*.ts' --include='*.sql' 2>/dev/null | head -40
+```
+
+Não é achado só quando o `update` condicional **devolve a linha** e o código recusa quando ela
+volta vazia: `update … where token = $1 and used_at is null returning …` em SQL. No
+supabase-js, `update(...).is('used_at', null)` **sem `.select()`** parece certo e não é: sem o
+`.select()` o cliente não devolve as linhas afetadas, o código segue igual com zero linhas, e
+quem decide é o `select` de antes. Refresh token: reapresentar um já rotacionado revoga a
+família inteira, e o refresh é amarrado ao cliente que o apresenta.
+
+A prova barata, no Supabase local: N chamadas juntas e a contagem de vencedoras.
+
+```ts
+const r = await Promise.all(Array.from({ length: 6 }, () => trocarCodigo(codigo)))
+console.log(r.filter((x) => x.ok).length)   // tem de ser 1
+```
+
+### Job disparado por rota
+
+Rota que agenda trabalho em background (`after()`, `waitUntil()`, `maxDuration` alto) depois de
+conferir "já tem um rodando?" com um `select` é o mesmo ler-decidir-gravar: duas chamadas
+passam e o job roda sobreposto, gastando cota de terceiro e gravando em dobro. O
+`rotas-next.py` da baseline lista as rotas (`job_sem_claim`). O claim vale quando é **uma
+operação, antes de agendar**: `insert … on conflict do nothing` com índice único parcial
+(`where status = 'RUNNING'`), `update … where … returning`, ou `pg_try_advisory_xact_lock`
+dentro de transação. Não contam: `findFirst` seguido de `create`, um `409` qualquer, advisory
+lock de sessão atrás de pooler. Parâmetro que pula o cooldown (`force`, `fullResync`) merece
+leitura à parte. `MEDIUM` quando o job consome API de terceiro ou faz upsert em massa.
+
 ### Severidade e prova
 
 `HIGH` quando o recurso é dinheiro, crédito, cupom ou vaga paga; `MEDIUM` em contador sem valor

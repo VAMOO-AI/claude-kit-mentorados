@@ -1,4 +1,4 @@
-# C1 — Injeção: os sete grupos
+# C1 — Injeção: os oito grupos
 
 > Referência da skill `secscan`, Fase 3. Leia ao avaliar C1.
 
@@ -135,3 +135,30 @@ resultado.
 grep -rnE "\.(or|filter|like|ilike)\((\`|'[^']*' *\+|\"[^\"]*\" *\+)" src/ supabase/functions --include='*.ts' --include='*.tsx' 2>/dev/null
 grep -rnE 'console\.(log|warn|error)\(.*\$\{|logger\.(info|warn|error)\(`' src/ supabase/functions --include='*.ts' --include='*.tsx' 2>/dev/null
 ```
+
+**C1.8 — Fórmula em planilha exportada (CSV injection, CWE-1236).** Todo CSV que o app gera
+e alguém abre no Excel ou no Sheets é um sink fora do framework: célula que começa com `=`,
+`+`, `-`, `@`, tab ou CR vira fórmula (`HYPERLINK` de phishing, DDE no Windows). O dado vem de
+quem o atacante alcança: formulário público, webhook, importação. O `sep=` e o BOM que fazem
+o Excel abrir certo também garantem que ele interprete a célula.
+
+```bash
+# quem monta CSV
+grep -rlE "text/csv|\.csv['\"\`]|sep=|Papa\.unparse|json2csv|csv-stringify|to_csv\(" src app lib supabase/functions scripts --include='*.ts' --include='*.tsx' --include='*.js' --include='*.py' 2>/dev/null
+# o escape de célula: quem dobra aspas é quem monta a célula; abra e leia
+grep -rnE "replace\(/\"/g, *['\"]\"\"['\"]\)" src app lib supabase/functions --include='*.ts' --include='*.tsx' --include='*.js' 2>/dev/null
+```
+
+Os dois localizam. O finding é o escape de célula que trata aspas, vírgula e quebra de linha
+e não trata o primeiro caractere. Leia a saída crua do gerador antes de acusar: um `'` no
+início do campo já é a neutralização. `.xlsx` montado com tipo string explícito não
+interpreta fórmula. Projeto com mais de um gerador costuma ter um escape por arquivo, e só
+um sem a guarda: a correção é **um** helper usado por todos. `LOW` a `MEDIUM`.
+
+**O conserto ingênuo quebra dado.** Prefixar `'` em toda célula que começa com `+` ou `-`
+transforma telefone `+55…` e valor negativo em texto, quebra soma e reimportação. Liste as
+colunas do export e meça antes (quantas linhas começam com cada caractere). A guarda que não
+quebra: prefixe quando a célula começa com `=`, `@`, tab ou CR, ou com `+`/`-` seguido de
+algo que não seja só dígito, espaço e `. , / ( ) - ;`. Sem letra não há fórmula que chame
+função. Número sai como número, sem passar pelo escape de texto, e o arquivo que o próprio
+app reimporta tira o prefixo na leitura.
