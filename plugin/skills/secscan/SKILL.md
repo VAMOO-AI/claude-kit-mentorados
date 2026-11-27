@@ -2,9 +2,10 @@
 name: secscan
 description: >-
   Varredura de segurança do repositório LOCAL inteiro (Next.js / React /
-  Supabase): scanners, RLS faltando, secret vazando, "roda um secscan",
-  "checa a segurança do projeto". Read-only, nunca edita. Revisão só do diff
-  é o /security-review.
+  Supabase): scanners, RLS faltando, secret vazando. Read-only, nunca edita.
+  Revisão só do diff é o /security-review. Só dispara quando você chama:
+  /kit-vamoo:secscan.
+disable-model-invocation: true
 ---
 
 # secscan — Revisão de segurança (read-only)

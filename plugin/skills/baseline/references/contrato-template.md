@@ -17,7 +17,7 @@ Regras de preenchimento:
 **Atualizado:** <YYYY-MM-DD> · **Base:** `main` @ `<sha>` · **Responsável:** <nome>
 
 Contrato de ambiente e segurança deste projeto. Método em `baseline`.
-Auditar: `Skill(baseline)` → modo AUDITAR.
+Auditar: `/kit-vamoo:baseline` (só você aciona) → modo AUDITAR.
 
 ## Superfícies
 

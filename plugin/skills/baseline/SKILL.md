@@ -4,8 +4,8 @@ description: >-
   Postura de ambiente e segurança de app web (Vite/Next + Supabase + Vercel +
   n8n) em 8 pilares — bundle, RLS, auth, rate limit, cache, observabilidade,
   segredos, perímetro. Dois modos: CONSTRUIR (projeto novo nasce apto) e AUDITAR (app em
-  produção está apto?). Use em "está pronto pra prod", "auditar produção",
-  "hardening", "app novo do zero".
+  produção está apto?). Só dispara quando você chama: /kit-vamoo:baseline.
+disable-model-invocation: true
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/doctor.sh *)'
