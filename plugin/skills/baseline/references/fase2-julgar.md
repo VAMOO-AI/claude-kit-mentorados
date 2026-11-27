@@ -6,9 +6,16 @@ Lido na fase 2 do Modo AUDITAR, antes de julgar o `findings.json` e de escrever 
 
 O collect emite fatos, não vereditos. Você aplica, nesta ordem:
 
-1. **Exceção aceita** no contrato e ainda dentro da validade → o finding sai do
-   report principal e vai pra seção "Exceções aplicadas". Fora da validade → volta
-   como finding, severidade original, com a nota de que a exceção venceu.
+1. **Exceção aceita** no contrato com `revisar_em` no futuro → o finding sai do
+   report principal e vai pra seção "Exceções aplicadas", com a data. A coluna
+   "Revisar em" de contrato antigo é o mesmo campo, e `YYYY-MM` vale até o último
+   dia do mês (o report sugere completar a data). `revisar_em` no passado, ausente
+   ou vazio → a exceção venceu: o finding volta com a
+   severidade original e a nota "exceção EX-NN venceu em <data>", e continua
+   achado até alguém revalidar (rodar a `Prova` da exceção de novo e gravar datas
+   novas, como manda o `contrato-template.md`). Não renove a data por conta
+   própria: revalidar é decisão do dono, e o report só aponta o vencimento.
+   Exceção que vence em até 30 dias aparece em "Exceções aplicadas" com o aviso.
 2. **Veredito anterior** em `.context/docs/security/vereditos.md` → falso-positivo
    já julgado não reabre enquanto o trecho julgado for o mesmo (abra o
    `arquivo:linha`); mudou o código, julgue de novo. Veredito que se apoia num

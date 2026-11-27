@@ -10,6 +10,33 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.107.0] — 2026-11-27
+
+### Adicionado
+
+- **`baseline`**: `scripts/estado-do-banco.sql`, dez consultas só de leitura sobre o banco vivo (função `SECURITY DEFINER` executável pelo navegador, privilégios fora da RLS, papel global em `OR`, `SELECT` efetivo, comando sem policy, view definer sem porta, posse no storage, auto-inscrição em membros, inquilino nulo).
+- **`baseline`**: `scripts/matriz-rls.sql`, o que um papel real lê por tabela, com o total ao lado, por personificação em transação `read only`.
+- **`auditoria-seguranca`**: check `definer_le_segredo_sem_chamador` no `familias-rpc.py`.
+- **`baseline`**: `rotas-next.py` ganha `autherror_engolido`, `job_sem_claim` e `rate_limit_em_memoria`.
+- **`baseline`**: `collect.sh` acusa headers de segurança não declarados e separa CSP `Report-Only` de CSP aplicada.
+- **`baseline`**: contagem de contas privilegiadas sem MFA no pilar 03.
+- **`secscan`**: C1.8 (fórmula em CSV exportado), token de uso único e job disparado por rota em C4, parâmetro de retorno e contador em memória em C2.
+- **`baseline`**: `references/08-dominio-email.md` (SPF, DKIM, DMARC, CAA, wildcard, TLS antes de `includeSubDomains`, painel de hospedagem com dono e 2FA), ligada no pilar 08, na fronteira e no contrato.
+- **`baseline`**: drift entre `schema_migrations` e os arquivos de migration no `02-banco.md`, com o aviso do SQL Editor.
+- **`templates`**: `gate-migration/check-migration.py`, gate de CI que reprova tabela em `public` sem RLS e `SECURITY DEFINER` sem `search_path`, lendo o arquivo inteiro.
+- **`secscan`**: `references/c8-oauth-servidor.md`, checklist para app que é servidor OAuth, conferido nas RFC 6749, 7636, 7591 e 9700.
+
+### Mudado
+
+- **`baseline`**: exceção aceita leva `revisar_em` obrigatório e a prova; vencida volta a ser achado até o dono revalidar.
+
+### Corrigido
+
+- **`auditoria-seguranca`**: `familias-rpc.py` tratava `revoke ... from public` como "função fechada". No Supabase o grant direto de `anon` e `authenticated` continua, e a função segue exposta.
+- **`secscan`**: a Fase 2 e o C2.10 apontam para as consultas da baseline em vez de procurar um `GRANT ... TO anon` que não existe.
+- **`baseline`**: `collect.sh` dava CSP `Report-Only` como CSP declarada e acusava o `'unsafe-inline'` dela como política aplicada.
+- **`secscan`**: a Fase 4 reporta primeiro o `npm audit --omit=dev`; o C6.5 confere a branch padrão de verdade em vez de `main` fixo.
+
 ## [0.106.0] — 2026-11-27
 
 ### Adicionado

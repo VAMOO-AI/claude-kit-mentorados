@@ -37,6 +37,11 @@ auditoria e a empresa cai pelo painel do lado.
       `Contact:` e `Expires:`.
 - [ ] **Autenticação tem limite de tentativa na borda** (ver pilar `04`, seção de
       força bruta).
+- [ ] **Domínio, e-mail e painel de hospedagem** seguem
+      [08-dominio-email.md](08-dominio-email.md): SPF em `-all`, DKIM em todo
+      remetente, DMARC com plano até `reject`, CAA com as CAs que emitem, sem DNS
+      wildcard, TLS válido em todo subdomínio antes de `includeSubDomains` e painel
+      com dono e 2FA.
 
 ## Como implementar
 

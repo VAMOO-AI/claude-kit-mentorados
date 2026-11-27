@@ -13,7 +13,7 @@ aplica fix. Se a casa tem o comando exato do stack dela, ele está no guia de ca
 
 ## C1 — Injeção
 
-Sem item aqui: os sete grupos estão em `c1-injecao.md`, e nenhum tem incidente registrado.
+Sem item aqui: os oito grupos estão em `c1-injecao.md`, e nenhum tem incidente registrado.
 
 ## C2 — Autenticação e autorização (13 itens · a categoria com mais incidentes)
 
@@ -45,7 +45,7 @@ Sem item aqui: os sete grupos estão em `c1-injecao.md`, e nenhum tem incidente 
 - regra sobre a tabela X que faz SELECT em X entra em **recursão infinita** e derruba a tabela inteira, não só a query. Use a função estável/elevada do projeto. Grep o padrão de subselect dentro das definições de policy.
 
 ### C2.10 As RPCs internas continuam negadas ao papel do browser depois da última migration que mexeu em GRANT?
-- migration de "restaurar grants" costuma conceder mais do que devia, e privilégio default (`ALTER DEFAULT PRIVILEGES`) atinge o que ainda nem existe. Depois de qualquer mexida em GRANT, re-enumere o que o papel anônimo/autenticado consegue executar e compare com uma allowlist versionada.
+- migration de "restaurar grants" costuma conceder mais do que devia, e privilégio default (`ALTER DEFAULT PRIVILEGES`) atinge o que ainda nem existe. Depois de qualquer mexida em GRANT, re-enumere o que o papel anônimo/autenticado consegue executar e compare com uma allowlist versionada. No Supabase o grant nasce do default, então não existe `GRANT ... TO anon` para o grep achar, e `revoke ... from public` não o tira. A enumeração é a Q1 de `baseline/scripts/estado-do-banco.sql`; sem banco, `auditoria-seguranca/scripts/familias-rpc.py` lê as migrations com essa regra.
 
 ### C2.11 Toda função com privilégio elevado fixa o `search_path`?
 - função que roda como owner sem resolução de nomes fixada é vetor de escalação: quem controla o schema de busca controla qual `tabela` ou `função()` ela chama. O equivalente fora do Postgres é qualquer execução privilegiada herdando `PATH`/classpath do chamador.
@@ -104,7 +104,7 @@ Sem item aqui: está em `c4-validacao.md`.
 - envolver um script numa transação externa só é dry-run se o script **não commitar sozinho**. Antes de confiar, grep por transação dentro do arquivo — vale pro `.sql` e pro equivalente do seu migrador (`atomic=False` do Django, `disable_ddl_transaction!` do Rails). E confirme que o que foi aplicado fora do fluxo normal ficou **registrado** na tabela de versões, senão o próximo push tenta de novo.
 
 ### C6.5 O CI é gate de verdade, ou vermelho passa?
-- separe "o check roda" de "o check bloqueia". Dois lugares: proteção de branch no servidor (`gh api repos/<owner>/<repo>/branches/main/protection`; 403 = não existe) e `grep -rn 'continue-on-error' .github/workflows/` — step com essa flag é informativo, não gate. Um SAST assim não segura nada.
+- separe "o check roda" de "o check bloqueia". Dois lugares: proteção de branch no servidor, na branch padrão de verdade e não em `main` fixo (`gh api "repos/{owner}/{repo}/branches/$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)/protection"` e `gh api "repos/{owner}/{repo}/rulesets"`; 200 = protegida; 404 = sem proteção, segundo a doc do GitHub; 403 com "Upgrade to GitHub Pro" = o plano não permite proteger repo privado, medido num repo em 11/2026: aí o achado é "sem proteção e sem como ter", e a correção é subir de plano ou pôr o gate no workflow de deploy) e `grep -rn 'continue-on-error' .github/workflows/` — step com essa flag é informativo, não gate. Um SAST assim não segura nada.
 
 ### C6.6 A permissão base da organização continua `none`?
 - quem consegue **ler** o repo é parte da superfície de exposição de segredo. Permissão em forja de código é **aditiva**: criar time restrito não isola ninguém se a base já concede. Cheque a base da org, os colaboradores diretos do repo mais sensível e quais repos são públicos.
