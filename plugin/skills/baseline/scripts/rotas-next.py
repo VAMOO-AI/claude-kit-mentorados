@@ -261,7 +261,28 @@ else:
 # Arquivo com a diretiva "use server" no topo: cada função exportada é um POST público. Em três
 # pentests de 11/2026 o login, o reset de senha e o formulário de lead eram Server Action, e a
 # cobertura acima dizia "medido" sem ter lido nenhum dos três.
-RE_USE_SERVER = re.compile(r"""\A(?:\s|//[^\n]*\n|/\*.*?\*/)*['"]use server['"]""", re.S)
+def tem_use_server(t):
+    """a diretiva "use server" é a primeira coisa do arquivo, depois de espaço e comentário.
+    Laço em vez de regex: alternativas de comentário dentro de um `*` davam backtracking
+    exponencial num arquivo com muitos `/*` sem fechar."""
+    i, n = 0, len(t)
+    while i < n:
+        if t[i].isspace():
+            i += 1
+        elif t.startswith("//", i):
+            j = t.find("\n", i)
+            i = n if j < 0 else j + 1
+        elif t.startswith("/*", i):
+            j = t.find("*/", i + 2)
+            if j < 0:
+                return False
+            i = j + 2
+        else:
+            break
+    return t.startswith(('"use server"', "'use server'"), i)
+
+
+
 RE_AUTH_CALL = re.compile(r"\.auth\.(signInWithPassword|signInWithOtp|signInWithIdToken|resetPasswordForEmail|"
                           r"signUp|verifyOtp)\(")
 RE_GRAVA = re.compile(r"\.(insert|upsert|update|delete)\(|\.rpc\(")
@@ -270,7 +291,7 @@ RE_TESTE = re.compile(r"(\.test\.|\.spec\.|__tests__|__mocks__)")
 bases_acao = [d for d in ("src", "app", "lib", "actions") if os.path.isdir(d) and not raiz_de_app(d)]
 acoes = sorted({p for b in bases_acao
                 for p in anda(b, lambda n: n.endswith((".ts", ".tsx", ".js", ".mjs")))
-                if not RE_TESTE.search(p) and RE_USE_SERVER.search(le(p)[:600])})
+                if not RE_TESTE.search(p) and tem_use_server(le(p)[:2000])})
 if acoes:
     auth_sem, publica_sem = [], []
     for p in acoes:
