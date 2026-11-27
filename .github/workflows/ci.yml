@@ -36,6 +36,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: PR contra o stable é reprovado (a base é a main)
+        # Primeiro passo de propósito: falha em segundos, antes da suíte. O stable é o branch
+        # padrão e só avança por promoção; merge direto nele trava o promover-stable.sh.
+        # A base vai por env: `github.base_ref` é texto de quem abriu o PR.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/checar-base-pr.sh "$BASE_REF"
+
       - name: JSONs do plugin são válidos
         run: |
           for f in .claude-plugin/marketplace.json \
@@ -385,6 +394,9 @@ jobs:
       - name: O promover-stable só avança o canal estável, e só com --push
         # Remote git de mentira: não usa rede.
         run: bash tests/test-promover-stable.sh
+
+      - name: O checar-base-pr reprova PR contra o stable e o CI chama o script
+        run: bash tests/test-checar-base-pr.sh
 
       - name: O replay compara a decisão do pre-bash do base com a do head e só passa divergência declarada
         # Base e head são cópias de plugin/; a divergência é plantada. Não usa rede nem corpus real.
