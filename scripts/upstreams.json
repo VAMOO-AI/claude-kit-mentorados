@@ -15,7 +15,7 @@
       "lido_versao": "v1.104.1.0",
       "tag": "",
       "commits_minimo": 40,
-      "que_trouxemos": "Checklist de migration (data-migration). 1.104: grep de marcador de conflito antes do push e nunca --auto no merge (ship); verde com 0 testes rodados não é verde (verificacao). Candidatos abertos: trava de causa raiz por hook, A/B do secscan contra pedido simples. O CHANGELOG anda sem tag: a contagem de commits é o sinal."
+      "que_trouxemos": "Checklist de migration (data-migration). 1.104: grep de marcador de conflito antes do push e nunca --auto no merge (ship); verde com 0 testes rodados não é verde (verificacao). Descartados: trava de causa raiz por hook e 'Use when'/'Done means' (o gstack cortou o /investigate e a trava na 1.98 por eval sem ganho; reescrita de descrição sozinha deu 0 de 80). Aberto: A/B do secscan contra pedido simples. O CHANGELOG anda sem tag: a contagem de commits é o sinal."
     },
     {
       "repo": "DietrichGebert/ponytail",
