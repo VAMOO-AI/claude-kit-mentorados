@@ -255,6 +255,149 @@ for sql in estado-do-banco.sql matriz-rls.sql; do
 done
 grep -q 'estado-do-banco.sql' "$BANCO" && ok "02-banco.md aponta o estado-do-banco.sql" || falha "02-banco.md não cita o estado-do-banco.sql"
 
+echo "== drift: o bloco do 02-banco.md separa 'não aplicada' de 'aplicada fora do repo' =="
+# Pentests de 26/11: produção tinha o código novo e não tinha as migrations da semana, e a
+# referência dizia "o banco vivo vence" sem dar o comando. O bloco roda aqui com um psql
+# falso: versão no banco 20260101 e 20260103, arquivos 20260101 e 20260102. Se o psql falha
+# (tabela ausente, sem acesso), o bloco não pode listar todo arquivo como "não aplicada".
+DRIFT="$(awk '/^### Drift entre migrations e banco/{a=1;next} a&&/^##/{exit} a&&/^```bash/{b=1;next} b&&/^```/{exit} b' "$BANCO")"
+if [ -z "$DRIFT" ]; then
+  falha "02-banco.md não tem o bloco bash em '### Drift entre migrations e banco'"
+else
+  grep -q 'SQL Editor' <(awk '/^### Drift entre migrations e banco/{a=1;next} a&&/^##/{exit} a' "$BANCO") \
+    && ok "a seção de drift avisa que o SQL Editor não grava em schema_migrations" \
+    || falha "a seção de drift não avisa do SQL Editor"
+  D="$TMP/drift"; mkdir -p "$D/bin" "$D/supabase/migrations"
+  : > "$D/supabase/migrations/20260101_a.sql"; : > "$D/supabase/migrations/20260102_b.sql"
+  printf '#!/bin/sh\n[ -n "$PSQL_FALHA" ] && { echo "ERROR: relation does not exist" >&2; exit 1; }\nprintf "20260103\\n20260101\\n"\n' > "$D/bin/psql"
+  chmod +x "$D/bin/psql"
+  linhas="$(printf '%s\n' "$DRIFT" | grep -vE '^[[:space:]]*(#|$)')"
+  n="$(printf '%s\n' "$linhas" | wc -l | tr -d ' ')"
+  [ "$n" -ge 2 ] && ok "o bloco tem $n comandos" || falha "o bloco de drift tem $n comando(s), esperado 2"
+  l1="$(printf '%s\n' "$linhas" | sed -n 1p)"; l2="$(printf '%s\n' "$linhas" | sed -n 2p)"
+  o1="$(cd "$D" && PATH="$D/bin:$PATH" SUPABASE_DB_URL_RO=x bash -c "$l1" 2>/dev/null)"
+  o2="$(cd "$D" && PATH="$D/bin:$PATH" SUPABASE_DB_URL_RO=x bash -c "$l2" 2>/dev/null)"
+  [ "$o1" = "20260102" ] && ok "1º comando: arquivo sem versão = não aplicada (20260102)" || falha "1º comando devolveu '${o1}', esperado 20260102"
+  [ "$o2" = "20260103" ] && ok "2º comando: versão sem arquivo = aplicada fora do repo (20260103)" || falha "2º comando devolveu '${o2}', esperado 20260103"
+  f1="$(cd "$D" && PATH="$D/bin:$PATH" SUPABASE_DB_URL_RO=x PSQL_FALHA=1 bash -c "$l1" 2>/dev/null)"
+  [ -z "$f1" ] && ok "psql falhou: o bloco não lista todo arquivo como não aplicado" || falha "psql falhou e o bloco listou: $f1"
+fi
+
+echo "== gate de migration do template: certo, errado e multilinha =="
+# Pentests de 26/11: tabela nova em public sem RLS e função SECURITY DEFINER sem search_path
+# entraram por migration e só o pentest viu. O template é o gate que o projeto copia para o
+# CI. Lê o arquivo inteiro: statement em várias linhas não pode dar falso positivo, e
+# comentário ou corpo de função não podem satisfazer a regra.
+GATE_DIR="$RAIZ/plugin/templates/gate-migration"
+GATE="$GATE_DIR/check-migration.py"
+if [ ! -f "$GATE" ]; then
+  falha "template ausente: $GATE"
+else
+  G="$TMP/gate"; mkdir -p "$G/scripts"
+  cp "$GATE" "$G/scripts/"; cp "$(dirname "$SCRIPT")/raizes.sh" "$G/scripts/"
+  gate() { # gate <dir-do-projeto> [args] — saída em $GOUT, exit em $GEXIT
+    GOUT="$(cd "$1" && shift && python3 "$G/scripts/check-migration.py" "$@" 2>&1)"; GEXIT=$?
+  }
+  sql() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
+
+  sql "$G/c/certo.sql" 'create table public.a (id int);
+alter table public.a enable row level security;
+create function public.fa() returns int language sql security definer set search_path = '"''"' as $$ select 1 $$;'
+  gate "$G/c" certo.sql
+  [ "$GEXIT" -eq 0 ] && ok "certo: passa" || falha "certo reprovou ($GEXIT): $GOUT"
+
+  sql "$G/c/errado.sql" 'create table public.b (id int);
+create function public.fb() returns int language sql security definer as $$ select 1 $$;'
+  gate "$G/c" errado.sql
+  [ "$GEXIT" -eq 1 ] && ok "errado: exit 1" || falha "errado saiu $GEXIT: $GOUT"
+  printf '%s' "$GOUT" | grep -q 'errado.sql:1.*public\.b' && ok "errado: aponta a tabela b na linha 1" || falha "errado não apontou public.b em errado.sql:1: $GOUT"
+  printf '%s' "$GOUT" | grep -q 'errado.sql:2.*fb' && ok "errado: aponta a função fb na linha 2" || falha "errado não apontou fb em errado.sql:2: $GOUT"
+
+  sql "$G/c/multi.sql" 'CREATE TABLE
+  IF NOT EXISTS
+  "public"."c" (
+    id int
+  );
+ALTER TABLE ONLY
+  public.c
+  ENABLE ROW LEVEL
+  SECURITY;
+CREATE OR REPLACE FUNCTION public.fc()
+RETURNS int
+AS $corpo$
+  select 1; select 2;
+$corpo$
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path
+  = public;'
+  gate "$G/c" multi.sql
+  [ "$GEXIT" -eq 0 ] && ok "multilinha: passa (nome, ENABLE e opções da função em linhas separadas)" || falha "multilinha deu falso positivo ($GEXIT): $GOUT"
+
+  sql "$G/c/comentario.sql" 'create table public.d (id int);
+-- alter table public.d enable row level security;
+/* alter table public.d enable row level security; */'
+  gate "$G/c" comentario.sql
+  [ "$GEXIT" -eq 1 ] && ok "ENABLE em comentário não conta" || falha "ENABLE comentado satisfez a regra: $GOUT"
+
+  sql "$G/c/duas.sql" 'create function public.f1() returns int language sql security definer set search_path = public as $$ select 1 $$;
+create function public.f2() returns int language plpgsql security definer as $$
+begin perform set_config('"'search_path'"', '"''"', true); return 1; end $$;'
+  gate "$G/c" duas.sql
+  if [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -q 'f2' && ! printf '%s' "$GOUT" | grep -q 'f1'; then
+    ok "duas funções, um search_path: reprova só a f2 (search_path no corpo não conta)"
+  else falha "duas funções: esperado reprovar só f2 ($GEXIT): $GOUT"; fi
+
+  sql "$G/c/escopo.sql" 'create table e (id int);
+create table private.f (id int);
+create temp table g (id int);'
+  gate "$G/c" escopo.sql
+  if [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -qE '(public\.)?e\b' && ! printf '%s' "$GOUT" | grep -qE 'private\.f|\bg\b'; then
+    ok "sem schema conta como public; outro schema e temp ficam fora"
+  else falha "escopo de schema errado ($GEXIT): $GOUT"; fi
+
+  sql "$G/c/alter-fn.sql" 'create function public.fh() returns int language sql security definer as $$ select 1 $$;
+alter function public.fh() set search_path = '"''"';'
+  gate "$G/c" alter-fn.sql
+  [ "$GEXIT" -eq 0 ] && ok "ALTER FUNCTION ... SET search_path no mesmo arquivo conta" || falha "ALTER FUNCTION com search_path não contou: $GOUT"
+
+  sql "$G/c/marcada.sql" '-- gate-migration: sem-rls public.h tabela fora da API, sem grant para anon e authenticated
+create table public.h (id int);'
+  gate "$G/c" marcada.sql
+  [ "$GEXIT" -eq 0 ] && ok "sem-rls com motivo passa" || falha "a marcação sem-rls com motivo não passou: $GOUT"
+  sql "$G/c/marcada-vazia.sql" '-- gate-migration: sem-rls public.h
+create table public.h (id int);'
+  gate "$G/c" marcada-vazia.sql
+  [ "$GEXIT" -eq 1 ] && ok "sem-rls sem motivo reprova" || falha "sem-rls sem motivo passou"
+
+  # descoberta pela raizes.sh, que mora ao lado do script (o CI do projeto não tem o plugin)
+  repo gate-raizes
+  arquivo src/db/migrations/001_velha.sql 'create table public.velha (id int);'
+  BASE_G="$(git -C "$R" rev-parse HEAD)"
+  arquivo src/db/migrations/002_nova.sql 'create table public.nova (id int);
+alter table public.nova enable row level security;'
+  gate "$R"
+  if [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -q 'src/db/migrations/001_velha.sql'; then
+    ok "sem argumento: acha src/db/migrations pela raizes.sh e reprova a velha"
+  else falha "sem argumento: não achou ou não reprovou src/db/migrations ($GEXIT): $GOUT"; fi
+  gate "$R" --desde "$BASE_G"
+  [ "$GEXIT" -eq 0 ] && ok "--desde: só a migration nova é julgada (legado não trava o CI)" || falha "--desde julgou o legado ($GEXIT): $GOUT"
+  arquivo src/db/migrations/003_ruim.sql 'create table public.ruim (id int);'
+  gate "$R" --desde "$BASE_G"
+  [ "$GEXIT" -eq 1 ] && ok "--desde: migration nova errada reprova" || falha "--desde deixou passar a nova errada ($GEXIT): $GOUT"
+
+  repo gate-vazio
+  gate "$R"
+  if [ "$GEXIT" -eq 2 ] && printf '%s' "$GOUT" | grep -q 'NÃO MEDIDO'; then
+    ok "sem pasta de migration: exit 2 e 'não medido', nunca verde"
+  else falha "sem pasta de migration saiu $GEXIT: $GOUT"; fi
+  mv "$G/scripts/raizes.sh" "$G/raizes.sh.fora"
+  gate "$R"
+  [ "$GEXIT" -eq 2 ] && ok "sem raizes.sh ao lado e sem arquivo: exit 2" || falha "sem raizes.sh saiu $GEXIT: $GOUT"
+  mv "$G/raizes.sh.fora" "$G/scripts/raizes.sh"
+fi
+grep -q 'gate-migration/check-migration.py' "$BANCO" && ok "02-banco.md aponta o template do gate" || falha "02-banco.md não cita templates/gate-migration/check-migration.py"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
 exit "$falhas"

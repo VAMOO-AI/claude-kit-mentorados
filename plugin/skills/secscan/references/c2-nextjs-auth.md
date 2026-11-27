@@ -63,6 +63,10 @@ grep -rlE "^['\"]use server['\"]" src app 2>/dev/null
   provedor, sem exigir e-mail verificado, entrega a conta a quem cadastrar o mesmo e-mail em
   outro provedor. Procure `signInWithOAuth`, `linkIdentity` e callback próprio com
   `eq('email', …)`. `HIGH`.
+- **App que emite token OAuth** (tem `/authorize` e `/token` próprios: servidor MCP com
+  registro dinâmico, "Entrar com <app>" para parceiro): o checklist de código de uso único,
+  PKCE, `redirect_uri`, DCR, refresh e clickjacking está em
+  [c8-oauth-servidor.md](c8-oauth-servidor.md). Os achados dele entram nesta C2.
 
 ### C3 — Exposição de dados sensíveis
 

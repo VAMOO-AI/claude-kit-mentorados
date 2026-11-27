@@ -78,7 +78,7 @@ as select ...;
 comment on view public.v_faturamento_mensal is
   'security_invoker=false intencional: agrega erp_faturamento, que o vendedor
    não lê linha a linha. Filtro por vendedor aplicado DENTRO da view.
-   Aceito pelo dono do projeto em 2026-08-22. Revisar em 2027-02.';
+   Aceito pelo dono do projeto em 2026-08-22. Revisar em 2027-02-22.';
 ```
 
 O `comment on` é o melhor lugar: viaja com o objeto, aparece no `\d+`, e não
@@ -194,6 +194,45 @@ grep -rli 'security definer' supabase/migrations | while read -r f; do
 **O fallback estático mente em dois sentidos** e o report tem que dizer isso:
 policy aplicada pelo dashboard não está no repo, e migration revertida à mão
 ainda está. Estático é `nao_medido` com ressalva, nunca `conforme`.
+
+**O gate de CI do projeto** é a mesma pergunta feita antes do merge, por arquivo inteiro:
+`templates/gate-migration/check-migration.py` reprova `CREATE TABLE` em `public` sem o
+`ENABLE ROW LEVEL SECURITY` no mesmo arquivo e `SECURITY DEFINER` sem `SET search_path` na
+definição de cada função (statement em várias linhas conta, comentário e corpo de função não).
+O projeto copia o script e o `scripts/raizes.sh` desta skill para a mesma pasta, porque o CI
+não tem o plugin. Em projeto com legado, o CI roda `--desde origin/<base>`: só a migration nova
+é julgada. O cabeçalho do script traz o passo do workflow.
+
+### Drift entre migrations e banco
+
+O banco vivo vence a migration, mas só depois de saber onde os dois divergem. O Supabase CLI
+grava em `supabase_migrations.schema_migrations` o prefixo do nome de cada arquivo que ele
+aplicou (`<versão>_<nome>.sql`). Rode na pasta que o `raizes.sh` listou (troque
+`supabase/migrations`):
+
+```bash
+# 1. arquivo sem versão no banco = migration que não chegou em produção
+v="$(psql "$SUPABASE_DB_URL_RO" -XAtc 'select version from supabase_migrations.schema_migrations')" && comm -13 <(printf '%s\n' "$v" | sed '/^$/d' | sort) <(ls supabase/migrations | sed -n 's/^\([0-9][0-9]*\)_.*\.sql$/\1/p' | sort)
+# 2. versão no banco sem arquivo = aplicada fora do repo, ou arquivo renomeado ou apagado
+v="$(psql "$SUPABASE_DB_URL_RO" -XAtc 'select version from supabase_migrations.schema_migrations')" && comm -23 <(printf '%s\n' "$v" | sed '/^$/d' | sort) <(ls supabase/migrations | sed -n 's/^\([0-9][0-9]*\)_.*\.sql$/\1/p' | sort)
+```
+
+O `&&` existe porque, sem ele, um `psql` que falha deixa a lista do banco vazia e o primeiro
+comando aponta **toda** migration como não aplicada. Erro de "relation does not exist" quer
+dizer que o projeto não aplica pelo CLI: o drift fica `nao_medido` com esse motivo, nunca
+"nada aplicado". `supabase migration list --db-url "$SUPABASE_DB_URL_RO"` faz a mesma
+comparação lado a lado.
+
+**SQL aplicado pelo SQL Editor do dashboard (ou por `psql` direto) não grava nessa tabela.**
+A migration rodou, o banco tem a mudança, e o comando 1 continua dizendo "não aplicada"; o
+próximo `db push` tenta aplicar de novo. Quem aplica fora do CLI registra a versão em seguida
+com `supabase migration repair --status applied <versão>`, e o contrato diz qual dos dois
+caminhos o projeto usa. Pasta numerada sem timestamp (`0001_init.sql`) fora do CLI também não
+tem o que comparar: registre `nao_medido`.
+
+Versão bater não prova que a policy viva é a do repo: o dashboard muda policy sem migration.
+Para a policy que importa, compare `pg_policies` (Q3 a Q10 do `estado-do-banco.sql`) com a
+última definição dela nas migrations.
 
 ## Armadilhas
 
