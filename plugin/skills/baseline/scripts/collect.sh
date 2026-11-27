@@ -214,12 +214,30 @@ if want 01; then
            middleware.ts middleware.js src/middleware.ts src/middleware.js proxy.ts src/proxy.ts; do
     [ -f "$f" ] && grep -qi 'content-security-policy' "$f" 2>/dev/null && csp_src="$csp_src $f"
   done
-  if [ -n "$csp_src" ]; then
-    add_coverage 01 csp medido grep "declarada em:$csp_src"
+  # Report-Only não bloqueia nada: só reporta. Quem aplica é o header sem o sufixo. O grep de
+  # antes casava os dois, dava a Report-Only como CSP declarada e acusava o 'unsafe-inline' dela
+  # como se fosse de política aplicada.
+  csp_enf="" ; csp_ro=""
+  for f in $csp_src; do
+    grep -qiE 'content-security-policy([^-]|$)' "$f" 2>/dev/null && csp_enf="$csp_enf $f"
+    grep -qi 'content-security-policy-report-only' "$f" 2>/dev/null && csp_ro="$csp_ro $f"
+  done
+  if [ -n "$csp_src" ] && [ -z "$csp_enf" ]; then
+    add_coverage 01 csp medido grep "só Report-Only em:$csp_ro"
+    relata="sem report-uri nem report-to: os relatórios não chegam a lugar nenhum"
+    # shellcheck disable=SC2086
+    grep -qiE 'report-uri|report-to' $csp_ro 2>/dev/null && relata="com report-uri/report-to"
+    add_finding 01 MEDIUM heuristic "CSP só em Report-Only (não bloqueia)" \
+      "$(printf '%s' "$csp_ro" | awk '{print $1}')" \
+      "Content-Security-Policy-Report-Only reporta a violação e deixa o script rodar. Serve para calibrar a política, com data para virar aplicada. Enquanto isso, aplique o que não depende de nonce (frame-ancestors, base-uri, object-src, form-action) num header Content-Security-Policy. Relatórios: $relata." \
+      "curl -sSI https://<dominio> | grep -i content-security-policy" "pilar 01"
+  elif [ -n "$csp_src" ]; then
+    add_coverage 01 csp medido grep "declarada em:$csp_src${csp_ro:+ (Report-Only também em:$csp_ro)}"
     if grep -hoi "script-src[^;\"]*" $csp_src 2>/dev/null | grep -qi "unsafe-inline"; then
-      add_finding 01 MEDIUM CONFIRMED "CSP com 'unsafe-inline' em script-src" \
+      # Com as duas no repo, o grep não sabe de qual política é o script-src: sai heuristic.
+      add_finding 01 MEDIUM "$( [ -n "$csp_ro" ] && echo heuristic || echo CONFIRMED )" "CSP com 'unsafe-inline' em script-src" \
         "$(printf '%s' "$csp_src" | awk '{print $1}')" \
-        "script-src com unsafe-inline anula a proteção principal da CSP contra XSS refletido." \
+        "script-src com unsafe-inline anula a proteção principal da CSP contra XSS refletido.${csp_ro:+ Há também uma Report-Only declarada: confira de qual das duas é este script-src.}" \
         "grep -o \"script-src[^;]*\" vercel.json" "pilar 01"
     fi
     n_csp="$(printf '%s' "$csp_src" | wc -w | tr -d ' ')"
@@ -236,6 +254,27 @@ if want 01; then
       "curl -sSI https://<dominio> | grep -i content-security-policy" "pilar 01"
     add_coverage 01 csp medido grep "nenhuma encontrada"
   fi
+
+  # Os outros headers. Só a CSP era medida: nosniff, clickjacking, Referrer-Policy e
+  # Permissions-Policy só apareciam no curl manual, e num pentest de 11/2026 faltavam quatro.
+  fontes_h=""
+  for f in vercel.json next.config.js next.config.mjs next.config.ts public/_headers netlify.toml \
+           middleware.ts middleware.js src/middleware.ts src/middleware.js \
+           proxy.ts proxy.js src/proxy.ts src/proxy.js; do
+    [ -f "$f" ] && fontes_h="$fontes_h $f"
+  done
+  falta_h=""
+  for h in x-content-type-options referrer-policy permissions-policy 'x-frame-options|frame-ancestors'; do
+    # shellcheck disable=SC2086
+    if [ -z "$fontes_h" ] || ! grep -qiE "$h" $fontes_h 2>/dev/null; then falta_h="$falta_h ${h%%|*}"; fi
+  done
+  if [ -n "$falta_h" ]; then
+    add_finding 01 MEDIUM heuristic "Headers de segurança não declarados:$falta_h" \
+      "$( [ -n "$fontes_h" ] && printf '%s' "$fontes_h" | awk '{print $1}' || echo "(nenhum arquivo de headers)" )" \
+      "Ler o repo não prova o que a borda serve: header declarado em arquivo importado ou injetado pela plataforma não aparece aqui. Ausente em todo lugar é achado até o curl dizer o contrário. Permissions-Policy: liste só o que o app não usa; negar fullscreen ou autoplay quebra embed de vídeo." \
+      "curl -sSI https://<dominio> | grep -iE 'x-content-type|x-frame|frame-ancestors|referrer-policy|permissions-policy'" "pilar 01"
+  fi
+  add_coverage 01 headers_seguranca medido grep "${fontes_h:+lidos:$fontes_h}${fontes_h:-nenhum arquivo de headers no repo}"
   fi
 fi
 
@@ -596,7 +635,7 @@ fi
 # ─────────────────────────────────────────── rotas do Next (01 · 04 · 08)
 # Rota por rota: rate limit em route handler, segredo de máquina compartilhado entre famílias,
 # COOP/CORP onde os headers são declarados, robots.txt e security.txt. Agregado: fora do --diff.
-if want 01 || want 04 || want 08; then
+if want 01 || want 03 || want 04 || want 08; then
   if global_check; then
     if command -v python3 >/dev/null 2>&1; then
       rn="$(python3 -I "$SK/scripts/rotas-next.py" --root "$ROOT" 2>/dev/null)"; rn_rc=$?

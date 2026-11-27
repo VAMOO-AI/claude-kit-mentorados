@@ -16,10 +16,10 @@ A validação de entrada (C4) tem fase própria, a 2.5.
 
 ### C1 — Injeção
 
-Varredura do **repositório inteiro** em sete grupos: SQL dinâmico, command injection, XSS
+Varredura do **repositório inteiro** em oito grupos: SQL dinâmico, command injection, XSS
 (inclusive o HTML montado fora do framework: e-mail, PDF, bot), caminho e chave de Storage,
-template e expressão (Code Node e `{{ }}` do n8n), SSRF, e injeção em log e em filtro
-(`.or()` do supabase-js). Os comandos e o veredito de cada grupo estão em
+template e expressão (Code Node e `{{ }}` do n8n), SSRF, injeção em log e em filtro
+(`.or()` do supabase-js), e fórmula em CSV exportado. Os comandos e o veredito de cada grupo estão em
 [references/c1-injecao.md](c1-injecao.md): leia ao avaliar C1. O semgrep não
 corrobora código de app neste stack, então **todo achado de C1 é `heuristic`**, e a linha C1
 do checklist diz isso.
@@ -40,9 +40,18 @@ f=$(ls package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock b
 [ -n "$f" ] && echo "lockfile: $f" \
   || echo "SEM LOCKFILE → C5 é 'não medido (lockfile ausente)', nunca 'nenhum problema identificado'"
 test -f bun.lock && bun audit || true
-test -f package-lock.json && npm audit || true
-test -f pnpm-lock.yaml && pnpm audit || true
+test -f package-lock.json && { npm audit --omit=dev; echo "produção: exit $?"; npm audit; echo "total: exit $?"; } || true
+test -f pnpm-lock.yaml && { pnpm audit --prod; echo "produção: exit $?"; pnpm audit; echo "total: exit $?"; } || true
 ```
+**Reporte primeiro o que vai para produção** (`--omit=dev`, `--prod`), e as duas contagens.
+CVE só em devDependency não chega ao bundle nem ao servidor: `LOW`/`INFO`. A mesma CVE na
+lista de produção vale a severidade do advisory. Três leituras que o número cru esconde:
+- Pacote direto sem correção (`fixAvailable: false` no `npm audit --json`) é finding próprio:
+  não se resolve com upgrade, pede troca ou mitigação.
+- "Precisa de `--force`" com a dependência fixada em versão exata não quer dizer major: confira
+  `fixAvailable.isSemVerMajor` antes de chamar o conserto de arriscado.
+- Pacote só de build em `dependencies` (CLI de scaffold, gerador) puxa CVE para a lista de
+  produção sem rodar lá: a nota é "mover para devDependencies".
 Com `yarn.lock` ou `bun.lockb`, o `npm audit` não serve: rode `yarn npm audit` (Yarn 2+) ou
 `yarn audit` (Yarn 1), ou leia o `osv-scanner` da Fase 0.5, que entende `yarn.lock` (o
 `bun.lockb` é binário e ele não lê: C5 fica `não medido` sem outro scanner).

@@ -20,6 +20,10 @@ Checks:
   04 rate_limit_action_auth    arquivo 'use server' que chama o Auth (login, cadastro, reset) sem
                                limitador no arquivo, nos imports locais ou no middleware/proxy
   04 rate_limit_action_publica arquivo 'use server' sem sessão que grava, sem limitador
+  03 autherror_engolido        rota ou action que chama o guard dentro de try e cujo catch não
+                               confere o erro de autorização nem o relança
+  04 job_sem_claim             rota com after()/waitUntil() sem claim atômico antes de agendar
+  04 rate_limit_em_memoria     limitador com contador em Map da instância (serverless)
   04 segredo_compartilhado     uma env de segredo de máquina autenticando rotas de 2+ famílias
   01 headers_isolamento        COOP / CORP ausentes onde os headers são declarados
   08 robots_txt, security_txt  arquivo ou rota ausente
@@ -325,6 +329,121 @@ if acoes:
 else:
     cobertura("04", "server_actions", "nao_medido",
               "nenhum arquivo com 'use server' no topo em src/, app/, lib/ ou actions/" + DICA_SUBAPP)
+
+# ───────────────────────────── 03 · erro de guard engolido pelo catch
+# O guard existe e lança o erro certo; o catch da rota devolve 500 (ou sucesso). Quem procura
+# "rota sem guard" não acha nada. Num pentest de 11/2026 eram 5 rotas e 1 action assim.
+# Só mede projeto que lança erro de autorização tipado (class XError extends Error): guard que
+# redireciona ou devolve Response não passa por catch.
+RE_GUARD = re.compile(r"\b(?:require|exigir|assert|ensure|garantir)[A-Z]\w*\s*\(")
+RE_NOME_AUTH = re.compile(r"auth|forbidden|unauthori[sz]ed|permission|access|acesso|permiss|sessao|session", re.I)
+fontes_ts = sorted({p for b in bases_acao for p in anda(b, lambda n: n.endswith((".ts", ".tsx", ".js", ".mjs")))
+                    if not RE_TESTE.search(p)})
+classes_auth, tradutores = set(), set()
+for p in fontes_ts:
+    for m in re.finditer(r"class\s+(\w+)\s+extends\s+\w*Error\b", le(p)):
+        if RE_NOME_AUTH.search(m.group(1)):
+            classes_auth.add(m.group(1))
+_handlers = set(rotas) | set(acoes)
+for p in fontes_ts:
+    if p in _handlers:
+        continue   # tradutor é helper compartilhado: a rota que confere a classe exporta GET, não um tradutor
+    t = le(p)
+    if any(re.search(r"instanceof\s+" + re.escape(c) + r"\b", t) for c in classes_auth):
+        for m in re.finditer(r"export\s+(?:async\s+)?(?:function|const)\s+(\w+)", t):
+            if not RE_GUARD.match(m.group(1) + "("):
+                tradutores.add(m.group(1))
+if classes_auth:
+    conhecidos = classes_auth | tradutores
+    com_guard, engolem = [], []
+    for p in sorted(set(rotas) | set(acoes)):
+        t = le(p)
+        g = RE_GUARD.search(t)
+        if not g:
+            continue
+        com_guard.append(p)
+        tenta = t.find("try")
+        if tenta < 0 or tenta > g.start() or not re.search(r"\bcatch\b", t):
+            continue   # guard fora de try: o erro sobe para o framework
+        if any(re.search(r"\b" + re.escape(n) + r"\b", t) for n in conhecidos):
+            continue   # o catch confere a classe ou passa pelo tradutor
+        if re.search(r"\bcatch\b\s*(?:\([^)]*\))?\s*\{[^}]*\bthrow\b", t):
+            continue   # relança
+        engolem.append(p)
+    if engolem:
+        achado("03", "MEDIUM", "autherror_engolido", engolem[0],
+               f"{len(engolem)} arquivos chamam o guard dentro de try e o catch engole o erro de autorização",
+               "O guard lança o erro de permissão e o catch responde outra coisa: 403 vira 500 (alerta falso, "
+               "e o cliente tenta de novo), ou vira sucesso, e a ação segue. O catch tem de conferir a "
+               f"classe ({', '.join(sorted(classes_auth)[:3])}) ou passar pelo tradutor do projeto"
+               + (f" ({', '.join(sorted(tradutores)[:3])})" if tradutores else "")
+               + ". Vale um teste de contrato que percorre as rotas e reprova a que não faz isso. "
+               "Exemplos: " + "; ".join(engolem[:5]))
+    cobertura("03", "autherror_engolido", "medido",
+              f"{len(com_guard)} rotas e actions com guard lidas; erro de autorização: "
+              f"{', '.join(sorted(classes_auth)[:4])}; por arquivo, não por bloco try")
+else:
+    cobertura("03", "autherror_engolido", "nao_medido",
+              "nenhuma classe de erro de autorização (class XError extends Error) no projeto: guard que "
+              "redireciona ou devolve Response não é coberto aqui" + DICA_SUBAPP)
+
+# ───────────────────────────── 04 · job em background sem claim atômico
+# Rota que agenda trabalho (after, waitUntil) depois de "ver se já tem um rodando" com um
+# select: duas chamadas juntas passam as duas, e o job roda sobreposto. Rate limit por IP não
+# impede isso. Claim atômico: insert ... on conflict, update ... returning, advisory lock.
+RE_AGENDA = re.compile(r"\bwaitUntil\s*\(|\bafter\s*\(")
+# O achado é a evidência POSITIVA do check-then-act: o código lê "tem um rodando?" com um
+# select. Ausência de padrão de claim não serve de critério: upsert de dado comum (on conflict,
+# updateMany) em qualquer módulo importado casaria como claim, e foi assim que a primeira
+# versão deste check leu 5 rotas vulneráveis num repo real e não acusou nenhuma.
+_ESTADO = r"(?:RUNNING|IN_PROGRESS|PROCESSING|em_andamento|rodando)"
+RE_LE_ESTADO = re.compile(r"find(?:First|Unique|Many)\s*\([^;]{0,240}?" + _ESTADO + r"|"
+                          r"\.eq\(\s*['\"]status['\"]\s*,\s*['\"]" + _ESTADO + r"['\"]", re.I | re.S)
+RE_CLAIM = re.compile(r"pg_try_advisory|skip\s+locked|\bfor\s+update\b|\bclaim\w*\s*\(|"
+                      r"on\s+conflict[^;]{0,200}?(?:running|status|lock)|"
+                      r"(?:running|status|lock)[^;]{0,200}?on\s+conflict|"
+                      r"\.rpc\(\s*['\"`]\w*(?:claim|lock|reserv|trav)\w*", re.I | re.S)
+agendam, sem_claim = [], []
+for p in sorted(set(rotas) | set(acoes)):
+    t = le(p)
+    if not RE_AGENDA.search(t) or (re.search(r"\bafter\s*\(", t) and not re.search(r"\bwaitUntil\s*\(", t)
+                                   and "next/server" not in t):
+        continue
+    agendam.append(p)
+    tudo, _ = com_imports(p)
+    if RE_LE_ESTADO.search(tudo) and not RE_CLAIM.search(tudo):
+        sem_claim.append(p)
+if sem_claim:
+    achado("04", "MEDIUM", "job_sem_claim", sem_claim[0],
+           f"{len(sem_claim)} rotas agendam trabalho em background sem claim atômico",
+           "after()/waitUntil() depois de um 'já tem um rodando?' feito com select deixa duas chamadas "
+           "simultâneas passarem: sync sobreposto, cota de terceiro gasta em dobro, upsert concorrente. "
+           "O claim tem de ser uma operação só, antes de agendar: insert ... on conflict do nothing com "
+           "índice único parcial, update ... where ... returning, ou pg_try_advisory_xact_lock em "
+           "transação. Um 409 e um findFirst não contam. Parâmetro que pula o cooldown (force, "
+           "fullResync) piora. Exemplos: " + "; ".join(sem_claim[:4]))
+if agendam:
+    cobertura("04", "job_sem_claim", "medido",
+              f"{len(agendam)} rotas com after()/waitUntil() lidas com os imports locais (2 níveis). Acusa "
+              "só onde o código lê o estado 'rodando' com select e não há claim reconhecível; rota que "
+              "agenda sem conferir nada não aparece aqui: leia as " + str(len(agendam)))
+else:
+    cobertura("04", "job_sem_claim", "nao_medido", "nenhuma rota com after()/waitUntil()" + DICA_SUBAPP)
+
+# ───────────────────────────── 04 · limitador que só vale por instância
+# Contador em Map de módulo zera a cada cold start e não é dividido entre instâncias: em
+# serverless o limite real é N vezes o configurado. O check de rota acima o conta como limite.
+RE_ARQ_LIMITE = re.compile(r"rate.?limit|throttle|limiter", re.I)
+RE_COMPARTILHADO = re.compile(r"@upstash|@vercel/kv|redis|\.rpc\(|supabase|prisma|\bsql`", re.I)
+em_memoria = [p for p in fontes_ts
+              if RE_ARQ_LIMITE.search(os.path.basename(p))
+              and re.search(r"new\s+Map\s*[<(]|LRUCache", le(p)) and not RE_COMPARTILHADO.search(le(p))]
+if em_memoria and (os.path.isfile("vercel.json") or APPS):
+    achado("04", "LOW", "rate_limit_em_memoria", em_memoria[0],
+           f"{len(em_memoria)} limitadores guardam o contador em memória da instância",
+           "Em serverless cada instância tem o seu Map: o limite efetivo é o configurado vezes o número "
+           "de instâncias, e zera no cold start. Contador compartilhado (tabela com função atômica, KV, "
+           "Redis) e IP lido da plataforma. Exemplos: " + "; ".join(em_memoria[:3]))
 
 # ───────────────────────────── 04 · um segredo para várias famílias de rota
 RE_ENV = re.compile(r"process\.env\.([A-Z][A-Z0-9_]*(?:SECRET|_KEY|TOKEN|SENHA|CHAVE)[A-Z0-9_]*)|"
