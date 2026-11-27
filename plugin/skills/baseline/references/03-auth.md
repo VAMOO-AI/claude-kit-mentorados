@@ -45,13 +45,23 @@ segurança.
       sem `Domain`). Sem o prefixo, qualquer subdomínio do mesmo domínio
       planta ou lê a sessão. `SameSite` não ajuda: subdomínio irmão é o mesmo
       site. Renomear desloga todo mundo; marque a janela.
+- [ ] **Cookie do `@supabase/ssr` não é sessão própria: não exija `HttpOnly`.**
+      O cliente do navegador (`createBrowserClient`) lê a sessão do cookie para
+      falar com o PostgREST, e a biblioteca grava com `httpOnly: false` por
+      padrão. Ligar `HttpOnly` quebra o login. Exija `Secure` (o mesmo
+      `cookieOptions` nos clientes de browser, servidor e middleware) e trate a
+      CSP do pilar 01 como a defesa contra script que lê o token. A falta de
+      `HttpOnly` aqui entra como limite de arquitetura, `INFO`, não como achado.
 - [ ] **Sessão de um app não autentica outro.** Apps irmãos que dividem a
       tabela de sessões ou o segredo de assinatura conferem o host (ou a
       audiência) do token.
 - [ ] **Mutação com cookie confere `Origin` de forma estrita** e só aceita
       `application/json`. `text/plain` não dispara preflight, e cair para o
       `Referer` quando falta `Origin` aceita `Referer` forjado. Com app em vários
-      subdomínios, some um token anti-CSRF (duplo-submit).
+      subdomínios, some um token anti-CSRF (duplo-submit). Estrita não é
+      `origin === new URL(request.url).origin`: atrás de proxy a URL da
+      requisição pode trazer o host interno, e toda escrita vira 403 (a forma
+      certa está em "Sessão e CSRF").
 
 ## Como implementar
 
@@ -186,6 +196,25 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: text/plain' 
 
 O teste do `Origin` e do `Referer` forjados manda uma mutação com sessão: só
 em ambiente local ou de teste, nunca em produção.
+
+O atributo `__Host-` e a exigência de `HttpOnly` valem para cookie de sessão
+própria. Com `@supabase/ssr`, leia `Secure` e `SameSite` no `Set-Cookie` de
+depois do login (o `GET /login` ainda não tem o cookie de sessão) e não acuse a
+falta de `HttpOnly` (ver o Contrato).
+
+**A forma da checagem de `Origin` que não quebra atrás de proxy:**
+
+1. `Sec-Fetch-Site` primeiro: `same-origin` e `none` passam, o resto é 403;
+2. só sem esse header, compare o `Origin` com o conjunto {origem da URL da
+   requisição, `x-forwarded-host` **quando o proxy da plataforma o sobrescreve**,
+   URL pública do app vinda de variável de ambiente};
+3. corpo `application/json` obrigatório;
+4. rota que autentica por `Authorization: Bearer` (token de API, OAuth, MCP) fica
+   fora: é cross-origin por desenho, e o helper aplicado no middleware inteiro
+   derruba o integrador.
+
+O teste que prova: requisição com URL interna e `Origin` público passa; `Origin`
+de outro site é 403. Rode os dois antes de "pronto".
 
 ### Quem vira membro
 

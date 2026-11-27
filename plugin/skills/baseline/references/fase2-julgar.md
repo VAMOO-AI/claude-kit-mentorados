@@ -27,6 +27,11 @@ Severidade responde à **exposição real**, não ao padrão. `service_role` num
 script local de build ≠ `service_role` no bundle servido ao browser. Se a
 diferença não estiver medida, o finding é `nao_medido`, não HIGH por precaução.
 
+**Regras de prova.** Antes de marcar `CONFIRMED`, de aceitar um `refutado` ou de escrever
+um `muda_severidade_se` que fale em resposta de PostgREST, contagem de linhas, limite que
+não disparou, "falta `GRANT`" ou fato de catálogo, leia [veredito.md](veredito.md). As oito
+regras moram lá, e o juiz do passo 5 julga por elas.
+
 5. **Juiz** em todo `CRITICAL` e `HIGH`, `heuristic` incluso. O contrato
    (as três provas de `refutado`, a lista do que não refuta, rebaixar em vez
    de apagar) é o da `auditoria-seguranca`, em
@@ -80,6 +85,12 @@ Referência     — OWASP/CWE/doc do fornecedor
 `CRITICAL`/`HIGH`, e continua lá se o juiz rebaixou. Esta fase escreve o
 report à mão; o `render.mjs` roda na fase Medir, antes do juiz, e não lê nem
 escreve essa linha.
+
+**`Como corrigir` que restringe mede antes o que vai cortar.** Allowlist, view trocada
+para invoker, header que vale para todo subdomínio e limite novo mudam comportamento: a
+linha traz a consulta ou o log do que produção usa hoje e os ramos que o conserto atinge,
+ou a variante que não depende da medição. A regra inteira está em
+[veredito.md](veredito.md), "Antes de propor conserto que restringe".
 
 **Sem comando de reconferência o finding está incompleto.** "Corrigido" sem
 comando é alegação, e alegação é exatamente o que a invariante 4 proíbe.

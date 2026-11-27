@@ -44,6 +44,18 @@ grep -rlE "^['\"]use server['\"]" src app 2>/dev/null
   `Content-Type: application/json` e recusar o resto. Cliente que manda `Authorization: Bearer`
   não tem o problema. Mutação em `GET` (rota de "confirmar", "excluir", "aceitar convite") é
   achado por si. `MEDIUM`; `HIGH` em ação de conta (e-mail, senha, vínculo de provedor).
+  Na sugestão de correção, não escreva `origin === new URL(request.url).origin`: atrás de
+  proxy a URL da requisição pode trazer o host interno, e toda escrita vira 403 em produção
+  com o teste local verde. A forma: `Sec-Fetch-Site` primeiro (`same-origin` e `none` passam);
+  só sem ele, `Origin` contra a URL pública do app vinda de variável de ambiente; rota que
+  autentica por bearer (token de API, OAuth, MCP) fica isenta, porque é cross-origin por
+  desenho. Os passos estão no pilar 03 da baseline (`skills/baseline/references/03-auth.md`,
+  "Sessão e CSRF").
+- **Cookie do `@supabase/ssr` sem `HttpOnly` não é achado.** O cliente do navegador
+  (`createBrowserClient`) lê a sessão do cookie, e a biblioteca grava com `httpOnly: false` por
+  padrão; receitar `HttpOnly` quebra o login. Reporte como limite de arquitetura (`INFO`),
+  confira `Secure` e aponte a CSP como a defesa contra script que lê o token. `HttpOnly` e
+  prefixo `__Host-` são exigência de cookie de sessão própria.
 - **Endpoint de revalidação** (`revalidatePath`/`revalidateTag` atrás de rota pública): exige
   segredo forte comparado em tempo constante (C7), só `POST`, e `path`/`tag` do request contra
   uma lista. `LOW` a `MEDIUM` (custo e cache envenenado).

@@ -21,6 +21,10 @@ saíram dessa rodada:
 - **O discriminante é o destino do valor, nunca a primitiva.** `md5()` num fingerprint e
   `Math.random()` numa key de lista React não são finding; `Math.random()` gerando token de
   reset é. Diga no finding por que aquele uso é explorável, não que a função existe.
+- **Veredito sobre o que rodou tem regra própria.** Resposta de PostgREST, contagem de
+  linhas, "o limite não disparou", "falta grant", fato de catálogo, prova que veio de
+  relatório de fora e "é do provedor": antes de escrever confirmado ou refutado num desses,
+  leia `skills/baseline/references/veredito.md`. São oito regras de prova, e moram só lá.
 - **Falso positivo julgado mora num arquivo, não no código.** `nosemgrep` e
   `eslint-disable` espalham a decisão pelo diff e não dizem quem decidiu nem quando. O dono
   do projeto registra em `.context/docs/security/vereditos.md` (fingerprint · veredito ·
