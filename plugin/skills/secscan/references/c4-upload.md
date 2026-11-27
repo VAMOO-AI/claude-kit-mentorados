@@ -21,9 +21,26 @@ select id, public, file_size_limit, allowed_mime_types from storage.buckets orde
 
 O que é achado:
 
-- **Bucket que recebe upload de usuário sem `allowed_mime_types` ou sem `file_size_limit`**, no
-  banco vivo ou, sem acesso a ele, no `config.toml` e nas migrations. Sem os dois, vale qualquer
-  tipo até o teto global do projeto. `MEDIUM`.
+- **Bucket que recebe upload de usuário sem `file_size_limit`**, no banco vivo ou, sem acesso a
+  ele, no `config.toml` e nas migrations: vale qualquer tamanho até o teto global do projeto.
+  `MEDIUM`.
+- **Bucket sem `allowed_mime_types`** só é achado depois de medir o que ele guarda. Bucket de
+  chat ou de anexo recebe o que o provedor manda (documento, áudio, `application/octet-stream`,
+  curinga como `audio/*` montado pelo código): allowlist chutada recusa o upload e a mídia some
+  sem erro. Meça primeiro, com consulta só de leitura:
+
+  ```sql
+  select bucket_id, coalesce(metadata->>'mimetype', '(sem)') as tipo, count(*)
+    from storage.objects group by 1, 2 order by 1, 3 desc;
+  ```
+
+  O risco que sobra com tipo livre é **renderização** (o item de SVG e HTML abaixo). O conserto
+  que não depende da medição é servir o que não é imagem, áudio ou vídeo como download
+  (`createSignedUrl(caminho, ttl, { download: true })`, ou `Content-Disposition: attachment` no
+  proxy) e, quando o upload passa por rota do servidor, recusar ali `text/html` e
+  `image/svg+xml` (o bucket só tem lista de permitidos). Allowlist de tipo só a partir da
+  lista medida, e o finding diz qual linha da medição cada tipo cobre. Sem a medição:
+  `heuristic`, com a consulta como próximo passo.
 - **Tipo decidido pelo cliente.** `file.type`, o `contentType` repassado do browser e a extensão
   do nome são o que o cliente declarou. Validação que só olha isso não é validação: o servidor
   confere os bytes iniciais do arquivo, ou o bucket recusa pelo `allowed_mime_types`. Upload
