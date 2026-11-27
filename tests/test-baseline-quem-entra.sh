@@ -238,6 +238,15 @@ if [ -f "$COLLECT" ]; then
     && ok "cobertura auth_config no findings.json" || falha "cobertura auth_config ausente no findings.json"
 fi
 
+# migrations em src/db/migrations: a pasta é descoberta (num pentest de 11/2026 ficou de fora)
+D="$TMP/desc"; mkdir -p "$D/src/db/migrations"
+printf '{"name":"fixture"}\n' > "$D/package.json"
+cp "$V/supabase/migrations/"*.sql "$D/src/db/migrations/"
+python3 -I "$QE" --root "$D" > "$TMP/desc.tsv" 2>&1
+grep -qE '[1-9][0-9]* funções efetivas lidas' "$TMP/desc.tsv" \
+  && ok "src/db/migrations é lida: $(grep -oE '[0-9]+ funções efetivas lidas' "$TMP/desc.tsv" | head -1)" \
+  || falha "src/db/migrations não foi lida: $(grep -iE 'migrations|funções' "$TMP/desc.tsv" | head -2)"
+
 echo
 if [ $falhas -eq 0 ]; then echo "tudo verde"; exit 0; fi
 echo "$falhas falha(s)"; exit 1

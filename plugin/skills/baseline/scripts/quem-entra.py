@@ -29,7 +29,11 @@ Uso: python3 -I quem-entra.py [--root DIR]
 """
 import os
 import re
+import subprocess
 import sys
+
+# antes do chdir: o descobridor de pastas mora ao lado deste script
+RAIZES_SH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raizes.sh")
 
 ROOT = "."
 args = sys.argv[1:]
@@ -157,6 +161,16 @@ else:
 # ───────────────────────────── 2. estado efetivo das migrations
 PASTAS_SQL = [p for p in ("supabase/migrations", "migrations", "src/sql", "db/migrations",
                           "supabase/schemas") if os.path.isdir(p)]
+# mais toda pasta migrations/, sql/ ou schemas/ com .sql que o raizes.sh achar no repo
+# (src/db/migrations, <app>/supabase/migrations). Sem o script ou sem bash, fica a lista fixa.
+try:
+    _r = subprocess.run(["bash", RAIZES_SH, "--root", "."], capture_output=True, text=True, timeout=60)
+    for _l in _r.stdout.splitlines():
+        _c = _l.split("\t")
+        if len(_c) >= 2 and _c[0] == "MIGRATIONS" and _c[1] not in PASTAS_SQL and os.path.isdir(_c[1]):
+            PASTAS_SQL.append(_c[1])
+except (OSError, subprocess.SubprocessError):
+    pass
 sqls = []
 ignorados = []
 for p in PASTAS_SQL:

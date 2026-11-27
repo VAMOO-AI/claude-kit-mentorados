@@ -103,3 +103,10 @@ Critério de aceite bom é executável: *"requisição com id de outro tenant de
 404"* vale; *"corrigir o IDOR"* não vale. E quando o achado for bug de
 comportamento, o critério inclui **o teste falhando no commit anterior ao fix** —
 verde sozinho não prova regressão nenhuma.
+
+**Correção que restringe mede antes o que vai cortar.** Allowlist (host, tipo de arquivo,
+origem), view trocada para invoker e limite novo mudam comportamento: a `correcao` traz a
+consulta ou o log do que produção usa hoje, e os `criterios_aceite` listam os ramos que
+ela atinge (cada provedor, cada tipo, cada papel). Sem a medição, a issue propõe a variante
+que não depende dela. A regra inteira está em `skills/baseline/references/veredito.md`,
+"Antes de propor conserto que restringe".

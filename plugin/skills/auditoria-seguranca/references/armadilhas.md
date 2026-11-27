@@ -4,6 +4,12 @@ Lido antes de entregar o PDF, como conferência final.
 
 ## Armadilhas
 
+As armadilhas de prova (resposta do PostgREST lida como "gravou", "N vezes 200" como
+ausência de limite, "0 linhas" sem denominador, bypass concluído pela resposta, "falta
+grant" sem ler o dono, fato de catálogo de memória, prova de relatório de fora citada sem
+reexecutar, "é do provedor" sem ler o dado) têm regra numa página só, a mesma do `secscan`
+e da `baseline`: `skills/baseline/references/veredito.md`. Releia antes do PDF.
+
 | Sintoma | Causa real |
 |---|---|
 | Auditoria "limpa" em projeto que nunca foi auditado | Amostrou handlers em vez de percorrer. Conte e publique a razão lidos/total |

@@ -57,21 +57,42 @@ create table if not exists public.rate_limit_hits (
   hits        int         not null default 0,
   primary key (bucket, window_start)
 );
+-- RLS ligada e sem policy: só a função (definer) escreve. Tabela nova em `public`
+-- nasce com grant para anon e authenticated; sem isto o browser lê e zera o contador.
+alter table public.rate_limit_hits enable row level security;
+revoke all on public.rate_limit_hits from anon, authenticated;
 
 create or replace function public.rate_limit_take(
   p_bucket text, p_limit int, p_window interval default '1 hour')
 returns boolean language plpgsql security definer set search_path = '' as $$
-declare v_start timestamptz; v_hits int;
+declare
+  v_seg double precision := greatest(extract(epoch from p_window), 1);
+  v_start timestamptz; v_hits int;
 begin
-  v_start := date_trunc('hour', clock_timestamp());   -- ajuste à janela
+  -- início da janela corrente, no tamanho pedido em p_window
+  v_start := to_timestamp(floor(extract(epoch from clock_timestamp()) / v_seg) * v_seg);
   insert into public.rate_limit_hits (bucket, window_start, hits)
        values (p_bucket, v_start, 1)
   on conflict (bucket, window_start)
        do update set hits = public.rate_limit_hits.hits + 1
     returning hits into v_hits;
+  -- limpeza amostrada; janela maior que 7 dias pede um teto maior aqui
+  if random() < 0.01 then
+    delete from public.rate_limit_hits where window_start < clock_timestamp() - interval '7 days';
+  end if;
   return v_hits <= p_limit;
 end $$;
+-- Função nova em `public` nasce executável por anon e authenticated (default privileges do
+-- Supabase), e `revoke ... from public` sozinho não tira esse grant. Sem as duas linhas
+-- abaixo, qualquer um chama /rest/v1/rpc/rate_limit_take com o bucket de outra pessoa
+-- ('login:<e-mail>') e tranca a conta dela.
+revoke all on function public.rate_limit_take(text, int, interval) from public, anon, authenticated;
+grant execute on function public.rate_limit_take(text, int, interval) to service_role;
 ```
+
+A função só é chamada do servidor, com o cliente `service_role`. Prove depois de aplicar:
+`select has_function_privilege('anon', 'public.rate_limit_take(text,int,interval)', 'execute')`
+tem de devolver `false`.
 
 `clock_timestamp()`, não `now()`: dentro de uma transação `now()` é constante, e
 uma função de limite que enxerga o tempo congelado conta errado no lote.
@@ -247,20 +268,42 @@ for i in $(seq 1 30); do
   curl -s -o /dev/null -w '%{http_code} ' "https://$REF.supabase.co/functions/v1/<fn>" \
     -H "Authorization: Bearer $TOKEN"
 done; echo
-# esperado: uma sequência de 200 e depois 429. Só 200 = não tem limite.
+# esperado: uma sequência de 200 e depois 429. Só 200 = não tem limite, desde que a
+# função devolva 429 quando limita (confira no código antes de concluir).
 
 # o login tem limite? (a rota mais atacada é a que mais fica de fora)
 grep -rniE 'signin|sign_in|login|signInWithPassword|authenticate' src/ api/ supabase/functions/ 2>/dev/null \
   | grep -viE 'test|spec' | head
-# 100 tentativas devem virar 429 antes do fim (só em ambiente autorizado pelo contrato)
+```
+
+**A prova do login depende de como ele responde quando limita.** Leia isso no
+código antes de mandar a primeira tentativa:
+
+- **Route handler ou API própria que devolve `429`:** cem tentativas viram `429`
+  antes do fim.
+- **Server Action:** o HTTP é 200 sempre, com senha certa, errada ou bloqueada.
+  O bloqueio é um corpo de erro próprio, e "só 200 nas cem" não diz nada. Quem
+  decide é o corpo (a mensagem de bloqueio aparece antes da tentativa N?) e, com
+  acesso ao banco, o contador lido por `select`.
+
+Nos dois formatos vale a regra 2 de [veredito.md](veredito.md): prova negativa
+precisa de controle positivo. Sem um caso que você sabe que limita (o teto lido
+no código e atingido de propósito, numa conta de teste), "não vi bloqueio" é
+`nao_medido`, não "sem limite".
+
+```bash
+# route handler com 429 (só em ambiente autorizado pelo contrato, com conta de teste)
 for i in $(seq 1 100); do
   curl -s -o /dev/null -w '%{http_code} ' -X POST "https://<host>/auth/login" \
     -H 'content-type: application/json' -d '{"email":"nao-existe@exemplo.com","password":"x"}'
 done; echo
-# só 200/401 nas cem = não há limite. Confira também a paridade da mensagem:
-curl -s -X POST "https://<host>/auth/login" -d '{"email":"existe@exemplo.com","password":"x"}'
-curl -s -X POST "https://<host>/auth/login" -d '{"email":"nao-existe@exemplo.com","password":"x"}'
-# corpos diferentes (ou tempos muito diferentes) = enumeração de usuário
+# paridade da mensagem: o corpo é igual para conta que existe e que não existe?
+curl -s -X POST "https://<host>/auth/login" -H 'content-type: application/json' \
+  -d '{"email":"<conta-de-teste>@exemplo.com","password":"x"}'
+curl -s -X POST "https://<host>/auth/login" -H 'content-type: application/json' \
+  -d '{"email":"nao-existe@exemplo.com","password":"x"}'
+# corpos diferentes = enumeração de usuário. Diferença de tempo só conta medida em pares
+# alternados, com repetição: uma chamada de cada não separa o vazamento do ruído da rede.
 ```
 
 ## Armadilhas

@@ -53,6 +53,12 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   trecho do PDF, quando o valor literal **é** a evidência; a issue e os demais
   campos saem sempre mascarados, sem escotilha. Nunca a use para segredo vivo —
   esse você descreve, e a issue pede rotação.
+- **Credencial que o auditor usou, criou ou restaurou não entra no entregável, nem em
+  prosa.** Senha temporária de conta de sonda, senha "restaurada para X", token mintado
+  para o teste: o relatório diz que existiu e onde ficou guardada, nunca o valor. O gerador
+  mascara o termo com cara de senha que vem depois de "senha", "password" ou "credencial"
+  na mesma frase, mas a máscara é rede, não licença. Conta criada para o teste é apagada
+  ou tem a senha trocada no fim, e isso sai escrito.
 - **Percorra tudo nas categorias A1 e A3, e publique DUAS contagens:** quantos
   handlers foram **lidos integralmente** e quantos foram **triados por padrão**
   (grep de gate). As duas somadas têm que dar o total; a primeira sozinha é a
@@ -102,6 +108,13 @@ não cobre. Copiar grep entre as duas skills é como as duas divergem.
   a requisição nomeada em `fonte`. `DELETE`, `UPDATE`, `INSERT`, disparo, fila:
   nunca contra o ambiente do cliente — isso é fixture local com tenant dummy,
   ou `a_validar`.
+  Escrita também é o que não tem cara de SQL: a Auth admin API (`PUT`/`POST`/`DELETE` em
+  `/auth/v1/admin/users`, troca de senha, criar usuário), upload ou remoção no Storage, RPC
+  que grava e qualquer formulário enviado. E a conta do dono não é ator de teste: nada de
+  logar com o usuário real de alguém nem de usar a credencial de dono (`.env.local`,
+  `service_role`, `SUPABASE_DB_URL`) para agir como ele. Consulta ao banco vivo roda em
+  transação `read only`. Teste autenticado que escreve vai para staging ou tenant de QA,
+  com ator criado para isso.
 - **O que está correto também é resultado.** Cada categoria produz pelo menos
   uma linha de "verificado e está certo, com evidência". Relatório só com
   achados não prova cobertura nenhuma.

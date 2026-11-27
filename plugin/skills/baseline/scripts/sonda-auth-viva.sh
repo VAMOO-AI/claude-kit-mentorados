@@ -63,9 +63,13 @@ fi
 # 2. Senha mínima e checagem de vazamento: só a Management API mostra (o /settings não traz)
 ref="${SB#*://}"; ref="${ref%%.*}"
 if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+  # O PAT vai num arquivo de header (0600, apagado no fim), não no argv do curl: argumento de
+  # processo aparece no `ps` de qualquer usuário da máquina enquanto a chamada dura.
+  ( umask 077; printf 'Authorization: Bearer %s\n' "$SUPABASE_ACCESS_TOKEN" > "$TMP/pat.h" )
   cod="$(curl -sS -o "$TMP/auth.json" -w '%{http_code}' --max-time 15 \
-          -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+          -H @"$TMP/pat.h" \
           "https://api.supabase.com/v1/projects/$ref/config/auth" 2>/dev/null)"
+  rm -f "$TMP/pat.h"
   if [ "$cod" = "200" ] && jq -e . "$TMP/auth.json" >/dev/null 2>&1; then
     jq -r '"VEREDITO senha mínima=\(.password_min_length // "?") requisitos=\(.password_required_characters // "nenhum" | if .=="" then "nenhum" else . end) vazadas_bloqueadas=\(.password_hibp_enabled // false) disable_signup=\(.disable_signup) mailer_autoconfirm=\(.mailer_autoconfirm)"' \
       "$TMP/auth.json"

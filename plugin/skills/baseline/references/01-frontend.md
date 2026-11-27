@@ -14,15 +14,18 @@ não é ofuscação e ofuscação não é segurança. O objetivo aqui não é es
       Prefixo público = está no bundle, ponto.
 - [ ] **`dropConsole`/`drop_debugger` só depois que existe error tracking** (ver
       pilar 06). Antes disso você está apagando o único rastro que teria.
-- [ ] **CSP presente e sem `script-src 'unsafe-inline'` em produção.**
+- [ ] **CSP presente e sem `script-src 'unsafe-inline'` em produção.** Em Next App
+      Router, sem nonce, isso quebra o app: a saída está em "Next.js App Router",
+      abaixo, e `'unsafe-inline'` ali só entra como exceção registrada.
 - [ ] Cinco headers acompanham a CSP: `X-Content-Type-Options`,
       `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,
       `Strict-Transport-Security`.
 - [ ] **Isolamento entre origens:** `Cross-Origin-Opener-Policy: same-origin`
       (ou `same-origin-allow-popups` se o login abre popup de OAuth) e
-      `Cross-Origin-Resource-Policy: same-origin`. HSTS com `preload` só depois
-      de HTTPS em todos os subdomínios. O `rotas-next.py` acusa a falta onde os
-      headers são declarados; a borda real, o `sonda-auth-viva.sh`.
+      `Cross-Origin-Resource-Policy: same-origin`. HSTS com `includeSubDomains`
+      ou `preload` só depois de conferir TLS válido na 443 de **todo** subdomínio
+      que resolve (ver "HSTS e subdomínios"). O `rotas-next.py` acusa a falta
+      onde os headers são declarados; a borda real, o `sonda-auth-viva.sh`.
 - [ ] **Se a CSP existe em dois lugares (header e `<meta>`), um teste trava a
       divergência.** A política efetiva é a *interseção* das duas — divergir
       quebra em produção sem quebrar em dev.
@@ -52,7 +55,9 @@ define: {
 **Next.js**: `productionBrowserSourceMaps: false` (é o default — não ligue "pra
 debugar em prod"; use o upload privado do Sentry).
 
-**Headers na Vercel** — a base que vale como ponto de partida:
+**Headers na Vercel** — a base que vale como ponto de partida para SPA (Vite). A
+CSP deste exemplo não serve para Next App Router, e o HSTS sai sem
+`includeSubDomains` de propósito; as duas ressalvas estão logo abaixo:
 
 ```json
 { "source": "/(.*)", "headers": [
@@ -60,7 +65,7 @@ debugar em prod"; use o upload privado do Sentry).
   { "key": "X-Frame-Options", "value": "DENY" },
   { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
   { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-  { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+  { "key": "Strict-Transport-Security", "value": "max-age=31536000" },
   { "key": "Content-Security-Policy", "value":
     "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<host-de-imagem>; connect-src 'self' https://<ref>.supabase.co wss://<ref>.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'" }
 ]}
@@ -72,6 +77,55 @@ Tailwind/framer — aceite e registre; `script-src 'unsafe-inline'` **não**.
 
 Prefira listar hosts em `img-src`/`connect-src` a usar `https:` curinga. Curinga
 em `connect-src` é o que transforma um XSS em exfiltração.
+
+**HSTS e subdomínios.** `includeSubDomains` (e o `preload`, que o exige) vale para
+todo nome abaixo do domínio, inclusive os que o app não serve. Hospedagem
+compartilhada costuma ter `cpanel.`, `webmail.`, `mail.` e `autodiscover.`. Um
+subdomínio sem TLS válido na 443 fica trancado no navegador pelo `max-age`
+inteiro, sem botão de "continuar mesmo assim" e sem volta rápida. Antes de
+ligar, liste os subdomínios que resolvem e confira o handshake de cada um:
+
+```bash
+D=<dominio>
+for h in www cpanel webmail mail autodiscover <outros do inventário do pilar 08>; do
+  printf '%-14s ' "$h"
+  openssl s_client -connect "$h.$D:443" -servername "$h.$D" </dev/null 2>&1 \
+    | grep -m1 -E 'Verify return code|handshake failure|alert|errno' || echo "sem resposta"
+done
+# só "Verify return code: 0 (ok)" em todos libera includeSubDomains
+```
+
+Inventário aberto, ou um nome que falha: fique no `max-age` sem
+`includeSubDomains` e registre o motivo no contrato.
+
+**Next.js App Router: a CSP do exemplo acima quebra o app.** O runtime do Next
+injeta scripts inline; `script-src 'self'` sem nonce nem hash bloqueia todos, e
+`curl -I` não mostra isso. A doc do Next (guia "Content Security Policy") dá
+três saídas, cada uma com custo:
+
+- **nonce por request**, gerado no `proxy.ts` (`middleware.ts` até a 15). Exige
+  render dinâmico em toda página que leva o nonce: sem página estática, sem ISR,
+  sem cache de CDN, e incompatível com Partial Prerendering;
+- **sem nonce**, com `'unsafe-inline'` em `script-src`. Mantém o estático e
+  perde a proteção contra script injetado. Entra como exceção no contrato, com
+  dono e data de revisão;
+- **SRI por hash** (`experimental.sri`), que mantém o estático. Experimental:
+  confira na doc da versão instalada antes de adotar.
+
+O caminho que não derruba o site enquanto ninguém decidiu, em duas camadas:
+
+1. **enforced** só com o que não depende de nonce: `frame-ancestors 'none'` (ou
+   `'self'`), `base-uri 'self'`, `object-src 'none'`, `form-action 'self'`;
+2. a política completa em `Content-Security-Policy-Report-Only`, com
+   `report-uri`/`report-to`. Lidos os relatórios de um período combinado, decida
+   entre as três saídas e registre.
+
+O endpoint de relatório é superfície pública nova: teto de corpo, rate limit
+(pilar 04) e fora do redirect para `/login` do proxy. `connect-src` montado no
+`next.config` com variável de ambiente é montado **no build**: build sem a
+variável gera a política sem o host, e o login morre em produção com o build
+verde. E a prova de CSP em Next é o console do navegador com o app rodando
+(`next build && next start`), não o `curl`.
 
 **Teste que trava a divergência header ↔ meta** — se as duas cópias existem:
 

@@ -1051,6 +1051,33 @@ for sevruim in '"Alta"' '"alta "' '"grave"'; do
   rm -f "$TMP/sevruim.html"
 done
 
+# Credencial que o AUDITOR usou, criou ou restaurou, escrita em prosa. Dois pentests de 11/2026
+# deixaram a senha de contas reais no relatório ("senha restaurada para X"): a máscara só
+# conhecia `chave = valor`. O valor de mentira é montado na hora, e a frase comum fica inteira.
+echo "· credencial em prosa"
+python3 -I - "$SKILL/scripts/gerar-relatorio.py" <<'PY' > "$TMP/prosa.log" 2>&1 && ok "senha em prosa sai mascarada, frase comum fica inteira" || { falha "máscara de prosa"; cat "$TMP/prosa.log"; }
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("g", sys.argv[1]); g = importlib.util.module_from_spec(spec)
+sys.argv = sys.argv[:1]; spec.loader.exec_module(g)
+v = "Tr0ca" + "-Falsa" + "#91"
+erros = []
+for frase in (f"a senha da admin foi restaurada para {v} no fim do teste",
+              f"Senha temporária das três contas: {v}",
+              f"login com a password {v}",
+              f"credencial de teste criada como `{v}`",
+              f"senha restaurada → {v}"):
+    red, n = g.redigir_segredos(frase)
+    if v in red or n < 1:
+        erros.append("não mascarou: " + frase.replace(v, "<valor>"))
+for frase in ("senha mínima 8, sem MFA", "a senha foi alterada pelo usuário", "senha para acessar o painel",
+              "política de senha: mínimo de 12 caracteres", "troca de senha exige a senha atual",
+              "password_min_length abaixo de 8", "a senha é comparada com timingSafeEqual"):
+    red, n = g.redigir_segredos(frase)
+    if red != frase:
+        erros.append(f"mexeu em frase comum: {frase} -> {red}")
+print("\n".join(erros)); sys.exit(1 if erros else 0)
+PY
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "PASSOU"; else echo "$falhas FALHA(S)"; fi
 exit $((falhas > 0))

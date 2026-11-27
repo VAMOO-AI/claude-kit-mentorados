@@ -148,6 +148,22 @@ only_scope_paths() {
   fi
 }
 
+# Onde moram o app e as migrations: descoberto, não suposto (raizes.sh). As duas pastas
+# convencionais entram mesmo vazias, para o motivo do nao_medido dizer o nome delas.
+RAIZES="$(bash "$SK/scripts/raizes.sh" --root "$ROOT" 2>/dev/null)"
+MIG_DIRS=""
+for d in supabase/migrations migrations; do [ -d "$d" ] && MIG_DIRS="$MIG_DIRS $d"; done
+while IFS=$'\t' read -r _t _d _n; do
+  [ "$_t" = MIGRATIONS ] && [ -n "$_d" ] || continue
+  case " $MIG_DIRS " in *" $_d "*) : ;; *) MIG_DIRS="$MIG_DIRS $_d" ;; esac
+done <<< "$RAIZES"
+MIG_DIRS="${MIG_DIRS# }"
+# Apps em subpasta (monorepo, app/ com package.json próprio): medir da raiz do git dá 0 hits
+# em todo grep, e ausência de pasta não é achado. O motivo do nao_medido aponta o --root.
+SUBAPPS="$(printf '%s\n' "$RAIZES" | awk -F'\t' '$1=="APP" && $2!="."{print $2}' | tr '\n' ' ' | sed 's/ $//')"
+dica_subapp() { [ -n "$SUBAPPS" ] && printf '; há app em subpasta (%s): rode com --root %s' "$SUBAPPS" "${SUBAPPS%% *}"; }
+unset _t _d _n
+
 hits() { # conta linhas não vazias (grep -c sai 1 quando conta 0; o ; true evita "0\n0")
   printf '%s' "${1-}" | grep -c . 2>/dev/null; true
 }
@@ -156,7 +172,9 @@ hits() { # conta linhas não vazias (grep -c sai 1 quando conta 0; o ; true evit
 if want 01; then
   # sourcemap presente em build já feito (agregado: não pertence a gate de diff)
   if global_check; then
-  maps="$(find dist .next build -name '*.map' -not -path '*/node_modules/*' 2>/dev/null | head -5)"
+  # .next/dev e .next/cache são do `next dev` e do cache de build: não vão para o bundle servido
+  maps="$(find dist .next build -name '*.map' -not -path '*/node_modules/*' \
+            -not -path '.next/dev/*' -not -path '.next/cache/*' 2>/dev/null | head -5)"
   if [ -n "$maps" ]; then
     add_finding 01 HIGH CONFIRMED "Sourcemap presente no diretório de build" \
       "$(printf '%s' "$maps" | head -1)" \
@@ -226,16 +244,18 @@ if want 02; then
   # As duas pastas, quando existem as duas: o `ls -d … | head -1` de antes lia só a primeira em
   # ordem alfabética e dizia "medido" sobre as duas. Pasta sem .sql também não é medição. O
   # motivo da cobertura nomeia o que foi lido — e o que não foi sai "RLS não medido".
-  MIG_DIRS=""
-  for d in supabase/migrations migrations; do [ -d "$d" ] && MIG_DIRS="$MIG_DIRS $d"; done
-  MIG_DIRS="${MIG_DIRS# }"
+  # MIG_DIRS vem da descoberta lá em cima (raizes.sh): supabase/migrations e migrations, mais
+  # toda pasta migrations/, sql/ ou schemas/ com .sql (src/db/migrations, src/sql, app/supabase/…).
   if [ -n "$MIG_DIRS" ]; then
     # No modo --diff, só as migrations que ESTE diff traz (untracked inclusive).
     if [ $DIFF_MODE -eq 1 ]; then
-      MIG_LIST="$(grep -E '(supabase/)?migrations/.*\.sql$' "$SCOPE_FILE" 2>/dev/null)"
+      MIG_LIST="$( { grep -E '(supabase/)?migrations/.*\.sql$' "$SCOPE_FILE"
+                     for d in $MIG_DIRS; do awk -v d="$d/" 'index($0, d) == 1 && /\.sql$/' "$SCOPE_FILE"; done
+                   } 2>/dev/null | sort -u)"
     else
       # shellcheck disable=SC2086
-      MIG_LIST="$(find $MIG_DIRS -type f -name '*.sql' 2>/dev/null | sort)"
+      MIG_LIST="$(find $MIG_DIRS -type f -name '*.sql' -not -path '*/tests/*' -not -path '*/__tests__/*' \
+                    -not -path '*/fixtures/*' 2>/dev/null | sort -u)"
     fi
     if [ -z "$MIG_LIST" ]; then
       if [ $DIFF_MODE -eq 1 ]; then
@@ -297,7 +317,7 @@ if want 02; then
     add_coverage 02 policies_permissivas medido grep ""
     fi
   else
-    add_coverage 02 rls_migrations nao_medido - "RLS não medido: sem pasta de migration (supabase/migrations/ ou migrations/)"
+    add_coverage 02 rls_migrations nao_medido - "RLS não medido: sem pasta de migration (procurei supabase/migrations/, migrations/ e toda pasta migrations/, sql/ ou schemas/ com .sql)$(dica_subapp)"
   fi
 
   if [ -x scripts/db-query.sh ] || [ -n "${SUPABASE_DB_URL:-}" ]; then
@@ -400,16 +420,30 @@ if want 04; then
   # (-49.6210429,) e 'Retry-After' sem aspas casa com o header sendo LIDO de um
   # fornecedor. Ambos produziriam um "tem rate limit" falso.
   if global_check; then
-  rl="$(grep -rnE 'rate_limit_take|rateLimitTake|checkRateLimit|new Ratelimit|status: *429|status=429|["'"'"']Retry-After["'"'"'] *:' \
-        supabase/functions src 2>/dev/null | grep -v node_modules \
+  # Só procura onde há código do app. Pasta que é raiz de outro app (app/ com package.json) não
+  # conta: ali quem mede é o --root dela. Sem nenhuma, o resultado é nao_medido: "não achei
+  # limite" numa raiz sem código saía HIGH CONFIRMED apontando para pasta inexistente.
+  # O limitador também é reconhecido pelo nome da RPC (rpc('login_rate_limit')): o helper do
+  # projeto pode ter qualquer nome.
+  dirs_rl=""
+  for d in supabase/functions src app lib; do [ -d "$d" ] && [ ! -f "$d/package.json" ] && dirs_rl="$dirs_rl $d"; done
+  dirs_rl="${dirs_rl# }"
+  if [ -z "$dirs_rl" ]; then
+    add_coverage 04 rate_limit nao_medido grep "sem src/, app/, lib/ nem supabase/functions nesta raiz$(dica_subapp)"
+  else
+  # shellcheck disable=SC2086
+  rl="$(grep -rnE 'rate_limit_take|rateLimitTake|checkRateLimit|new Ratelimit|status: *429|status=429|["'"'"']Retry-After["'"'"'] *:|\.rpc\([[:space:]]*["'"'"'`][A-Za-z0-9_]*rate_?limit[A-Za-z0-9_]*["'"'"'`]' \
+        $dirs_rl 2>/dev/null | grep -v node_modules \
         | grep -viE 'RateLimitError|rateLimited|instanceof|=== *429|== *429|headers\.get' \
         | grep -c . 2>/dev/null; true)"
   if [ "${rl:-0}" -eq 0 ]; then
-    add_finding 04 HIGH CONFIRMED "Nenhum rate limit próprio encontrado" "supabase/functions" \
-      "Sem limite por identidade, uma conta legítima comprometida vale tanto quanto uma brecha — e sai mais caro, porque tráfego autenticado não levanta suspeita. Tratamento do 429 de fornecedor foi descartado da contagem: isso é sofrer limite, não impor." \
-      "grep -rnE 'rate_limit_take|status: *429' supabase/functions src" "pilar 04"
+    # heuristic: é grep de nome, não ferramenta. Limitador com outro nome (ou na borda) escapa.
+    add_finding 04 HIGH heuristic "Nenhum rate limit próprio encontrado" "${dirs_rl%% *}" \
+      "Sem limite por identidade, uma conta legítima comprometida vale tanto quanto uma brecha — e sai mais caro, porque tráfego autenticado não levanta suspeita. Tratamento do 429 de fornecedor foi descartado da contagem: isso é sofrer limite, não impor. Busca por nome em: $dirs_rl; limitador com outro nome ou imposto na borda não aparece aqui." \
+      "grep -rnE 'rate_?limit|status: *429' $dirs_rl" "pilar 04"
   fi
-  add_coverage 04 rate_limit medido grep "conta só limite imposto; 429 de terceiro descartado"
+  add_coverage 04 rate_limit medido grep "conta só limite imposto em: $dirs_rl; 429 de terceiro descartado"
+  fi
   fi
 fi
 
@@ -427,8 +461,14 @@ if want 05; then
   add_coverage 05 query_sem_teto medido grep "heurística de uma linha; encadeamento multilinha escapa"
 
   if global_check; then
-  idx="$(grep -rhoi 'create index' supabase/migrations 2>/dev/null | grep -c . 2>/dev/null; true)"
-  add_coverage 05 indices medido grep "$idx CREATE INDEX nas migrations"
+  # shellcheck disable=SC2086
+  if [ -n "$MIG_DIRS" ] && [ -n "$(find $MIG_DIRS -type f -name '*.sql' 2>/dev/null | head -1)" ]; then
+    # shellcheck disable=SC2086
+    idx="$(grep -rhoiE 'create[[:space:]]+(unique[[:space:]]+)?index' $MIG_DIRS --include='*.sql' 2>/dev/null | grep -c . 2>/dev/null; true)"
+    add_coverage 05 indices medido grep "$idx CREATE INDEX nas migrations ($MIG_DIRS)"
+  else
+    add_coverage 05 indices nao_medido grep "sem .sql de migration nesta raiz$(dica_subapp)"
+  fi
   fi
 fi
 
