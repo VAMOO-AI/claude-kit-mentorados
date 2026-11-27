@@ -57,21 +57,42 @@ create table if not exists public.rate_limit_hits (
   hits        int         not null default 0,
   primary key (bucket, window_start)
 );
+-- RLS ligada e sem policy: só a função (definer) escreve. Tabela nova em `public`
+-- nasce com grant para anon e authenticated; sem isto o browser lê e zera o contador.
+alter table public.rate_limit_hits enable row level security;
+revoke all on public.rate_limit_hits from anon, authenticated;
 
 create or replace function public.rate_limit_take(
   p_bucket text, p_limit int, p_window interval default '1 hour')
 returns boolean language plpgsql security definer set search_path = '' as $$
-declare v_start timestamptz; v_hits int;
+declare
+  v_seg double precision := greatest(extract(epoch from p_window), 1);
+  v_start timestamptz; v_hits int;
 begin
-  v_start := date_trunc('hour', clock_timestamp());   -- ajuste à janela
+  -- início da janela corrente, no tamanho pedido em p_window
+  v_start := to_timestamp(floor(extract(epoch from clock_timestamp()) / v_seg) * v_seg);
   insert into public.rate_limit_hits (bucket, window_start, hits)
        values (p_bucket, v_start, 1)
   on conflict (bucket, window_start)
        do update set hits = public.rate_limit_hits.hits + 1
     returning hits into v_hits;
+  -- limpeza amostrada; janela maior que 7 dias pede um teto maior aqui
+  if random() < 0.01 then
+    delete from public.rate_limit_hits where window_start < clock_timestamp() - interval '7 days';
+  end if;
   return v_hits <= p_limit;
 end $$;
+-- Função nova em `public` nasce executável por anon e authenticated (default privileges do
+-- Supabase), e `revoke ... from public` sozinho não tira esse grant. Sem as duas linhas
+-- abaixo, qualquer um chama /rest/v1/rpc/rate_limit_take com o bucket de outra pessoa
+-- ('login:<e-mail>') e tranca a conta dela.
+revoke all on function public.rate_limit_take(text, int, interval) from public, anon, authenticated;
+grant execute on function public.rate_limit_take(text, int, interval) to service_role;
 ```
+
+A função só é chamada do servidor, com o cliente `service_role`. Prove depois de aplicar:
+`select has_function_privilege('anon', 'public.rate_limit_take(text,int,interval)', 'execute')`
+tem de devolver `false`.
 
 `clock_timestamp()`, não `now()`: dentro de uma transação `now()` é constante, e
 uma função de limite que enxerga o tempo congelado conta errado no lote.

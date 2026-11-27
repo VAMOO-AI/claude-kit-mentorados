@@ -17,6 +17,9 @@ Checks:
                                busca ou POST, sem limitador no arquivo, nos imports locais
                                ou no middleware/proxy
   04 rate_limit_rota_sessao    route handler com sessão que faz busca livre ou consulta em lote
+  04 rate_limit_action_auth    arquivo 'use server' que chama o Auth (login, cadastro, reset) sem
+                               limitador no arquivo, nos imports locais ou no middleware/proxy
+  04 rate_limit_action_publica arquivo 'use server' sem sessão que grava, sem limitador
   04 segredo_compartilhado     uma env de segredo de máquina autenticando rotas de 2+ famílias
   01 headers_isolamento        COOP / CORP ausentes onde os headers são declarados
   08 robots_txt, security_txt  arquivo ou rota ausente
@@ -78,16 +81,40 @@ def anda(base, filtro):
                 yield os.path.normpath(os.path.join(raiz, n))
 
 
-APPS = [d for d in ("src/app", "app") if os.path.isdir(d)]
+def raiz_de_app(d):
+    """pasta com package.json próprio é a raiz de OUTRO app, não um diretório deste."""
+    return os.path.isfile(os.path.join(d, "package.json"))
+
+
+# `app/` com package.json é a pasta do app num monorepo, não o diretório de rotas do App Router.
+# Lida daqui, toda rota saía "pública": o middleware e o `@/` moram dentro dela.
+APPS = [d for d in ("src/app", "app") if os.path.isdir(d) and not raiz_de_app(d)]
 PAGES_API = [d for d in ("src/pages/api", "pages/api") if os.path.isdir(d)]
 
-# limitador imposto pelo próprio código (o 429 de fornecedor tratado não conta)
+
+def subapps():
+    """apps em subpasta (app/, apps/*, packages/*) com cara de Next, para o motivo do nao_medido."""
+    cands = [d for d in sorted(os.listdir(".")) if os.path.isdir(d) and d not in IGNORA and not d.startswith(".")]
+    for pai in ("apps", "packages"):
+        if os.path.isdir(pai):
+            cands += [os.path.join(pai, d) for d in sorted(os.listdir(pai))]
+    return [d for d in cands if raiz_de_app(d)
+            and any(os.path.isdir(os.path.join(d, x)) for x in ("src/app", "app", "src/pages", "pages"))]
+
+
+SUBAPPS = subapps()
+DICA_SUBAPP = (f"; o app está em {', '.join(SUBAPPS)}: rode com --root {SUBAPPS[0]}" if SUBAPPS else "")
+
+# limitador imposto pelo próprio código (o 429 de fornecedor tratado não conta). O último ramo
+# reconhece o limitador pelo nome da RPC (rpc("login_rate_limit")): o helper que a chama pode
+# ter qualquer nome, e é pelo import local que ele chega até a rota.
 RE_LIMITE = re.compile(r"rate_?limit_?take|rateLimitTake|checkRateLimit|new\s+Ratelimit|@upstash/ratelimit|"
                        r"rateLimit\s*\(|limitar\w*\s*\(|limiter\.|status:\s*429|status\s*=\s*429|"
-                       r"['\"]Retry-After['\"]\s*:", re.I)
+                       r"['\"]Retry-After['\"]\s*:|\.rpc\(\s*['\"`]\w*rate_?limit\w*['\"`]", re.I)
 # a rota prova quem chama: sessão de usuário ou segredo de máquina
 RE_SESSAO = re.compile(r"auth\.getUser|getClaims|getSession|getServerSession|requireSession|requireUser|"
-                       r"\brequireAuth|\bassertAuth|\bcurrentUser\b|\bexigir\w*\(|\bauth\(\)|\bwithAuth\b", re.I)
+                       r"\brequireAuth|\bassertAuth|\bcurrentUser\b|\bexigir\w*\(|\bauth\(\)|\bwithAuth\b|"
+                       r"\brequire(?:Access|Role|Permission|PageAccess)\w*\(|\bsessaoAtual\w*\(", re.I)
 # Prova de máquina = comparar algo da requisição com um segredo. "Bearer" e createHmac sozinhos
 # não servem: aparecem quando a rota CHAMA um serviço (token do Google, assinatura de saída).
 RE_MAQUINA = re.compile(r"timingSafeEqual|constantTimeEqual|safeCompare|verify\w*(Signature|Hmac|Secret|Token)|"
@@ -227,7 +254,77 @@ if rotas:
               + (f"; sessão no {sessao_mw}, {len(publicos_mw)} prefixos públicos" if sessao_mw else "")
               + (f"; limitador global em {limite_global}" if limite_global else ""))
 else:
-    cobertura("04", "rate_limit_rota", "nao_medido", "sem route handler do Next (app/**/route.ts, pages/api)")
+    cobertura("04", "rate_limit_rota", "nao_medido",
+              "sem route handler do Next (app/**/route.ts, pages/api) nesta raiz" + DICA_SUBAPP)
+
+# ───────────────────────────── 04 · Server Actions (o login do App Router não é route.ts)
+# Arquivo com a diretiva "use server" no topo: cada função exportada é um POST público. Em três
+# pentests de 11/2026 o login, o reset de senha e o formulário de lead eram Server Action, e a
+# cobertura acima dizia "medido" sem ter lido nenhum dos três.
+def tem_use_server(t):
+    """a diretiva "use server" é a primeira coisa do arquivo, depois de espaço e comentário.
+    Laço em vez de regex: alternativas de comentário dentro de um `*` davam backtracking
+    exponencial num arquivo com muitos `/*` sem fechar."""
+    i, n = 0, len(t)
+    while i < n:
+        if t[i].isspace():
+            i += 1
+        elif t.startswith("//", i):
+            j = t.find("\n", i)
+            i = n if j < 0 else j + 1
+        elif t.startswith("/*", i):
+            j = t.find("*/", i + 2)
+            if j < 0:
+                return False
+            i = j + 2
+        else:
+            break
+    return t.startswith(('"use server"', "'use server'"), i)
+
+
+
+RE_AUTH_CALL = re.compile(r"\.auth\.(signInWithPassword|signInWithOtp|signInWithIdToken|resetPasswordForEmail|"
+                          r"signUp|verifyOtp)\(")
+RE_GRAVA = re.compile(r"\.(insert|upsert|update|delete)\(|\.rpc\(")
+RE_TESTE = re.compile(r"(\.test\.|\.spec\.|__tests__|__mocks__)")
+
+bases_acao = [d for d in ("src", "app", "lib", "actions") if os.path.isdir(d) and not raiz_de_app(d)]
+acoes = sorted({p for b in bases_acao
+                for p in anda(b, lambda n: n.endswith((".ts", ".tsx", ".js", ".mjs")))
+                if not RE_TESTE.search(p) and tem_use_server(le(p)[:2000])})
+if acoes:
+    auth_sem, publica_sem = [], []
+    for p in acoes:
+        t = le(p)
+        tudo, _ = com_imports(p)
+        if RE_LIMITE.search(tudo) or limite_global:
+            continue
+        if RE_AUTH_CALL.search(t):
+            auth_sem.append(p)
+        elif RE_GRAVA.search(t) and not RE_SESSAO.search(tudo):
+            publica_sem.append(p)
+    if auth_sem:
+        achado("04", "MEDIUM", "rate_limit_action_auth", auth_sem[0],
+               f"{len(auth_sem)} Server Actions chamam o Auth sem limite próprio",
+               "Login, cadastro e reset rodando no servidor chegam ao provedor de auth com o IP do "
+               "servidor: o limite por IP do provedor não separa atacante de usuário. O limite por IP e "
+               "por identidade tem de estar na action, antes da chamada, com contador compartilhado "
+               "(memória de instância não serve em serverless). Server Action responde 200 também quando "
+               "bloqueia: o reteste lê o corpo e o contador, não o status. "
+               "Exemplos: " + "; ".join(auth_sem[:4]))
+    if publica_sem:
+        achado("04", "MEDIUM", "rate_limit_action_publica", publica_sem[0],
+               f"{len(publica_sem)} Server Actions sem sessão gravam sem rate limit",
+               "Formulário público (lead, contato) por Server Action aceita qualquer volume: enche a "
+               "tabela, dispara notificação e gasta cota. Contador por identidade que não depende da "
+               "rota (IP + hash do contato). Sessão conferida só pelo middleware não aparece aqui: "
+               "confirme na leitura. Exemplos: " + "; ".join(publica_sem[:4]))
+    cobertura("04", "server_actions", "medido",
+              f"{len(acoes)} arquivos 'use server' lidos com os imports locais; granularidade por arquivo, "
+              "e action inline ('use server' dentro de função ou componente) não é lida")
+else:
+    cobertura("04", "server_actions", "nao_medido",
+              "nenhum arquivo com 'use server' no topo em src/, app/, lib/ ou actions/" + DICA_SUBAPP)
 
 # ───────────────────────────── 04 · um segredo para várias famílias de rota
 RE_ENV = re.compile(r"process\.env\.([A-Z][A-Z0-9_]*(?:SECRET|_KEY|TOKEN|SENHA|CHAVE)[A-Z0-9_]*)|"

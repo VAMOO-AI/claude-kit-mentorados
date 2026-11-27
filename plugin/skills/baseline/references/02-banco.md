@@ -98,10 +98,21 @@ o enum dá autocomplete e o CHECK, a tabela permite mudar permissão sem release
 
 ## Como provar
 
-Os 28 lints do Supabase Security/Performance Advisor são SQL puro e open-source
-(`github.com/supabase/splinter`). O script `scripts/splinter.sh` baixa em cache e
-roda cada lint como **`select` puro — sem criar o schema `lint`, sem DDL no banco
-auditado**:
+**Onde o collect procura.** As migrations são descobertas, não supostas: o `scripts/raizes.sh`
+lista toda pasta `migrations/`, `sql/` ou `schemas/` com `.sql` (`src/db/migrations`, `src/sql`,
+`<app>/supabase/migrations`), e o motivo da cobertura nomeia as que foram lidas. Confira essa
+lista: pasta de SQL que não é migration (consulta de n8n, script avulso) também entra. App em
+subpasta (monorepo, `app/` com `package.json` próprio): rode o collect com `--root <pasta>`,
+senão os pilares 04 e 05 saem `nao_medido` apontando a subpasta.
+
+Os lints do Supabase Security/Performance Advisor são SQL puro e open-source
+(`github.com/supabase/splinter`; 31 no commit fixado). O script `scripts/splinter.sh`
+baixa **um commit fixado** em cache e roda cada lint como `select`, dentro de uma
+transação `read only` que termina em `rollback`: sem criar o schema `lint`, sem DDL e
+sem escrita no banco auditado. Ele usa `psql` com `$SUPABASE_DB_URL_RO` (ou
+`$SUPABASE_DB_URL`) e, na falta, o `./scripts/db-query.sh` do projeto, mas só o executor
+que devolve o `select` de dentro da transação. Se nenhum devolver, o script sai 97 e o
+pilar é `nao_medido`:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh"                   # todos
@@ -120,11 +131,20 @@ Os que mais importam:
 | `0019_insecure_queue_exposed_in_api` | ERROR | fila pgmq exposta |
 | `0021_fkey_to_auth_unique` | ERROR | FK pra `auth` sem unique |
 | `0011_function_search_path_mutable` | WARN | `SECURITY DEFINER` sem `search_path` |
+| `0028_anon_security_definer_function_executable` | WARN | função `SECURITY DEFINER` que o `anon` executa pela API |
+| `0029_authenticated_security_definer_function_executable` | WARN | a mesma, executável por qualquer usuário logado |
 | `0024_rls_policy_always_true` | WARN | `USING (true)` |
 | `0007_policy_exists_rls_disabled` | INFO | policy escrita mas RLS desligado — o pior dos mundos |
 | `0008_rls_enabled_no_policy` | INFO | RLS ligado sem policy (deny-all) |
 | `0003_auth_rls_initplan` | WARN | `auth.uid()` sem `select`, reavaliado por linha |
 | `0001_unindexed_foreign_keys` / `0005_unused_index` | INFO | ver pilar 05 |
+
+O 0028 e o 0029 são os que mais enganam. Função nova em `public` nasce executável por
+`anon` e `authenticated` (default privileges do Supabase), e `revoke ... from public` não
+tira esse grant: só `from anon, authenticated` tira. Cada ocorrência é decisão registrada
+no contrato (quem chama e por quê), não ruído aceito em bloco. Antes de propor o revoke,
+veja se a função é usada dentro de uma policy: nesse caso tire só do `anon`, porque sem o
+EXECUTE do `authenticated` a policy passa a falhar para todo mundo.
 
 Sem acesso ao banco, o fallback é estático sobre `supabase/migrations/`:
 

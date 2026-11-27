@@ -52,7 +52,9 @@ jobs:
       - name: Instalar Semgrep
         run: python -m pip install semgrep==1.181.0
       - name: Rodar Semgrep (SARIF)
-        continue-on-error: true   # não trava o PR; os achados aparecem no "Security"
+        # INFORMATIVO, não é gate: com esta linha o passo nunca reprova o PR, e os achados só
+        # aparecem no "Security". Para bloquear, apague a linha e acrescente --error ao comando.
+        continue-on-error: true
         run: semgrep scan --config p/owasp-top-ten --metrics=off --sarif --output semgrep.sarif .
       - name: Subir resultado pro GitHub Security
         uses: github/codeql-action/upload-sarif@v3

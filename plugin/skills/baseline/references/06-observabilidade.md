@@ -236,10 +236,12 @@ it('segredo não aparece na saída do log', () => {
 })
 ```
 
-**O teste que fecha o pilar** — provoque um erro real em produção (um botão que
-chama uma rota inexistente, num ambiente autorizado) e cronometre: quanto tempo
+**O teste que fecha o pilar** — provoque um erro real no preview ou staging do
+contrato (um botão que chama uma rota inexistente) e cronometre: quanto tempo
 até o stack trace com a linha do código? Se não aparecer em minutos, o pilar é
-`nao_conforme` mesmo que todos os comandos acima passem.
+`nao_conforme` mesmo que todos os comandos acima passem. Em produção não se
+provoca erro: pegue o último que já aconteceu e meça o tempo até achar o stack
+trace dele. Sem preview e sem erro recente, o teste sai `nao_medido`.
 
 ## Armadilhas
 

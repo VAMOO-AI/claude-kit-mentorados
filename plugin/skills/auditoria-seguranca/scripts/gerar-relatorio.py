@@ -321,6 +321,36 @@ _ATRIB_NUA = re.compile(
     r"([^\s\"'`,;\[\]…]{8,})(?=\s|$|[,;])")
 
 
+# Credencial em PROSA: a que o auditor usou, criou ou restaurou ("senha restaurada para X",
+# "Senha temporaria das contas: X"). Nao tem `chave = valor`, entao os padroes acima nao pegam,
+# e foi assim que a senha de conta real ficou em dois relatorios de pentest (11/2026). Depois
+# da palavra, na mesma frase (ate' 60 caracteres), sai o primeiro termo com cara de senha:
+# 8+ caracteres, com letra, digito e mais simbolo ou caixa mista. Caminho de arquivo (tem "/")
+# e identificador (password_min_length) ficam de fora.
+# atalho: senha so' de letras ou so' de digitos em prosa nao e' reconhecida; rever se um relatorio trouxer uma
+_PROSA_CHAVE = re.compile(r"(?i)(?<![\w-])(?:senhas?|passwords?|passwd|credencia(?:l|is))(?![\w-])")
+_PROSA_VALOR = re.compile(r"(?<![\w/.\[])(?=[^\s/()]*[A-Za-z])(?=[^\s/()]*\d)"
+                          r"(?=[^\s/()]*(?:[^\w\s/()`\"',;:.]|[a-z][^\s/()]*[A-Z]|[A-Z][^\s/()]*[a-z]))"
+                          r"[^\s/()`\"',;…\[\]]{8,}(?![/(\w])")
+
+
+def _redigir_prosa(texto):
+    n, partes, pos = 0, [], 0
+    for m in _PROSA_CHAVE.finditer(texto):
+        if m.end() < pos:
+            continue
+        fim = m.end() + 60
+        corte = re.search(r"\n|\.\s", texto[m.end():fim])
+        if corte:
+            fim = m.end() + corte.start()
+        v = _PROSA_VALOR.search(texto, m.end(), min(fim, len(texto)))
+        if v and "REDIGID" not in v.group(0).upper():
+            partes.append(texto[pos:v.start()] + "[SEGREDO REDIGIDO]")
+            pos = v.end()
+            n += 1
+    return "".join(partes) + texto[pos:], n
+
+
 def redigir_segredos(texto):
     """Mascara segredo em trecho de codigo. Devolve (texto, quantidade_mascarada)."""
     if not texto:
@@ -334,6 +364,8 @@ def redigir_segredos(texto):
     texto, n = _ATRIB_ASPAS.subn(r"\1\2[SEGREDO REDIGIDO]\2", texto)
     total += n
     texto, n = _ATRIB_NUA.subn(r"\1[SEGREDO REDIGIDO]", texto)
+    total += n
+    texto, n = _redigir_prosa(texto)
     total += n
     return texto, total
 

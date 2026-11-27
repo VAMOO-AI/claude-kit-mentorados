@@ -166,6 +166,112 @@ if [ -f "$COLLECT" ]; then
   done
 fi
 
+# ───────────── Server Actions: o login e o formulário público do App Router não são route.ts
+# Em três pentests de 11/2026 o login, o reset de senha e o formulário de lead eram Server
+# Action, o script só lia route.ts e a cobertura dizia "medido".
+A="$TMP/actions"
+printf '{"name":"fixture"}\n' | grava "$A/package.json"
+grava "$A/src/app/login/actions.ts" <<'FIM'
+"use server";
+import { createClient } from "@/lib/supabase";
+export async function signIn(form: FormData) {
+  const supabase = await createClient();
+  return supabase.auth.signInWithPassword({ email: form.get("email"), password: form.get("password") });
+}
+FIM
+grava "$A/src/lib/supabase.ts" <<'FIM'
+export async function createClient() { return null as any; }
+FIM
+grava "$A/src/app/site/actions.ts" <<'FIM'
+'use server'
+import { admin } from "@/lib/supabase";
+export async function enviarInteresse(form: FormData) {
+  await admin.from("leads").insert({ nome: form.get("nome") });
+}
+FIM
+grava "$A/src/app/painel/actions.ts" <<'FIM'
+"use server";
+export async function salvar(form: FormData) {
+  const { data } = await supabase.auth.getUser();
+  await supabase.from("notas").insert({ dono: data.user.id });
+}
+FIM
+python3 -I "$RN" --root "$A" > "$TMP/act.tsv" 2>&1
+echo "· server actions sem limite"
+tem "$TMP/act.tsv" 04 MEDIUM rate_limit_action_auth && ok "login por Server Action sem limite é acusado" || falha "login por Server Action passou: $(cat "$TMP/act.tsv")"
+grep "rate_limit_action_auth" "$TMP/act.tsv" | grep -q "src/app/login/actions.ts" && ok "aponta o arquivo do login" || falha "não aponta src/app/login/actions.ts"
+tem "$TMP/act.tsv" 04 MEDIUM rate_limit_action_publica && ok "action pública que grava sem limite é acusada" || falha "action pública que grava passou"
+grep "rate_limit_action_publica" "$TMP/act.tsv" | grep -q "painel/actions.ts" && falha "action com sessão virou pública" || ok "action com sessão não é acusada como pública"
+grep -q "$(printf 'COBERTURA\t04\tserver_actions\tmedido\t3 ')" "$TMP/act.tsv" && ok "cobertura diz quantos arquivos 'use server' leu" || falha "cobertura de server_actions ausente: $(grep server_actions "$TMP/act.tsv")"
+
+# o mesmo projeto com o limitador chamado por RPC com nome próprio (o formato real dos fixes)
+grava "$A/src/lib/throttle.ts" <<'FIM'
+export async function tentativaBloqueada(chave: string) {
+  const { data } = await admin.rpc("login_rate_limit", { p_chave: chave });
+  return !data;
+}
+FIM
+grava "$A/src/app/login/actions.ts" <<'FIM'
+"use server";
+import { createClient } from "@/lib/supabase";
+import { tentativaBloqueada } from "@/lib/throttle";
+export async function signIn(form: FormData) {
+  if (await tentativaBloqueada("x")) return { erro: "muitas tentativas" };
+  const supabase = await createClient();
+  return supabase.auth.signInWithPassword({ email: form.get("email"), password: form.get("password") });
+}
+FIM
+grava "$A/src/app/site/actions.ts" <<'FIM'
+'use server'
+export async function enviarInteresse(form: FormData) {
+  const { data: ok } = await admin.rpc('site_lead_rate_limit', { p_ip: "x" });
+  if (!ok) return;
+  await admin.from("leads").insert({ nome: form.get("nome") });
+}
+FIM
+python3 -I "$RN" --root "$A" > "$TMP/act2.tsv" 2>&1
+echo "· server actions com limitador por RPC"
+grep -q "^ACHADO.*rate_limit_action" "$TMP/act2.tsv" && falha "limitador por rpc('<x>_rate_limit') não foi reconhecido: $(grep rate_limit_action "$TMP/act2.tsv")" || ok "rpc('login_rate_limit') e rpc('site_lead_rate_limit') contam como limite"
+grep -q "$(printf 'COBERTURA\t04\tserver_actions\tmedido')" "$TMP/act2.tsv" && ok "segue medido com o limitador" || falha "cobertura de server_actions sumiu"
+
+# ───────────── app em subpasta: `app/` do monorepo não é o diretório de rotas
+M="$TMP/mono"
+printf '{"name":"raiz"}\n' | grava "$M/package.json"
+printf '{"name":"app"}\n' | grava "$M/app/package.json"
+grava "$M/app/src/app/api/x/[id]/route.ts" <<'FIM'
+export async function GET() { return Response.json({}); }
+FIM
+python3 -I "$RN" --root "$M" > "$TMP/mono.tsv" 2>&1
+echo "· app em subpasta"
+grep -q "^ACHADO" "$TMP/mono.tsv" && falha "da raiz do monorepo saiu achado sem ter lido rota: $(grep '^ACHADO' "$TMP/mono.tsv" | head -2)" || ok "da raiz do monorepo não sai achado"
+grep "$(printf 'COBERTURA\t04\trate_limit_rota\tnao_medido')" "$TMP/mono.tsv" | grep -q -- "--root app" && ok "nao_medido diz para rodar com --root app" || falha "não aponta a raiz do app: $(grep rate_limit_rota "$TMP/mono.tsv")"
+python3 -I "$RN" --root "$M/app" > "$TMP/mono2.tsv" 2>&1
+tem "$TMP/mono2.tsv" 04 MEDIUM rate_limit_rota_publica && ok "com --root app a rota é lida" || falha "com --root app a rota não foi lida"
+
+# ───────────── collect.sh, pilar 04 e 01: ausência de pasta não é achado
+if [ -f "$COLLECT" ]; then
+  echo "· collect.sh: rate limit agregado e sourcemap"
+  col() { # col <dir> <saida> — repo git mínimo e collect dos pilares 01, 04 e 07
+    ( cd "$1" && git init -q -b main . && git config user.email t@t && git config user.name t \
+        && git config commit.gpgsign false && git add -A && git commit -qm base ) >/dev/null 2>&1
+    bash "$COLLECT" --root "$1" --out "$2" --pilar 01,04,07 >/dev/null 2>&1
+  }
+  rl() { jq -r '[.findings[] | select(.pilar=="04" and (.title|test("Nenhum rate limit")))] | length' "$1/findings.json"; }
+  col "$M" "$TMP/c-mono"
+  [ "$(rl "$TMP/c-mono")" = "0" ] && ok "raiz sem src/ nem supabase/functions: nenhum 'Nenhum rate limit'" || falha "achado de rate limit em raiz sem onde procurar"
+  jq -e '.coverage[] | select(.pilar=="04" and .check=="rate_limit" and .status=="nao_medido" and (.reason|test("--root app")))' "$TMP/c-mono/findings.json" >/dev/null 2>&1 \
+    && ok "rate_limit nao_medido aponta a subpasta do app" || falha "rate_limit não saiu nao_medido com a subpasta: $(jq -c '.coverage[] | select(.check=="rate_limit")' "$TMP/c-mono/findings.json")"
+  col "$A" "$TMP/c-act"
+  [ "$(rl "$TMP/c-act")" = "0" ] && ok "limitador por rpc('<x>_rate_limit') conta no agregado" || falha "agregado acusou 'Nenhum rate limit' com limitador por RPC"
+  S2="$TMP/semlimite"; printf '{"name":"f"}\n' | grava "$S2/package.json"; printf 'export const x = 1\n' | grava "$S2/src/a.ts"
+  mkdir -p "$S2/.next/dev/static" "$S2/.next/cache"; : > "$S2/.next/dev/static/a.js.map"; : > "$S2/.next/cache/b.map"
+  col "$S2" "$TMP/c-sem"
+  jq -e '.findings[] | select(.pilar=="04" and (.title|test("Nenhum rate limit")) and .confidence=="heuristic" and .file=="src")' "$TMP/c-sem/findings.json" >/dev/null 2>&1 \
+    && ok "sem limite: achado heuristic apontando pasta que existe" || falha "achado de rate limit não é heuristic em src: $(jq -c '.findings[] | select(.pilar=="04") | {title,confidence,file}' "$TMP/c-sem/findings.json")"
+  jq -e '[.findings[] | select(.pilar=="01" and (.title|test("Sourcemap")))] | length == 0' "$TMP/c-sem/findings.json" >/dev/null 2>&1 \
+    && ok ".map de .next/dev e .next/cache não é bundle servido" || falha "sourcemap de build de desenvolvimento virou achado"
+fi
+
 echo
 if [ $falhas -eq 0 ]; then echo "tudo verde"; exit 0; fi
 echo "$falhas falha(s)"; exit 1

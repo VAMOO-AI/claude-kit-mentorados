@@ -9,6 +9,14 @@
 # Por que não usamos o splinter.sql inteiro: ele CRIA views num schema `lint`.
 # Auditoria não faz DDL no banco auditado. Cada lint é convertido em SELECT.
 #
+# Três travas, porque isto roda SQL de terceiro no banco de produção:
+#   - o upstream é fixado num commit (SPLINTER_REF troca; revise o diff antes de subir o pin).
+#     Antes era `git pull` a cada rodada: o que entrasse no upstream rodava no banco no dia;
+#   - cada lint roda dentro de `begin transaction read only … rollback`, e o script só segue
+#     se o executor provar que a transação está read only (sonda no início);
+#   - o stderr do banco aparece no erro. Antes ia para /dev/null e o lint "falhava" sem motivo.
+# SUPABASE_DB_URL_RO (papel só de leitura) tem preferência sobre SUPABASE_DB_URL.
+#
 #   splinter.sh                 todos os lints de segurança
 #   splinter.sh 0013 0011       só os indicados
 #   splinter.sh --all           inclui os de performance
@@ -16,8 +24,12 @@
 
 set -uo pipefail
 
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/baseline/splinter"
 REPO="https://github.com/supabase/splinter.git"
+# Commit revisado em 27/11/2026. Para atualizar: leia o diff de lints/ entre os dois commits.
+REF="${SPLINTER_REF:-cc529aa9d3eeffd2e64576c7591e60b22abd205c}"
+case "$REF" in *[!0-9a-f]*|"") echo "ERRO: SPLINTER_REF tem de ser um sha de commit (hex), não branch nem tag." >&2; exit 2 ;; esac
+[ ${#REF} -eq 40 ] || { echo "ERRO: SPLINTER_REF tem de ser o sha completo (40 caracteres)." >&2; exit 2; }
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/baseline/splinter-$REF"
 SEC_ONLY=1 ; WANT=() ; LIST=0
 
 while [ $# -gt 0 ]; do
@@ -30,14 +42,18 @@ while [ $# -gt 0 ]; do
 done
 
 # ── cache
-if [ ! -d "$CACHE/.git" ]; then
-  echo "→ baixando lints (uma vez) em $CACHE" >&2
-  mkdir -p "$(dirname "$CACHE")"
-  git clone --depth 1 -q "$REPO" "$CACHE" 2>/dev/null || {
-    echo "ERRO: não consegui baixar $REPO. Sem rede? O pilar 02 fica nao_medido." >&2
+# Um diretório por commit, e nunca `pull`: o que está em cache é o commit pedido ou nada.
+if [ "$(git -C "$CACHE" rev-parse HEAD 2>/dev/null)" != "$REF" ]; then
+  echo "→ baixando lints no commit ${REF:0:12} (uma vez) em $CACHE" >&2
+  rm -rf "$CACHE"; mkdir -p "$CACHE"
+  { git -C "$CACHE" init -q && git -C "$CACHE" fetch -q --depth 1 "$REPO" "$REF" \
+      && git -C "$CACHE" -c advice.detachedHead=false checkout -q FETCH_HEAD; } 2>"$CACHE.err" || {
+    echo "ERRO: não consegui baixar $REPO no commit $REF. Sem rede? O pilar 02 fica nao_medido." >&2
+    head -3 "$CACHE.err" >&2; rm -rf "$CACHE" "$CACHE.err"
     exit 3; }
-else
-  git -C "$CACHE" pull -q --ff-only 2>/dev/null || true
+  rm -f "$CACHE.err"
+  [ "$(git -C "$CACHE" rev-parse HEAD 2>/dev/null)" = "$REF" ] || {
+    echo "ERRO: o commit baixado não é $REF." >&2; rm -rf "$CACHE"; exit 3; }
 fi
 
 LINTS="$CACHE/lints"
@@ -58,23 +74,55 @@ fi
 # Gravamos o SQL num temporário e passamos o caminho — funciona nas duas
 # interfaces. O arquivo vai para fora do repo e é apagado no fim.
 TMPSQL="$(mktemp "${TMPDIR:-/tmp}/splinter-XXXXXX.sql")"
-cleanup() { rm -f "$TMPSQL"; }
+TMPERR="$(mktemp "${TMPDIR:-/tmp}/splinter-XXXXXX.err")"
+cleanup() { rm -f "$TMPSQL" "$TMPERR"; }
 trap cleanup EXIT
 
-run_sql() { # lê o SQL de stdin
-  cat > "$TMPSQL"
-  if [ -x ./scripts/db-query.sh ]; then
-    ./scripts/db-query.sh --psql -f "$TMPSQL" 2>/dev/null \
-      || ./scripts/db-query.sh -f "$TMPSQL" 2>/dev/null
-  elif [ -n "${SUPABASE_DB_URL:-}" ]; then
-    psql "$SUPABASE_DB_URL" -X -q -t -A -F '|' -f "$TMPSQL" 2>/dev/null
-  else return 97; fi
+# run_sql lê UM comando de stdin (sem `;` no fim) e o roda dentro de uma transação read only
+# que termina em rollback. O `;` do meio do lote é nosso, não do lint: lint com mais de um
+# comando não passa (ver `um_comando`). stderr fica em $TMPERR.
+DBURL="${SUPABASE_DB_URL_RO:-${SUPABASE_DB_URL:-}}"
+EXEC=""
+run_sql() {
+  { printf 'begin transaction read only;\n'; cat; printf '\n;\nrollback;\n'; } > "$TMPSQL"
+  : > "$TMPERR"
+  case "$EXEC" in
+    psql)     psql "$DBURL" -X -q -t -A -F '|' -v ON_ERROR_STOP=1 -f "$TMPSQL" 2>"$TMPERR" ;;
+    dbq-psql) ./scripts/db-query.sh --psql -f "$TMPSQL" 2>"$TMPERR" ;;
+    dbq)      ./scripts/db-query.sh -f "$TMPSQL" 2>"$TMPERR" ;;
+    *) return 97 ;;
+  esac
 }
-if ! printf 'select 1;\n' | run_sql >/dev/null 2>&1; then
-  echo "ERRO: sem acesso ao banco (./scripts/db-query.sh ou \$SUPABASE_DB_URL)." >&2
+# A sonda escolhe o executor: só serve o que devolve o SELECT do meio do lote E mostra a
+# transação read only. Executor que só devolve o último comando (o rollback) não prova nada,
+# e rodar sem a transação seria aplicar SQL de terceiro com permissão de escrita.
+cand=""
+[ -n "$DBURL" ] && command -v psql >/dev/null 2>&1 && cand="psql"
+[ -x ./scripts/db-query.sh ] && cand="$cand dbq-psql dbq"
+sonda_err=""
+for e in $cand; do
+  EXEC="$e"
+  if printf "select 'splinter-ro-' || current_setting('transaction_read_only')" | run_sql 2>/dev/null \
+       | grep -q 'splinter-ro-on'; then break; fi
+  sonda_err="$sonda_err\n  $e: $(head -2 "$TMPERR" | tr '\n' ' ')"
+  EXEC=""
+done
+if [ -z "$EXEC" ]; then
+  echo "ERRO: sem acesso read only ao banco." >&2
+  if [ -z "$cand" ]; then
+    echo "Faltam psql com \$SUPABASE_DB_URL_RO (ou \$SUPABASE_DB_URL) e ./scripts/db-query.sh." >&2
+  else
+    printf 'Nenhum executor devolveu o SELECT de dentro da transação read only:%b\n' "$sonda_err" >&2
+    echo "Use psql com \$SUPABASE_DB_URL_RO: ele imprime cada comando do lote." >&2
+  fi
   echo "Sem isto o pilar 02 é nao_medido — não é 'conforme'." >&2
   exit 97
 fi
+
+um_comando() { # o corpo do lint é um comando só? (ignora `;` dentro de aspas simples e de comentário)
+  printf '%s' "$1" | sed -E "s/--.*$//; s/'[^']*'//g" | grep -q ';' && return 1
+  return 0
+}
 
 # ── seleção
 files=()
@@ -91,7 +139,7 @@ else
 fi
 [ ${#files[@]} -gt 0 ] || { echo "ERRO: nenhum lint casou com '${WANT[*]:-}'." >&2; exit 2; }
 
-echo "# splinter — ${#files[@]} lints · SELECT puro, sem DDL"
+echo "# splinter — ${#files[@]} lints · commit ${REF:0:12} · transação read only ($EXEC), sem DDL"
 total=0 ; falhou=0
 
 for f in "${files[@]}"; do
@@ -111,6 +159,9 @@ for f in "${files[@]}"; do
   #     linha 1 e o sed passa a procurar a próxima ocorrência a partir da 2.
   sql="$(sed -E '/create[[:space:]]+view[[:space:]]+lint\./d' "$f" 2>/dev/null | sed -E 's/;[[:space:]]*$//')"
   case "$sql" in *[!$' \t\n']*) : ;; *) printf '\n## %s — não consegui extrair o SELECT (nao_medido)\n' "$name"; falhou=$((falhou+1)); continue ;; esac
+  if ! um_comando "$sql"; then
+    printf '\n## %s — mais de um comando no arquivo: não roda (nao_medido)\n' "$name"; falhou=$((falhou+1)); continue
+  fi
 
   # Projeta só nível e detalhe. A view do lint devolve 10 colunas — description e
   # remediation são parágrafos inteiros, repetidos em toda linha, e tornam a
@@ -118,7 +169,7 @@ for f in "${files[@]}"; do
   out="$(printf 'with l as (\n%s\n) select level || %s || detail from l;\n' "$sql" "' · '" | run_sql)"
   rc=$?
   if [ $rc -ne 0 ]; then
-    printf '\n## %s — ERRO ao executar (nao_medido)\n' "$name"
+    printf '\n## %s — ERRO ao executar (nao_medido): %s\n' "$name" "$(head -2 "$TMPERR" | tr '\n' ' ')"
     falhou=$((falhou+1)); continue
   fi
 
@@ -126,11 +177,11 @@ for f in "${files[@]}"; do
   # de cabeçalho do wrapper contaminariam um grep -c.
   n="$(printf '%s' "$out" | grep -oE '\(([0-9]+) rows?\)' | tail -1 | grep -oE '[0-9]+')"
   if [ -z "$n" ]; then
-    n="$(printf '%s' "$out" | grep -vE '^(lint:|  ->|psql:|-+\+|.*\| *$)' | grep -c . 2>/dev/null; true)"
+    n="$(printf '%s' "$out" | grep -vE '^(lint:|  ->|psql:|-+\+|.*\| *$|BEGIN$|ROLLBACK$)' | grep -c . 2>/dev/null; true)"
   fi
   if [ "${n:-0}" -gt 0 ]; then
     printf '\n## %s — %s ocorrência(s)\n' "$name" "$n"
-    printf '%s\n' "$out" | grep -vE '^(lint:|  ->|psql:)' | head -25
+    printf '%s\n' "$out" | grep -vE '^(lint:|  ->|psql:|BEGIN$|ROLLBACK$)' | head -25
     total=$((total + n))
   fi
 done

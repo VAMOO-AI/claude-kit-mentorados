@@ -11,7 +11,15 @@ ls package.json requirements.txt pyproject.toml go.mod Gemfile composer.json Car
 [ -f package.json ] && cat package.json | head -60
 ls -d supabase/ prisma/ drizzle/ migrations/ app/ pages/ src/ api/ 2>/dev/null
 ls docker-compose*.yml docker-compose*.yaml compose.yaml compose.yml Dockerfile* .github/workflows/ helm/ terraform/ vercel.json 2>/dev/null
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/raizes.sh"   # APP <pasta> · MIGRATIONS <pasta> <n .sql>
 ```
+
+**Raízes antes de tudo.** O `raizes.sh` lista toda pasta com `package.json` (`APP`) e toda
+pasta `migrations/`, `sql/` ou `schemas/` com `.sql` (`MIGRATIONS`), onde quer que estejam.
+App em subpasta: os greps das categorias rodam de dentro dela, e a nota metodológica diz
+quais raízes foram varridas. Migrations fora de `supabase/migrations` (por exemplo
+`src/db/migrations`): o `familias-rpc.py` e o `quem-entra.py` já as leem; nos greps escritos
+com `supabase/migrations`, troque pela pasta listada.
 
 Preencha, e **escreva na nota metodológica do PDF**:
 

@@ -201,6 +201,45 @@ jq -e '[.findings[] | select(.pilar=="02" and .severity=="HIGH" and (.detail | t
   && ok "--diff: a migration untracked com espaço e acento vira finding" \
   || falha "--diff: a tabela de '003 nova ação.sql' não virou finding ($COB)"
 
+echo "== migrations fora de supabase/migrations: a pasta é descoberta, não fixa =="
+# Em três pentests de 11/2026 as migrations moravam em src/db/migrations, src/sql e
+# <app>/supabase/migrations. O pilar 02 saía nao_medido e a classe mais grave passava calada.
+for pasta in src/db/migrations src/sql app/supabase/migrations; do
+  nome="desc-$(printf '%s' "$pasta" | tr '/' '-')"
+  repo "$nome"
+  arquivo "$pasta/001_exposta.sql" 'create table public.exposta_desc (id int);'
+  roda "$nome"
+  case "$COB" in
+    medido*"$pasta"*) ok "$pasta é lida: $COB" ;;
+    *) falha "$pasta não foi lida: ${COB:-<ausente>}" ;;
+  esac
+  jq -e '[.findings[] | select(.pilar=="02" and .severity=="HIGH" and (.detail | test("exposta_desc")))] | length > 0' \
+       "$TMP/out-$nome/findings.json" >/dev/null 2>&1 \
+    && ok "$pasta: a tabela sem RLS vira finding" || falha "$pasta: a tabela sem RLS não virou finding"
+done
+
+echo "== .sql de teste e .sql solto não são migration =="
+repo desc-ruido
+arquivo src/sql/tests/001_caso.test.sql 'create table public.so_de_teste (id int);'
+arquivo docs/consulta.sql 'create table public.so_de_doc (id int);'
+roda desc-ruido
+case "$COB" in
+  nao_medido*"RLS não medido"*) ok "pasta de teste e .sql solto não contam: $COB" ;;
+  *) falha "tomou .sql de teste ou de doc por migration: ${COB:-<ausente>}" ;;
+esac
+
+echo "== pilar 05: sem pasta de migration, índice é nao_medido, não 'medido: 0' =="
+repo idx-sem-pasta
+bash "$SCRIPT" --root "$R" --out "$TMP/out-idx" --pilar 05,07 >/dev/null 2>&1
+I="$(jq -r '.coverage[] | select(.pilar=="05" and .check=="indices") | "\(.status) | \(.reason)"' "$TMP/out-idx/findings.json" 2>/dev/null)"
+case "$I" in nao_medido*) ok "indices: $I" ;; *) falha "indices sem pasta: ${I:-<ausente>} (esperado nao_medido)" ;; esac
+repo idx-src-sql
+arquivo src/sql/001.sql 'create table public.t (id int); alter table public.t enable row level security;
+create index t_id on public.t (id);'
+bash "$SCRIPT" --root "$R" --out "$TMP/out-idx2" --pilar 05,07 >/dev/null 2>&1
+I="$(jq -r '.coverage[] | select(.pilar=="05" and .check=="indices") | "\(.status) | \(.reason)"' "$TMP/out-idx2/findings.json" 2>/dev/null)"
+case "$I" in medido*"1 CREATE INDEX"*src/sql*) ok "indices: $I" ;; *) falha "indices em src/sql: ${I:-<ausente>} (esperado medido, 1 CREATE INDEX, src/sql)" ;; esac
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
 exit "$falhas"
