@@ -10,6 +10,20 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.105.0] — 2026-11-26
+
+### ship
+
+- Antes do push, um grep procura marcador de conflito nas linhas adicionadas, que o tsc não vê em `.md`, `.sql`, `.json` nem dentro de template literal. A regra de merge ganha "nunca `gh pr merge --auto`".
+
+### verificacao
+
+- Runner que rodou 0 testes, arquivo mudado sem teste ou run interrompido por timeout passam a valer "não medido", não verde.
+
+### grilling
+
+- O porquê que falta vira a primeira pergunta, aberta e sozinha. É a única exceção ao default proposto.
+
 ## [0.104.0] — 2026-11-26
 
 ### auditoria-seguranca

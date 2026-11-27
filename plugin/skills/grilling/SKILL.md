@@ -52,6 +52,11 @@ Regras do loop:
    mudar depois — pior que o vaivém.
 2. **Para cada pergunta, dê a sua recomendação.** Nunca pergunte "aberto" —
    pergunte com um default proposto ("eu faria X porque Y — concorda?").
+   **Exceção única: o porquê.** Se o pedido não diz *por que* a pessoa quer
+   aquilo e nada no projeto responde, essa é a primeira pergunta, sozinha e
+   aberta, sem opções prontas. O motivo muda todos os ramos seguintes, e
+   uma lista de opções faz a pessoa escolher a mais parecida em vez de dizer
+   o motivo real. Com o porquê na mão, volte ao default proposto.
 3. **Fato → busque; decisão → pergunte.** Se dá pra descobrir explorando o
    código (qual arquivo de rota, que tipo, existe tal função), NÃO pergunte:
    faça grep/read e traga o fato. As *decisões* são do usuário — ponha cada
