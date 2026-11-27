@@ -4,6 +4,9 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    # O branch padrão é o stable (canal dos mentorados) e só avança por promoção em
+    # fast-forward. Sem isto o PR do dependabot cai no stable e trava a promoção seguinte.
+    target-branch: main
     schedule:
       interval: weekly
     commit-message:
