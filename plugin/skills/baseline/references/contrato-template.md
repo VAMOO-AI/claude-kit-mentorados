@@ -84,7 +84,8 @@ não saber qual dos seus gates é.
 |---|---|---|---|---|---|---|---|---|
 | EX-01 | | | | | | | <YYYY-MM-DD> | <comando que mostra o estado aceito> |
 
-`revisar_em` é obrigatório e é data completa: no máximo 6 meses depois de `Aceito em`, e
+`revisar_em` é obrigatório e é data completa (contrato antigo com a coluna "Revisar em" e
+mês sem dia vale até o fim do mês): no máximo 6 meses depois de `Aceito em`, e
 antes disso se o motivo depende de algo com data (contrato, migração prevista, fim de
 plano). Passou a data, a exceção vence: volta como finding com a severidade original e a
 nota de que venceu, até ser revalidada. Revalidar é rodar de novo a `Prova`, conferir que

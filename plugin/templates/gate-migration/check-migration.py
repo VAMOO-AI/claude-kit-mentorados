@@ -193,7 +193,7 @@ def main(argv):
         if not pastas:
             nao_medido("nenhuma pasta de migration achada pelo raizes.sh (migrations/, sql/ ou schemas/ com .sql)")
         if desde:
-            r = subprocess.run(["git", "-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=A",
+            r = subprocess.run(["git", "-c", "core.quotePath=false", "diff", "--relative", "--name-only", "--diff-filter=A",
                                 f"{desde}...HEAD", "--", *pastas], capture_output=True, text=True)
             if r.returncode != 0:
                 nao_medido(f"git diff contra {desde} falhou: {r.stderr.strip()}")

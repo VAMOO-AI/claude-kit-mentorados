@@ -386,6 +386,20 @@ alter table public.nova enable row level security;'
   gate "$R" --desde "$BASE_G"
   [ "$GEXIT" -eq 1 ] && ok "--desde: migration nova errada reprova" || falha "--desde deixou passar a nova errada ($GEXIT): $GOUT"
 
+  # monorepo: o CI roda com working-directory na pasta do app. O raizes.sh devolve caminho
+  # relativo a ela e o git diff, relativo à raiz do repo; sem casar os dois, tudo era filtrado
+  # e o gate dizia "nenhuma migration nova" com a ruim no diff.
+  repo gate-mono
+  arquivo app/package.json '{"name":"app"}'
+  arquivo app/supabase/migrations/001_ok.sql 'create table public.ok (id int);
+alter table public.ok enable row level security;'
+  BASE_M="$(git -C "$R" rev-parse HEAD)"
+  arquivo app/supabase/migrations/002_ruim.sql 'create table public.ruim_mono (id int);'
+  gate "$R/app" --desde "$BASE_M"
+  if [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -q 'ruim_mono'; then
+    ok "--desde de dentro da pasta do app (monorepo) acha a migration nova"
+  else falha "--desde na subpasta deu falso verde ($GEXIT): $GOUT"; fi
+
   repo gate-vazio
   gate "$R"
   if [ "$GEXIT" -eq 2 ] && printf '%s' "$GOUT" | grep -q 'NÃO MEDIDO'; then

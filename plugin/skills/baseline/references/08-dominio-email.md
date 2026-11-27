@@ -87,3 +87,5 @@ abra cada um (`dig +short TXT <dominio-do-include>`) e some até o fim. Acima de
 | Inventário de subdomínios com centenas de nomes que respondem | Registro `*` apontando para a borda: todo rótulo responde (`DEPLOYMENT_NOT_FOUND` na Vercel). Apague o wildcard que ninguém usa |
 | SPF "certo" e e-mail legítimo caindo no spam | Mais de 10 consultas (`permerror`), dois registros `v=spf1` ou remetente novo fora do `include` |
 | DMARC em `p=none` há um ano | Sem data no contrato, o passo para `quarantine` nunca vem. Cada passo tem data e dono |
+
+Fontes: RFC 7208 (SPF, §4.5 registro duplicado e §4.6.4 limite de 10 consultas, ambos `permerror`), RFC 7489 (DMARC, §6.3 `rua` e `sp`), RFC 7505 (MX nulo, §3) e RFC 8659 (CAA, §4.4 `iodef`), lidas no rfc-editor.org em 27/11/2026.

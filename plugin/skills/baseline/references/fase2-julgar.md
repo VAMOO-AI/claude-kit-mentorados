@@ -7,8 +7,10 @@ Lido na fase 2 do Modo AUDITAR, antes de julgar o `findings.json` e de escrever 
 O collect emite fatos, não vereditos. Você aplica, nesta ordem:
 
 1. **Exceção aceita** no contrato com `revisar_em` no futuro → o finding sai do
-   report principal e vai pra seção "Exceções aplicadas", com a data. `revisar_em`
-   no passado, vazio ou sem dia → a exceção venceu: o finding volta com a
+   report principal e vai pra seção "Exceções aplicadas", com a data. A coluna
+   "Revisar em" de contrato antigo é o mesmo campo, e `YYYY-MM` vale até o último
+   dia do mês (o report sugere completar a data). `revisar_em` no passado, ausente
+   ou vazio → a exceção venceu: o finding volta com a
    severidade original e a nota "exceção EX-NN venceu em <data>", e continua
    achado até alguém revalidar (rodar a `Prova` da exceção de novo e gravar datas
    novas, como manda o `contrato-template.md`). Não renove a data por conta
