@@ -88,14 +88,34 @@ O `\b` antes de `Template(` não é decoração: sem ele o padrão casa `renderM
 servidor (INFO) de `$json` vindo de webhook (HIGH): é leitura, não reporte toda expressão
 como HIGH.
 
-**C1.6 — SSRF.** `fetch`, `axios`, `requests.get` ou `curl` com URL vinda do request:
-webhook configurável, importador "cole a URL", proxy de imagem. Lista de hosts permitidos
-**antes** do fetch é a defesa; bloquear `169.254.169.254` não é (DNS rebinding, redirect).
-Confira `redirect: 'follow'`: permitir a primeira URL não cobre o destino do 302. Function
-do servidor é o lugar, porque roda com os segredos no ambiente.
+**C1.6 — SSRF.** `fetch`, `axios`, `requests.get` ou `curl` com URL que o servidor não
+escolheu: webhook configurável, importador "cole a URL", proxy de imagem, anexo de mídia
+que chega no payload de um provedor. A pergunta é de onde a URL nasce, não o nome da
+variável. Function do servidor é o lugar, porque roda com os segredos no ambiente.
+
+A defesa que não quebra integração é bloquear **destino privado pelo IP resolvido**, a
+mesma que a A3 da `auditoria-seguranca` cobra (depois do DNS e depois do redirect):
+
+1. só `https:` (`http:` só se o produto exige);
+2. resolva o host (todas as respostas A e AAAA) e recuse se algum IP cair em loopback,
+   rede privada, link-local, CGNAT, ULA ou IPv4 mapeado em IPv6
+   (`0.0.0.0/8 10/8 100.64/10 127/8 169.254/16 172.16/12 192.168/16 ::1 fc00::/7 fe80::/10 ::ffff:0:0/96`).
+   Comparar o texto do host com `169.254.169.254` não é isso: DNS rebinding e redirect
+   passam;
+3. `redirect: 'manual'`, e cada `Location` volta ao passo 1, com teto de saltos. O padrão
+   do `fetch` é seguir: permitir a primeira URL não cobre o destino do 302;
+4. teto de bytes lidos do corpo (o `content-length` é do alvo, não vale como teto).
+
+Allowlist de host só quando o conjunto de hosts foi **medido** (log ou coluna com a URL
+de origem, por mais de um ciclo do provedor). Provedor de mídia redireciona para storage
+ou CDN próprio que muda de nome: allowlist chutada faz a mídia sumir sem erro. Sem a
+medição, a sugestão é o bloqueio por faixa, e a allowlist fica como passo seguinte, depois
+de gravar a origem (`skills/baseline/references/veredito.md`, "Antes de propor conserto
+que restringe").
 
 ```bash
 grep -rnE 'fetch\((url|targetUrl|body\.|payload\.|[a-zA-Z_]+\.url)' supabase/functions/ src/ --include='*.ts' --include='*.tsx' 2>/dev/null
+# `follow` escrito; o caso comum é o padrão (nenhum `redirect:` no arquivo), que só a leitura acha
 grep -rn "redirect: *'follow'" supabase/functions/ --include='*.ts' 2>/dev/null
 # a forma indireta (`const alvo = payload.webhook; fetch(alvo)`) escapa do primeiro:
 grep -rnB3 'fetch(' supabase/functions/ --include='*.ts' 2>/dev/null | grep -E '(body|payload)\.'

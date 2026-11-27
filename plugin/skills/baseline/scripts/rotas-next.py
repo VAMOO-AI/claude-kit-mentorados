@@ -390,8 +390,11 @@ if fontes_h:
                    "Cross-Origin-Resource-Policy: same-origin. Teste o login social antes de ligar.")
         if re.search(r"strict-transport-security", txt, re.I) and not re.search(r"preload", txt, re.I):
             achado("01", "INFO", "hsts_sem_preload", fontes_h[0], "HSTS declarado sem preload",
-                   "Sem preload, a primeira visita ainda pode sair em HTTP. Só some preload depois de "
-                   "garantir HTTPS em todos os subdomínios (includeSubDomains), e envie para hstspreload.org.")
+                   "Sem preload, a primeira visita ainda pode sair em HTTP. O preload exige "
+                   "includeSubDomains, e os dois trancam no navegador, pelo max-age inteiro, todo "
+                   "subdomínio sem certificado: confira antes TLS válido na 443 de cada subdomínio que "
+                   "resolve (cpanel., webmail., mail. de hospedagem compartilhada costumam falhar; o "
+                   "comando está em references/01-frontend.md). Só então envie para hstspreload.org.")
         cobertura("01", "headers_isolamento", "medido", "lidos: " + ", ".join(fontes_h))
     else:
         cobertura("01", "headers_isolamento", "nao_medido",

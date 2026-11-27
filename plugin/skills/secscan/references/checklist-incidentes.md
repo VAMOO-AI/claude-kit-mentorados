@@ -61,8 +61,9 @@ Sem item aqui: os sete grupos estão em `c1-injecao.md`, e nenhum tem incidente 
 ### C3.1 Existe mais de uma policy PERMISSIVE do mesmo comando para o mesmo papel na mesma tabela?
 - regras permissivas **se somam com OR**: a mais frouxa vence e torna a restritiva decorativa. Vale pra RLS, IAM e qualquer motor de policy aditivo. Agrupe as regras por (recurso, comando, papel) e olhe todo grupo com mais de uma.
 
-### C3.2 Toda view que lê tabela protegida foi criada com o modo invoker?
-- view no Postgres roda por default como **definer** e **bypassa a RLS da tabela base**; o equivalente noutros bancos é qualquer objeto derivado que herda o privilégio do criador. Enumere as views e confirme a opção explícita.
+### C3.2 Toda view legível pelo browser que roda como definer tem a porta dentro da definição?
+- view no Postgres roda por default como **definer** e **bypassa a RLS da tabela base**; o equivalente noutros bancos é qualquer objeto derivado que herda o privilégio do criador. Isso é legítimo quando a view existe para expor parte de uma tabela que o usuário não lê (status sem o segredo, agregado de BI). O achado é a view definer **sem predicado de porta** no `WHERE` (papel, módulo, dono) quando as irmãs têm; `comment on view` explica o definer, não quem lê. Enumere as views, leia a definição de cada uma e confira os grants de escrita para `anon` e `authenticated`.
+- **não receite "troque para invoker" sem medir.** Com `security_invoker = true` a view passa a obedecer a RLS da tabela base: se a base nega tudo ao papel, a view zera para todos. Antes de sugerir, conte o que a view devolve hoje para cada papel (com denominador: `skills/baseline/references/veredito.md`, regra 3). O conserto que não depende da medição é o predicado de porta dentro da view; invoker só junto com a policy equivalente na tabela base.
 
 ### C3.3 Acesso público a dado de negócio passa só por função controlada, nunca por regra de leitura para o papel anônimo?
 - regra de SELECT para anônimo numa tabela de negócio é **enumeração** via a API REST automática: o cliente pede um id, o atacante pede a coleção. O padrão seguro é uma função que recebe o identificador e devolve só o registro.

@@ -109,6 +109,12 @@ aplica é o dono do projeto, e é aplicando que se aprende.
   `Comentario.tsx:97` pelo import de `src/lib/sanitize.ts`", "selecione colunas
   explícitas no lugar de `select('*')` em `useUsuarios.ts:20`".
 - **Passo a passo numerado**, o fix correto mais simples em vez do elegante.
+- **Conserto que restringe mede antes o que vai cortar.** Allowlist (host, tipo de arquivo,
+  origem, domínio de CSP), view trocada para invoker, guarda que reescreve valor e limite
+  novo mudam comportamento: a sugestão traz a consulta ou o log do que produção usa hoje e
+  os ramos que o conserto atinge, ou a variante que não depende da medição. Sem isso é
+  `heuristic`. A regra inteira está em `skills/baseline/references/veredito.md`, "Antes de
+  propor conserto que restringe".
 - **Como prevenir a categoria** — o que passa a ser rodado sempre pra essa classe
   não voltar.
 - **Gate que trava a regressão**, quando existir: o comando que **falha hoje e
