@@ -3,51 +3,51 @@
   "upstreams": [
     {
       "repo": "obra/superpowers",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v7.0.1",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "v7.0.2",
       "tag": "^v",
       "commits_minimo": 0,
-      "que_trouxemos": "skill-pressure-test (writing-skills); gate de tamanho do SKILL.md (7.0.1, corte da compactação). Plugin e persona descartados."
+      "que_trouxemos": "skill-pressure-test (writing-skills); gate de tamanho do SKILL.md (7.0.1). 7.0.2: na grilling, o porquê que falta vira a 1ª pergunta, aberta. Plugin e persona descartados."
     },
     {
       "repo": "garrytan/gstack",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v1.91.242.0",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "v1.104.1.0",
       "tag": "",
       "commits_minimo": 40,
-      "que_trouxemos": "Checklist de migration (data-migration). O CHANGELOG anda sem tag: a contagem de commits é o sinal."
+      "que_trouxemos": "Checklist de migration (data-migration). 1.104: grep de marcador de conflito antes do push e nunca --auto no merge (ship); verde com 0 testes rodados não é verde (verificacao). Descartados: trava de causa raiz por hook e 'Use when'/'Done means' (o gstack cortou o /investigate e a trava na 1.98 por eval sem ganho; reescrita de descrição sozinha deu 0 de 80). Aberto: A/B do secscan contra pedido simples. O CHANGELOG anda sem tag: a contagem de commits é o sinal."
     },
     {
       "repo": "DietrichGebert/ponytail",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v5.3.2",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "v5.3.3",
       "tag": "^v",
       "commits_minimo": 0,
-      "que_trouxemos": "Convenção // atalho: <teto>; <quando revisitar> (ponytail-debt). Persona always-on descartada."
+      "que_trouxemos": "Convenção // atalho: <teto>; <quando revisitar> (ponytail-debt). 5.3.3 só mexe na band: nada a trazer. Persona always-on descartada."
     },
     {
       "repo": "JuliusBrussee/caveman",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v4.0.1",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "v4.2.0",
       "tag": "^v",
       "commits_minimo": 0,
-      "que_trouxemos": "Nada. Descartado (CLI que mexe no settings, roteamento pela Cloud, telemetria ligada). Só reabrir se mudar isso."
+      "que_trouxemos": "Nada. Descartado (CLI que mexe no settings, roteamento por proxy, telemetria). A 4.2 reforça isso: o wrap --codemode grava overlay nos configs dos hosts. Só reabrir se mudar isso."
     },
     {
       "repo": "safishamsi/graphify",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "v0.9.97",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "v0.9.121",
       "tag": "^v",
       "commits_minimo": 0,
-      "que_trouxemos": "CLI fixado em graphifyy==0.8.36, recorte affected/explain; skill fora (traz 'MANDATORY'). Reavaliar o pin por segurança e pelo affected ambíguo."
+      "que_trouxemos": "CLI fixado em graphifyy[sql]==0.9.121 (era 0.8.36), recorte affected/explain, sempre com GRAPHIFY_NO_AUTO_REFRESH=1. Sem [sql] o SQL some só com warning. Skill fora (ainda traz 'MANDATORY'). Guia: docs/historico/graphify-avaliacao-2026-08-28.md do kit do time."
     },
     {
       "repo": "anthropics/skills",
-      "lido_em": "2026-10-28T15:00:00Z",
-      "lido_versao": "-",
+      "lido_em": "2026-11-27T01:33:50Z",
+      "lido_versao": "e4bb5d9",
       "tag": "^v",
       "commits_minimo": 1,
-      "que_trouxemos": "Nada vendorizado: o host entrega skill-creator, mcp-builder, claude-api e frontend-design; Office é source-available."
+      "que_trouxemos": "Nada vendorizado: o host entrega skill-creator, mcp-builder, claude-api, frontend-design e as de Office (Apache 2.0 desde 06/11)."
     }
   ]
 }

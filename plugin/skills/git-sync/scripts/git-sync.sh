@@ -121,11 +121,57 @@ if ! git fetch --prune origin 2>&1; then
   FETCH_OK=0
   echo "WARN: fetch failed — continuing with last-known remote refs"
 fi
+# Refspec estreito (clone --single-branch, ou fetch só da main): o fetch não traz as outras
+# branches e o --prune não limpa as cópias delas. origin/<b> local pode ser uma branch que o
+# GitHub apagou há semanas, e o relatório mandava `git push origin --delete` numa ref que não
+# existe (25/11/2026, no clone do kit). Com refspec estreito, a lista viva vem do ls-remote.
+REFSPEC_TODAS=0
+git config --get-all remote.origin.fetch 2>/dev/null | grep -qxF '+refs/heads/*:refs/remotes/origin/*' && REFSPEC_TODAS=1
+VIVAS=""; VIVAS_OK=1
+if [[ "$REFSPEC_TODAS" -eq 0 ]]; then
+  VIVAS="$(GIT_TERMINAL_PROMPT=0 git ls-remote --heads origin 2>/dev/null | sed -n 's#^[0-9a-f]*[[:space:]]*refs/heads/##p')" || VIVAS_OK=0
+  [[ "$FETCH_OK" -eq 1 ]] || VIVAS_OK=0
+  echo "refspec:  $(git config --get-all remote.origin.fetch 2>/dev/null | tr '\n' ' ')— o fetch não atualiza as outras origin/*; a lista de branches vivas vem do ls-remote$([[ "$VIVAS_OK" -eq 1 ]] || printf ' (falhou: nenhuma confirmada)')"
+fi
+# 0 = existe no GitHub (ou o refspec mantém a cópia em dia) · 1 = cópia local velha · 2 = não deu para conferir
+remota_viva() {
+  [[ "$REFSPEC_TODAS" -eq 1 ]] && return 0
+  [[ "$VIVAS_OK" -eq 1 ]] || return 2
+  printf '%s\n' "$VIVAS" | grep -qxF -- "$1" && return 0
+  return 1
+}
 hr
 
+# Precedência: --default-branch > git config git-sync.defaultBranch > origin/HEAD > main/master.
+#
+# A default do GitHub nem sempre é onde o trabalho entra. No kit, o origin/HEAD é o `stable`,
+# o canal que o marketplace do mentorado segue e que só anda por promoção, e todo PR vai para a
+# `main`. Medido contra o stable, o relatório errava tudo: branch mergeada na main saía "não
+# mergeado em origin/stable", branch atrás da main não avisava e o --voltar-main levava o clone
+# para o canal. Com o origin/HEAD = X ancestral de origin/main (ou master), a base passa a ser a
+# main e X vira CANAL: protegido como a default (nunca candidato a cleanup nem a --delete,
+# nunca "atrás de origin/main"). X à frente da main (git flow, develop) continua a default.
+# atalho: "canal" = ancestral da main no momento do fetch; se o stable um dia divergir, a base volta a ser ele, e o cabeçalho mostra o motivo; rever se aparecer repo com canal que diverge de propósito
+CANAL_BRANCH=""
+DEFAULT_NOTA=""
+[[ -n "$DEFAULT_BRANCH" ]] || DEFAULT_BRANCH="$(git config --get git-sync.defaultBranch 2>/dev/null || true)"
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+  if [[ -n "$DEFAULT_BRANCH" ]]; then
+    for _w in main master; do
+      [[ "$DEFAULT_BRANCH" == "$_w" ]] && break
+      if git rev-parse --verify -q "refs/remotes/origin/$_w" >/dev/null 2>&1 \
+         && git merge-base --is-ancestor "origin/$DEFAULT_BRANCH" "origin/$_w" 2>/dev/null; then
+        CANAL_BRANCH="$DEFAULT_BRANCH"; DEFAULT_BRANCH="$_w"
+        DEFAULT_NOTA=" — origin/HEAD = $CANAL_BRANCH, ancestral de origin/$_w: o trabalho entra na $_w e $CANAL_BRANCH fica protegida (outra base: git config git-sync.defaultBranch <branch>)"
+        break
+      fi
+    done
+    unset _w
+  fi
 fi
+# base ou canal: as duas ficam fora de cleanup, de --delete e do aviso "atrás de"
+eh_base_ou_canal() { [[ "$1" == "$DEFAULT_BRANCH" || ( -n "$CANAL_BRANCH" && "$1" == "$CANAL_BRANCH" ) ]]; }
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   if git rev-parse --verify origin/main >/dev/null 2>&1; then
     DEFAULT_BRANCH=main
@@ -141,7 +187,7 @@ if ! git rev-parse --verify "$ORIGIN_DEFAULT" >/dev/null 2>&1; then
   exit 1
 fi
 DEFAULT_SHA="$(git rev-parse --short "$ORIGIN_DEFAULT")"
-echo "default:  $DEFAULT_BRANCH ($DEFAULT_SHA = $ORIGIN_DEFAULT)"
+echo "default:  $DEFAULT_BRANCH ($DEFAULT_SHA = $ORIGIN_DEFAULT)$DEFAULT_NOTA"
 
 # Team auto-detect: >=2 autores distintos em origin/<default> nos últimos 30 dias.
 # Conta por NOME, não por e-mail: uma pessoa só que commita ora do e-mail pessoal, ora do
@@ -432,7 +478,7 @@ for wt in "${WT_PATHS[@]}"; do
     # 1) feature branch ficou para trás da default → conflito futuro no PR
     # O 'risco de conflito' só sai no modo time e só para o checkout de onde o script
     # roda; para os outros, o aviso diz como ver o risco daquela branch.
-    if [[ "$branch" != "$DEFAULT_BRANCH" && "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
+    if ! eh_base_ou_canal "$branch" && [[ "$d_behind" != "?" && "${d_behind:-0}" -gt 0 ]]; then
       if [[ "$TEAM" -eq 1 && "$wt" == "$ROOT" ]]; then
         _risco="o 'risco de conflito' abaixo"
       else
@@ -457,7 +503,7 @@ for wt in "${WT_PATHS[@]}"; do
       WARNINGS+=("$branch ($wt): upstream sumiu do remoto (branch gone) — candidata a cleanup (--cleanup-dry-run), não continue trabalhando nela.")
     fi
     # 6) editando direto na default compartilhada
-    if [[ "$branch" == "$DEFAULT_BRANCH" && "$dirty_flag" == "DIRTY" ]]; then
+    if eh_base_ou_canal "$branch" && [[ "$dirty_flag" == "DIRTY" ]]; then
       WARNINGS+=("$branch ($wt): alterações não commitadas direto na branch compartilhada — mova para 'feat/<escopo>' antes de continuar.")
     fi
   fi
@@ -598,15 +644,37 @@ rest_get() {   # <caminho> [chave=valor ...] — corpo JSON no stdout; falha = s
     | curl -fsS -G -H @- ${args[@]+"${args[@]}"} "https://api.github.com/repos/$REST_SLUG/$p" 2>/dev/null
 }
 # Resposta que não é lista (erro, credencial ruim) não vira "sem PR": sai vazio com status 1.
-json_pr_mergeado() {   # stdin: lista de pulls → "número<TAB>head.sha" do primeiro mergeado
+json_pr_mergeado() {   # stdin: lista de pulls → "número<TAB>head.sha<TAB>base" do primeiro mergeado
   if [[ "$JSON_TOOL" == jq ]]; then
-    jq -er 'if type=="array" then ([.[]|select(.merged_at!=null)][0] // {}) | "\(.number // "")\t\(.head.sha // "")" else error end' 2>/dev/null
+    jq -er 'if type=="array" then ([.[]|select(.merged_at!=null)][0] // {}) | "\(.number // "")\t\(.head.sha // "")\t\(.base.ref // "")" else error end' 2>/dev/null
   else
     python3 -c 'import json,sys
 d=json.load(sys.stdin)
 if not isinstance(d,list): sys.exit(1)
 m=[p for p in d if p.get("merged_at")]
-print("%s\t%s"%(m[0]["number"],m[0]["head"]["sha"]) if m else "\t")' 2>/dev/null
+print("%s\t%s\t%s"%(m[0]["number"],m[0]["head"]["sha"],(m[0].get("base") or {}).get("ref","")) if m else "\t\t")' 2>/dev/null
+  fi
+}
+json_pr_fechado() {   # stdin: lista de pulls → "número<TAB>head.sha<TAB>base" do primeiro fechado sem merge
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er 'if type=="array" then ([.[]|select(.merged_at==null and .state=="closed")][0] // {}) | "\(.number // "")\t\(.head.sha // "")\t\(.base.ref // "")" else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+m=[p for p in d if not p.get("merged_at") and p.get("state")=="closed"]
+print("%s\t%s\t%s"%(m[0]["number"],m[0]["head"]["sha"],(m[0].get("base") or {}).get("ref","")) if m else "\t\t")' 2>/dev/null
+  fi
+}
+json_pr_release() {   # <base>; stdin: commits/<sha>/pulls → "número<TAB>head.sha" do primeiro mergeado nessa base
+  if [[ "$JSON_TOOL" == jq ]]; then
+    jq -er --arg b "$1" 'if type=="array" then ([.[]|select(.merged_at!=null and .base.ref==$b)][0] // {}) | "\(.number // "")\t\(.head.sha // "")" else error end' 2>/dev/null
+  else
+    python3 -c 'import json,sys
+d=json.load(sys.stdin)
+if not isinstance(d,list): sys.exit(1)
+m=[p for p in d if p.get("merged_at") and (p.get("base") or {}).get("ref")==sys.argv[1]]
+print("%s\t%s"%(m[0]["number"],m[0]["head"]["sha"]) if m else "\t")' "$1" 2>/dev/null
   fi
 }
 json_prs_abertos() {   # stdin: lista de pulls → "  #n título (branch, autor)"
@@ -634,21 +702,77 @@ detectar_backend_pr() {
   return 0
 }
 
-# PR mergeado com esta head → "número<TAB>headRefOid"; "<TAB>" quando o backend respondeu
-# e não há; status 1 quando não há como perguntar ou a consulta falhou.
+# gh que ignore o template do --jq (fake de teste, versão antiga) devolve campos por espaço.
+tab_de_espaco() { if [[ "$1" != *$'\t'* ]]; then printf '%s' "${1// /$'\t'}"; else printf '%s' "$1"; fi; }
+campo() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '{print $k}'; }   # <linha TAB> <n>
+
+# PR com esta head que entregou o trabalho → "número<TAB>headRefOid<TAB>release<TAB>base", sempre
+# 4 campos: release vazio = PR mergeado; preenchido = PR fechado que entrou nesse release (abaixo).
+# Número vazio quando o backend respondeu e não há; status 1 quando não há como perguntar ou a
+# consulta falhou.
 pr_mergeado_consulta() {   # <branch>
-  local b="$1" line
+  local b="$1" line corpo=""
   case "$PR_BACKEND" in
     gh)
-      line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid \
-           --jq '.[0] | "\(.number // "")\t\(.headRefOid // "")"' 2>/dev/null)" || return 1
-      # gh que ignore o template (fake de teste, versão antiga) devolve "número sha"
-      [[ "$line" != *$'\t'* && "$line" == *" "* ]] && line="${line/ /$'\t'}"
-      printf '%s' "${line:-$'\t'}" ;;
+      line="$(gh pr list --state merged --head "$b" --limit 1 --json number,headRefOid,baseRefName \
+           --jq '.[0] | "\(.number // "")\t\(.headRefOid // "")\t\(.baseRefName // "")"' 2>/dev/null)" || return 1
+      line="$(tab_de_espaco "$line")" ;;
     rest)
-      rest_get pulls state=closed "head=${REST_SLUG%%/*}:$b" per_page=10 | json_pr_mergeado || return 1 ;;
+      corpo="$(rest_get pulls state=closed "head=${REST_SLUG%%/*}:$b" per_page=10)" || return 1
+      line="$(printf '%s' "$corpo" | json_pr_mergeado)" || return 1 ;;
     *) return 1 ;;
   esac
+  if [[ -n "$(campo "$line" 1)" ]]; then
+    printf '%s\t%s\t\t%s' "$(campo "$line" 1)" "$(campo "$line" 2)" "$(campo "$line" 3)"
+    return 0
+  fi
+  pr_trem_consulta "$b" "$corpo"
+}
+
+# Trem de release (o scripts/release-trem.sh do kit-vamoo, ou qualquer fluxo igual): o PR de
+# feature nunca é mergeado. O release junta pull/<n>/head com merge --no-ff num branch próprio,
+# o PR do release entra por squash e um workflow FECHA o PR de feature e apaga a remota. Em
+# 25/11/2026, no kit, 4 branches nesse estado saíram "NUNCA foi ao GitHub — publique", e o push
+# recriaria as remotas que o workflow apaga de propósito.
+# A prova são três fatos juntos, nunca o texto do PR (o comentário "Entrou no release" e a lista
+# do corpo são texto livre): (1) PR fechado sem merge com esta head; (2) PR MERGED na mesma base
+# que contém o head dele, pelo commits/<sha>/pulls do GitHub (o endpoint do workflow do kit);
+# (3) no git, o head do fechado é ancestral do head do release, buscado em refs/pull/<r>/head
+# sem gravar ref. Fechado sem release (PR abandonado) continua "sem PR". Quem chama ainda
+# confere o tip contra o head do PR fechado (relacao_head_pr): commit depois do release é trabalho.
+pr_trem_consulta() {   # <branch> [corpo REST da lista de pulls desta head]
+  local b="$1" corpo="${2:-}" line p h base rel r rsha
+  case "$PR_BACKEND" in
+    gh)
+      line="$(gh pr list --state closed --head "$b" --limit 5 --json number,headRefOid,baseRefName,mergedAt \
+           --jq '[.[]|select((.mergedAt // "") == "")][0] // {} | "\(.number // "")\t\(.headRefOid // "")\t\(.baseRefName // "")"' 2>/dev/null)" || return 1
+      line="$(tab_de_espaco "$line")" ;;
+    rest) line="$(printf '%s' "$corpo" | json_pr_fechado)" || return 1 ;;
+    *) return 1 ;;
+  esac
+  p="$(campo "$line" 1)"; h="$(campo "$line" 2)"; base="$(campo "$line" 3)"
+  # base vai para um filtro do jq: só nome de branch comum
+  if ! [[ "$p" =~ ^[0-9]+$ && "$h" =~ ^[0-9a-f]{40,64}$ && "$base" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    printf '\t\t\t'; return 0
+  fi
+  local slug="$REST_SLUG"
+  [[ -n "$slug" ]] || slug='{owner}/{repo}'   # placeholder do gh api: o repo que o gh resolve
+  case "$PR_BACKEND" in
+    gh)
+      rel="$(gh api "repos/$slug/commits/$h/pulls" \
+           --jq "[.[]|select(.merged_at != null and .base.ref == \"$base\")][0] // {} | \"\(.number // \"\")\t\(.head.sha // \"\")\"" 2>/dev/null)" || return 1
+      rel="$(tab_de_espaco "$rel")" ;;
+    rest) rel="$(rest_get "commits/$h/pulls" | json_pr_release "$base")" || return 1 ;;
+  esac
+  r="$(campo "$rel" 1)"; rsha="$(campo "$rel" 2)"
+  if [[ "$r" =~ ^[0-9]+$ && "$rsha" =~ ^[0-9a-f]{40,64}$ ]]; then
+    git cat-file -e "$rsha^{commit}" 2>/dev/null || GIT_TERMINAL_PROMPT=0 git fetch -q --no-tags \
+      --no-write-fetch-head origin "refs/pull/$r/head" >/dev/null 2>&1 || true
+    if git cat-file -e "$h^{commit}" 2>/dev/null && git merge-base --is-ancestor "$h" "$rsha" 2>/dev/null; then
+      printf '%s\t%s\t%s\t%s' "$p" "$h" "$r" "$base"; return 0
+    fi
+  fi
+  printf '\t\t\t'
 }
 
 # O head do PR contra o tip local — a única decisão de "o PR levou tudo?" do script.
@@ -675,12 +799,18 @@ relacao_head_pr() {   # <tip> <head-do-PR> <número-do-PR>
 }
 # Texto da relação: prova (igual|contido) e motivo de preservar (o resto), sem o "!".
 prova_head_pr() { if [[ "$1" == contido ]]; then printf 'tip contido no head do PR'; else printf 'head == tip'; fi; }
-motivo_head_pr() {   # <relação> <número-do-PR>
+# Como o PR entregou: "PR #n merged" ou, pelo trem de release, o fechado e o release que o levou.
+rotulo_pr() {   # <número-do-PR> [número-do-release]
+  if [[ -n "${2:-}" ]]; then printf 'PR #%s fechado pelo trem e entregue no release #%s' "$1" "$2"
+  else printf 'PR #%s merged' "$1"; fi
+}
+motivo_head_pr() {   # <relação> <número-do-PR> [número-do-release]
+  local rot; rot="$(rotulo_pr "$2" "${3:-}")"
   case "$1" in
-    avancou)      printf 'PR #%s merged, mas o tip avançou depois do head do PR' "$2" ;;
-    divergiu)     printf 'PR #%s merged, mas o tip divergiu do head do PR' "$2" ;;
-    indisponivel) printf 'PR #%s merged, mas o head do PR está indisponível (refs/pull/%s/head não veio do origin)' "$2" "$2" ;;
-    *)            printf 'PR #%s merged sem head para conferir' "$2" ;;
+    avancou)      printf '%s, mas o tip avançou depois do head do PR' "$rot" ;;
+    divergiu)     printf '%s, mas o tip divergiu do head do PR' "$rot" ;;
+    indisponivel) printf '%s, mas o head do PR está indisponível (refs/pull/%s/head não veio do origin)' "$rot" "$2" ;;
+    *)            printf '%s sem head para conferir' "$rot" ;;
   esac
 }
 
@@ -697,17 +827,20 @@ if [[ "$NO_PR" -eq 0 ]] || [[ "$CLEANUP_DRY" -eq 1 ]]; then resolver_conta_gh; f
 # (PR mergeado cuja head bate com o tip), com consulta própria: o cache daquele decide
 # -D e não deve servir a um aviso. Só dispara nesse ramo, uma vez por branch.
 #
-# Devolve no stdout: "<numero-do-PR>" quando provado; "" quando o backend (gh ou API)
-# respondeu e não há PR; "?" quando não há como perguntar. Vazio e "?" são coisas
-# diferentes — o terceiro não autoriza afirmar nem que foi nem que não foi.
+# Devolve no stdout: "<numero-do-PR><TAB><release><TAB><base>" quando provado (release vazio =
+# PR mergeado); "" quando o backend (gh ou API) respondeu e não há PR; "?" quando não há como
+# perguntar. Vazio e "?" são coisas diferentes — o terceiro não autoriza afirmar nem que foi
+# nem que não foi.
 pr_merged_desta_head() {   # <branch> <tip>
   local b="$1" tip="$2" line n oid
   line="$(pr_mergeado_consulta "$b")" || { printf '?'; return; }
-  n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
+  n="$(campo "$line" 1)"; oid="$(campo "$line" 2)"
   # tip à frente ou divergente = continuou commitando depois do merge, e aí o trabalho novo
   # de fato não subiu
   if [[ -n "$n" ]]; then
-    case "$(relacao_head_pr "$tip" "$oid" "$n")" in igual|contido) printf '%s' "$n"; return ;; esac
+    case "$(relacao_head_pr "$tip" "$oid" "$n")" in
+      igual|contido) printf '%s\t%s\t%s' "$n" "$(campo "$line" 3)" "$(campo "$line" 4)"; return ;;
+    esac
   fi
   printf ''
 }
@@ -717,16 +850,28 @@ while IFS='|' read -r lb lup ltrack; do
   [[ -z "$lb" ]] && continue
   if [[ -z "$lup" ]]; then
     # sem upstream — o loop de checkouts não avalia isso, então vale para toda branch local
-    if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1; then
+    if git rev-parse --verify --quiet "refs/remotes/origin/$lb" >/dev/null 2>&1 \
+       && { remota_viva "$lb"; [[ $? -ne 1 ]]; }; then
       WARNINGS+=("branch local '$lb' NÃO trackeia origin/$lb, que já existe no GitHub — outra pessoa pode estar nela. Ligue o upstream antes de commitar: git branch --set-upstream-to=origin/$lb $lb")
     else
-      lb_ahead="$(git rev-list --count "$ORIGIN_DEFAULT..$lb" 2>/dev/null || echo 0)"
+      # Commits que nenhuma ref do origin tem, e não "à frente da default": a default do
+      # GitHub pode ser um canal que anda atrás de onde o trabalho entra (no kit, origin/HEAD é
+      # o stable e os PRs vão para a main), e aí branch nova sem commit próprio virava "N
+      # commits que NUNCA foram ao GitHub". Squash merge ainda deixa os commits da branch fora
+      # de todo origin/*: a prova do PR abaixo continua valendo.
+      lb_ahead="$(git rev-list --count "$lb" --not --remotes=origin 2>/dev/null || echo 0)"
       if [[ "${lb_ahead:-0}" -gt 0 ]]; then
         # Com --no-pr a conta não foi resolvida lá em cima; a prova precisa dela.
         resolver_conta_gh; detectar_backend_pr
         _pr="$(pr_merged_desta_head "$lb" "$(git rev-parse "refs/heads/$lb" 2>/dev/null || true)")"
         if [[ -n "$_pr" && "$_pr" != "?" ]]; then
-          WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $ORIGIN_DEFAULT pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          _rel_n="$(campo "$_pr" 2)"; _base="$(campo "$_pr" 3)"; _pr="$(campo "$_pr" 1)"
+          _onde="${_base:+origin/$_base}"; _onde="${_onde:-$ORIGIN_DEFAULT}"
+          if [[ -n "$_rel_n" ]]; then
+            WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $_onde pelo release #$_rel_n (o PR #$_pr desta head foi fechado pelo trem de release, que apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          else
+            WARNINGS+=("branch local '$lb': os $lb_ahead commit(s) já estão em $_onde pelo PR #$_pr (o squash apagou a remota) — é sobra, NÃO é trabalho perdido; não pushe de volta.")
+          fi
         elif [[ "$_pr" == "?" ]]; then
           WARNINGS+=("branch local '$lb' tem $lb_ahead commit(s), sem upstream e sem origin/$lb. Sem gh nem token da API que enxerguem o repo não dá para saber se já mergeou — squash apaga a remota e deixa este mesmo estado. Confira o PR antes de pushar.")
         else
@@ -990,6 +1135,13 @@ if [[ "$TEAM" -eq 1 ]]; then
           printf "  %-34s %-17s %-20s %s\n", $1, $3, $4, rest
         }' \
     | awk 'NR<=25' || true)"
+  # refspec estreito: origin/<b> que o GitHub apagou não é branch ativa
+  if [[ "$REFSPEC_TODAS" -eq 0 && "$VIVAS_OK" -eq 1 && -n "$ACTIVE_BR" ]]; then
+    ACTIVE_BR="$(printf '%s\n' "$ACTIVE_BR" | while IFS= read -r _l; do
+      _rb="$(printf '%s' "$_l" | awk '{print $1}')"
+      if remota_viva "${_rb#origin/}"; then printf '%s\n' "$_l"; fi
+    done)"
+  fi
   if [[ -n "$ACTIVE_BR" ]]; then printf '%s\n' "$ACTIVE_BR"; else echo "  (nenhuma)"; fi
   echo
 
@@ -1056,17 +1208,18 @@ trap '[[ -n "$MERGED_PR_CACHE" ]] && rm -f "$MERGED_PR_CACHE"' EXIT
 merged_pr_lookup() {
   # template com XXXXXX: `mktemp -t <prefixo>` é forma do macOS e o GNU coreutils recusa
   [[ -n "$MERGED_PR_CACHE" ]] || MERGED_PR_CACHE="$(mktemp "${TMPDIR:-/tmp}/gitsync-pr.XXXXXX")"
-  local b="$1" hit line="" n="" oid=""
-  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3; found=1; exit} END{if(!found) exit 1}' \
+  local b="$1" hit line="" n="" oid="" rel=""
+  hit="$(awk -F'\t' -v k="$b" '$1==k{print $2 "\t" $3 "\t" $4; found=1; exit} END{if(!found) exit 1}' \
          "$MERGED_PR_CACHE" 2>/dev/null)" && { printf '%s' "$hit"; return; }
   if [[ "$GH_CLEANUP_OK" -eq 1 ]] && line="$(pr_mergeado_consulta "$b")"; then
-    n="${line%%$'\t'*}"; oid="${line#*$'\t'}"
+    n="$(campo "$line" 1)"; oid="$(campo "$line" 2)"; rel="$(campo "$line" 3)"
   fi
-  printf '%s\t%s\t%s\n' "$b" "$n" "$oid" >> "$MERGED_PR_CACHE"
-  printf '%s\t%s' "$n" "$oid"
+  printf '%s\t%s\t%s\t%s\n' "$b" "$n" "$oid" "$rel" >> "$MERGED_PR_CACHE"
+  printf '%s\t%s\t%s' "$n" "$oid" "$rel"
 }
 merged_pr_num() { merged_pr_lookup "$1" | cut -f1; }
 merged_pr_oid() { merged_pr_lookup "$1" | cut -f2; }
+merged_pr_rel() { merged_pr_lookup "$1" | cut -f3; }   # release do trem; vazio = PR mergeado
 
 GH_CLEANUP_OK=0
 if [[ "$CLEANUP_DRY" -eq 1 ]]; then
@@ -1095,11 +1248,12 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         # sem push, só existe nesta branch. Mesma prova do passo (3): tip igual ao head do
         # PR ou contido nele (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
           case "$_rel" in
-            igual|contido) echo "  $b — SQUASH de PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D" ;;
-            *)             echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+            igual|contido) echo "  $b — SQUASH de $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel") → candidata a -D" ;;
+            *)             echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  $b — ! sem PR merged: pode ter trabalho exclusivo, confira antes"
@@ -1123,20 +1277,26 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
     _listadas=0
     _checked="$(git worktree list --porcelain | awk '/^branch /{sub(/^branch refs\/heads\//,""); print}')"
     while IFS='|' read -r b track; do
-      [[ -z "$b" || "$b" == "$DEFAULT_BRANCH" || "$track" == "[gone]" ]] && continue
+      { [[ -z "$b" || "$track" == "[gone]" ]] || eh_base_ou_canal "$b"; } && continue
       printf '%s\n' "$_checked" | grep -qxF "$b" && continue
       _pr="$(merged_pr_num "$b")"
+      _r="$(merged_pr_rel "$b")"
       [[ -n "$_pr" ]] || continue
       _listadas=1
       _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
       _remoto=""
-      git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1 \
-        && _remoto=" (remoto ainda existe: git push origin --delete $b)"
+      if git rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1; then
+        _viva=0; remota_viva "$b" || _viva=$?
+        case "$_viva" in
+          0) _remoto=" (remoto ainda existe: git push origin --delete $b)" ;;
+          2) _remoto=" (origin/$b local, sem confirmar no GitHub: git push origin --delete $b)" ;;
+        esac
+      fi
       case "$_rel" in
         igual|contido)
-          echo "  $b — PR #$_pr merged, $(prova_head_pr "$_rel") → candidata a -D$_remoto"
+          echo "  $b — $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel") → candidata a -D$_remoto"
           MERGED_ALIVE+=("$b") ;;
-        *) echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada$_remoto" ;;
+        *) echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada$_remoto" ;;
       esac
     done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads)
     [[ "$_listadas" -eq 0 ]] && echo "  (none)"
@@ -1154,27 +1314,34 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
   _listadas=0
   while IFS= read -r rb; do
     b="${rb#origin/}"
-    [[ -z "$b" || "$rb" == "origin" || "$b" == "HEAD" || "$b" == "$DEFAULT_BRANCH" ]] && continue
+    { [[ -z "$b" || "$rb" == "origin" || "$b" == "HEAD" ]] || eh_base_ou_canal "$b"; } && continue
     git show-ref --verify --quiet "refs/heads/$b" && continue
     _autores="$(git log --no-merges --format='%an <%ae>' "$ORIGIN_DEFAULT..$rb" 2>/dev/null | sort -u)"
     [[ -n "$_autores" ]] || _autores="$(git log -1 --format='%an <%ae>' "$rb" 2>/dev/null)"
     [[ "$_autores" == "$_eu" ]] || continue
     _listadas=1
+    _viva=0; remota_viva "$b" || _viva=$?   # set -e: o status sai pelo ||
+    if [[ "$_viva" -eq 1 ]]; then
+      echo "  $b — origin/$b é cópia local velha: o GitHub já não tem essa branch, e o fetch deste clone não a atualiza → git branch -rd origin/$b"
+      continue
+    fi
+    _nc=""; [[ "$_viva" -eq 2 ]] && _nc=" (sem confirmar no GitHub que ela ainda existe)"
     _tip="$(git rev-parse "$rb" 2>/dev/null || true)"
     if git merge-base --is-ancestor "$rb" "$ORIGIN_DEFAULT" 2>/dev/null; then
-      echo "  $b — já contida em $ORIGIN_DEFAULT → git push origin --delete $b"
+      echo "  $b — já contida em $ORIGIN_DEFAULT → git push origin --delete $b$_nc"
     elif [[ "$GH_CLEANUP_OK" -ne 1 ]]; then
       echo "  $b — (sem prova de PR — nem gh nem token da API)"
     else
       _pr="$(merged_pr_num "$b")"
+      _r="$(merged_pr_rel "$b")"
       if [[ -n "$_pr" ]]; then
         _rel="$(relacao_head_pr "$_tip" "$(merged_pr_oid "$b")" "$_pr")"
         case "$_rel" in
-          igual)    echo "  $b — PR #$_pr merged, head == tip → git push origin --delete $b" ;;
-          contido)  echo "  $b — PR #$_pr merged, remota contida no head do PR → git push origin --delete $b" ;;
-          avancou)  echo "  $b — ! PR #$_pr merged, mas a remota avançou depois do head do PR: preservada" ;;
-          divergiu) echo "  $b — ! PR #$_pr merged, mas a remota divergiu do head do PR: preservada" ;;
-          *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr"): preservada" ;;
+          igual)    echo "  $b — $(rotulo_pr "$_pr" "$_r"), head == tip → git push origin --delete $b$_nc" ;;
+          contido)  echo "  $b — $(rotulo_pr "$_pr" "$_r"), remota contida no head do PR → git push origin --delete $b$_nc" ;;
+          avancou)  echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota avançou depois do head do PR: preservada" ;;
+          divergiu) echo "  $b — ! $(rotulo_pr "$_pr" "$_r"), mas a remota divergiu do head do PR: preservada" ;;
+          *)        echo "  $b — ! $(motivo_head_pr "$_rel" "$_pr" "$_r"): preservada" ;;
         esac
       else
         echo "  $b — ! sem PR merged (aberto, fechado ou nunca aberto): confira antes de apagar"
@@ -1196,6 +1363,8 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
       reason=""; nota=""; STALE_PID=""
       if [[ "$wt_branch" == "HEAD" ]]; then
         reason="detached HEAD — avaliar manualmente"
+      elif eh_base_ou_canal "$wt_branch"; then
+        reason="$wt_branch é a base ou o canal do repo — nunca candidata"
       elif is_locked "$wt" && ! lock_is_stale "$wt"; then
         reason="locked (sessão viva)"
       elif [[ "$CWD_OK" -ne 1 ]]; then
@@ -1215,11 +1384,12 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         reason="sem commit próprio (branch recém-criada ou só puxou a base)"
       elif ! git -C "$wt" merge-base --is-ancestor HEAD "$ORIGIN_DEFAULT" 2>/dev/null; then
         _pr="$(merged_pr_num "$wt_branch")"
+        _r="$(merged_pr_rel "$wt_branch")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)" "$(merged_pr_oid "$wt_branch")" "$_pr")"
           case "$_rel" in
-            igual|contido) nota=" [squash: PR #$_pr merged, $(prova_head_pr "$_rel")]" ;;
-            *)             reason="$(motivo_head_pr "$_rel" "$_pr")" ;;
+            igual|contido) nota=" [squash: $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel")]" ;;
+            *)             reason="$(motivo_head_pr "$_rel" "$_pr" "$_r")" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           reason="não mergeado em $ORIGIN_DEFAULT (e nenhum PR merged para '"'"'$wt_branch'"'"')"
@@ -1282,17 +1452,18 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
         # tip é o head dele ou está contido nele, senão o -D leva junto o commit feito depois
         # do merge. A decisão é a mesma do dry-run (relacao_head_pr).
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         if [[ -n "$_pr" ]]; then
           _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
           case "$_rel" in
             igual|contido)
               if git branch -D "$b" >/dev/null 2>&1; then
-                echo "  deleted branch $b (-D — squash de PR #$_pr merged, $(prova_head_pr "$_rel"))"
+                echo "  deleted branch $b (-D — squash de $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel"))"
               else
                 echo "  skip $b (-D falhou)"
               fi ;;
-            avancou) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — commit sem cópia no GitHub)" ;;
-            *)       echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr") — não deleto no escuro)" ;;
+            avancou) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r") — commit sem cópia no GitHub)" ;;
+            *)       echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r") — não deleto no escuro)" ;;
           esac
         elif [[ "$GH_CLEANUP_OK" -eq 1 ]]; then
           echo "  skip $b (nenhum PR merged encontrado — pode ter trabalho exclusivo; confira antes de -D)"
@@ -1312,13 +1483,14 @@ if [[ "$CLEANUP_DRY" -eq 1 ]]; then
           continue
         fi
         _pr="$(merged_pr_num "$b")"
+        _r="$(merged_pr_rel "$b")"
         _rel="$(relacao_head_pr "$(git rev-parse "$b" 2>/dev/null || true)" "$(merged_pr_oid "$b")" "$_pr")"
         case "$_rel" in
           igual|contido) ;;
-          *) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr"))"; continue ;;
+          *) echo "  skip $b ($(motivo_head_pr "$_rel" "$_pr" "$_r"))"; continue ;;
         esac
         if git branch -D "$b" >/dev/null 2>&1; then
-          echo "  deleted branch $b (-D — PR #$_pr merged, $(prova_head_pr "$_rel"))"
+          echo "  deleted branch $b (-D — $(rotulo_pr "$_pr" "$_r"), $(prova_head_pr "$_rel"))"
         else
           echo "  skip $b (-D falhou)"
         fi
@@ -1333,13 +1505,13 @@ fi
 
 echo "### summary"
 if [[ "$CLEANUP_DRY" -eq 0 ]]; then
-  _nb="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -cvxF "$DEFAULT_BRANCH" || true)"
+  _nb="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -cvxF -e "$DEFAULT_BRANCH" ${CANAL_BRANCH:+-e "$CANAL_BRANCH"} || true)"
   _nw=$(( ${#WT_PATHS[@]} - 1 ))
   if [[ "${_nb:-0}" -gt 0 || "$_nw" -gt 0 ]]; then
-    echo "cleanup: ${_nb:-0} branch(es) local(is) além da $DEFAULT_BRANCH e $_nw worktree(s) — rode --cleanup-dry-run para ver o que já mergeou"
+    echo "cleanup: ${_nb:-0} branch(es) local(is) além da $DEFAULT_BRANCH${CANAL_BRANCH:+ e da $CANAL_BRANCH} e $_nw worktree(s) — rode --cleanup-dry-run para ver o que já mergeou"
   fi
 fi
-echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA"
+echo "default=$DEFAULT_BRANCH tip=$DEFAULT_SHA${CANAL_BRANCH:+ canal=$CANAL_BRANCH}"
 echo "updated=${#UPDATED[@]} skipped=${#SKIPPED[@]} avisos=${#WARNINGS[@]} untracked_entries=${#UNTRACKED_LINES[@]}"
 echo "voltar_main=$VOLTAR_MAIN retorno=$RETURN_ACTION"
 echo "status_only=$STATUS_ONLY team=$TEAM cleanup_dry=$CLEANUP_DRY cleanup_apply=$CLEANUP_APPLY"

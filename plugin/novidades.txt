@@ -7,6 +7,16 @@
 # linha torta antes do release é o tests/test-versao-changelog.sh (2 ou 3 campos).
 # Podar as linhas de baixo é seguro: quem vem de uma versão mais velha que a última linha
 # que sobrou recebe o pedido de rodar o setup, porque a linha podada podia ser `setup`.
+0.105.0|A ship agora para quando sobra marcador de conflito no diff, a verificação não chama de verde um run com 0 testes, e a grilling pergunta o porquê antes de tudo quando ele falta
+0.104.0|A auditoria de segurança agora compara as funções que escrevem na mesma tabela e aponta a que esqueceu de conferir o dono, o furo que deixa um colega tomar o registro de outro mesmo quando ninguém vira admin; A baseline agora cobra cookie de sessão com `__Host-` e CSRF de verdade, não só `SameSite`
+0.103.6|O git-sync parou de mandar apagar no GitHub uma branch que só sobrou como cópia local num clone que busca só a main
+0.103.5|O ship passou a decidir o deploy do Supabase só pelo que o PR mudou, mesmo quando a branch padrão do GitHub é um canal atrás da main
+0.103.4|O gate de segurança do ship e a limpeza do Mac passaram a comparar com a main quando a branch padrão do GitHub é um canal atrás dela, e a limpeza não apaga mais a branch desse canal
+0.103.3|A limpeza de worktrees passou a reconhecer como mergeada a branch que entrou na main quando a branch padrão do GitHub é um canal que anda atrás dela
+0.103.2|O git-sync passou a comparar com a main quando a branch padrão do GitHub é um canal que anda atrás dela
+0.103.1|O git-sync parou de mandar publicar de novo branch que já entrou num release
+0.103.0|A auditoria agora confere rate limit rota por rota, segredo de automação compartilhado entre integrações e os cabeçalhos de isolamento, robots.txt e security.txt
+0.102.0|A skill de inbox de WhatsApp agora cobre a UAZAPI de ponta a ponta: mídia criptografada, confirmação de entrega, grupos, não lidas e histórico; A auditoria agora pergunta quem consegue virar membro do sistema: cadastro aberto no Supabase, papel vindo do cadastro e regra que confunde "logado" com "da equipe"
 0.101.0|A skill de inbox de WhatsApp ensina a tela a se atualizar por aviso sem refazer a página nem pesar no banco, e explica por que o áudio do Chatwoot antigo falha na Meta
 0.100.0|Limpar o cache do yarn ou de um app em Library/Caches deixou de pedir confirmação no modo sem perguntas
 0.99.0|No modo sem perguntas, limpar cache ou pasta temporária e citar um curl num texto não pedem mais confirmação; O executor dos lotes de implementação passa a rodar no Sonnet, e a revisão continua no modelo da sua sessão; A skill de worktrees agora diz o que fazer quando entrar ou sair de um worktree é recusado

@@ -30,7 +30,8 @@ no outro.
   quem pediu e devolva a decisão.
 - **Merge só com** `mergeStateStatus` = `CLEAN`, todo check `SUCCESS` e `headRefOid` = seu
   `git rev-parse HEAD`. `SKIPPED` de PR rascunho, `no checks reported`, `UNSTABLE` ou `BLOCKED`
-  não são verde.
+  não são verde. **Nunca arme `gh pr merge --auto`**: se o GitHub ainda não deixa mergear,
+  pare e diga por quê, porque um auto-merge armado pousa depois, num SHA que ninguém olhou.
 - **Quem decide se a ship mergeia é a pessoa:** pedido dela, instrução permanente no `CLAUDE.md`
   ou regra do projeto (`deploy.md`/`AGENTS.md`). Sem nenhum dos três, entregue o PR verde e
   pergunte.
@@ -49,7 +50,7 @@ no outro.
 ```bash
 pwd; git remote -v; git status; git branch --show-current; git rev-parse --show-toplevel
 cat .context/docs/deploy.md 2>/dev/null && echo "== TEM_DEPLOY_MD ==" || echo "== SEM_DEPLOY_MD (derive dos arquivos do projeto) =="
-git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/base-de-trabalho.sh"   # a base dos diffs: a main, quando o origin/HEAD é um canal atrás dela
 gh auth status; gh repo view --json nameWithOwner
 test -f tsconfig.json && echo "TEM_TS"
 test -f package.json && grep -E '"(lint|test|build|format:check)"' package.json || true
@@ -92,6 +93,8 @@ segredo que entrou num commit do range não sai com commit novo por cima.
 Então o §1b. Então:
 
 ```bash
+# marcador de conflito que sobrou: o tsc não vê em .md/.sql/.json nem dentro de template literal
+git diff "<base>...HEAD" -U0 | /usr/bin/grep -nE '^\+(<{7}|>{7})( |$)' && echo "PARE: marcador de conflito no diff"
 git push -u origin "$(git branch --show-current)"
 gh pr create --title "..." --body-file <arquivo>   # Resumo + Plano de teste (gates do §1)
 ```
@@ -112,9 +115,9 @@ vai antes do merge (§3).
 Decide o diff, não a existência de `supabase/`. Rode depois do commit:
 
 ```bash
-git diff --name-only origin/HEAD...HEAD | /usr/bin/grep -q '^supabase/functions/' && echo TOCA_EDGE_FUNCTIONS
-git diff --name-only --diff-filter=A origin/HEAD...HEAD | /usr/bin/grep -qE '^(supabase/migrations|src/sql)/.*\.sql$' && echo TEM_MIGRATION_NOVA
-# sem origin/HEAD ("ambiguous argument"): troque por origin/main
+B=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/base-de-trabalho.sh") || exit 1   # origin/main, mesmo com o origin/HEAD no stable
+git diff --name-only "$B"...HEAD | /usr/bin/grep -q '^supabase/functions/' && echo TOCA_EDGE_FUNCTIONS
+git diff --name-only --diff-filter=A "$B"...HEAD | /usr/bin/grep -qE '^(supabase/migrations|src/sql)/.*\.sql$' && echo TEM_MIGRATION_NOVA
 ```
 
 Com um flag, o deploy do Supabase é desta ship ("PR aberto" não é fim); sem nenhum, N/A. **Leia

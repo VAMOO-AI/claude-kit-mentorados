@@ -33,6 +33,20 @@ banco.
 
 ## Como implementar
 
+**Uma rota com limite não protege a outra.** O check antigo deste pilar via um
+429 em qualquer lugar e saía "medido"; num pentest real o login tinha limite e
+a busca do inbox, o lookup por telefone e o link por token não tinham. O
+`collect.sh` roda o `rotas-next.py`, que lê cada route handler do Next com os
+imports locais e o middleware/proxy (lista de rotas públicas e exclusão do
+matcher) e separa: rota pública com token no caminho, busca, escrita ou
+chamada paga sem limite (MEDIUM); rota com sessão que faz busca livre ou
+consulta em lote (LOW); segredo de máquina que autentica rotas de duas ou mais
+famílias (LOW).
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/rotas-next.py" --root . | grep '04'
+```
+
 **Rate limit no Supabase — a versão que não precisa de Redis.** Uma tabela, um
 índice e uma função; o custo é uma linha por janela.
 
@@ -72,6 +86,37 @@ if (!ok) return new Response(
   JSON.stringify({ error: 'rate_limited' }),
   { status: 429, headers: { 'Retry-After': '3600', 'Content-Type': 'application/json' } })
 ```
+
+No route handler do Next, a mesma função. A chave é o usuário quando há sessão
+e o IP quando não há. Na Vercel, o IP vem de `ipAddress()` do
+`@vercel/functions` (ou `x-real-ip`, que a borda reescreve); fora dela,
+`x-forwarded-for` é do cliente e se forja sem proxy confiável na frente.
+
+```ts
+// src/lib/limite.ts — chamado no topo do handler, antes de qualquer consulta
+import { ipAddress } from '@vercel/functions'
+import { admin } from './supabase-admin'   // cliente service_role do projeto
+
+export async function limitar(chave: string, limite: number, janela: string) {
+  const { data: ok } = await admin.rpc('rate_limit_take', {
+    p_bucket: chave, p_limit: limite, p_window: janela,
+  })
+  return ok ? null : new Response(JSON.stringify({ error: 'rate_limited' }), {
+    status: 429, headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
+  })
+}
+
+// rota por token: o limite vem ANTES do 404/403, senão o oráculo responde rápido
+export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
+  const bloqueio = await limitar(`roteiro:${ipAddress(req) ?? 'sem-ip'}`, 60, '1 minute')
+  if (bloqueio) return bloqueio
+  const { token } = await params
+  // ...
+}
+```
+
+Busca livre com sessão: chave `busca:<user_id>`, e o termo com tamanho mínimo e
+sem curinga cru (`%`, `_`) antes de chegar no `ilike`.
 
 **Teto de LLM — três limites, não um:**
 

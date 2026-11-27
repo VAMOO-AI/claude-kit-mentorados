@@ -30,6 +30,13 @@ numa pasta coberta por N runners → registre nas listas include/exclude de cada
 um E rode os N. Validar só um runner mascarou regressão (teste deno coletado
 pelo vitest quebrou a suíte, 2026-06-29).
 
+**Verde que não rodou nada não é verde.** Antes de dizer "passou", confira na saída
+quantos testes rodaram. O status é "não medido", e não verde, em três casos:
+- o filtro ou o path não casou nenhum arquivo e o runner diz `0 tests` ou `No test files found`
+  (com `--passWithNoTests` ele sai 0 mesmo assim);
+- o arquivo de código mudado não tem teste que o exercite;
+- o run parou por timeout ou por serviço faltando.
+
 ## Erro de prod mascarado → pegue o erro REAL primeiro
 
 Digest / "Server Components render" / Sentry / 500-503 genérico: pegue o erro

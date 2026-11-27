@@ -17,6 +17,11 @@ O que o script respeita, e por quê:
   `<ledger>/mantidas.tsv`. O `--verificar` não remove nada, mas atualiza as refs
   remotas com `git fetch --prune`; o `aplicar.sh` faz esse fetch uma vez por repo e chama o
   `--verificar` sem o dele.
+- **O canal nunca sai.** Quando o `origin/HEAD` aponta para uma branch que anda atrás da
+  `main` (no kit, o `stable`), o inventário mede o mergeado contra a `main`, e essa branch
+  (local ou num worktree, com estado `canal`) fica fora do plano. Sem isso, ela saía
+  `merged(ancestral)` e levava `branch -D`. `git config git-sync.defaultBranch <b>` no repo
+  fixa outra base.
 - **A branch de um worktree removido sai com ele**, menos `main`, `master`, `develop`,
   `dev`, `staging` e `production`, que ficam como no `branches.tsv`.
 - **Arquivo ignorado conta como sujeira.** O `worktree remove` sem `--force` apaga ignorado

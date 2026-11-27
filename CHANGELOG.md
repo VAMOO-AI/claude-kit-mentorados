@@ -10,6 +10,97 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.105.0] — 2026-11-26
+
+### ship
+
+- Antes do push, um grep procura marcador de conflito nas linhas adicionadas, que o tsc não vê em `.md`, `.sql`, `.json` nem dentro de template literal. A regra de merge ganha "nunca `gh pr merge --auto`".
+
+### verificacao
+
+- Runner que rodou 0 testes, arquivo mudado sem teste ou run interrompido por timeout passam a valer "não medido", não verde.
+
+### grilling
+
+- O porquê que falta vira a primeira pergunta, aberta e sozinha. É a única exceção ao default proposto.
+
+## [0.104.0] — 2026-11-26
+
+### auditoria-seguranca
+
+- A3 mede o eixo horizontal: função SQL exposta e ação de gateway contam como handler, e o novo `familias-rpc.py` acusa a função de escrita que não confere o dono quando uma irmã da mesma tabela confere.
+- A1 ganha o oráculo por ordem de checagem; A2 ganha duas fontes de identidade, escopo do papel leitor e sessão entre apps irmãos.
+- Corroboração com o ator de papel amplo e escopo vazio, só local; 11 armadilhas novas.
+
+### baseline
+
+- Pilar 03 cobre fonte única de papel, cookie de sessão com `__Host-`, sessão que não vale em app irmão e CSRF com `Origin` estrito e `application/json`.
+
+## [0.103.6] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: num clone com refspec estreito (`clone --single-branch`, ou fetch só da `main`), a cópia local de uma branch que o GitHub já apagou deixou de ser tratada como viva. Antes, o relatório mandava `git push origin --delete` numa ref que não existe e a listava como ativa no modo time. Agora a lista viva vem do `git ls-remote`, e a cópia velha sai com `git branch -rd origin/<b>`.
+
+## [0.103.5] — 2026-11-25
+
+### Corrigido
+
+- **`ship`**: os diffs que decidem o deploy do Supabase (`TOCA_EDGE_FUNCTIONS`, `TEM_MIGRATION_NOVA` e a lista de functions da §3c) medem contra a `main` quando o `origin/HEAD` é um canal atrás dela (no kit, o `stable`). Antes, pegavam tudo o que a `main` andou desde o canal, e a ship mandava deployar function que o PR não tocou. O novo `plugin/scripts/base-de-trabalho.sh` resolve a base com a mesma regra do git-sync, e o deploy da Vercel continua na branch padrão do GitHub.
+
+## [0.103.4] — 2026-11-25
+
+### Corrigido
+
+- **`baseline`** e **`limpeza-mac`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), os dois passam a medir contra a `main`. O gate do ship (`collect.sh --diff origin/HEAD`) deixou de bloquear o PR por arquivo que já estava na `main`. A limpeza-mac reconhece como mergeado o que entrou na `main` e não apaga mais a branch nem o worktree do canal: antes, o `aplicar.sh` dava `branch -D stable`. `git config git-sync.defaultBranch <b>` fixa outra base.
+
+## [0.103.3] — 2026-11-25
+
+### Corrigido
+
+- **`worktree-gc`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), a base passa a ser a `main`. Antes, toda branch já entregue saía "NÃO mergeada" e o `--verificar` da skill `worktrees` dizia keep para tudo. O canal nunca é removido, e `git config git-sync.defaultBranch <b>` fixa outra base.
+
+## [0.103.2] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: quando o `origin/HEAD` é um canal atrás da `main` (no kit, o `stable`), a base passa a ser a `main`. Isso vale para ahead/behind, o aviso "atrás de", o modo time, o cleanup e o `--voltar-main`. O canal fica protegido como a base: nunca é candidato a cleanup nem a `--delete`. Para fixar outra base, use `git config git-sync.defaultBranch <b>`.
+
+## [0.103.1] — 2026-11-25
+
+### Corrigido
+
+- **`git-sync`**: o aviso "NUNCA foi ao GitHub" e o cleanup reconhecem a branch entregue pelo trem de release: PR fechado cujo head está num PR de release mergeado na mesma base, confirmado no git. O apply passa a apagar essa sobra com `-D`. O aviso conta os commits que nenhuma ref do origin tem, e não os à frente de `origin/HEAD`, que pode ser um canal atrasado como o `stable`.
+
+## [0.103.0] — 2026-11-24
+
+### Adicionado
+
+- **`baseline`**: `scripts/rotas-next.py` mede rota por rota: rate limit em route handler do Next (público com token, busca, escrita ou chamada paga; com sessão, busca e lote), lendo o middleware/proxy para saber o que é público; segredo de máquina de entrada que autentica rotas de duas ou mais famílias; COOP/CORP e HSTS sem preload; `robots.txt` e `security.txt` ausentes.
+- **`baseline`**: `sonda-auth-viva.sh` lê COOP, CORP e HSTS na borda e confere se `robots.txt` e `security.txt` são servidos ou caem no redirect do login.
+
+### Corrigido
+
+- **`baseline`**: o check de rate limit do pilar 04 saía "medido" com um único 429 em qualquer lugar do projeto; agora cada route handler é medido.
+
+## [0.102.0] — 2026-11-24
+
+### Adicionado
+
+- **`whatsapp-inbox-stack`**: gotchas #21 a #29 da UAZAPI em produção: ACK real (`messages_update` com `MessageIDs`, prefixo `numero:`, mapa de estados), `GroupReceipts` em grupo, `token` dentro do webhook, não lidas que acompanham o celular, corridas do eco `fromMe`, `@lid` não é telefone, webhook sem reenvio (200 antes, retentativa própria), importação de histórico sem acionar nada e remetente de alerta que não cai para outro número. Três references novas (`contagem-e-eco`, `inbound-uazapi`, `historico`) e `preflight-audio` (movido do SKILL.md).
+- **`whatsapp-inbox-stack`**: coluna C (API própria como cérebro) na tabela de arquiteturas; edição de mensagem, participantes de grupo e provisionamento de número no `providers.md`.
+- **`baseline`**: `scripts/quem-entra.py` no pilar 03 pergunta quem vira membro antes do RLS de cada tabela: cadastro, confirmação e senha do `[auth]` do `config.toml` (sem o arquivo, `não medido`), papel lido de `user_metadata` em trigger, função, policy e app, policy `autenticado = membro`, trigger que cria a linha de acesso com papel padrão, helper sem `ativo`, identidade pelo e-mail do JWT, HMAC sem janela, segredo em query string, cota contada em tabela da sessão, guard abaixo de `loading.tsx`, escrita que não confere a linha e cookie longo. Lê o estado efetivo das migrations.
+- **`baseline`**: `scripts/sonda-auth-viva.sh`, só GET/HEAD: cadastro e auto-confirmação pelo `/auth/v1/settings`, senha mínima pela Management API, CSP na borda e status real das rotas protegidas.
+- **`secscan`** e **`auditoria-seguranca`**: rodam o `quem-entra.py`; o cadastro do painel vai para o relatório como `não medido` com o comando do dono, nunca "fechado".
+
+### Corrigido
+
+- **`whatsapp-inbox-stack`**: #5 dizia que a URL de mídia da UAZAPI vem "utilizável por mais tempo"; ela é `.enc` (criptografada), resolve-se por `/message/download` com `return_link:true`. O pipeline de mídia passa a bifurcar por provider (UAZAPI não transcoda; #2, #8 e #9 não se aplicam).
+- **`whatsapp-inbox-stack`**: o runbook do #11c não manda mais `isGroupYes` (derruba grupo sem erro), e o "aberto, não resolvido" do `wasSentByApi` virou "contornado" com o desenho de dois webhooks.
+- **`n8n-workflow-agent`**: `uazapi.md` dizia que `isGroupYes` era "quase sempre desejável"; agora diz que é só para agente 1:1 e nunca para inbox que atende grupo (a mensagem some sem erro).
+- **`auditoria-seguranca`**: o grep de metadata não casava `raw_user_meta_data` e só lia `*.ts`; o trigger de cadastro em `.sql` passava em branco sem acesso ao banco.
+- **`baseline`**: a CSP declarada em `middleware`/`proxy` (nonce do Next) era dada como ausente.
+
 ## [0.101.0] — 2026-11-24
 
 ### Adicionado

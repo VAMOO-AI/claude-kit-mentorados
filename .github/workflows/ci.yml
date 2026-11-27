@@ -97,6 +97,15 @@ jobs:
       - name: O cleanup do git-sync aceita o tip atrás do head do PR e só chama de "avançou" o que avançou
         run: bash tests/test-git-sync-cleanup-head-pr.sh
 
+      - name: O git-sync reconhece branch entregue pelo trem de release e não conta contra o stable
+        run: bash tests/test-git-sync-release-trem.sh
+
+      - name: O git-sync mede contra a main quando a default do GitHub é um canal atrás dela, e protege o canal
+        run: bash tests/test-git-sync-base-de-trabalho.sh
+
+      - name: O git-sync não manda apagar no GitHub a branch que só sobrou como cópia local num clone de refspec estreito
+        run: bash tests/test-git-sync-ref-remota-velha.sh
+
       - name: O git-sync acha a conta do gh que enxerga o repo, e avisa qual usou
         run: bash tests/test-git-sync-conta.sh
 
@@ -124,10 +133,19 @@ jobs:
       - name: O worktree-gc e o aviso de worktree mergeado buscam o head do PR que não está no clone
         run: bash tests/test-worktree-gc-head-pr.sh
 
+      - name: O worktree-gc mede contra a main quando a default do GitHub é um canal atrás dela
+        run: bash tests/test-worktree-gc-base-de-trabalho.sh
+
+      - name: A base dos diffs do ship é a main quando a default do GitHub é um canal atrás dela
+        run: bash tests/test-base-de-trabalho.sh
+
       - name: A limpeza-mac só apaga worktree, branch e build seguros por construção, e sai limpa fora do macOS
         # Aqui é Ubuntu: o teste põe um `uname` de mentira que responde Darwin, e um que
         # responde Linux para provar a saída limpa. O gh e o worktree-gc --verificar são stubs.
         run: bash tests/test-limpeza-mac.sh
+
+      - name: O gate do baseline e a limpeza-mac medem contra a main quando a default do GitHub é um canal atrás dela
+        run: bash tests/test-canal-baseline-limpeza.sh
 
       - name: A medição da geo-ia avisa no relatório e no log quando uma IA falta na rodada
         run: bash tests/test-geo-ia.sh
@@ -299,6 +317,9 @@ jobs:
       - name: A matriz de RLS da auditoria conta por papel, não vaza token e só escreve em host local
         run: bash tests/test-auditoria-matriz.sh
 
+      - name: A família de funções da auditoria acusa a irmã que não confere o dono
+        run: bash tests/test-auditoria-familias.sh
+
       - name: O secscan só diz AUSENTE ou SEM LOCKFILE quando falta de verdade, separa FALHOU de AUSENTE e varre a árvore com o gitleaks
         run: bash tests/test-secscan-ferramentas.sh
 
@@ -317,6 +338,12 @@ jobs:
 
       - name: O pilar 04 da baseline reconhece isCronAuthorized como guard e acusa a edge function aberta
         run: bash tests/test-baseline-edge-auth.sh
+
+      - name: O pilar 03 da baseline acusa quem vira membro (cadastro aberto, papel do metadata, autenticado = membro) pelo estado efetivo das migrations
+        run: bash tests/test-baseline-quem-entra.sh
+
+      - name: A baseline mede rate limit por route handler do Next, segredo de máquina entre famílias, COOP/CORP e robots/security.txt
+        run: bash tests/test-baseline-rotas-next.sh
 
       - name: A barra mede a sessão em tokens, na régua do session-size-guard, e não quebra sem transcript
         run: bash tests/test-statusline-sessao.sh

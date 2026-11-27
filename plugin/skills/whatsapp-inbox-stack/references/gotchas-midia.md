@@ -2,6 +2,8 @@
 
 Lido no passo 2 do SKILL.md (arquitetura B: mídia inbound, CSP, edge, bucket). Cada um saiu de um bug real.
 
+**Por provider:** NotificaMe/Meta usa tudo daqui (proxy `/media`, transcode na edge, #2/#5/#8/#9). UAZAPI resolve `.enc` por `/message/download` (#5), que já entrega mp3: **#2, #8 e #9 não se aplicam**.
+
 Cada um saiu de um bug real. Os de mídia (#1 a #9) falham sem erro visível — a foto aparece, o `fetch` dá 200, o deploy passa, o áudio toca cortado —, e por isso o pré-flight "áudio toca", logo depois dos gotchas, é o que define pronto.
 
 ### #1 — CSP `media-src` (o clássico "áudio não toca, mas foto sim")
@@ -58,7 +60,11 @@ Webhook/callback externo (n8n, NotificaMe, Chatwoot, Google) chama a edge **sem 
 O webhook entrega `contents[0].fileUrl` = URL **lookaside da Meta** (`lookaside.fbsbx.com/...`) que exige token Meta (**401**) e **expira em ~2min**. Não dá pra exibir/baixar direto.
 - **Download:** POST a lookaside pro PROXY do NotificaMe: `POST https://api.notificame.com.br/v1/channels/whatsapp/media`, header `X-Api-Token`, body `{from:<channel_id>, to:"whatsapp", contents:[{type:"file", fileUrl:<lookaside>, fileMimeType:"ogg"}]}` → devolve o BINÁRIO. (Mesmo endpoint pra foto.)
 - **Janela de ~2min** = baixe na hora do webhook, não depois. Áudios NULL no banco = ingestão falhou na janela (irrecuperável, mídia expirou).
-- UAZAPI: a URL de mídia vem utilizável por mais tempo, mas re-hospede igual (não dependa da origem).
+- **UAZAPI: a URL não é utilizável, e re-hospedar não basta.** `message.content.URL` termina em `.enc`: é mídia **criptografada**, e baixar devolve bytes opacos, **sem erro**. Num caso real, voz entrava na conversa sem tocar e a transcrição falhava no download, sem nada que explicasse.
+  - **Resolva por `POST /message/download`** com `{id: <messageid>, return_link: true}`: devolve `fileURL` + `mimetype`, um arquivo já decifrado e hospedado pela UAZAPI. **A voz já vem em mp3**: não há transcode a fazer (#2, #8 e #9 não se aplicam).
+  - `return_link: true` é obrigatório porque, sem ele, o binário vem no corpo da resposta e não cabe numa Function serverless.
+  - A UAZAPI guarda a mídia por **~7 dias**. Re-hospede no seu bucket (privado, #6), e mais ainda se a conversa vive mais que isso.
+  - Endpoint e o objeto `.enc` do payload: `n8n-workflow-agent/references/uazapi.md` (`/kit-vamoo:n8n-workflow-agent`), sem repetir o código do adaptador aqui.
 
 ### #6 — Bucket privado: assinar on-read + RLS + self-heal por broadcast do servidor
 - Bucket **privado**, mime allowlist incluindo `audio/mpeg`. `media_url` guarda o PATH, não URL pública.

@@ -50,6 +50,31 @@ if [ $is_project -eq 0 ]; then
   exit 3
 fi
 
+# --diff origin/HEAD quer dizer "a base do repo", e o gate do /ship passa assim. Mas a default
+# do GitHub nem sempre é onde o trabalho entra: no kit, o origin/HEAD é o `stable` (o canal do
+# marketplace) e todo PR vai para a main. Medido contra o stable, o range levava tudo o que a
+# main andou desde ele, e o PR era bloqueado por arquivo que não era dele (25/11/2026, o mesmo
+# defeito do git-sync e do worktree-gc). origin/HEAD = X ancestral de origin/main (ou master)
+# → a base é a main. `git config git-sync.defaultBranch <b>` fixa a base. Base explícita
+# (origin/stable, um sha) é usada como veio.
+if [ "$DIFF_BASE" = origin/HEAD ]; then
+  _b="$(git config --get git-sync.defaultBranch 2>/dev/null)"
+  if [ -n "$_b" ]; then
+    git rev-parse --verify -q "refs/remotes/origin/$_b" >/dev/null && DIFF_BASE="origin/$_b"
+  else
+    _h="$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null)"
+    # atalho: canal = ancestral da main ou master, sem ler a config do repo no GitHub; rever se um repo usar outro nome de base
+    for _w in origin/main origin/master; do
+      [ -n "$_h" ] && [ "$_h" != "$_w" ] || break
+      if git rev-parse --verify -q "$_w" >/dev/null && git merge-base --is-ancestor "$_h" "$_w" 2>/dev/null; then
+        echo "baseline: --diff origin/HEAD mede contra $_w (origin/HEAD = ${_h#origin/}, ancestral de $_w: o trabalho entra na ${_w#origin/}; outra base: git config git-sync.defaultBranch <branch>)" >&2
+        DIFF_BASE="$_w"; break
+      fi
+    done
+  fi
+  unset _b _h _w
+fi
+
 # Base do --diff que não resolve não é diff vazio. O `git diff` falharia calado, o escopo
 # sairia vazio e todo check "mediria" nada: o gate aprovava assim (exit 0, 0 findings).
 if [ -n "$DIFF_BASE" ] && ! git rev-parse --verify --quiet "${DIFF_BASE}^{commit}" >/dev/null 2>&1; then
@@ -166,7 +191,9 @@ if want 01; then
   # CSP e headers (agregado do projeto)
   if global_check; then
   csp_src=""
-  for f in vercel.json next.config.js next.config.mjs next.config.ts public/_headers netlify.toml index.html; do
+  # middleware/proxy: a CSP com nonce do Next nasce lá, não no next.config
+  for f in vercel.json next.config.js next.config.mjs next.config.ts public/_headers netlify.toml index.html \
+           middleware.ts middleware.js src/middleware.ts src/middleware.js proxy.ts src/proxy.ts; do
     [ -f "$f" ] && grep -qi 'content-security-policy' "$f" 2>/dev/null && csp_src="$csp_src $f"
   done
   if [ -n "$csp_src" ]; then
@@ -300,6 +327,31 @@ if want 03; then
   fi
   add_coverage 03 fail_open medido grep ""
   add_coverage 03 gate_vs_rls nao_medido curl "exige token de papel restrito — teste manual, ver pilar 03"
+
+  # Quem vira membro: cadastro do Auth, papel vindo do metadata, predicado "autenticado =
+  # membro", trigger que cria a linha de acesso, HMAC sem janela, cota em tabela do usuário.
+  # Estado efetivo das migrations (a última definição vence). Agregado do projeto: fora do --diff.
+  if global_check; then
+    if command -v python3 >/dev/null 2>&1; then
+      qe="$(python3 -I "$SK/scripts/quem-entra.py" --root "$ROOT" 2>/dev/null)"; qe_rc=$?
+      if [ $qe_rc -ne 0 ]; then
+        add_coverage 03 quem_entra nao_medido python3 "quem-entra.py saiu $qe_rc"
+      else
+        while IFS=$'\t' read -r tipo a b c d e; do
+          case "$tipo" in
+            ACHADO) add_finding 03 "$a" heuristic "$d" "$c" "$e" \
+                      "python3 -I $SK/scripts/quem-entra.py --root . | grep -w $b" \
+                      "pilar 03 · quem vira membro" ;;
+            COBERTURA) add_coverage 03 "$a" "$b" quem-entra "$c" ;;
+          esac
+        done <<< "$qe"
+      fi
+    else
+      add_coverage 03 quem_entra nao_medido python3 "python3 ausente: cadastro, predicados e triggers não medidos"
+    fi
+  else
+    add_coverage 03 quem_entra nao_medido quem-entra "agregado do projeto: não roda no --diff"
+  fi
 fi
 
 # ─────────────────────────────────────────── 04 · limites
@@ -498,6 +550,33 @@ if want 07; then
     add_coverage 07 env_example medido grep ""
   else
     add_coverage 07 env_example nao_medido - ".env.example ausente ou modo diff"
+  fi
+fi
+
+# ─────────────────────────────────────────── rotas do Next (01 · 04 · 08)
+# Rota por rota: rate limit em route handler, segredo de máquina compartilhado entre famílias,
+# COOP/CORP onde os headers são declarados, robots.txt e security.txt. Agregado: fora do --diff.
+if want 01 || want 04 || want 08; then
+  if global_check; then
+    if command -v python3 >/dev/null 2>&1; then
+      rn="$(python3 -I "$SK/scripts/rotas-next.py" --root "$ROOT" 2>/dev/null)"; rn_rc=$?
+      if [ $rn_rc -ne 0 ]; then
+        add_coverage 04 rotas_next nao_medido python3 "rotas-next.py saiu $rn_rc"
+      else
+        while IFS=$'\t' read -r tipo p a b c d e; do
+          want "$p" || continue
+          case "$tipo" in
+            ACHADO) add_finding "$p" "$a" heuristic "$d" "$c" "$e" \
+                      "python3 -I $SK/scripts/rotas-next.py --root . | grep -w $b" "pilar $p · rotas do Next" ;;
+            COBERTURA) add_coverage "$p" "$a" "$b" rotas-next "$c" ;;
+          esac
+        done <<< "$rn"
+      fi
+    else
+      add_coverage 04 rotas_next nao_medido python3 "python3 ausente: rate limit por rota, COOP/CORP e robots/security.txt não medidos"
+    fi
+  else
+    add_coverage 04 rotas_next nao_medido rotas-next "agregado do projeto: não roda no --diff"
   fi
 fi
 

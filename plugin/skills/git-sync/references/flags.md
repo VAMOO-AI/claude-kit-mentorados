@@ -17,7 +17,7 @@ ele faz para você decidir qual flag passar.
 | `--since N` | janela de atividade do modo time em dias (default 14). Não sendo número, sai 2 |
 | `--cleanup-dry-run` | lista o que o apply removeria (abaixo), mais as branches **remotas suas sem cópia local** (autor = `user.name` + `user.email` do clone), com o `git push origin --delete` impresso, nunca executado. O run padrão já avisa quantas branches e worktrees há além da default |
 | `--cleanup-apply` | **perigoso**: só se a pessoa pediu "aplica limpeza". Detalhe abaixo |
-| `--default-branch <nome>` | override (default: detecta `origin/HEAD` ou `main`/`master`) |
+| `--default-branch <nome>` | override da base (sem ele: `git config git-sync.defaultBranch`, depois `origin/HEAD`, depois `main`/`master`). Ver "Base de trabalho" abaixo |
 | `--cwd <path>` | roda a partir desse path (multi-root IDE, risco de conflito de outro worktree) |
 
 ## O que o `--cleanup-apply` remove, nesta ordem
@@ -42,6 +42,49 @@ ele faz para você decidir qual flag passar.
    preservam, cada um com o seu motivo.
 4. **Branches fora do `[gone]`** (remoto vivo ou nunca pushada), com a mesma prova e só a local.
    O `git push origin --delete <b>` sai impresso para você decidir.
+
+**Trem de release** (o do repositório do kit, ou fluxo igual): o PR de feature não é
+mergeado, e sim fechado depois que o release dele entra. Ele conta como PR mergeado nos três
+lugares, o aviso "NUNCA foi ao GitHub", o dry-run e o `-D` do apply, só com três coisas juntas:
+
+- um PR fechado sem merge com esta head;
+- um PR **MERGED** na mesma base que contém o head dele (`commits/<sha>/pulls` do GitHub);
+- o git confirmando que o head do fechado é ancestral do head do release, buscado em
+  `refs/pull/<release>/head`.
+
+O texto do PR ("Entrou no release…") não prova nada. PR fechado fora de release continua
+"sem PR", e tip que avançou depois do head continua preservado. A saída diz "PR #n fechado
+pelo trem e entregue no release #r".
+
+O aviso de branch sem upstream conta os commits que **nenhuma ref do origin** tem, não os que
+estão à frente de `origin/<default>`: branch nova sem commit próprio não vira "N commits que
+nunca foram ao GitHub".
+
+**Clone com refspec estreito** (`git clone --single-branch`, ou `remote.origin.fetch` só da
+`main`): o fetch não atualiza as outras `origin/*` e o `--prune` não as limpa, então uma
+`origin/<b>` local pode ser branch que o GitHub já apagou. O cabeçalho ganha uma linha
+`refspec:` e a lista de branches vivas vem do `git ls-remote`. A cópia velha sai como "cópia
+local velha" com `git branch -rd origin/<b>`, nunca com `git push origin --delete`, e some das
+branches ativas do modo time e do aviso "já existe no GitHub". Sem rede, o `--delete` sai com
+"sem confirmar no GitHub". Para voltar a buscar todas: `git config remote.origin.fetch
+'+refs/heads/*:refs/remotes/origin/*'`.
+
+## Base de trabalho e canal
+
+A default do GitHub nem sempre é onde o trabalho entra. No kit, o `origin/HEAD` é o `stable`
+(o canal do marketplace, que só anda por promoção) e todo PR vai para a `main`. Quando o
+`origin/HEAD` aponta para uma branch **ancestral** de `origin/main` (ou `master`), o script
+usa a `main` como base de tudo, e o cabeçalho diz o motivo:
+`default:  main (… = origin/main) — origin/HEAD = stable, ancestral de origin/main: …`.
+
+- Medem contra a base: ahead/behind e o ff de checkout sem upstream, o aviso "N atrás de",
+  o modo time, o cleanup ("mergeada", worktree mergeado) e o `--voltar-main`, que volta para
+  a `main`.
+- O canal fica protegido como a base: nunca é candidato a cleanup nem a `git push origin
+  --delete`, nunca recebe "atrás de origin/main" e conta para o aviso de edição direta.
+- `origin/HEAD` à frente da main (git flow com `develop`) continua sendo a default.
+- Para fixar outra base: `--default-branch <b>` numa execução, ou `git config
+  git-sync.defaultBranch <b>` no clone. Os dois desligam a detecção.
 
 Branch sem commit próprio (tip igual a `origin/<default>` ou na linha first-parent dela) nunca
 conta como mergeada: é sessão recém-aberta. Sem PR, sem head para conferir, head indisponível ou sem `gh` nem token
