@@ -10,6 +10,14 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.108.0] — 2026-11-27
+
+### Adicionado
+
+- **`templates`**: o gate de migration reprova view do dono em `public` sem revoke de `anon`, `GRANT` de escrita para `anon` e, com `--gates`, `SECURITY DEFINER` executável pelo navegador sem gate de papel.
+- **`baseline`**: `scripts/drift-policies.py` compara o `pg_policies` vivo com a última definição de cada policy nas migrations.
+- **`secscan`**: `c8-oauth-servidor.md` cobre implicit, `grant_type=password`, redirect de loopback e esquema próprio (RFC 9700 e 8252).
+
 ## [0.107.0] — 2026-11-27
 
 ### Adicionado
