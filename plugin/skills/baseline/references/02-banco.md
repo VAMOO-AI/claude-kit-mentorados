@@ -146,6 +146,34 @@ no contrato (quem chama e por quê), não ruído aceito em bloco. Antes de propo
 veja se a função é usada dentro de uma policy: nesse caso tire só do `anon`, porque sem o
 EXECUTE do `authenticated` a policy passa a falhar para todo mundo.
 
+### O estado vivo, consulta por consulta
+
+Os lints dizem o que está fora do padrão. O que eles não dizem, e foi por onde os pentests de
+11/2026 entraram, está em `scripts/estado-do-banco.sql`: dez consultas só de leitura, numa
+transação `read only`, cada uma com a regra de leitura no comentário. O secscan e a
+auditoria-seguranca apontam para este arquivo em vez de manter cópia.
+
+```bash
+psql "$SUPABASE_DB_URL_RO" -X -f "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/estado-do-banco.sql"
+```
+
+| Consulta | Pergunta |
+|---|---|
+| Q1 | Que função `SECURITY DEFINER` o navegador executa, quem é o dono e ela é usada em policy? |
+| Q2 | O que `anon` e `authenticated` podem e a RLS não segura (tabela sem RLS, view, `TRUNCATE`)? |
+| Q3 | Que policy cita papel global, e ele está num `OR` solto? |
+| Q4 | Que tabela tem mais de uma policy liberando `SELECT` (a `FOR ALL` de escrita conta)? |
+| Q5 | Que tabela com RLS não tem policy para algum comando (o `DELETE` que responde 204)? |
+| Q6 | Que view roda como dono, quem a lê e a definição olha o chamador? |
+| Q7 | Que tabela só tem policy permissiva na escrita (papel imposto só no app)? |
+| Q8 | Que policy de `storage.objects` não cita posse? |
+| Q9 | Quem consegue inserir a própria linha na tabela de membros ou de papéis? |
+| Q10 | Que policy de leitura trata inquilino nulo como global? |
+
+Cada consulta localiza, e a leitura decide. Para saber o que um papel **de fato** lê, com o
+total ao lado, use `scripts/matriz-rls.sql` (pilar 03): ele personifica um usuário existente
+numa transação `read only`, sem token e sem criar conta.
+
 Sem acesso ao banco, o fallback é estático sobre `supabase/migrations/`:
 
 ```bash

@@ -28,6 +28,15 @@ arquivo ignorado, balde 1.
 
 ## Fase 2 — Supabase (o coração)
 
+**Com acesso ao banco, comece pelo arquivo da baseline, que é o dono das consultas de estado
+vivo:** `psql "$SUPABASE_DB_URL_RO" -X -f "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/estado-do-banco.sql"`.
+São dez consultas numa transação `read only`, cada uma com a regra de leitura no comentário:
+função `SECURITY DEFINER` executável pelo navegador (com dono e uso em policy), o que os papéis
+podem e a RLS não segura, papel global em `OR`, `SELECT` efetivo com a `FOR ALL` somada,
+comando sem policy, view que roda como dono, escrita só com policy permissiva, posse no
+storage, auto-inscrição em tabela de membros e inquilino nulo como global. As consultas
+abaixo cobrem o resto e não repetem essas.
+
 Olhe o estado real, não chute. Com acesso ao banco (psql, ou o script de SQL que o projeto
 já tem; se existir `.context/docs/deploy.md`, ele diz qual), consulte as policies vivas,
 **uma query por chamada**:

@@ -192,6 +192,54 @@ for pasta in src/db/migrations src/sql; do
   grep -q '^ACHADO' "$TMP/d.out" && ok "$pasta: os achados do projeto vulnerável aparecem" || falha "$pasta: nenhum achado"
 done
 
+# `revoke ... from public` não fecha a função no Supabase: toda função nova em public nasce com
+# EXECUTE direto para anon e authenticated (default privileges). Num pentest de 11/2026, nove
+# RPCs de cofre "fechadas" assim estavam abertas ao navegador, e o script as dava como fechadas.
+G="$TMP/grants"
+grava "$G/supabase/migrations/0001_cofre.sql" <<'FIM'
+create table credenciais (usuario uuid primary key, token text);
+
+create or replace function public.cofre_gravar(p_usuario uuid, p_token text) returns void
+language plpgsql security definer set search_path = public as $$
+begin update credenciais set token = p_token where usuario = p_usuario; end $$;
+revoke all on function public.cofre_gravar(uuid, text) from public;
+
+create or replace function public.cofre_ler(p_usuario uuid) returns text
+language sql security definer set search_path = public as $$
+  select token from credenciais where usuario = p_usuario
+$$;
+revoke all on function public.cofre_ler(uuid) from public;
+
+create or replace function public.cofre_so_anon(p_usuario uuid, p_token text) returns void
+language plpgsql security definer set search_path = public as $$
+begin update credenciais set token = p_token where usuario = p_usuario; end $$;
+revoke execute on function public.cofre_so_anon(uuid, text) from anon;
+
+create or replace function public.cofre_fechada(p_usuario uuid) returns text
+language sql security definer set search_path = public as $$
+  select token from credenciais where usuario = p_usuario
+$$;
+revoke all on function public.cofre_fechada(uuid) from public, anon, authenticated;
+
+create or replace function public.cofre_do_dono() returns text
+language sql security definer set search_path = public as $$
+  select token from credenciais where usuario = auth.uid()
+$$;
+FIM
+python3 -I "$FR" --root "$G" > "$TMP/g.out" 2>&1
+grep "$(printf '\tcofre_gravar\t')" "$TMP/g.out" | grep -q 'exposto=sim' \
+  && ok "revoke só de public: a função segue exposta" || falha "revoke from public marcou a função como fechada: $(grep cofre_gravar "$TMP/g.out" | head -1)"
+grep "$(printf '\tcofre_so_anon\t')" "$TMP/g.out" | grep -q 'exposto=sim' \
+  && ok "revoke só de anon: authenticated ainda executa" || falha "revoke from anon escondeu o grant de authenticated"
+acha "$TMP/g.out" definer_escreve_sem_chamador "cofre_gravar" \
+  && ok "definer que escreve, 'fechada' só de public, é acusada" || falha "cofre_gravar não foi acusada"
+grep "definer_escreve_sem_chamador" "$TMP/g.out" | grep "cofre_gravar" | grep -q "anon, authenticated" \
+  && ok "o achado diz quais papéis executam" || falha "o achado não nomeia os papéis"
+acha "$TMP/g.out" definer_le_segredo_sem_chamador "cofre_ler" \
+  && ok "definer que LÊ segredo sem olhar o chamador é acusada" || falha "cofre_ler (só leitura) passou: $(grep ACHADO "$TMP/g.out" | cut -c1-120)"
+grep '^ACHADO' "$TMP/g.out" | grep -q "cofre_fechada" && falha "função revogada dos três papéis foi acusada" || ok "revoke de public, anon e authenticated fecha"
+grep '^ACHADO' "$TMP/g.out" | grep -q "cofre_do_dono" && falha "função que filtra por auth.uid() foi acusada" || ok "leitura filtrada por auth.uid() não é acusada"
+
 echo
 [ $falhas -eq 0 ] && echo "test-auditoria-familias: tudo ok" || echo "test-auditoria-familias: $falhas falha(s)"
 exit $falhas

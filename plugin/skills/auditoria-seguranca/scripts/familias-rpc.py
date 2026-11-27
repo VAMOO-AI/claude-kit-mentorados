@@ -29,6 +29,8 @@ o melhor que dá sem ele, e diz isso na cobertura.
 Saída em TSV, uma linha por registro:
   MATRIZ     tabela  função  arquivo:linha  dono=sim|nao  helpers=a,b  definer=sim|nao  exposto=sim|nao
   ACHADO     sev     check   arquivo:linha  título        detalhe
+             (exposto=sim quando anon, authenticated ou PUBLIC executa; `revoke from public`
+              sozinho não fecha no Supabase)
   COBERTURA  check   status  motivo
 
 Uso: python3 -I familias-rpc.py [--root DIR]
@@ -175,7 +177,6 @@ def analisa(corpo, params, booleanas, helper_dono):
 
 SAIDA = []
 FUNCS = {}          # nome -> dict
-expor_padrao = True
 lidos = arquivos()
 
 if not lidos:
@@ -192,7 +193,24 @@ RE_PRIV = re.compile(r"\b(grant|revoke)\s+(?:all(?:\s+privileges)?|execute)\s+on
                      r"[^;]*?\b(?:to|from)\b([^;]*);", re.I | re.S)
 RE_DEFAULT = re.compile(r"alter\s+default\s+privileges[^;]*?\b(grant|revoke)\s+(?:all|execute)\s+on\s+functions"
                         r"[^;]*?\b(?:to|from)\b([^;]*);", re.I | re.S)
-PAPEIS_BROWSER = re.compile(r"\b(anon|authenticated|public)\b", re.I)
+# Quem executa uma função é um CONJUNTO de papéis, não um sim/não. No Supabase toda função nova
+# em public nasce com EXECUTE direto para anon e authenticated (default privileges), além do
+# PUBLIC do Postgres: `revoke ... from public` tira só o terceiro e a função segue aberta ao
+# navegador. Com um booleano, esse revoke marcava "fechada" (foi assim que nove RPCs de cofre
+# passaram num pentest de 11/2026), e um `revoke from anon` escondia o grant de authenticated.
+BROWSER = ("public", "anon", "authenticated")
+
+
+def papeis_de(txt):
+    return {p for p in BROWSER if re.search(r"\b" + p + r"\b", txt, re.I)}
+
+
+def quem(f):
+    """papéis do navegador que executam, para o texto do achado."""
+    return ", ".join(sorted(f["exposto"] - {"public"}) or sorted(f["exposto"]))
+
+
+LE_SEGREDO = re.compile(r"decrypt|\bvault\.|credenc|token|secret|senha|password|api_?key|encryption_key", re.I)
 
 # primeiro passe: quem devolve boolean é candidato a helper de checagem, e o que cita o
 # chamador no corpo pode servir de checagem de dono
@@ -216,6 +234,13 @@ for arq in lidos:
                 helper_dono.add(nome_b)
             else:
                 helper_dono.discard(nome_b)
+
+# Projeto Supabase: pasta supabase/ ou SQL que cita auth.uid()/anon/authenticated/service_role.
+# Fora dele, só o PUBLIC do Postgres executa por padrão.
+SUPABASE = os.path.isdir("supabase") or any(
+    re.search(r"\bauth\s*\.\s*(uid|jwt|role)\s*\(|\b(anon|authenticated|service_role)\b", x, re.I)
+    for x in textos.values())
+expor_padrao = set(BROWSER) if SUPABASE else {"public"}
 
 for arq in lidos:
     t = textos.get(arq, "")
@@ -249,26 +274,26 @@ for arq in lidos:
             params = params_de(assinatura)
             escreve, dono, helpers, cita = analisa(corpo, params, booleanas, helper_dono)
             anterior = FUNCS.get(nome)
-            exposto = anterior["exposto"] if anterior else expor_padrao
+            exposto = set(anterior["exposto"]) if anterior else set(expor_padrao)
+            le_segredo = bool(LE_SEGREDO.search(sem_comentario(corpo)))
             FUNCS[nome] = {"onde": f"{arq}:{t.count(chr(10), 0, pos) + 1}", "escreve": escreve,
                            "dono": dono, "helpers": helpers, "cita": cita,
-                           "definer": definer, "exposto": exposto}
+                           "definer": definer, "exposto": exposto, "le_segredo": le_segredo}
         elif tipo == "drop":
             FUNCS.pop(nome_curto(m.group(1))[1], None)
         elif tipo == "priv":
-            if not PAPEIS_BROWSER.search(m.group(3)):
+            ps = papeis_de(m.group(3))
+            if not ps:
                 continue
-            valor = m.group(1).lower() == "grant"
-            if m.group(2):
-                f = FUNCS.get(nome_curto(m.group(2))[1])
+            concede = m.group(1).lower() == "grant"
+            alvos = [FUNCS.get(nome_curto(m.group(2))[1])] if m.group(2) else list(FUNCS.values())
+            for f in alvos:
                 if f:
-                    f["exposto"] = valor
-            else:
-                for f in FUNCS.values():
-                    f["exposto"] = valor
+                    f["exposto"] = (f["exposto"] | ps) if concede else (f["exposto"] - ps)
         elif tipo == "default":
-            if PAPEIS_BROWSER.search(m.group(2)):
-                expor_padrao = m.group(1).lower() == "grant"
+            ps = papeis_de(m.group(2))
+            if ps:
+                expor_padrao = (expor_padrao | ps) if m.group(1).lower() == "grant" else (expor_padrao - ps)
 
 familias = {}
 for nome, f in FUNCS.items():
@@ -339,8 +364,20 @@ for nome, f in sorted(FUNCS.items()):
         SAIDA.append("\t".join(["ACHADO", "MEDIUM", "definer_escreve_sem_chamador", f["onde"],
                                 limpa(f"{nome} é security definer, escreve e não olha quem chamou"),
                                 limpa(f"Escreve em {', '.join(sorted(f['escreve']))} por cima da RLS e não cita "
-                                      "auth.uid()/auth.jwt() nem helper. Exposta ao papel do browser: confirme "
-                                      "com has_function_privilege ou revogue o EXECUTE.")]))
+                                      f"auth.uid()/auth.jwt() nem helper. Executável por: {quem(f)}. "
+                                      "`revoke ... from public` não fecha no Supabase: o grant direto de anon e "
+                                      "authenticated fica. Confirme com has_function_privilege e revogue dos "
+                                      "dois; se a função é chamada dentro de uma policy, revogue só de anon.")]))
+    # A irmã que só LÊ: não entra na matriz de escrita, e é por ela que o segredo sai.
+    if f["exposto"] and f["definer"] and not f["escreve"] and f["le_segredo"] and not f["cita"] \
+            and not f["helpers"]:
+        SAIDA.append("\t".join(["ACHADO", "MEDIUM", "definer_le_segredo_sem_chamador", f["onde"],
+                                limpa(f"{nome} é security definer, lê segredo e não olha quem chamou"),
+                                limpa("O corpo cita token, senha, chave ou decrypt e roda por cima da RLS sem "
+                                      f"auth.uid()/auth.jwt() nem helper. Executável por: {quem(f)}. Função de "
+                                      "cofre chamada só pelo servidor não precisa de EXECUTE para anon nem "
+                                      "authenticated: revogue dos dois (`from public` não basta) e dê a "
+                                      "service_role. Heurística por palavra no corpo: leia a função.")]))
 
 escrevem = [n for n, f in FUNCS.items() if f["escreve"]]
 SAIDA.append("\t".join(["COBERTURA", "familias_rpc", "medido_migrations",
