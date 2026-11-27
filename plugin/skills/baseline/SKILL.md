@@ -85,8 +85,8 @@ App novo, feature nova, ou primeira ida ao ar. Pode escrever código.
 2. **Leia só o pilar que a tarefa toca.** Tocou build/CSP → `01`. Tocou migration
    → `02`. Tocou rota/papel → `03`. Tocou edge/webhook ou login → `04`. Tocou
    query/lista → `05`. Tocou tratamento de erro ou log → `06`. Tocou env/chave → `07`.
-   Subiu host, painel ou domínio novo → `08`.
-   Carregar os oito de uma vez é desperdício de contexto.
+   Subiu host, painel, domínio ou e-mail → `08` e `08-dominio-email`.
+   Os oito de uma vez desperdiçam contexto.
 3. **Aplique o Contrato do pilar** usando o bloco "Como implementar" como ponto
    de partida, adaptado ao stack real do projeto — não cole cego.
 4. **Prove.** Rode o comando do bloco "Como provar" e cole o output. Sem output,
