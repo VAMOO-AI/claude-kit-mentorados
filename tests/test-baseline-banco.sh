@@ -240,6 +240,21 @@ bash "$SCRIPT" --root "$R" --out "$TMP/out-idx2" --pilar 05,07 >/dev/null 2>&1
 I="$(jq -r '.coverage[] | select(.pilar=="05" and .check=="indices") | "\(.status) | \(.reason)"' "$TMP/out-idx2/findings.json" 2>/dev/null)"
 case "$I" in medido*"1 CREATE INDEX"*src/sql*) ok "indices: $I" ;; *) falha "indices em src/sql: ${I:-<ausente>} (esperado medido, 1 CREATE INDEX, src/sql)" ;; esac
 
+echo "== estado-do-banco.sql e matriz-rls.sql: só leitura, por construção =="
+# O CI não tem banco: o que dá para travar aqui é que os dois arquivos abrem transação read
+# only, terminam em rollback e não trazem comando que escreve. Eles rodam em produção.
+for sql in estado-do-banco.sql matriz-rls.sql; do
+  f="$(dirname "$SCRIPT")/$sql"
+  [ -f "$f" ] || { falha "$sql não existe ao lado do collect.sh"; continue; }
+  grep -qiE '^begin transaction read only;' "$f" && ok "$sql abre transação read only" || falha "$sql não abre 'begin transaction read only;'"
+  [ "$(grep -vE '^[[:space:]]*(--|$)' "$f" | tail -1)" = "rollback;" ] && ok "$sql termina em rollback" || falha "$sql não termina em rollback;"
+  escreve="$(grep -vE '^[[:space:]]*(--|\\)' "$f" | grep -inE '^[[:space:]]*(insert|update|delete|truncate|drop|alter|create|grant|revoke|copy|call|do|commit|merge)\b' | head -3)"
+  [ -z "$escreve" ] && ok "$sql não tem comando que escreve" || falha "$sql tem comando que escreve: $escreve"
+  grep -vE '^[[:space:]]*--' "$f" | grep -qiE 'set[[:space:]]+(local[[:space:]]+)?role[[:space:]]+(postgres|service_role|supabase_admin)' \
+    && falha "$sql assume papel privilegiado" || ok "$sql não assume papel privilegiado"
+done
+grep -q 'estado-do-banco.sql' "$BANCO" && ok "02-banco.md aponta o estado-do-banco.sql" || falha "02-banco.md não cita o estado-do-banco.sql"
+
 echo
 if [ "$falhas" -eq 0 ]; then echo "TODOS OS CHECKS PASSARAM"; else echo "$falhas FALHA(S)"; fi
 exit "$falhas"
