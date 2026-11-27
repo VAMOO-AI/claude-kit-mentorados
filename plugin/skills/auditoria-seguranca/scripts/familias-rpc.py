@@ -35,7 +35,11 @@ Uso: python3 -I familias-rpc.py [--root DIR]
 """
 import os
 import re
+import subprocess
 import sys
+
+# antes do chdir: o descobridor de pastas mora na baseline, ao lado desta skill
+RAIZES_SH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "baseline", "scripts", "raizes.sh")
 
 ROOT = "."
 args = sys.argv[1:]
@@ -55,6 +59,20 @@ if not os.path.isdir(ROOT):
 os.chdir(ROOT)
 
 DIRS = ["supabase/migrations", "migrations", "db/migrations", "database/migrations"]
+
+
+def descobre_pastas():
+    """pastas migrations/, sql/ e schemas/ com .sql em qualquer lugar do repo (raizes.sh da
+    baseline). Com a lista fixa, src/db/migrations e src/sql ficavam de fora e o script lia zero
+    função. Sem o raizes.sh (skill copiada sozinha) ou sem bash, fica a lista fixa."""
+    try:
+        r = subprocess.run(["bash", RAIZES_SH, "--root", "."], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [c[1] for c in (l.split("\t") for l in r.stdout.splitlines()) if len(c) >= 2 and c[0] == "MIGRATIONS"]
+
+
+DIRS += [d for d in descobre_pastas() if d not in DIRS]
 CALLER = r"auth\s*\.\s*uid\s*\(\s*\)|auth\s*\.\s*jwt\s*\(\s*\)|current_setting\s*\(\s*'request\.jwt"
 PREFIXO_HELPER = re.compile(
     r"^(is|eh|e|pode|can|has|tem|check|checa|verifica|assert|exige|require|garante|confere|sou|usuario_pode)_")

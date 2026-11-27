@@ -134,7 +134,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh"   # 3. banco, s
 node "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/render.mjs" "/tmp/baseline-$(basename "$PWD")/findings.json"
 ```
 
-Da raiz do repo, e cada linha se basta: o shell não guarda variável de uma chamada para a
+Da raiz do app, e cada linha se basta: o shell não guarda variável de uma chamada para a
 outra. O Claude Code preenche o `${CLAUDE_PLUGIN_ROOT}` no texto ao carregar a skill. Doctor, collect
 e render usam `/tmp/baseline-<nome do repo>`, o `--out` padrão do doctor e do collect; o render grava o
 `report.md` ao lado do `findings.json` e lê dali o `tools.json`.

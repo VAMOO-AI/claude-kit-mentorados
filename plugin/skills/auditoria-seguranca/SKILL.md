@@ -9,6 +9,8 @@ disable-model-invocation: true
 allowed-tools:
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh" *)'
   - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/splinter.sh *)'
+  - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/raizes.sh" *)'
+  - 'Bash(bash ${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/raizes.sh *)'
   - 'Bash(cp "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/gerar-relatorio.py" docs/security-audit/)'
   - 'Bash(python3 docs/security-audit/gerar-relatorio.py *)'
   - 'Bash(bash "${CLAUDE_PLUGIN_ROOT}/skills/auditoria-seguranca/scripts/matriz-supabase.sh" *)'

@@ -181,6 +181,17 @@ python3 -I "$FR" --root "$E" > "$TMP/e.out" 2>&1
 grep -q "$(printf 'COBERTURA\tfamilias_rpc\tnao_medido')" "$TMP/e.out" \
   && ok "sem migrations sai nao_medido" || falha "sem migrations calou: $(cat "$TMP/e.out")"
 
+# migrations fora das quatro pastas fixas: num pentest de 11/2026 elas moravam em
+# src/db/migrations e o script lia zero função, calado atrás de um nao_medido
+for pasta in src/db/migrations src/sql; do
+  D="$TMP/desc-$(printf '%s' "$pasta" | tr '/' '-')"
+  mkdir -p "$D/$pasta"; cp "$V/supabase/migrations/"*.sql "$D/$pasta/"
+  python3 -I "$FR" --root "$D" > "$TMP/d.out" 2>&1
+  grep -q "$(printf 'COBERTURA\tfamilias_rpc\tmedido')" "$TMP/d.out" \
+    && ok "$pasta é lida" || falha "$pasta não foi lida: $(grep COBERTURA "$TMP/d.out")"
+  grep -q '^ACHADO' "$TMP/d.out" && ok "$pasta: os achados do projeto vulnerável aparecem" || falha "$pasta: nenhum achado"
+done
+
 echo
 [ $falhas -eq 0 ] && echo "test-auditoria-familias: tudo ok" || echo "test-auditoria-familias: $falhas falha(s)"
 exit $falhas

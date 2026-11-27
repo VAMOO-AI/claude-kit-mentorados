@@ -54,9 +54,17 @@ skill volta ao contexto, e os comandos daqui foram calibrados contra falso posit
 
 ```bash
 pwd
-test -f package.json && grep -E '"(next|react|@supabase)"' package.json
-ls supabase/migrations/*.sql src/sql/*.sql 2>/dev/null && echo "HAS_SQL"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/raizes.sh"   # APP <pasta> · MIGRATIONS <pasta> <n .sql>
+test -f package.json && grep -E '"(next|react|@supabase/[^"]+)"' package.json
 ```
+**Ache as raízes antes de rodar qualquer fase.** App em subpasta e migrations fora de
+`supabase/migrations` são comuns. Da raiz do git, com o código noutra pasta, todo grep dá 0
+hits e a fase sai "não aplicável" sem ser. Cada linha `APP` é um alvo: rode as fases de
+dentro dela e diga no relatório quais foram medidas; a que ficou de fora sai `não medido
+(raiz <pasta> não varrida)`. Onde uma reference escreve `supabase/migrations`, use as pastas
+das linhas `MIGRATIONS`. Só pule a Fase 2 se não houver nenhuma linha `MIGRATIONS` nem
+`@supabase/` no `package.json`.
+
 Anuncie quais fases vão rodar (um site estático pula a Fase 2, etc.).
 
 ## Roteiro das fases
