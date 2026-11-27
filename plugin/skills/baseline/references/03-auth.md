@@ -171,6 +171,15 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/hitl-loop.sh" /tmp/roteiro-gate.txt --saida 
 O bloco `--- capturado ---` do `--saida` é a prova que vai no report, sem token e
 sem linha de produção.
 
+**Com acesso SQL, a mesma prova sai sem token e para todas as tabelas de uma vez:**
+`scripts/matriz-rls.sql` personifica um usuário existente numa transação `read only` e
+devolve, por objeto, quantas linhas existem e quantas o papel lê. É o denominador que falta
+no roteiro acima: "0 linhas" numa tabela vazia não prova nada.
+
+```bash
+psql "$SUPABASE_DB_URL_RO" -X -v ator=<uuid do usuário do papel restrito> -f "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/matriz-rls.sql"
+```
+
 ### Sessão e CSRF (só leitura)
 
 Os dois primeiros comandos só leem o `Set-Cookie` da resposta de login de uma

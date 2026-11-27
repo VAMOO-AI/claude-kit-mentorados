@@ -115,6 +115,23 @@ linha como A (`responsavel`, `atualizado_por`) entre uma chamada e outra e rode 
 antes da próxima família. Em `fonte`: `"local, migrations do commit abc1234: C (papel X, carteira
 vazia) chamou <função> no registro de A; responsavel passou de A para C"`.
 
+## Matriz por personificação (só leitura, sem conta nova)
+
+Com acesso SQL ao banco, o que um papel lê se mede sem token e sem criar usuário:
+`baseline/scripts/matriz-rls.sql` personifica um usuário **existente** numa transação
+`read only` e devolve, por tabela e view, quantas linhas existem e quantas o ator lê.
+
+```bash
+psql "$SUPABASE_DB_URL_RO" -X -v ator=<uuid> -f "${CLAUDE_PLUGIN_ROOT}/skills/baseline/scripts/matriz-rls.sql"
+```
+
+- A primeira tabela da saída é a prova de identidade. `identidade_ok = f` invalida a medição.
+- "0 linhas" só vale com `existem > 0`. Tabela vazia sai "sem denominador".
+- Rode para o papel mais restrito, um intermediário, o admin e **uma conta sem vínculo** (sem
+  organização, sem carteira): é ela que pega helper que falha aberto e papel global em `OR`.
+- Em `fonte`: "personificação de <papel>, transação read only, contagem por objeto". Nunca o id.
+- Mede leitura. Escrita continua sendo fixture local, como a matriz abaixo.
+
 ## Matriz de RLS do Supabase
 
 Papéis **anon, A, B** (e **admin**, se o app tiver) × **tabela** × **operação**. A e B são

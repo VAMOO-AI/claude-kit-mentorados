@@ -45,7 +45,7 @@ Sem item aqui: os sete grupos estão em `c1-injecao.md`, e nenhum tem incidente 
 - regra sobre a tabela X que faz SELECT em X entra em **recursão infinita** e derruba a tabela inteira, não só a query. Use a função estável/elevada do projeto. Grep o padrão de subselect dentro das definições de policy.
 
 ### C2.10 As RPCs internas continuam negadas ao papel do browser depois da última migration que mexeu em GRANT?
-- migration de "restaurar grants" costuma conceder mais do que devia, e privilégio default (`ALTER DEFAULT PRIVILEGES`) atinge o que ainda nem existe. Depois de qualquer mexida em GRANT, re-enumere o que o papel anônimo/autenticado consegue executar e compare com uma allowlist versionada.
+- migration de "restaurar grants" costuma conceder mais do que devia, e privilégio default (`ALTER DEFAULT PRIVILEGES`) atinge o que ainda nem existe. Depois de qualquer mexida em GRANT, re-enumere o que o papel anônimo/autenticado consegue executar e compare com uma allowlist versionada. No Supabase o grant nasce do default, então não existe `GRANT ... TO anon` para o grep achar, e `revoke ... from public` não o tira. A enumeração é a Q1 de `baseline/scripts/estado-do-banco.sql`; sem banco, `auditoria-seguranca/scripts/familias-rpc.py` lê as migrations com essa regra.
 
 ### C2.11 Toda função com privilégio elevado fixa o `search_path`?
 - função que roda como owner sem resolução de nomes fixada é vetor de escalação: quem controla o schema de busca controla qual `tabela` ou `função()` ela chama. O equivalente fora do Postgres é qualquer execução privilegiada herdando `PATH`/classpath do chamador.
