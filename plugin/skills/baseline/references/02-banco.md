@@ -199,6 +199,11 @@ ainda está. Estático é `nao_medido` com ressalva, nunca `conforme`.
 `templates/gate-migration/check-migration.py` reprova `CREATE TABLE` em `public` sem o
 `ENABLE ROW LEVEL SECURITY` no mesmo arquivo e `SECURITY DEFINER` sem `SET search_path` na
 definição de cada função (statement em várias linhas conta, comentário e corpo de função não).
+Também reprova view ou materialized view em `public` que roda como o dono e não foi revogada de
+`anon` (o conserto não é ligar `security_invoker` às cegas: sem a policy equivalente nas
+tabelas, ele zera o dado de todo mundo), `GRANT` de escrita para `anon`, e, com
+`--gates <funções de papel do projeto>`, `SECURITY DEFINER` executável pelo navegador cujo
+corpo não chama nenhuma delas. Exceção de propósito vai marcada no arquivo, com o motivo.
 O projeto copia o script e o `scripts/raizes.sh` desta skill para a mesma pasta, porque o CI
 não tem o plugin. Em projeto com legado, o CI roda `--desde origin/<base>`: só a migration nova
 é julgada. O cabeçalho do script traz o passo do workflow.
@@ -231,8 +236,12 @@ caminhos o projeto usa. Pasta numerada sem timestamp (`0001_init.sql`) fora do C
 tem o que comparar: registre `nao_medido`.
 
 Versão bater não prova que a policy viva é a do repo: o dashboard muda policy sem migration.
-Para a policy que importa, compare `pg_policies` (Q3 a Q10 do `estado-do-banco.sql`) com a
-última definição dela nas migrations.
+`scripts/drift-policies.py` compara o `pg_policies` vivo com a última definição de cada policy
+nas migrations (CREATE, ALTER, DROP POLICY e DROP TABLE, em ordem de arquivo). Ele não conecta
+em banco: lê um TSV que você gera com a URL só de leitura (o `psql` está no cabeçalho do
+script). `VIVA_SEM_REPO` é policy aplicada à mão, e é o que explica a leitura que o pentest
+mede em produção e a matriz local não reproduz. `EXPRESSAO_DIFERE` pede leitura: o Postgres
+guarda a expressão reescrita (parênteses, casts), e o script só tira o que é cosmético.
 
 ## Armadilhas
 

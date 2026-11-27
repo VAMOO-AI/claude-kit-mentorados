@@ -410,6 +410,121 @@ alter table public.ok enable row level security;'
   [ "$GEXIT" -eq 2 ] && ok "sem raizes.sh ao lado e sem arquivo: exit 2" || falha "sem raizes.sh saiu $GEXIT: $GOUT"
   mv "$G/raizes.sh.fora" "$G/scripts/raizes.sh"
 fi
+echo "== gate de migration: view legível por anon, escrita concedida a anon, corpo de SECURITY DEFINER =="
+# Pentests de 26/11: as views definer e as tabelas tinham escrita e TRUNCATE para anon pelo grant,
+# e a função SECURITY DEFINER com search_path certo deixava qualquer autenticado rodar o que só o
+# gestor devia. security_invoker não é o conserto automático da view: sem a policy equivalente nas
+# tabelas, ele apaga o dado de todo mundo. Por isso a regra pede revoke de anon ou motivo.
+if [ -f "$GATE" ]; then
+  sql "$G/v/view-aberta.sql" 'create view public.resumo as select 1 as x;'
+  gate "$G/v" view-aberta.sql
+  [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -q 'public.resumo' && ok "view definer sem revoke de anon reprova" || falha "view definer aberta passou ($GEXIT): $GOUT"
+  sql "$G/v/view-revoke.sql" 'create or replace view public.resumo
+  as select 1 as x;
+revoke all
+  on public.resumo
+  from anon;'
+  gate "$G/v" view-revoke.sql
+  [ "$GEXIT" -eq 0 ] && ok "view com revoke de anon (multilinha) passa" || falha "view com revoke de anon reprovou: $GOUT"
+  sql "$G/v/view-invoker.sql" 'create view public.resumo with (security_invoker = true) as select 1 as x;
+create view public.outra as select 2 as y;
+alter view public.outra set (security_invoker = on);'
+  gate "$G/v" view-invoker.sql
+  [ "$GEXIT" -eq 0 ] && ok "view security_invoker (no WITH ou por ALTER VIEW) passa" || falha "view invoker reprovou: $GOUT"
+  sql "$G/v/mview.sql" 'create materialized view public.mv as select 1 as x;'
+  gate "$G/v" mview.sql
+  [ "$GEXIT" -eq 1 ] && ok "materialized view sem revoke de anon reprova" || falha "materialized view aberta passou: $GOUT"
+  sql "$G/v/view-marcada.sql" '-- gate-migration: anon public.vitrine catálogo público, sem dado de usuário
+create view public.vitrine as select 1 as x;'
+  gate "$G/v" view-marcada.sql
+  [ "$GEXIT" -eq 0 ] && ok "view marcada 'anon' com motivo passa" || falha "view marcada reprovou: $GOUT"
+
+  sql "$G/v/grant-escrita.sql" 'grant select, insert
+  on public.a to anon;'
+  gate "$G/v" grant-escrita.sql
+  [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -qi 'anon' && ok "GRANT de escrita para anon reprova (multilinha)" || falha "GRANT INSERT a anon passou ($GEXIT): $GOUT"
+  sql "$G/v/grant-all.sql" 'grant all on all tables in schema public to anon, authenticated;'
+  gate "$G/v" grant-all.sql
+  [ "$GEXIT" -eq 1 ] && ok "GRANT ALL ... TO anon reprova" || falha "GRANT ALL a anon passou: $GOUT"
+  sql "$G/v/grant-leitura.sql" 'grant select on public.a to anon;
+grant insert on public.a to authenticated;'
+  gate "$G/v" grant-leitura.sql
+  [ "$GEXIT" -eq 0 ] && ok "GRANT de leitura para anon e de escrita para authenticated passam" || falha "grant legítimo reprovou: $GOUT"
+  sql "$G/v/grant-marcado.sql" '-- gate-migration: anon-escreve public.leads formulário público, RLS de insert com check
+grant insert on public.leads to anon;'
+  gate "$G/v" grant-marcado.sql
+  [ "$GEXIT" -eq 0 ] && ok "GRANT de escrita marcado 'anon-escreve' com motivo passa" || falha "grant marcado reprovou: $GOUT"
+
+  DEF='create function public.aprova(p int) returns void language plpgsql security definer set search_path = '"''"' as $$
+begin
+  if not public.eh_gestor() then raise exception '"'negado'"'; end if;
+  update public.t set ok = true where id = p;
+end $$;'
+  sql "$G/v/def-gate.sql" "$DEF"
+  gate "$G/v" def-gate.sql --gates eh_gestor,tem_papel
+  [ "$GEXIT" -eq 0 ] && ok "--gates: SECURITY DEFINER que chama o gate passa" || falha "definer com gate reprovou: $GOUT"
+  sql "$G/v/def-sem-gate.sql" 'create function public.apaga(p int) returns void language plpgsql security definer set search_path = '"''"' as $$
+begin
+  -- eh_gestor() no comentário não conta
+  if auth.uid() is null then raise exception '"'x'"'; end if;
+  delete from public.t where id = p;
+end $$;'
+  gate "$G/v" def-sem-gate.sql --gates eh_gestor
+  [ "$GEXIT" -eq 1 ] && printf '%s' "$GOUT" | grep -q 'apaga' && ok "--gates: auth.uid() is null e gate em comentário não contam" || falha "definer sem gate passou ($GEXIT): $GOUT"
+  sql "$G/v/def-servidor.sql" 'create function public.tick() returns void language sql security definer set search_path = '"''"' as $$ select 1 $$;
+revoke execute on function public.tick() from public;
+revoke execute on function public.tick() from anon, authenticated;'
+  gate "$G/v" def-servidor.sql --gates eh_gestor
+  [ "$GEXIT" -eq 0 ] && ok "--gates: definer só de servidor (revogada de public, anon e authenticated) passa" || falha "definer revogada reprovou: $GOUT"
+  sql "$G/v/def-meia.sql" 'create function public.tick2() returns void language sql security definer set search_path = '"''"' as $$ select 1 $$;
+revoke execute on function public.tick2() from anon, authenticated;'
+  gate "$G/v" def-meia.sql --gates eh_gestor
+  [ "$GEXIT" -eq 1 ] && ok "--gates: revogar só de anon e authenticated não basta (o grant a public continua)" || falha "definer sem revoke de public passou: $GOUT"
+  sql "$G/v/def-marcada.sql" '-- gate-migration: definer public.perfil qualquer autenticado lê o próprio perfil, filtro por auth.uid()
+create function public.perfil() returns int language sql security definer set search_path = '"''"' as $$ select 1 $$;'
+  gate "$G/v" def-marcada.sql --gates eh_gestor
+  [ "$GEXIT" -eq 0 ] && ok "--gates: definer marcada com motivo passa" || falha "definer marcada reprovou: $GOUT"
+  gate "$G/v" def-sem-gate.sql
+  [ "$GEXIT" -eq 0 ] && printf '%s' "$GOUT" | grep -q 'não medido' && ok "sem --gates: corpo de definer sai 'não medido', sem reprovar" || falha "sem --gates: esperado exit 0 com 'não medido' ($GEXIT): $GOUT"
+fi
+
+echo "== drift-policies.py: policy viva × última definição nas migrations =="
+DP="$(dirname "$SCRIPT")/drift-policies.py"
+if [ ! -f "$DP" ]; then
+  falha "script ausente: $DP"
+else
+  repo drift-pol
+  arquivo supabase/migrations/001_base.sql 'create table public.t (id int, user_id uuid, papel text);
+alter table public.t enable row level security;
+create policy "Dono lê" on public.t for select to authenticated using (auth.uid() = user_id);
+create policy p2 on public.t for select using (true);
+create policy p3 on public.t for update using (false);
+create policy p5 on public.t for insert to authenticated with check (auth.uid() = user_id);
+create policy p6 on public.t for delete using (papel = '"'admin'"');'
+  arquivo supabase/migrations/002_ajuste.sql 'drop policy if exists p2 on public.t;
+alter policy p3 on public.t
+  using (auth.uid() = user_id);
+-- create policy p7 on public.t using (true);'
+  printf '%s\n' \
+    $'public\tt\tDono lê\tSELECT\tPERMISSIVE\t{authenticated}\t(auth.uid() = user_id)\t' \
+    $'public\tt\tp3\tUPDATE\tPERMISSIVE\t{public}\t(auth.uid() = user_id)\t' \
+    $'public\tt\tp4\tSELECT\tPERMISSIVE\t{anon}\ttrue\t' \
+    $'public\tt\tp6\tALL\tPERMISSIVE\t{public}\t(papel = \'admin\'::text)\t' > "$TMP/vivas.tsv"
+  DOUT="$(cd "$R" && python3 "$DP" --vivas "$TMP/vivas.tsv" 2>&1)"; DEXIT=$?
+  [ "$DEXIT" -eq 1 ] && ok "drift achado: exit 1" || falha "drift-policies saiu $DEXIT: $DOUT"
+  printf '%s' "$DOUT" | grep -q 'VIVA_SEM_REPO.*p4' && ok "p4 só no banco = VIVA_SEM_REPO" || falha "p4 não saiu VIVA_SEM_REPO: $DOUT"
+  printf '%s' "$DOUT" | grep -q 'REPO_SEM_VIVA.*p5' && ok "p5 só no repo = REPO_SEM_VIVA" || falha "p5 não saiu REPO_SEM_VIVA: $DOUT"
+  printf '%s' "$DOUT" | grep -q 'COMANDO_DIFERE.*p6' && ok "p6 com comando diferente = COMANDO_DIFERE" || falha "p6 não saiu COMANDO_DIFERE: $DOUT"
+  printf '%s' "$DOUT" | grep -qE 'Dono lê|p2|p3|p7' && falha "acusou policy que bate (nome entre aspas, drop, alter, comentário): $DOUT" \
+    || ok "policy que bate não aparece (aspas no nome, DROP, ALTER POLICY, cast e parênteses do deparse, comentário)"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' public t p3 UPDATE PERMISSIVE '{public}' '(papel = auth.uid()::text)' > "$TMP/vivas2.tsv"
+  DOUT2="$(cd "$R" && python3 "$DP" --vivas "$TMP/vivas2.tsv" 2>&1)"
+  printf '%s' "$DOUT2" | grep -q 'EXPRESSAO_DIFERE.*p3' && ok "expressão mudada pelo dashboard = EXPRESSAO_DIFERE" || falha "p3 com USING diferente não saiu EXPRESSAO_DIFERE: $DOUT2"
+  DOUT3="$(cd "$R" && python3 "$DP" 2>&1)"; DEXIT3=$?
+  [ "$DEXIT3" -eq 2 ] && ok "sem --vivas: exit 2 (não medido)" || falha "sem --vivas saiu $DEXIT3: $DOUT3"
+fi
+grep -q 'drift-policies.py' "$BANCO" && ok "02-banco.md aponta o drift-policies.py" || falha "02-banco.md não cita o drift-policies.py"
+
 grep -q 'gate-migration/check-migration.py' "$BANCO" && ok "02-banco.md aponta o template do gate" || falha "02-banco.md não cita templates/gate-migration/check-migration.py"
 
 echo
