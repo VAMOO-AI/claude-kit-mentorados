@@ -30,7 +30,8 @@ no outro.
   quem pediu e devolva a decisão.
 - **Merge só com** `mergeStateStatus` = `CLEAN`, todo check `SUCCESS` e `headRefOid` = seu
   `git rev-parse HEAD`. `SKIPPED` de PR rascunho, `no checks reported`, `UNSTABLE` ou `BLOCKED`
-  não são verde.
+  não são verde. **Nunca arme `gh pr merge --auto`**: se o GitHub ainda não deixa mergear,
+  pare e diga por quê, porque um auto-merge armado pousa depois, num SHA que ninguém olhou.
 - **Quem decide se a ship mergeia é a pessoa:** pedido dela, instrução permanente no `CLAUDE.md`
   ou regra do projeto (`deploy.md`/`AGENTS.md`). Sem nenhum dos três, entregue o PR verde e
   pergunte.
@@ -92,6 +93,8 @@ segredo que entrou num commit do range não sai com commit novo por cima.
 Então o §1b. Então:
 
 ```bash
+# marcador de conflito que sobrou: o tsc não vê em .md/.sql/.json nem dentro de template literal
+git diff "<base>...HEAD" -U0 | /usr/bin/grep -nE '^\+(<{7}|>{7})( |$)' && echo "PARE: marcador de conflito no diff"
 git push -u origin "$(git branch --show-current)"
 gh pr create --title "..." --body-file <arquivo>   # Resumo + Plano de teste (gates do §1)
 ```
