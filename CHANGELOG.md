@@ -10,6 +10,29 @@ NÃO cobre.
 
 Mantém o kit? O passo a passo de versão está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.106.0] — 2026-11-27
+
+### Adicionado
+
+- **`baseline`**: `raizes.sh`, e no `rotas-next.py` os checks `rate_limit_action_auth` e `rate_limit_action_publica` para Server Actions.
+- **`baseline`**: lints 0028 e 0029 (função `SECURITY DEFINER` executável pelo navegador) na tabela do pilar 02.
+- **`baseline`**: `references/veredito.md`, as regras de prova que as três skills de segurança usam antes de escrever confirmado ou refutado, e `references/pentest-externo.md`, triagem e reteste de relatório de pentest de fora.
+
+### Mudado
+
+- **`secscan`** e **`baseline`**: passam a ter `disable-model-invocation: true`, como a `auditoria-seguranca`. Só rodam quando a pessoa chama `/kit-vamoo:secscan` ou `/kit-vamoo:baseline`. O gate do `/ship` não muda: ele roda o `collect.sh --diff` direto.
+
+### Corrigido
+
+- **`baseline`**: o snippet `rate_limit_take` do pilar 04 criava função `SECURITY DEFINER` executável por `anon` e tabela sem RLS, e ignorava o `p_window`. Quem colou a versão antiga deve reaplicar o bloco.
+- **`baseline`**: `splinter.sh` fixa o commit do upstream, roda cada lint em transação read only e mostra o stderr do banco.
+- **`baseline`**: `collect.sh` descobre as pastas de migration em vez de fixar `supabase/migrations`, e ausência de pasta sai `nao_medido` em vez de achado ou de "medido: 0".
+- **`baseline`**: o pilar 06 não manda mais provocar erro em produção; `sonda-auth-viva.sh` tira o PAT do argv.
+- **`secscan`**: o recon lista as raízes de app e de migrations e reconhece `@supabase/ssr`.
+- **`auditoria-seguranca`**: `familias-rpc.py` lê migrations fora das quatro pastas fixas; credencial do auditor em prosa é mascarada no relatório.
+- **`secscan`, `baseline`, `auditoria-seguranca`**: textos que receitavam conserto que quebra produção ganham a variante segura (view para invoker, allowlist de host no SSRF, `allowed_mime_types`, `includeSubDomains`, CSP em Next App Router, `HttpOnly` com `@supabase/ssr`, `Origin` atrás de proxy) e a regra de medir antes de restringir.
+- **`baseline`**: a prova de limite do login não conclui mais pelo status; Server Action responde 200 sempre.
+
 ## [0.105.0] — 2026-11-26
 
 ### ship
