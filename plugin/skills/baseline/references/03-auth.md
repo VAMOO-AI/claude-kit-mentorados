@@ -123,6 +123,24 @@ create policy "financeiro exige aal2" on public.faturamento
 Sem essa função na policy, o MFA é uma tela: o token de AAL1 continua valendo no
 PostgREST.
 
+**Quantas contas privilegiadas têm fator cadastrado.** "MFA obrigatório" na tela não diz
+nada sobre o estado real: em dois pentests de 11/2026 havia admin sem fator, e num deles a
+página de configurações dizia "2FA obrigatório e ativo". Conte, só leitura, e devolva a
+contagem, nunca o e-mail. A junção entre a tabela de perfis e `auth.users` é do projeto (por
+id quando o perfil guarda o id do Auth, por e-mail quando não): declare-a no contrato.
+
+```sql
+select count(*) as privilegiados_sem_fator
+  from public.<perfis> p
+  join auth.users u on u.id = p.<coluna do id do Auth>
+ where p.<papel> in ('<admin>', '<gestor>')
+   and not exists (select 1 from auth.mfa_factors f
+                    where f.user_id = u.id and f.status = 'verified');
+```
+
+App que não usa o Auth do Supabase para o segundo fator mede no próprio provedor. Sem acesso
+ao banco, o item é `nao_medido`, não "conforme porque a tela exige".
+
 **Declarar a contrapartida.** No contrato do projeto, cada gate vira uma linha:
 
 | Gate na UI | Contrapartida no banco | Veredito |

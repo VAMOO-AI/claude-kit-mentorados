@@ -275,6 +275,145 @@ if [ -f "$COLLECT" ]; then
     && ok ".map de .next/dev e .next/cache não é bundle servido" || falha "sourcemap de build de desenvolvimento virou achado"
 fi
 
+# ───────────── erro de guard engolido: o 403 vira 500 (ou 200) dentro do catch
+# Num pentest de 11/2026 o guard existia e lançava o erro certo; o catch da rota devolvia 500.
+# Nenhum grep de "rota sem guard" pega isso, porque o guard está lá.
+E="$TMP/guard"
+printf '{"name":"fixture"}\n' | grava "$E/package.json"
+grava "$E/src/lib/auth.ts" <<'FIM'
+export class AuthError extends Error { status = 403 }
+export async function requireAccess(modulo: string) { throw new AuthError("sem acesso") }
+FIM
+grava "$E/src/lib/api-error.ts" <<'FIM'
+import { AuthError } from "./auth";
+export function handleApiError(e: unknown) {
+  if (e instanceof AuthError) return Response.json({ error: "forbidden" }, { status: 403 });
+  return Response.json({ error: "erro" }, { status: 500 });
+}
+FIM
+grava "$E/src/app/api/engole/route.ts" <<'FIM'
+import { requireAccess } from "@/lib/auth";
+export async function GET() {
+  try { await requireAccess("admin"); return Response.json({ ok: true }); }
+  catch (e) { return Response.json({ error: "erro interno" }, { status: 500 }); }
+}
+FIM
+grava "$E/src/app/api/traduz/route.ts" <<'FIM'
+import { requireAccess } from "@/lib/auth";
+import { handleApiError } from "@/lib/api-error";
+export async function GET() {
+  try { await requireAccess("admin"); return Response.json({ ok: true }); }
+  catch (e) { return handleApiError(e); }
+}
+FIM
+grava "$E/src/app/api/confere/route.ts" <<'FIM'
+import { requireAccess, AuthError } from "@/lib/auth";
+export async function GET() {
+  try { await requireAccess("admin"); return Response.json({ ok: true }); }
+  catch (e) { if (e instanceof AuthError) return new Response(null, { status: 403 }); throw e; }
+}
+FIM
+grava "$E/src/app/api/semtry/route.ts" <<'FIM'
+import { requireAccess } from "@/lib/auth";
+export async function GET() { await requireAccess("admin"); return Response.json({ ok: true }); }
+FIM
+grava "$E/src/app/pessoas/actions.ts" <<'FIM'
+"use server";
+import { requireAccess } from "@/lib/auth";
+export async function salvar() {
+  try { await requireAccess("pessoas"); } catch { return { ok: false }; }
+}
+FIM
+python3 -I "$RN" --root "$E" > "$TMP/guard.tsv" 2>&1
+echo "· erro de guard engolido"
+tem "$TMP/guard.tsv" 03 MEDIUM autherror_engolido && ok "catch que engole o erro do guard é acusado" || falha "autherror_engolido não saiu: $(grep -c ACHADO "$TMP/guard.tsv") achados"
+grep "autherror_engolido" "$TMP/guard.tsv" | grep -q "^ACHADO.*2 arquivos" && ok "conta os dois (rota e action)" || falha "contagem errada: $(grep '^ACHADO.*autherror' "$TMP/guard.tsv" | cut -f6)"
+for bom in traduz confere semtry; do
+  grep "^ACHADO.*autherror_engolido" "$TMP/guard.tsv" | grep -q "api/$bom/" && falha "$bom foi acusada" || ok "$bom não é acusada"
+done
+grep -q "$(printf 'COBERTURA\t03\tautherror_engolido\tmedido')" "$TMP/guard.tsv" && ok "cobertura medido" || falha "cobertura ausente: $(grep autherror "$TMP/guard.tsv" | grep COBERTURA)"
+grep -q "$(printf 'COBERTURA\t03\tautherror_engolido\tnao_medido')" "$TMP/act.tsv" && ok "projeto sem erro de autorização tipado: nao_medido" || falha "sem erro tipado deveria sair nao_medido: $(grep autherror "$TMP/act.tsv")"
+
+# ───────────── job em background sem claim atômico, e limitador que só vale por instância
+J="$TMP/job"
+printf '{"name":"fixture"}\n' | grava "$J/package.json"
+printf '{}\n' | grava "$J/vercel.json"
+grava "$J/src/app/api/sync/route.ts" <<'FIM'
+import { after } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
+export async function POST(req: Request) {
+  rateLimit("ip");
+  const rodando = await db.run.findFirst({ where: { status: "RUNNING" } });
+  if (rodando) return Response.json({ error: "já rodando" }, { status: 409 });
+  await db.run.create({ data: { status: "RUNNING" } });
+  after(() => sincronizar());
+  return Response.json({ ok: true });
+}
+FIM
+grava "$J/src/app/api/sync-ok/route.ts" <<'FIM'
+import { after } from "next/server";
+export async function POST() {
+  const [claim] = await db.$queryRaw`insert into run (status) values ('RUNNING') on conflict do nothing returning id`;
+  if (!claim) return Response.json({ error: "já rodando" }, { status: 409 });
+  after(() => sincronizar());
+  return Response.json({ ok: true });
+}
+FIM
+grava "$J/src/lib/rate-limit.ts" <<'FIM'
+const hits = new Map<string, number>();
+export function rateLimit(chave: string) { hits.set(chave, (hits.get(chave) ?? 0) + 1); return hits.get(chave)! < 10; }
+FIM
+python3 -I "$RN" --root "$J" > "$TMP/job.tsv" 2>&1
+echo "· job sem claim e limite em memória"
+tem "$TMP/job.tsv" 04 MEDIUM job_sem_claim && ok "after() sem claim atômico é acusado" || falha "job_sem_claim não saiu"
+grep "^ACHADO.*job_sem_claim" "$TMP/job.tsv" | grep -q "sync-ok" && falha "rota com insert on conflict foi acusada" || ok "insert ... on conflict conta como claim"
+grep "^ACHADO.*job_sem_claim" "$TMP/job.tsv" | grep -q "api/sync/route.ts" && ok "aponta a rota que lê e depois cria" || falha "não aponta api/sync/route.ts"
+tem "$TMP/job.tsv" 04 LOW rate_limit_em_memoria && ok "limitador em Map de instância é acusado" || falha "rate_limit_em_memoria não saiu"
+grava "$J/src/lib/rate-limit.ts" <<'FIM'
+import { Ratelimit } from "@upstash/ratelimit";
+const cache = new Map();
+export const limiter = new Ratelimit({ ephemeralCache: cache });
+export function rateLimit(chave: string) { return limiter.limit(chave); }
+FIM
+python3 -I "$RN" --root "$J" > "$TMP/job2.tsv" 2>&1
+grep -q "^ACHADO.*rate_limit_em_memoria" "$TMP/job2.tsv" && falha "limitador com contador compartilhado foi acusado" || ok "contador compartilhado (upstash) não é acusado"
+
+# ───────────── collect.sh, pilar 01: os outros headers e a CSP que só reporta
+if [ -f "$COLLECT" ]; then
+  echo "· collect.sh: headers e CSP Report-Only"
+  H="$TMP/headers"; printf '{"name":"f"}\n' | grava "$H/package.json"; printf 'export const x = 1\n' | grava "$H/src/a.ts"
+  grava "$H/next.config.ts" <<'FIM'
+const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'";
+const headers = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy-Report-Only", value: csp },
+];
+export default { async headers() { return [{ source: "/(.*)", headers }]; } };
+FIM
+  col "$H" "$TMP/c-h"
+  t1() { jq -r '.findings[] | select(.pilar=="01") | .title' "$TMP/$1/findings.json"; }
+  t1 c-h | grep -q "Report-Only" && ok "CSP só em Report-Only é achado próprio" || falha "sem achado de Report-Only: $(t1 c-h | tr '\n' '|')"
+  t1 c-h | grep -q "Nenhuma CSP declarada" && falha "Report-Only saiu como 'Nenhuma CSP'" || ok "não diz 'Nenhuma CSP' quando há Report-Only"
+  t1 c-h | grep -q "unsafe-inline" && falha "'unsafe-inline' da Report-Only saiu como política aplicada" || ok "'unsafe-inline' só na Report-Only não é achado de política aplicada"
+  hd="$(t1 c-h | grep "Headers de segurança não declarados")"
+  for h in x-content-type-options referrer-policy permissions-policy; do
+    printf '%s' "$hd" | grep -q "$h" && ok "acusa a falta de $h" || falha "não acusa $h: $hd"
+  done
+  printf '%s' "$hd" | grep -q "x-frame-options" && falha "acusou x-frame-options, que está declarado" || ok "não acusa o header declarado"
+  grava "$H/next.config.ts" <<'FIM'
+const headers = [
+  { key: "X-Frame-Options", value: "DENY" }, { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=()" },
+  { key: "Content-Security-Policy", value: "default-src 'self'; frame-ancestors 'none'" },
+];
+export default { async headers() { return [{ source: "/(.*)", headers }]; } };
+FIM
+  ( cd "$H" && git add -A && git commit -qm headers ) >/dev/null 2>&1
+  bash "$COLLECT" --root "$H" --out "$TMP/c-h2" --pilar 01,04,07 >/dev/null 2>&1
+  t1 c-h2 | grep -qE "Headers de segurança|Report-Only|Nenhuma CSP" && falha "com tudo declarado ainda acusa: $(t1 c-h2 | tr '\n' '|')" || ok "com os headers e a CSP aplicada, nada disso é acusado"
+fi
+
 echo
 if [ $falhas -eq 0 ]; then echo "tudo verde"; exit 0; fi
 echo "$falhas falha(s)"; exit 1
