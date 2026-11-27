@@ -79,7 +79,8 @@ versão antes.
 
 - **Todo PR é contra a `main`.** O `gh pr create` sem `--base` abre contra o branch padrão,
   que agora é o `stable`: passe `--base main` sempre. O `release-trem.sh` já imprime o comando
-  com a flag.
+  com a flag. PR contra o `stable` reprova no primeiro passo do `validate`
+  (`scripts/checar-base-pr.sh`); conserte com `gh pr edit <n> --base main`.
 - **Promover:** depois de usar a versão no time por alguns dias,
 
   ```bash
